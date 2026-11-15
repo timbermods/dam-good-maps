@@ -374,9 +374,10 @@ function albedoTextureMade(): Promise<void> {
 }
 
 let objectPatternsMade: Promise<void> | null = null;
-/** The objects' patterns (objectPatterns.ts: the ruins' ivy), made once a page in the textures' own worker, its first
- *  job (about 0.1 s), and written into the page's texture (materials.ts `fillObjectAtlas`), every pattern cut away
- *  until then. */
+/** The objects' patterns (objectPatterns.ts: the ruins' ivy and concrete, the district center's thatch and wood, the
+ *  blueberry bush), made once a page in the textures' own worker, its first job (about 0.4 s), and written into the
+ *  page's texture (materials.ts `fillObjectAtlas`); until then the ivy and the bush are cut away (none shows) and the
+ *  tiling layers' parts are drawn in their colours. */
 function objectPatternsBaked(): Promise<void> {
   return (objectPatternsMade ??= textureBake({ kind: "objectPatterns" }).then(
     (r) => {
@@ -4450,7 +4451,7 @@ export class MapRenderer {
   }
 
   /** Settles once the objects' patterns, the water's surface, badwater's pattern, contaminated ground's pattern and the
-   *  still detail albedo are made (they are flat at their means until then, the objects' cut away; the light look makes
+   *  still detail albedo are made (they are flat at their means until then, the ivy cut away; the light look makes
    *  and reads only the still detail albedo and the sources' pattern). For tests and pictures that read the patterns. */
   patternsMade(): Promise<void> {
     if (this.software) return detailTextureMade(true);

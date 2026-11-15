@@ -4,9 +4,11 @@
 // lose, and every film above floor 0 the game's build shows (placeWater.ts `films`), is cut where the place's real
 // water lies (the observed-water mask, tools/places-real-water.ts): the body's real-water tiles one level down inside
 // its flat's own rim, so the place's own rivers fill them. Where no real water lies, a lost body goes and a film gets a
-// bed (`cutBed`). Nothing else is moved: no height mapping, scale or land swapped (D245).
+// bed (`cutBed`). A real-water body of `BASIN_REAL_TILES` tiles or more that the game's water covers only as a film
+// (`realFilms`: Yamanaka on Mount Fuji, 0.06 deep) gets the same basin. Nothing else is moved: no height mapping, scale
+// or land swapped (D245).
 
-import { compareWater, bodies, films, WET } from "./placeWater";
+import { compareWater, bodies, films, FILM_DEPTH, WET } from "./placeWater";
 
 /** A body this big or bigger that the game's rules lose is cut where real water lies (planning: 300 tiles). */
 export const BASIN_TILES = 300;
@@ -21,8 +23,9 @@ const N4: [number, number][] = [
 ];
 
 export interface Basin {
-  /** "lost": a body the port's build showed and the game's rules lose; "film": a film above floor 0 the game's build shows. */
-  kind: "lost" | "film";
+  /** "lost": a body the port's build showed and the game's rules lose; "film": a film above floor 0 the game's build
+   *  shows; "real film": a body of real water the game's water covers only as a film (`realFilms`). */
+  kind: "lost" | "film" | "real film";
   /** The body: its size, where it starts, the real-water tiles under it. */
   size: number;
   at: [number, number];
@@ -58,20 +61,48 @@ export function cutBasins(heights: Uint8Array, W: number, H: number, port: Array
     const basin: Basin = { kind, size: body.length, at: [body[0] % W, Math.floor(body[0] / W)], real: realTiles, cut: 0, level: -1 };
     basins.push(basin);
     if (realTiles < BASIN_REAL_TILES) continue;
-    // where the real water lies under the body, the ground one level down inside its flat's rim (a tile whose four
-    // neighbours all stand at its level or higher), so the lake or the river takes the real water's own shape
-    for (const i of body) {
-      const L = heights[i];
-      if (!real[i] || L === 0) continue;
-      const x = i % W;
-      const y = (i - x) / W;
-      if (x === 0 || y === 0 || x === W - 1 || y === H - 1) continue;
-      if (N4.every(([dx, dy]) => heights[(y + dy) * W + x + dx] >= L)) {
-        out[i] = L - 1;
-        basin.cut++;
-        basin.level = Math.max(basin.level, L - 1);
-      }
+    cutLevel(heights, out, W, H, body, real, basin);
+  }
+  return { heights: out, basins };
+}
+
+/** Where the real water lies under `body`, the ground one level down inside its flat's rim (a tile whose four
+ *  neighbours all stand at its level or higher in `heights`), into `out`, so the lake or the river takes the real
+ *  water's own shape; floor 0 has no level below it. */
+function cutLevel(heights: Uint8Array, out: Uint8Array, W: number, H: number, body: ArrayLike<number>, real: Uint8Array, basin: Basin): void {
+  for (let k = 0; k < body.length; k++) {
+    const i = body[k];
+    const L = heights[i];
+    if (!real[i] || L === 0) continue;
+    const x = i % W;
+    const y = (i - x) / W;
+    if (x === 0 || y === 0 || x === W - 1 || y === H - 1) continue;
+    if (N4.every(([dx, dy]) => heights[(y + dy) * W + x + dx] >= L)) {
+      out[i] = L - 1;
+      basin.cut++;
+      basin.level = Math.max(basin.level, L - 1);
     }
+  }
+}
+
+/**
+ * The heights with a basin under every body of real water (`BASIN_REAL_TILES` tiles or more of the observed-water
+ * mask, connected) that the game's settled water covers as a film: more than half its tiles wet and no deeper than
+ * `FILM_DEPTH` (planning: Yamanaka on Mount Fuji, 283 of its 319 tiles 0.06 deep). The cut is `cutBasins`' own.
+ */
+export function realFilms(heights: Uint8Array, W: number, H: number, game: ArrayLike<number>, real: Uint8Array): { heights: Uint8Array; basins: Basin[] } {
+  const out = Uint8Array.from(heights);
+  const basins: Basin[] = [];
+  const mask = new Float64Array(W * H);
+  for (let i = 0; i < W * H; i++) mask[i] = real[i] ? 1 : 0;
+  for (const body of bodies(mask, W, H)) {
+    if (body.length < BASIN_REAL_TILES) continue;
+    let thin = 0;
+    for (const i of body) if (game[i] > WET && game[i] <= FILM_DEPTH) thin++;
+    if (thin * 2 <= body.length) continue;
+    const basin: Basin = { kind: "real film", size: body.length, at: [body[0] % W, Math.floor(body[0] / W)], real: body.length, cut: 0, level: -1 };
+    basins.push(basin);
+    cutLevel(heights, out, W, H, body, real, basin);
   }
   return { heights: out, basins };
 }

@@ -4,7 +4,7 @@
 import { encodeProject, projectFileName, generatedDocument } from "../core/doc/document";
 import { isSapling } from "../core/analysis/wood";
 import { componentsOf } from "../core/format/entities";
-import type { JsonObject } from "../core/format/json";
+import { JsonFloat, num, type JsonObject } from "../core/format/json";
 import type { BuildResult } from "../core/features/build";
 import type { Feature } from "../core/features/schema";
 import { writeTimber } from "../core/format/timber";
@@ -28,6 +28,8 @@ export interface PreviewEntity {
   owner: string;
   dead?: boolean;
   young?: boolean;
+  /** Its berries not standing (render3d/model.ts BARE). */
+  bare?: boolean;
   /** A ruin's variant ("A" to "E"), which the 3D view draws. */
   variant?: string;
 }
@@ -104,15 +106,19 @@ export function lastGenerated(): GenerateResult | null {
   return last;
 }
 
-/** Whether an entity's components mark it dead, or a sapling. The growth is read as the file
+/** Whether an entity's components mark it dead, a sapling, or without its berries. The growth is read as the file
  *  stores it (analysis/wood.ts `isSapling`: the parser keeps a float as a JsonFloat, which
- *  `Number()` turned into NaN, so no sapling ever read as young). */
-export function lifeOf(components: Record<string, unknown> | undefined): { dead?: true; young?: true } {
+ *  `Number()` turned into NaN, so no sapling ever read as young). A bush is bare when its `Yielder:Gatherable` holds no
+ *  berries (picked, growing again: the game draws it without them); one that holds none of its yield in the file, or
+ *  holds some, shows them, as a new map's do. */
+export function lifeOf(components: Record<string, unknown> | undefined): { dead?: true; young?: true; bare?: true } {
   if (!components) return {};
-  const out: { dead?: true; young?: true } = {};
+  const out: { dead?: true; young?: true; bare?: true } = {};
   const lnr = components.LivingNaturalResource as { IsDead?: unknown } | undefined;
   if (lnr && lnr.IsDead === true) out.dead = true;
   if (isSapling(components as JsonObject)) out.young = true;
+  const y = (components["Yielder:Gatherable"] as { Yield?: { Good?: unknown; Amount?: unknown } } | undefined)?.Yield;
+  if (y?.Good === "Berries" && (typeof y.Amount === "number" || y.Amount instanceof JsonFloat) && num(y.Amount) === 0) out.bare = true;
   return out;
 }
 

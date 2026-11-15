@@ -57,7 +57,7 @@
 import { EntityGeometryCache } from "./entityGeometry";
 import { BoxGeometry, BufferGeometry, CircleGeometry, ConeGeometry, CylinderGeometry, Float32BufferAttribute, Group, IcosahedronGeometry, InstancedBufferAttribute, InstancedMesh, OctahedronGeometry, PlaneGeometry, Quaternion, Vector3, type ShaderMaterial } from "three";
 import { FOOTPRINTS, rotate, startEntranceTile, worldBlocks, type Orientation } from "../core/format/footprints";
-import { DEAD, DYING, FLIPPED, NO_VARIANT, ORIENTATION_NAMES, RUIN_VARIANT_IDS, YOUNG, type EntityView, type SoilView } from "./model";
+import { BARE, DEAD, DYING, FLIPPED, NO_VARIANT, ORIENTATION_NAMES, RUIN_VARIANT_IDS, YOUNG, type EntityView, type SoilView } from "./model";
 import { plantScale, RANDOMIZER } from "./plantSize";
 import { DEAD_FORM, DEAD_LIMBS, type DeadPart, deadLeaves, deadRatio, deadWood, DRYING, dryColour, isFoliage } from "./dying";
 import { crownShade, LANDMARK, MINE, OWN_LIGHTNESS, ownAlbedo, RUIN, SLOPE, START, START_IRON_TEETH, TREE_COLOURS, WATER } from "./palette";
@@ -74,7 +74,8 @@ import { largeRelicParts } from "./largeRelic";
 import { mediumRelicParts, smallRelicParts } from "./smallRelics";
 import { LAND, LAND_GROW } from "./objectFade";
 import { PINE_WHORLS, WHORL_SHADE, whorlTriangles } from "./pineCrown";
-import { IVY_ROOT, IVY_RUN, IVY_TRAILS, PATTERN, type Region } from "./objectPatterns";
+import { IVY_ROOT, IVY_RUN, IVY_TRAILS, PATTERN, PATTERN_TILE, type Region } from "./objectPatterns";
+import { bushTriangles } from "./bushCards";
 
 type Rgb = readonly [number, number, number];
 
@@ -138,13 +139,10 @@ class Model {
   }
 
   /** A flat card with a pattern seen from both sides, as the game's cut-out cards are: the corners `p` (counter-clockwise
-   *  seen from its front) at the corners `uv` of the pattern `pattern` (objectPatterns.ts PATTERN), its albedo the
-   *  pattern's times `color`. */
-  card(p: readonly (readonly number[])[], uv: readonly (readonly number[])[], pattern: number, color: Rgb = [1, 1, 1]): this {
-    if (!this.uv || !this.pat) {
-      this.uv = new Array<number>((this.pos.length / 3) * 2).fill(0);
-      this.pat = new Array<number>(this.pos.length / 3).fill(0);
-    }
+   *  seen from its front) at the corners `uv` of the pattern `pattern` (objectPatterns.ts PATTERN), its albedo
+   *  `color` as the pattern varies it. */
+  card(p: readonly (readonly number[])[], uv: readonly (readonly number[])[], pattern: number, color: Rgb): this {
+    const at = this.patterned();
     const a = p[0];
     const n = [0, 1, 2].map((i) => {
       const j = (i + 1) % 3;
@@ -158,9 +156,55 @@ class Model {
         this.nrm.push((side * n[0]) / len, (side * n[1]) / len, (side * n[2]) / len);
         this.col.push(color[0], color[1], color[2]);
         this.lod.push(this.level);
-        this.uv.push(uv[v][0], uv[v][1]);
-        this.pat.push(pattern);
+        at.uv.push(uv[v][0], uv[v][1]);
+        at.pat.push(pattern);
       }
+    return this;
+  }
+
+  /** Its places in patterns, made (none) once a part takes one. */
+  private patterned(): { uv: number[]; pat: number[] } {
+    if (!this.uv || !this.pat) {
+      this.uv = new Array<number>((this.pos.length / 3) * 2).fill(0);
+      this.pat = new Array<number>(this.pos.length / 3).fill(0);
+    }
+    return { uv: this.uv, pat: this.pat };
+  }
+
+  /** The pattern `pattern` on the vertices from `from` on, at the places `uv` (u, v a vertex). */
+  pattern(from: number, pattern: number, uv: readonly number[]): this {
+    const p = this.patterned();
+    for (let v = from; v < this.pos.length / 3; v++) {
+      p.uv[v * 2] = uv[(v - from) * 2];
+      p.uv[v * 2 + 1] = uv[(v - from) * 2 + 1];
+      p.pat[v] = pattern;
+    }
+    return this;
+  }
+
+  /** Each part in one of `rules`' colours, and with no pattern yet, takes that rule's pattern (`tile` metres a unit of
+   *  it) as the game's model lays its wood on: a face that looks up or down at x and z, any other at its run across
+   *  (x or z, whichever it faces less) and its height, so boards along u lie level and those along v stand. */
+  patternBy(rules: readonly (readonly [Rgb, number, number])[]): this {
+    const p = this.patterned();
+    for (let t = 0; t < this.pos.length / 9; t++) {
+      if (p.pat[t * 3]) continue;
+      const c = this.col.slice(t * 9, t * 9 + 3);
+      const rule = rules.find(([rgb]) => rgb.every((v, i) => Math.abs(v - c[i]) < 1e-6));
+      if (!rule) continue;
+      const q = this.pos.slice(t * 9, t * 9 + 9);
+      const e1 = [q[3] - q[0], q[4] - q[1], q[5] - q[2]];
+      const e2 = [q[6] - q[0], q[7] - q[1], q[8] - q[2]];
+      const n = [e1[1] * e2[2] - e1[2] * e2[1], e1[2] * e2[0] - e1[0] * e2[2], e1[0] * e2[1] - e1[1] * e2[0]].map(Math.abs);
+      const s = 1 / rule[2];
+      for (let k = 0; k < 3; k++) {
+        const [x, y, z] = q.slice(k * 3, k * 3 + 3);
+        const [u, v] = n[1] >= 0.75 * Math.hypot(n[0], n[1], n[2]) ? [x, z] : n[0] >= n[2] ? [z, y] : [x, y];
+        p.uv[(t * 3 + k) * 2] = u * s;
+        p.uv[(t * 3 + k) * 2 + 1] = v * s;
+        p.pat[t * 3 + k] = rule[1];
+      }
+    }
     return this;
   }
 
@@ -205,12 +249,26 @@ class Model {
   }
 }
 
+/** The blueberry bush (bushCards.ts): its leaves in `leaves`, its berries with it or not, each triangle at its place in
+ *  the bush's pattern. */
+function bush(leaves: Rgb, berries: boolean): Model {
+  const m = new Model();
+  for (const t of bushTriangles(berries)) {
+    const from = m.pos.length / 3;
+    m.tris(t.p.flat(), t.berries ? BERRY : leaves);
+    m.pattern(from, PATTERN.bush, t.uv.flat());
+  }
+  return m;
+}
+
 /** A plant's dying form (dying.ts): its foliage in the game's dry colour, drawn in toward the trunk and sunk as much as the
  *  game's is; each triangle's normal made again where it moved. */
 function dyingOf(species: string, m: Model): Model {
   const d = DRYING[species];
   const out = new Model();
   out.lod = m.lod.slice();
+  out.uv = m.uv?.slice() ?? null;
+  out.pat = m.pat?.slice() ?? null;
   for (let v = 0; v < m.pos.length; v += 9) {
     const tri = m.pos.slice(v, v + 9);
     let moved = false;
@@ -361,17 +419,14 @@ const MODELS: Record<string, () => Model> = {
   "Oak.dead": () => deadTree("Oak", { wood: DEAD_BARK, break: DEAD_BREAK }),
   Succulent: () => succulent(false),
   "Succulent.dead": () => succulent(true),
-  // the game's grown blueberry bush: a low mound 0.4 tall, its berries on top; 0.94 across, as much as the game's leaves
-  // cover (its cards cut by their texture's alpha: 0.93 across from above, its whole model 1.1; until 2026-11-09 ours was
-  // 1.1 across and covered 44 % more than the game's, `tools/game-crowns.py`)
-  BlueberryBush: () => {
-    const m = new Model().add(ico(0.47), BUSH_LEAVES, { y: 0.13, sy: 0.57 });
-    const flowers: [number, number, number][] = [[0.24, 0.3, 0.17], [-0.13, 0.32, 0.22], [0.07, 0.32, -0.24], [0.34, 0.2, -0.17], [-0.3, 0.24, -0.1]];
-    for (const [x, y, z] of flowers) m.add(new OctahedronGeometry(0.07, 0), BERRY, { x, y, z });
-    return m;
-  },
+  // the game's grown blueberry bush as it builds it (bushCards.ts): a low dome its mound of leaf rosettes covers and
+  // rosette cards round its shoulders and top, cut by their pattern, its berries on top (until 2026-11-15 a faceted
+  // mound 0.94 across with five blue points)
+  BlueberryBush: () => bush(BUSH_LEAVES, true),
   // the game's dead bush keeps its leaves, gone brown, and loses its berries (dying.ts `DEAD_FORM`)
-  "BlueberryBush.dead": () => new Model().add(ico(0.47), deadLeaves("BlueberryBush", BUSH_LEAVES), { y: 0.13, sy: 0.57 }),
+  "BlueberryBush.dead": () => bush(deadLeaves("BlueberryBush", BUSH_LEAVES), false),
+  // (its berries picked, growing again: its leaves alone, model.ts BARE)
+  "BlueberryBush.bare": () => bush(BUSH_LEAVES, false),
   Slope: () => {
     // a ramp over the tile, low on the north (−Z) edge and high on the south (+Z), as a Cw0
     // slope's high side is south (its arrows are "Slope.mark")
@@ -954,6 +1009,13 @@ const LITE_MODELS: Record<string, () => Model> = {
   BlueberryBush: () => new Model().add(new OctahedronGeometry(0.47, 0), BUSH_LEAVES, { y: 0.13, sy: 0.57 }),
 };
 for (const species of Object.keys(DRYING)) if (LITE_MODELS[species]) LITE_MODELS[`${species}.dying`] = () => dyingOf(species, LITE_MODELS[species]());
+/** The light look's models that stand for another key's: its bush draws no berries, so a bare one is the same bush,
+ *  in the same batch. */
+const LITE_SAME: Record<string, string> = { "BlueberryBush.bare": "BlueberryBush" };
+/** The light look's model key for a model key (`modelKeyOf`'s). */
+export function liteKeyOf(key: string): string {
+  return LITE_SAME[key] ?? key;
+}
 for (const species of Object.keys(DEAD_FORM)) {
   const dead = LITE_MODELS[`${species}.dead`];
   if (dead && LITE_MODELS[species]) LITE_MODELS[`${species}.dead`] = () => heightTo(dead(), DEAD_FORM[species].height * heightOf(LITE_MODELS[species]()));
@@ -995,8 +1057,13 @@ const CENTRED: Record<string, [number, number]> = {
 };
 
 /** A surface turned round the vertical through `rings` (radius, height; a radius given as [half-width] is a square of
- *  that half-width), `n` sides, facing out (a flat ring facing up). */
-function lathe(m: Model, rings: readonly (readonly [number | readonly [number], number])[], n: number, color: Rgb): void {
+ *  that half-width), `n` sides, facing out (a flat ring facing up); with `pattern` (the pattern, metres a unit of it),
+ *  u round it, a whole number of units, and v along its rings from the first. */
+function lathe(m: Model, rings: readonly (readonly [number | readonly [number], number])[], n: number, color: Rgb, pattern?: readonly [number, number]): void {
+  const radius = (ring: readonly [number | readonly [number], number]) => (typeof ring[0] === "number" ? ring[0] : ring[0][0]);
+  const along = [0];
+  for (let i = 1; i < rings.length; i++) along.push(along[i - 1] + Math.hypot(radius(rings[i]) - radius(rings[i - 1]), rings[i][1] - rings[i - 1][1]));
+  const round = pattern ? Math.max(1, Math.round((2 * Math.PI * radius(rings[0])) / pattern[1])) : 0;
   const at = (ring: readonly [number | readonly [number], number], j: number): number[] => {
     const a = (2 * Math.PI * j) / n;
     const [s, c] = [Math.sin(a), Math.cos(a)];
@@ -1006,14 +1073,18 @@ function lathe(m: Model, rings: readonly (readonly [number | readonly [number], 
   for (let i = 0; i + 1 < rings.length; i++)
     for (let j = 0; j < n; j++) {
       const q = [at(rings[i], j), at(rings[i], j + 1), at(rings[i + 1], j + 1), at(rings[i + 1], j)];
-      for (const [a, b, c] of [[q[0], q[1], q[2]], [q[0], q[2], q[3]]]) {
+      const quv = [[j, i], [j + 1, i], [j + 1, i + 1], [j, i + 1]].map(([jj, ii]) => [(jj / n) * round, pattern ? along[ii] / pattern[1] : 0]);
+      for (const [ia, ib, ic] of [[0, 1, 2], [0, 2, 3]]) {
+        const [a, b, c] = [q[ia], q[ib], q[ic]];
         const u = b.map((v, k) => v - a[k]);
         const w = c.map((v, k) => v - a[k]);
         const nrm = [u[1] * w[2] - u[2] * w[1], u[2] * w[0] - u[0] * w[2], u[0] * w[1] - u[1] * w[0]];
         const mid = [0, 1, 2].map((k) => (a[k] + b[k] + c[k]) / 3);
         const out = nrm[0] * mid[0] + nrm[2] * mid[2];
         const flip = Math.abs(out) > 1e-6 ? out < 0 : nrm[1] < 0;
+        const from = m.pos.length / 3;
         m.tris(flip ? [...a, ...c, ...b] : [...a, ...b, ...c], color);
+        if (pattern) m.pattern(from, pattern[0], (flip ? [ia, ic, ib] : [ia, ib, ic]).flatMap((k) => quv[k]));
       }
     }
 }
@@ -1072,7 +1143,7 @@ function districtCenter(): Model {
   for (const x of [-1, 1]) plate(m, round(0.26, x, 0.495), 1.42, 1.48, START.window);
   for (const f of [1, 3]) onFace(m, f, () => plate(m, round(0.26, 0, 0.495), -1.48, -1.42, START.window));
   // the thatched roof: its eaves, then up to the collar round the tower
-  lathe(m, [[[1.42], 0.9], [[1.52], 1.08], [[1.42], 1.24], [1.12, 1.48]], 16, START.thatch);
+  lathe(m, [[[1.42], 0.9], [[1.52], 1.08], [[1.42], 1.24], [1.12, 1.48]], 16, START.thatch, [PATTERN.thatch, PATTERN_TILE.thatch]);
   lathe(m, [[1.14, 1.44], [1.14, 1.53], [1.0, 1.53]], 16, W);
   // the tower, its ribs, its windows and the band round it
   lathe(m, [[1.05, 1.47], [0.61, 2.07], [0.39, 2.85]], 12, START.planks);
@@ -1101,12 +1172,19 @@ function districtCenter(): Model {
       m.add(box(0.1, 1.42, 0.1), W, { x, y: 3.62, z });
       m.add(box(0.12, 0.47, 0.12), START.brown, { x, y: 3.965, z });
     }
-  lathe(m, [[0.41, 3.78], [0.6, 3.84], [0.61, 3.9], [0.47, 4.1], [0.34, 4.21]], 12, shade(START.thatch, 1.03));
+  lathe(m, [[0.41, 3.78], [0.6, 3.84], [0.61, 3.9], [0.47, 4.1], [0.34, 4.21]], 12, shade(START.thatch, 1.03), [PATTERN.thatch, PATTERN_TILE.thatch]);
   lathe(m, [[0.34, 4.21], [0.26, 4.28], [0.2, 4.28]], 12, START.brown);
   // (its dark mouth as seen from above: a disc in the ring's throat at 4.26, above the fire's light at 4.24 as the Iron
   // Teeth's cap is, so the light pointing down from the game's open top never lights a face the game has not there)
   lathe(m, [[0.283, 4.26], [0, 4.26]], 12, START.crown);
-  return m;
+  // the game's pictures on its wood: the dark planks on the walls and the tower, the pale wood's on the rest (and on
+  // the brown, which is the same picture darker)
+  return m.patternBy([
+    [START.planks, PATTERN.planks, PATTERN_TILE.planks],
+    [W, PATTERN.wood, PATTERN_TILE.wood],
+    [shade(W, 0.94), PATTERN.wood, PATTERN_TILE.wood],
+    [START.brown, PATTERN.wood, PATTERN_TILE.wood],
+  ]);
 }
 
 /** The Iron Teeth's start as the game draws it in play: their district center (DistrictCenter.IronTeeth.Model, its
@@ -1240,6 +1318,10 @@ export const IVY_NONE = 0;
 export const IVY_LIGHT = 1;
 export const IVY_MEDIUM = 2;
 export const IVY_DENSE = 3;
+/** A storey's frame under its ivy, by how much it carries: shaded by it, as the game's stone and rebar are where its
+ *  ivy hangs over them (its concrete seen through the leaves about 0.9 of the bare stone's in the game's `cave` frame,
+ *  its brightest 0.7). */
+export const RUIN_IVY_SHADE = [1, 0.9, 0.78, 0.66];
 
 /** A triangle wound to face toward −Z (`toward` −1) or +Z (1). */
 function facing(m: Model, p: readonly number[][], toward: number, color: Rgb): void {
@@ -1250,8 +1332,9 @@ function facing(m: Model, p: readonly number[][], toward: number, color: Rgb): v
 
 /** A band of slab across a storey's north face (−Z; `onFace` turns it) from RUIN_BAND_LO to `hi`: whole across the
  *  face, or broken (`whole` false: one piece at a side or two round a gap, about half the face, as the game's broken
- *  rows are), each piece a slab with its lower edge cracked into teeth. `seed` picks the breaks. */
-function band(m: Model, whole: boolean, hi: number, seed: [number, number]): void {
+ *  rows are), each piece a slab with its lower edge cracked into teeth, and its upper edge too where the storey is the
+ *  column's top (`brokenOff`: the game's stubs there end raggedly). `seed` picks the breaks. */
+function band(m: Model, whole: boolean, hi: number, seed: [number, number], brokenOff = false): void {
   if (hi - RUIN_BAND_LO < 0.06) return;
   const r = jitter(seed[0], seed[1], 60);
   const edge = RUIN_POST + RUIN_POST_R;
@@ -1264,6 +1347,7 @@ function band(m: Model, whole: boolean, hi: number, seed: [number, number]): voi
         : [[-edge, -0.2 - 0.1 * jitter(seed[0], seed[1], 61)], [0.15 + 0.1 * jitter(seed[0], seed[1], 62), edge]];
   const col = shade(RUIN.slab, [0.97, 1, 1.02][(seed[0] + seed[1]) % 3]);
   const h = hi - RUIN_BAND_LO;
+  const from = m.pos.length / 3;
   for (const [a, b] of pieces) {
     m.add(box(b - a, h, RUIN_SLAB), col, { x: (a + b) / 2, y: RUIN_BAND_LO + h / 2, z: RUIN_FACE_Z });
     // its cracked lower edge: teeth hanging from it, seen from either side
@@ -1277,8 +1361,29 @@ function band(m: Model, whole: boolean, hi: number, seed: [number, number]): voi
         const z = RUIN_FACE_Z + (side * RUIN_SLAB) / 2;
         facing(m, [[x0, RUIN_BAND_LO, z], [x0 + w, RUIN_BAND_LO, z], [tip, RUIN_BAND_LO - d, z]], side, col);
       }
+      // broken off at the top: ragged humps rising from it, as high as the storey lets them
+      if (!brokenOff) continue;
+      const up = Math.min(0.03 + 0.08 * jitter(seed[0] * 8 + t, seed[1], 67), 0.99 - hi);
+      const peak = x0 + w * (0.25 + 0.5 * jitter(seed[0] * 8 + t, seed[1], 68));
+      if (up < 0.01) continue;
+      for (const side of [-1, 1]) {
+        const z = RUIN_FACE_Z + (side * RUIN_SLAB) / 2;
+        facing(m, [[x0, hi, z], [peak, hi + up, z], [x0 + w, hi, z]], side, col);
+      }
     }
   }
+  // the concrete's picture over it as the game's atlas lays it: across the face, a storey a unit up it (each face from
+  // its own place across the picture)
+  const u0 = jitter(seed[0], seed[1], 66);
+  concrete(m, from, (x, y) => [x + u0, y]);
+}
+
+/** The ruins' concrete (objectPatterns.ts layer 6) over the parts from vertex `from` on, at the places `at` gives each
+ *  corner (u across, v up). */
+function concrete(m: Model, from: number, at: (x: number, y: number, z: number) => readonly [number, number]): void {
+  const uv: number[] = [];
+  for (let v = from; v < m.pos.length / 3; v++) uv.push(...at(m.pos[v * 3], m.pos[v * 3 + 1], m.pos[v * 3 + 2]));
+  m.pattern(from, PATTERN.concrete, uv);
 }
 
 /** Two rebar rails across a storey's north face, at `ys`, each whole between the posts or broken off at one end. */
@@ -1354,7 +1459,7 @@ function frame(variant: number, k: number): Model {
     const face = pattern[f];
     const seed: [number, number] = [variant * 4 + f, k];
     onFace(m, f, () => {
-      if (face === "S" || face === "s") band(m, face === "S" && !top, top ? Math.min(0.78, stands - 0.04) : 1, seed);
+      if (face === "S" || face === "s") band(m, face === "S" && !top, top ? Math.min(0.78, stands - 0.04) : 1, seed, top);
       else if (face === "R") rails(m, top ? [0.3, 0.55].filter((y) => y < stands - 0.05) : RUIN_RAILS, seed);
     });
   }
@@ -1362,6 +1467,7 @@ function frame(variant: number, k: number): Model {
     // a floor slab at its foot, broken: three quarters of the tile (half of B's highest), turned by the storey
     const col = shade(RUIN.slab, 0.97);
     const s = RUIN_POST + RUIN_POST_R - 0.01;
+    const from = m.pos.length / 3;
     onFace(m, (variant + k) % 4, () => {
       if (variant === 1 && k === 1) m.add(box(2 * s, 0.04, s - 0.02), col, { y: 0.025, z: (-s - 0.02) / 2 });
       else {
@@ -1369,6 +1475,8 @@ function frame(variant: number, k: number): Model {
         m.add(box(s - 0.04, 0.04, s - 0.02), col, { x: (-s - 0.04) / 2, y: 0.025, z: (s + 0.02) / 2 });
       }
     });
+    // (seen from above: the cracked part of the picture, the floor's metre over a third of it)
+    concrete(m, from, (x, _y, z) => [0.3 * x + 0.17 * variant, 0.84 + 0.3 * z]);
   }
   return m;
 }
@@ -1400,7 +1508,7 @@ function drape(m: Model, f: number, variant: number, ivy: number, top: number, h
     const [u0, u1] = mirror ? [r[0] + r[2], r[0]] : [r[0], r[0] + r[2]];
     const [v0, v1] = [r[1] + r[3] * (1 - cropV), r[1] + r[3]];
     // (seen from outside the face, −Z, +x is to the left)
-    m.card([[x1, y0, at], [x0, y0, at], [x0, y1, at], [x1, y1, at]], [[u0, v0], [u1, v0], [u1, v1], [u0, v1]], PATTERN.ivy);
+    m.card([[x1, y0, at], [x0, y0, at], [x0, y1, at], [x1, y1, at]], [[u0, v0], [u1, v0], [u1, v1], [u0, v1]], PATTERN.ivy, RUIN.ivy);
   };
   // the stems, the face's whole width up to the top (the root's cropped from its foot, the running ones from theirs)
   if (ivy >= IVY_MEDIUM) {
@@ -1468,7 +1576,9 @@ export function modelKeyOf(template: string, flags: number): string {
   if (flags & DEAD) return `${template}.dead` in MODELS ? `${template}.dead` : template;
   // (a reserve flipped as the game flips it: its own model, mirrored)
   if (flags & FLIPPED && `${template}.flipped` in MODELS) return `${template}.flipped`;
-  return flags & DYING && `${template}.dying` in MODELS ? `${template}.dying` : template;
+  if (flags & DYING && `${template}.dying` in MODELS) return `${template}.dying`;
+  // (a plant without its yield standing: its model without it)
+  return flags & BARE && `${template}.bare` in MODELS ? `${template}.bare` : template;
 }
 
 /** Triangles of a model (tests and the benchmark's budget). */
@@ -1609,7 +1719,7 @@ export function buildEntities(v: EntityView, material: ShaderMaterial, soil: Soi
       const moist = ruinOvergrown(soil, W, x, y, z);
       ruinStoreys(x, y, n, v.variant?.[k] ?? NO_VARIANT).forEach(({ variant, kind }, lv) => {
         const green = ruinIvy(n, lv, moist);
-        put(batch(`scaffold.${RUIN_VARIANT_IDS[variant]}${kind}`, () => frame(variant, kind)), x + 0.5, z + lv, -(y + 0.5), turn, 1);
+        put(batch(`scaffold.${RUIN_VARIANT_IDS[variant]}${kind}`, () => frame(variant, kind)), x + 0.5, z + lv, -(y + 0.5), turn, 1, RUIN_IVY_SHADE[green]);
         if (green) put(batch(ivyBatch(variant, kind, green), () => ivyModel(variant, kind, green)), x + 0.5, z + lv, -(y + 0.5), turn, 1);
       });
       continue;
@@ -1632,7 +1742,8 @@ export function buildEntities(v: EntityView, material: ShaderMaterial, soil: Soi
       else put(b, x + 0.5, z, -(y + 0.5), 0, 1, color);
       continue;
     }
-    const b = lite && LITE_MODELS[key] ? batch(`${key}.lite`, LITE_MODELS[key]) : batch(key, MODELS[key]);
+    const liteKey = liteKeyOf(key);
+    const b = lite && LITE_MODELS[liteKey] ? batch(`${liteKey}.lite`, LITE_MODELS[liteKey]) : batch(key, MODELS[key]);
     const centre = CENTRED[template];
     if (centre) {
       const o = ORIENTATION_NAMES[v.orientation[k]] as Orientation;

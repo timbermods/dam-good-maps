@@ -1,7 +1,9 @@
 // The objects' patterns (D496, D497; D135: our own art, drawn in code, no game texture): one small texture array the
 // object program samples where a model's part carries a pattern (materials.ts `objectMaterial`, a vertex's `lod` less
 // its view, entities3d.ts `Model.card`), each layer one material's picture at its measured figures, drawn once a page
-// in the textures' worker (no three.js here) into the page's texture (materials.ts `objectAtlasTexture`).
+// in the textures' worker (no three.js here) into the page's texture (materials.ts `objectAtlasTexture`). A texel is
+// the part's albedo over its colour, a third of it (`PATTERN_GAIN`): each layer averages to the part's colour, so the
+// light look, which samples nothing, draws each part in its mean.
 //
 // Layer 1, the ruins' ivy, as the game's `Ivy_Wet` and `Ivy_Dry` draw it (one atlas, EnvironmentURP5, cut at alpha
 // 0.312): cards of hanging trails of five-lobed leaves about 0.16 m across, and cards of light brown stems climbing from
@@ -12,16 +14,66 @@
 // side: the upper half four strips of trails 0.5 m wide and 1 m long (`IVY_TRAILS`: three running on from storey to
 // storey, one hanging from a column's top), the lower half a root of stems (`IVY_ROOT`) and stems that run on
 // (`IVY_RUN`, tiling up and down), each 1 m square.
+//
+// Layers 2 to 4, the district center's (DistrictCenter.Folktails, EnvironmentURP5, uncut; numbers read from its
+// textures with tools/game-model-albedo.py over the UVs its model gives them), each tiling every way:
+// - the thatch (`ThatchedRoof`, 2.49 m of roof a unit of UV, v up the slope): four courses a unit, each a row of pale
+//   blades pointing up the roof under a dark row of cut stalk ends speckled light; its texels' lightness from 0.56 to
+//   1.38 times its mean (the 5th to the 95th percentile), the dark rows 0.58 of it and redder (0.411, 0.272, 0.120),
+//   the blades' tips 1.31 and paler (0.748, 0.649, 0.407), each blade about 0.036 m across;
+// - the dark planks (`IrregularPlanks_Brown`, the walls and the tower, 1.61 m a unit, v across the boards): eight
+//   boards a unit, 0.2 m each, laid along u, wavering; a fifth of it their light edges (0.348, 0.294, 0.201), three
+//   quarters their dark grained body (0.173, 0.121, 0.084), the rest the grey dark between them (0.095, 0.084, 0.075);
+// - the pale wood (`BaseWood_LightBrown`, the posts, frames, floor and railings, and the brown of the platform, which
+//   draws the same picture darker: 1.45 m a unit): boards 0.09 m wide along v, near white between them (0.83 of
+//   white), their body (0.617, 0.569, 0.504) streaked with darker grain (0.52, 0.47, 0.41), a fifth of it each.
+//
+// Layer 5, the blueberry bush's (`BlueberryBushMature`, VegetationURP, cut at alpha 0.312; numbers read from its texture
+// over its cut, 2.26 m of bush a unit of UV): rosettes of pointed grey leaves about 0.2 m long that its vertex colours
+// tint (the bush's colour, palette.ts `TREE_COLOURS.bush`), their lightness 0.67 to 1.38 times their mean (the 5th to
+// the 95th percentile), heaped as a mound over a low dome and as rosettes on cards round its shoulders and top; and its
+// yield, clusters of round berries about 0.06 m across (palette.ts `TREE_COLOURS.berry`), 0.54 to 1.39 of their mean.
+//
+// Layer 6, the ruins' concrete (`Ruins`, EnvironmentURP5; its atlas's bands of slab, 512 texels a metre, a row a storey,
+// read over its cut): over a band's upper part (down to 0.69 of the storey) cells of pale-edged stone about 0.11 m across
+// between dark cracks 1 to 5 cm wide, a tenth to a seventh of it crack (0.148, 0.131, 0.103), its lightness 0.42 / 0.78 /
+// 0.94 / 1.11 / 1.28 of the mean (the 5th, 25th, 50th, 75th and 95th percentile); under it, to the band's foot, the
+// stone weathered pale and nearly uncracked, 0.87 / 1.08 / 1.19 / 1.31 / 1.47, streaked paler up from its foot; its
+// cells (0.447, 0.363, 0.224), its palest (0.547, 0.482, 0.314). Ours: 256 texels a metre, tiling across, a storey a
+// unit up it (`CONCRETE_CRACKED_FROM`).
 
 import { RUIN } from "./palette";
 
 /** A layer's side in texels. */
 export const PATTERN_SIZE = 256;
 /** The layers, by the number a model's part gives (0 none). */
-export const PATTERN = { ivy: 1 } as const;
-export const PATTERN_LAYERS = 1;
-/** Where a pattern's alpha cuts the part away: the game's ivy's `_Cutoff`. */
+export const PATTERN = { ivy: 1, thatch: 2, planks: 3, wood: 4, bush: 5, concrete: 6 } as const;
+export const PATTERN_LAYERS = 6;
+/** The layers never cut, a part in each its colour until the patterns are drawn (materials.ts `objectAtlasTexture`). */
+export const PATTERN_TILING: readonly number[] = [PATTERN.thatch, PATTERN.planks, PATTERN.wood, PATTERN.concrete];
+/** Where a pattern's alpha cuts the part away: the game's ivy's and bush's `_Cutoff` (the tiling layers are never cut). */
 export const PATTERN_CUT = 0.312;
+/** A texel is the part's albedo over its colour divided by this. */
+export const PATTERN_GAIN = 3;
+/** The coarsest mip a cut layer's alpha is read at (8 texels to one). Coarser, a card's whole region averages past the
+ *  cut (a bush's rosette's from its 5th, a cluster of berries' from its 4th), so a card seen edge-on, whose texels the
+ *  sampler averages along it, would be drawn whole: a line in the air. */
+export const PATTERN_ALPHA_MIP = 3;
+/** GLSL: whether a pattern keeps the texel at `at` (u, v, layer less one), `dx` and `dy` its UV's change across a pixel
+ *  (taken where every pixel takes them): a cut layer's alpha read no coarser than `PATTERN_ALPHA_MIP`, the tiling
+ *  layers' always kept. */
+export const PATTERN_KEPT_GLSL = /* glsl */ `
+  bool patternKept(sampler2DArray atlas, vec3 at, vec2 dx, vec2 dy) {
+    float layer = at.z + 1.0;
+    if (abs(layer - ${PATTERN.ivy}.0) > 0.5 && abs(layer - ${PATTERN.bush}.0) > 0.5) return true;
+    float most = ${((1 << PATTERN_ALPHA_MIP) / PATTERN_SIZE).toFixed(6)};
+    vec2 gx = dx * min(1.0, most / max(length(dx), 1e-8));
+    vec2 gy = dy * min(1.0, most / max(length(dy), 1e-8));
+    return textureGrad(atlas, at, gx, gy).a >= ${PATTERN_CUT};
+  }
+`;
+/** Metres of a part a unit of each tiling layer's UV, as the game's model maps its textures. */
+export const PATTERN_TILE = { thatch: 2.49, planks: 1.61, wood: 1.45, concrete: 1 } as const;
 
 /** The ivy's texels a metre. */
 const IVY_PX = 128;
@@ -372,15 +424,419 @@ function drawIvy(): Canvas {
   return cv;
 }
 
+/** A tiling layer being drawn: its colour at each texel, wrapping every way. */
+class Tile {
+  rgb = new Float32Array(S * S * 3);
+  /** Lay (r, g, b) over texel (x, y) (wrapped) with coverage `a`. */
+  set(x: number, y: number, r: number, g: number, b: number, a = 1): void {
+    const k = ((y & (S - 1)) * S + (x & (S - 1))) * 3;
+    const keep = 1 - a;
+    this.rgb[k] = r * a + this.rgb[k] * keep;
+    this.rgb[k + 1] = g * a + this.rgb[k + 1] * keep;
+    this.rgb[k + 2] = b * a + this.rgb[k + 2] * keep;
+  }
+  /** Each channel over the layer's mean of it: the texels as the part's albedo over its colour. */
+  relative(): Float32Array {
+    const mean = [0, 0, 0];
+    for (let k = 0; k < S * S; k++) for (let c = 0; c < 3; c++) mean[c] += this.rgb[k * 3 + c] / (S * S);
+    const out = new Float32Array(S * S * 3);
+    for (let k = 0; k < S * S; k++) for (let c = 0; c < 3; c++) out[k * 3 + c] = this.rgb[k * 3 + c] / mean[c];
+    return out;
+  }
+}
+
+/** The thatch's layer: four courses, each pale blades pointing up the roof into a dark row of cut stalk ends speckled
+ *  light (a quarter of the course), the next course's blades rising from under it. */
+function drawThatch(): Tile {
+  const tl = new Tile();
+  const DARK = [0.36, 0.23, 0.095];
+  const MID = [0.6, 0.465, 0.24];
+  const TIP = [0.71, 0.62, 0.41];
+  const COURSE = S / 4;
+  for (let y = 0; y < S; y++)
+    for (let x = 0; x < S; x++) {
+      const k = 0.8 + 0.4 * hash(x, y, 20);
+      tl.set(x, y, DARK[0] * k, DARK[1] * k, DARK[2] * k);
+    }
+  for (let c = 0; c < 4; c++) {
+    const y0 = c * COURSE;
+    // two tiers of blades, the taller behind: each a point from its foot up to its tip, darker at its foot, paler at
+    // its tip
+    for (const [tier, top, count] of [
+      [0, 0.74, 140],
+      [1, 0.5, 120],
+    ] as const)
+      for (let b = 0; b < count; b++) {
+        const seed = c * 1000 + tier * 500 + b;
+        const cx = ((b + hash(seed, 1, 21)) / count) * S;
+        const foot = y0 - 0.06 * COURSE + 0.06 * COURSE * hash(seed, 2, 21);
+        const tip = y0 + (top - 0.12 + 0.24 * hash(seed, 3, 21)) * COURSE;
+        const half = 1.3 + 1.1 * hash(seed, 4, 21);
+        const tone = 0.9 + 0.2 * hash(seed, 5, 21);
+        const lean = (hash(seed, 6, 21) - 0.5) * 3;
+        for (let y = Math.floor(foot); y <= Math.ceil(tip); y++) {
+          const t = (y - foot) / (tip - foot);
+          if (t < 0 || t > 1) continue;
+          const w = half * Math.min(1, (1 - t) * 3);
+          const mx = cx + lean * t;
+          // (from the dark at its foot to the blade's colour, then to the tip's)
+          const f = 0.5 + 0.5 * Math.min(1, t * 2.5);
+          const g = Math.min(1, Math.max(0, t - 0.35) * 1.5);
+          const r0 = (DARK[0] + (MID[0] - DARK[0]) * f) * (1 - g) + TIP[0] * g;
+          const g0 = (DARK[1] + (MID[1] - DARK[1]) * f) * (1 - g) + TIP[1] * g;
+          const b0 = (DARK[2] + (MID[2] - DARK[2]) * f) * (1 - g) + TIP[2] * g;
+          for (let x = Math.floor(mx - w - 1); x <= Math.ceil(mx + w + 1); x++) {
+            const d = Math.abs(x + 0.5 - mx);
+            const a = Math.min(1, Math.max(0, w + 0.5 - d));
+            if (a <= 0) continue;
+            const sh = tone * (0.92 + 0.12 * (1 - d / Math.max(w, 0.5)));
+            tl.set(x, y, r0 * sh, g0 * sh, b0 * sh, a);
+          }
+        }
+      }
+    // the cut stalk ends in the dark row
+    for (let d = 0; d < 150; d++) {
+      const seed = c * 1000 + 900 + d;
+      const cx = hash(seed, 1, 22) * S;
+      const cy = y0 + (0.74 + 0.24 * hash(seed, 2, 22)) * COURSE;
+      const r = 0.8 + 0.7 * hash(seed, 3, 22);
+      const g = 0.4 + 0.6 * hash(seed, 4, 22);
+      for (let y = Math.floor(cy - r - 1); y <= Math.ceil(cy + r + 1); y++)
+        for (let x = Math.floor(cx - r - 1); x <= Math.ceil(cx + r + 1); x++) {
+          const a = Math.min(1, Math.max(0, r + 0.5 - Math.hypot(x + 0.5 - cx, y + 0.5 - cy)));
+          if (a > 0) tl.set(x, y, MID[0] + (TIP[0] - MID[0]) * g, MID[1] + (TIP[1] - MID[1]) * g, MID[2] + (TIP[2] - MID[2]) * g, a);
+        }
+    }
+  }
+  return tl;
+}
+
+/** The dark planks' layer: eight boards along u over the dark between them, wavering, light edged, grained along their
+ *  length, running on without an end (a wall's boards span it, as the game's do). */
+function drawPlanks(): Tile {
+  const tl = new Tile();
+  const GAP = [0.095, 0.084, 0.075];
+  const BODY = [0.173, 0.121, 0.084];
+  const EDGE = [0.348, 0.294, 0.201];
+  const BOARD = S / 8;
+  for (let y = 0; y < S; y++)
+    for (let x = 0; x < S; x++) {
+      const k = 0.85 + 0.3 * hash(x >> 1, y, 33);
+      tl.set(x, y, GAP[0] * k, GAP[1] * k, GAP[2] * k);
+    }
+  for (let b = 0; b < 8; b++) {
+    const ph = hash(b, 1, 30) * 6.28;
+    const ph2 = hash(b, 2, 30) * 6.28;
+    // (each board a little lighter or darker than the next)
+    const tone = 0.86 + 0.28 * hash(b, 3, 30);
+    for (let x = 0; x < S; x++) {
+      const s = (x / S) * 2 * Math.PI;
+      // (whole waves a unit: it tiles)
+      const mid = b * BOARD + BOARD / 2 + 2 * Math.sin(s * 2 + ph) + 0.7 * Math.sin(s * 5 + ph2);
+      const half = 14.2 + 0.8 * Math.sin(s * 3 + ph2);
+      const edge = 3.0 + 0.9 * Math.sin(s * 7 + ph) + 0.5 * hash(x, b, 31);
+      for (let y = Math.floor(mid - half); y <= Math.ceil(mid + half); y++) {
+        const d = Math.abs(y + 0.5 - mid);
+        const a = Math.min(1, Math.max(0, half + 0.5 - d));
+        if (a <= 0) continue;
+        if (d > half - edge) {
+          const k = 0.92 + 0.16 * hash(x >> 2, y, 34);
+          tl.set(x, y, EDGE[0] * k, EDGE[1] * k, EDGE[2] * k, a);
+        } else {
+          // (the grain: streaks along the board, lighter and darker by where across it)
+          const k = tone * (0.82 + 0.3 * hash(Math.floor((y + 0.5 - mid) * 1.6 + 40), b, 32) + 0.08 * Math.sin(s * 9 + y * 0.7 + ph));
+          tl.set(x, y, BODY[0] * k, BODY[1] * k, BODY[2] * k, a);
+        }
+      }
+    }
+  }
+  return tl;
+}
+
+/** The pale wood's layer: sixteen boards along v, near white between them, grained darker and lighter along their
+ *  length. */
+function drawWood(): Tile {
+  const tl = new Tile();
+  const LINE = [0.83, 0.81, 0.8];
+  const BODY = [0.617, 0.569, 0.504];
+  const GRAIN = [0.52, 0.47, 0.41];
+  const LIGHT = [0.72, 0.68, 0.62];
+  const BOARD = S / 16;
+  for (let y = 0; y < S; y++)
+    for (let x = 0; x < S; x++) {
+      const b = Math.floor(x / BOARD);
+      const across = (x % BOARD) + 0.5;
+      const t = (y / S) * 2 * Math.PI;
+      // (grain streaks, a few to a board, wavering, whole waves a unit)
+      const w = across + 1.2 * Math.sin(t * 2 + b * 1.7) + 0.6 * Math.sin(t * 5 + b * 0.9);
+      const h = hash(Math.floor(w / 2.6) + 7, b, 40);
+      const col = across < 1.5 ? LINE : h < 0.3 ? GRAIN : h > 0.82 ? LIGHT : BODY;
+      const k = 0.95 + 0.1 * hash(x, y >> 2, 41);
+      tl.set(x, y, col[0] * k, col[1] * k, col[2] * k);
+    }
+  return tl;
+}
+
+/** The bush's layer's parts (UV, v up): its mound of rosettes, laid over the bush's dome from above (1.1 m across);
+ *  four rosettes, one a card (0.33 m); four clusters of berries, one a card (0.16 m). */
+export const BUSH_MOUND: Region = [0, 0, 128 / S, 128 / S];
+export const BUSH_ROSETTES: readonly Region[] = [0, 1, 2, 3].map((k) => [(128 + (k % 2) * 64) / S, ((k >> 1) * 64) / S, 64 / S, 64 / S] as const);
+export const BUSH_BERRIES: readonly Region[] = [0, 1, 2, 3].map((k) => [(k * 32) / S, 128 / S, 32 / S, 32 / S] as const);
+
+/** A rosette's leaf: pointed, from (cx, cy) out `length` texels at `angle`, `width` across at its widest, darker at
+ *  its foot, its edge and its midrib, lighter toward its tip, grey (its part's colour tints it, as the game's vertex
+ *  colours do), within `clip`. */
+function bushLeaf(cv: Canvas, cx: number, cy: number, angle: number, length: number, width: number, tone: number, clip: readonly number[]): void {
+  const ca = Math.cos(angle);
+  const sa = Math.sin(angle);
+  const x0 = Math.max(clip[0], Math.floor(Math.min(cx, cx + ca * length) - width));
+  const x1 = Math.min(clip[2], Math.ceil(Math.max(cx, cx + ca * length) + width));
+  const y0 = Math.max(clip[1], Math.floor(Math.min(cy, cy + sa * length) - width));
+  const y1 = Math.min(clip[3], Math.ceil(Math.max(cy, cy + sa * length) + width));
+  for (let y = y0; y < y1; y++)
+    for (let x = x0; x < x1; x++) {
+      const dx = x + 0.5 - cx;
+      const dy = y + 0.5 - cy;
+      const s = (dx * ca + dy * sa) / length;
+      if (s <= 0 || s >= 1) continue;
+      const t = -dx * sa + dy * ca;
+      const hw = (width / 2) * Math.pow(4 * s * (1 - s), 0.6) * (s < 0.7 ? 1 : 1 - (s - 0.7) * 0.6);
+      const c = Math.min(1, Math.max(0, hw + 0.5 - Math.abs(t)));
+      if (c <= 0) continue;
+      const across = Math.abs(t) / Math.max(hw, 0.5);
+      const shade = tone * (0.6 + 0.75 * s) * (1 - 0.38 * across * across) * (Math.abs(t) < 0.6 ? 0.84 : 1);
+      cv.over(x, y, c, shade, shade, shade);
+    }
+}
+
+/** A rosette: two rings of leaves round (cx, cy), the inner over the outer, `r` texels out. */
+function rosette(cv: Canvas, cx: number, cy: number, r: number, seed: number, clip: readonly number[]): void {
+  const turn = hash(seed, 1, 50) * 6.28;
+  const outer = 7 + Math.floor(hash(seed, 2, 50) * 2);
+  for (let k = 0; k < outer; k++) {
+    const a = turn + (k / outer) * 2 * Math.PI + (hash(seed, k, 51) - 0.5) * 0.4;
+    bushLeaf(cv, cx, cy, a, r * (0.85 + 0.15 * hash(seed, k, 52)), r * 0.42, 0.8 + 0.25 * hash(seed, k, 53), clip);
+  }
+  for (let k = 0; k < 5; k++) {
+    const a = turn + ((k + 0.5) / 5) * 2 * Math.PI;
+    bushLeaf(cv, cx, cy, a, r * 0.6, r * 0.32, 1.0 + 0.2 * hash(seed, k, 54), clip);
+  }
+}
+
+/** The bush's layer (`BUSH_MOUND`, `BUSH_ROSETTES`, `BUSH_BERRIES`). */
+function drawBush(): Canvas {
+  const cv = new Canvas();
+  // the mound: rosettes over a disc, the outer first, kept 2 texels in from the part's sides
+  const mound = [2, 2, 126, 126];
+  const spots: [number, number, number][] = [];
+  for (let k = 0; k < 8; k++) {
+    const a = (k / 8) * 2 * Math.PI + 0.3;
+    spots.push([64 + Math.cos(a) * 38, 64 + Math.sin(a) * 38, 23]);
+  }
+  for (let k = 0; k < 4; k++) {
+    const a = (k / 4) * 2 * Math.PI + 1.1;
+    spots.push([64 + Math.cos(a) * 18, 64 + Math.sin(a) * 18, 24]);
+  }
+  spots.push([64, 64, 22]);
+  spots.forEach(([x, y, r], k) => rosette(cv, x, y, r, 100 + k, mound));
+  // the rosettes, one to a card
+  BUSH_ROSETTES.forEach((r, k) => {
+    const [x, y] = [r[0] * S, r[1] * S];
+    rosette(cv, x + 32, y + 32, 29, 200 + k, [x + 2, y + 2, x + 62, y + 62]);
+  });
+  // the berries: four to six to a cluster, round, lit from above, a dark crown at each one's end
+  BUSH_BERRIES.forEach((r, k) => {
+    const [x, y] = [r[0] * S, r[1] * S];
+    const n = 4 + (k % 3);
+    for (let b = 0; b < n; b++) {
+      const a = (b / n) * 2 * Math.PI + k;
+      const d = b === n - 1 && n > 4 ? 0 : 6.5;
+      const [bx, by] = [x + 16 + Math.cos(a) * d, y + 16 + Math.sin(a) * d];
+      const rr = 5.2 + 1.2 * hash(k, b, 55);
+      for (let py = Math.floor(by - rr - 1); py <= Math.ceil(by + rr + 1); py++)
+        for (let px = Math.floor(bx - rr - 1); px <= Math.ceil(bx + rr + 1); px++) {
+          const dx = px + 0.5 - bx;
+          const dy = py + 0.5 - by;
+          const dist = Math.hypot(dx, dy);
+          const c = Math.min(1, Math.max(0, rr + 0.5 - dist));
+          if (c <= 0 || px < x + 1 || py < y + 1 || px >= x + 31 || py >= y + 31) continue;
+          const lit = 0.75 + 0.45 * Math.max(0, (-dx * 0.5 + dy * 0.7) / rr + 0.3) - (dist < 1.3 ? 0.45 : 0);
+          cv.over(px, py, c, lit, lit, lit * 1.04);
+        }
+    }
+  });
+  // each part's mean over the cut its colour's (the leaves' the bush's, the berries' the berries'), and the cut-away
+  // texels the mean (no darker fringe in the mips)
+  for (const parts of [[BUSH_MOUND, ...BUSH_ROSETTES], BUSH_BERRIES]) {
+    const sum = [0, 0, 0];
+    let n = 0;
+    const each = (f: (k: number) => void) => {
+      for (const r of parts) for (let y = r[1] * S; y < (r[1] + r[3]) * S; y++) for (let x = r[0] * S; x < (r[0] + r[2]) * S; x++) f(y * S + x);
+    };
+    each((k) => {
+      if (cv.a[k] < PATTERN_CUT) return;
+      for (let c = 0; c < 3; c++) sum[c] += cv.rgb[k * 3 + c] / cv.a[k];
+      n++;
+    });
+    each((k) => {
+      for (let c = 0; c < 3; c++) cv.rgb[k * 3 + c] = cv.a[k] > 0.004 ? cv.rgb[k * 3 + c] / cv.a[k] / (sum[c] / n) : 1;
+    });
+  }
+  return cv;
+}
+
+/** The concrete's layer, its rows a storey's height (v up, 1 at its top): about where its cracked upper part gives way
+ *  to its pale lower one, as the game's atlas rows do. */
+export const CONCRETE_CRACKED_FROM = 0.69;
+/** The game's concrete over its cut (`Ruins`, texels sorted by their lightness): its cracks' colour, its cells', its
+ *  palest; and the lightness (over the mean) each falls at. */
+const CRACK = [0.148, 0.131, 0.103];
+const CELL = [0.447, 0.363, 0.224];
+const PALE = [0.547, 0.482, 0.314];
+const [L_CRACK, L_CELL, L_PALE] = [0.38, 1.045, 1.36];
+
+/** Smooth noise (0–1) on a grid `step` texels apart, tiling the layer every way. */
+function noise(step: number, seed: number): (x: number, y: number) => number {
+  const n = S / step;
+  const at = (i: number, j: number) => hash(((i % n) + n) % n, ((j % n) + n) % n, seed);
+  return (x, y) => {
+    const fx = x / step;
+    const fy = y / step;
+    const i = Math.floor(fx);
+    const j = Math.floor(fy);
+    const tx = smooth(0, 1, fx - i);
+    const ty = smooth(0, 1, fy - j);
+    const a = at(i, j) + (at(i + 1, j) - at(i, j)) * tx;
+    const b = at(i, j + 1) + (at(i + 1, j + 1) - at(i, j + 1)) * tx;
+    return a + (b - a) * ty;
+  };
+}
+
+/** A grid of cells round jittered points, tiling the layer every way: for a texel, its cell and how far it is from the
+ *  nearest edge between cells (texels; the pair is reused, read it before the next call). */
+function cells(n: number, seed: number): (x: number, y: number) => [number, number] {
+  const c = S / n;
+  const px: number[] = [];
+  const py: number[] = [];
+  for (let j = 0; j < n; j++)
+    for (let i = 0; i < n; i++) {
+      px.push((i + 0.1 + 0.8 * hash(i, j, seed)) * c);
+      py.push((j + 0.1 + 0.8 * hash(i, j, seed + 1)) * c);
+    }
+  const out: [number, number] = [0, 0];
+  return (x, y) => {
+    const ci = Math.floor(x / c);
+    const cj = Math.floor(y / c);
+    let d1 = Infinity;
+    let d2 = Infinity;
+    let best = 0;
+    for (let j = cj - 1; j <= cj + 1; j++)
+      for (let i = ci - 1; i <= ci + 1; i++) {
+        const k = (((j % n) + n) % n) * n + (((i % n) + n) % n);
+        // (the point where this neighbour's copy of it lies, the grid wrapping)
+        const dx = px[k] + Math.floor(i / n) * S - x;
+        const dy = py[k] + Math.floor(j / n) * S - y;
+        const d = Math.sqrt(dx * dx + dy * dy);
+        if (d < d1) {
+          d2 = d1;
+          d1 = d;
+          best = k;
+        } else if (d < d2) d2 = d;
+      }
+    out[0] = best;
+    out[1] = (d2 - d1) / 2;
+    return out;
+  };
+}
+
+/** The ruins' concrete (layer 6, tiling across; a storey a unit, v up): over its upper part cells of stone 0.08 to
+ *  0.2 m across, lit at their rims, between wavering dark cracks of uneven width, some cells split by fainter ones;
+ *  under it, the line between wandering, the stone weathered pale with the cracks only faint, a few paler streaks
+ *  rising from its foot; mottled throughout. The texels' absolute colours, the game's. */
+function drawConcrete(): Tile {
+  const tl = new Tile();
+  const major = cells(7, 70);
+  const minor = cells(16, 72);
+  const [warpX, warpY] = [noise(16, 80), noise(16, 81)];
+  const [fineX, fineY] = [noise(8, 82), noise(8, 83)];
+  const width = noise(8, 84);
+  const blot = noise(32, 85);
+  const grain = noise(4, 86);
+  const line = noise(32, 87);
+  for (let y = 0; y < S; y++)
+    for (let x = 0; x < S; x++) {
+      const v = (y + 0.5) / S;
+      // (the cracks wander: each texel looked up a little aside, broadly and finely)
+      const wx = x + 0.5 + 9 * (warpX(x, y) - 0.5) + 3 * (fineX(x, y) - 0.5);
+      const wy = y + 0.5 + 9 * (warpY(x, y) - 0.5) + 3 * (fineY(x, y) - 0.5);
+      const [cell, edge] = major(wx, wy);
+      const fine = minor(wx, wy)[1];
+      // (how cracked: 1 over the upper part, 0 under it, the line between wandering)
+      const from = CONCRETE_CRACKED_FROM + 0.06 * (line(x, 0) - 0.5);
+      const cracked = smooth(from - 0.02, from + 0.01, v);
+      // mottled, each cell its own tone; the lower part paler toward the band's foot
+      const mottle = 0.16 * (blot(x, y) - 0.5) + 0.1 * (grain(x, y) - 0.5) + 0.05 * (hash(x, y, 74) - 0.5);
+      const lower = 1.1 + 0.18 * smooth(from, 0.53, v);
+      let l = cracked * (0.9 + 0.22 * (hash(cell, 0, 75) - 0.5)) + (1 - cracked) * lower + mottle;
+      // each cell's rim lit beside its crack
+      l += cracked * 0.32 * Math.max(0, 1 - Math.abs(edge - 3.2) / 2.2);
+      // the cracks: wide here and narrow there (0.8 to 3 texels), dark to their core; fainter ones splitting some cells
+      const w = 0.8 + 1.8 * width(wx, wy) ** 1.5;
+      const crack = Math.max(0, 1 - edge / w);
+      l *= 1 - Math.min(1, crack * 1.3) * (cracked * 0.6 + (1 - cracked) * 0.14);
+      if (hash(cell, 1, 77) < 0.45) l *= 1 - Math.max(0, 1 - fine / 0.7) * (cracked * 0.3 + (1 - cracked) * 0.06);
+      // a few paler streaks rising from the foot of the lower part, fading as they rise
+      const s = x >> 1;
+      const reach = 0.04 + 0.08 * hash(s, 1, 79);
+      if (hash(s, 0, 78) > 0.95 && v > 0.47 && v < 0.47 + reach) l += 0.18 * (1 - cracked) * (1 - (v - 0.47) / reach);
+      // its colour, the game's at this lightness
+      const col =
+        l <= L_CELL
+          ? CRACK.map((c, i) => c + (CELL[i] - c) * Math.max(0, (l - L_CRACK) / (L_CELL - L_CRACK)))
+          : CELL.map((c, i) => c + (PALE[i] - c) * ((l - L_CELL) / (L_PALE - L_CELL)));
+      const dim = l < L_CRACK ? Math.max(0.5, l / L_CRACK) : 1;
+      tl.set(x, y, col[0] * dim, col[1] * dim, col[2] * dim);
+    }
+  return tl;
+}
+
 let made: Uint8Array | null = null;
 /** Every layer's texels, RGBA, layer by layer (made once). */
 export function patternTexels(): Uint8Array {
   if (made) return made;
   const out = new Uint8Array(S * S * 4 * PATTERN_LAYERS);
+  const byte = (v: number) => Math.round(Math.min(1, Math.max(0, v / PATTERN_GAIN)) * 255);
+  // the ivy over its leaves' colour (its cards' colour, entities3d.ts `drape`), cut by its alpha
   const ivy = drawIvy();
   for (let k = 0; k < S * S; k++) {
-    for (let c = 0; c < 3; c++) out[k * 4 + c] = Math.round(Math.min(1, ivy.rgb[k * 3 + c]) * 255);
+    for (let c = 0; c < 3; c++) out[k * 4 + c] = byte(ivy.rgb[k * 3 + c] / IVY_LEAF[c]);
     out[k * 4 + 3] = Math.round(Math.min(1, ivy.a[k]) * 255);
+  }
+  // the tiling layers, never cut
+  [drawThatch, drawPlanks, drawWood].forEach((draw, l) => {
+    const rel = draw().relative();
+    const o = (l + 1) * S * S * 4;
+    for (let k = 0; k < S * S; k++) {
+      for (let c = 0; c < 3; c++) out[o + k * 4 + c] = byte(rel[k * 3 + c]);
+      out[o + k * 4 + 3] = 255;
+    }
+  });
+  // the bush, already over its parts' colours, cut by its alpha
+  const bush = drawBush();
+  const o = (PATTERN.bush - 1) * S * S * 4;
+  for (let k = 0; k < S * S; k++) {
+    for (let c = 0; c < 3; c++) out[o + k * 4 + c] = byte(bush.rgb[k * 3 + c]);
+    out[o + k * 4 + 3] = Math.round(Math.min(1, bush.a[k]) * 255);
+  }
+  // the concrete, never cut, over its mean on a band (from 0.53 of the storey up: its colour is the game's mean there)
+  const concrete = drawConcrete().rgb;
+  const mean = [0, 0, 0];
+  const from = Math.round(0.53 * S);
+  for (let k = from * S; k < S * S; k++) for (let c = 0; c < 3; c++) mean[c] += concrete[k * 3 + c] / ((S - from) * S);
+  const oc = (PATTERN.concrete - 1) * S * S * 4;
+  for (let k = 0; k < S * S; k++) {
+    for (let c = 0; c < 3; c++) out[oc + k * 4 + c] = byte(concrete[k * 3 + c] / mean[c]);
+    out[oc + k * 4 + 3] = 255;
   }
   return (made = out);
 }

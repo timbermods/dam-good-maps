@@ -4,6 +4,9 @@
 //   npm run places                         (writes public/real-places/)
 //   npm run places -- --check              (writes nothing; fails when the committed files differ)
 //   npm run places -- --only glencoe       (builds and checks the places named, writes nothing)
+//   npm run places -- --only a,b --write   (writes only the places named: their files and index entries)
+//   npm run places -- --resume <dir>       (keeps each place's outcome in <dir> as it ends; run again with the same
+//                                          <dir> after a stop to do only the places left)
 //   npm run places -- --water --out <dir>  (each place's water measure too, written to <dir>; `--rules port` builds
 //                                          them under the port's water rules, as before D311's conversion)
 //   npm run places -- --shards 1           (one place after another on this process: the places run on one
@@ -34,7 +37,7 @@
 
 import { createHash } from "node:crypto";
 import { spawn } from "node:child_process";
-import { closeSync, existsSync, mkdirSync, mkdtempSync, openSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { closeSync, existsSync, mkdirSync, mkdtempSync, openSync, readdirSync, readFileSync, renameSync, rmSync, writeFileSync } from "node:fs";
 import { availableParallelism, tmpdir } from "node:os";
 import { join } from "node:path";
 import { gunzipSync, gzipSync, strToU8 } from "fflate";
@@ -58,10 +61,11 @@ import {
 } from "../src/core/places/place";
 import { encodeHeights, encodeTiles } from "./lib/placeData";
 import { BODY, FILM_DEPTH, FILM_TILES, WET, compareWater, films, settleFile, startFails } from "./lib/placeWater";
-import { cutBasins, cutBed, floor0Sheet, realMask } from "./lib/placeBasins";
+import { cutBasins, cutBed, floor0Sheet, realFilms, realMask } from "./lib/placeBasins";
 import { decodeTiles as decodeGaps } from "../src/core/places/place";
 import { keepNearest, settlePlants, startWood, startWoodSpecies } from "./lib/placePlants";
 import { flaggedSources, mendSources } from "./lib/placeSources";
+import { searchFeeds } from "./lib/placeFeeds";
 import { DEAD_TREES_KEEP_LOGS, LOG_FLOOR_WALK, LOGS_PER_TREE_SPECIES } from "../src/core/data/logFloor";
 import { startWalkField } from "../src/core/resources/baseline";
 import { writeTimber } from "../src/core/format/timber";
@@ -414,8 +418,16 @@ function basinsFor(libraryId: string, place: PlaceData): { place: PlaceData; not
   const r = cutBasins(decodeHeights(place.heights), place.W, place.H, port, game.settle.depth, game.model.floor, real);
   const notes: string[] = [];
   for (const b of r.basins) notes.push(`${b.kind} ${b.size} at ${b.at.join(",")} over ${b.real} real-water tiles ${b.cut ? `cut ${b.cut} tiles` : b.kind === "lost" ? "goes" : "not cut"}`);
-  const heights = r.heights;
+  let heights = r.heights;
   if (r.basins.some((b) => b.cut)) {
+    place = { ...place, heights: encodeHeights(heights) };
+    game = buildPlace(place, undefined, "game");
+  }
+  // a body of real water the game's water covers only as a film gets the same basin (planning, #236: Yamanaka)
+  const rf = realFilms(heights, place.W, place.H, game.settle.depth, real);
+  for (const b of rf.basins) notes.push(`real water ${b.size} at ${b.at.join(",")} under a film ${b.cut ? `cut ${b.cut} tiles` : "not cut (floor 0 or no flat inside its rim)"}`);
+  if (rf.basins.some((b) => b.cut)) {
+    heights = rf.heights;
     place = { ...place, heights: encodeHeights(heights) };
     game = buildPlace(place, undefined, "game");
   }
@@ -462,6 +474,48 @@ const hashString = (s: string) => {
   for (let i = 0; i < s.length; i++) h = Math.imul(h ^ s.charCodeAt(i), 16777619);
   return h >>> 0;
 };
+
+/** The place with its springs searched (tools/lib/placeFeeds.ts), and its log note. */
+function feedsFor(libraryId: string, place: PlaceData): { place: PlaceData; note: string } {
+  const real = realOf(libraryId, place.W, place.H);
+  const base = buildChecked(place);
+  const baseFlow = flaggedSources(place).flagged.length;
+  const keep = (p: PlaceData) => {
+    const r = buildChecked(p);
+    const worse = r.strictFails.filter((id) => !base.strictFails.includes(id));
+    const filmed = films(r.built.settle.depth, r.built.model.floor, p.W, p.H).some((f) => f.floor0 * 2 <= f.tiles.length);
+    const flow = flaggedSources(p).flagged.length;
+    const why = [...worse, ...(flow > baseFlow ? [`sources in a flow ${baseFlow} → ${flow}`] : []), ...(filmed ? ["film above floor 0"] : [])];
+    return why.length ? why.join(", ") : null;
+  };
+  const settle = (p: PlaceData) => buildPlace(p, settles).settle.depth;
+  let r = searchFeeds(place, real, settle, keep);
+  // no place ends with more water over real dry land (planning): one whose search did is searched again with no step
+  // raising it
+  const again = r.after.dry > r.before.dry ? ` (searched again: real dry land ${r.before.dry} → ${r.after.dry} the first time)` : "";
+  if (again) r = searchFeeds(place, real, settle, keep, { dryNotUp: true });
+  // the floor-0 sheet is information (planning), but a search whose sheet over real dry land grew while the water over
+  // real dry land did not fall keeps the springs the place had
+  const sheetDry = (p: PlaceData) => {
+    const b = buildPlace(p, settles);
+    return floor0Sheet(b.settle.depth, b.model.floor, p.W, p.H, real, FILM_DEPTH, FILM_TILES).dry;
+  };
+  if (r.steps.length && r.after.dry >= r.before.dry) {
+    const was = sheetDry(place);
+    const now = sheetDry(r.place);
+    if (now > was) return { place, note: `  springs kept: the search's sheet over real dry land ${was} → ${now} with no fall over real dry land (${r.before.dry} → ${r.after.dry})` };
+  }
+  const at = (s: [number, number, number] | null) => (s ? `${s[0]},${s[1]}:${s[2].toFixed(2)}` : "gone");
+  // the refusals that only a source in another's flow stood in the way of: the best of each move, by the measure
+  const flowOnly = r.refused.filter((x) => x.why.split(", ").every((w) => w === "water.source_in_flow" || w.startsWith("sources in a flow")));
+  const fmt = (ss: readonly [number, number, number][]) => `${ss.length} (${ss.map((s) => s[2].toFixed(2)).join(" ")})`;
+  const note =
+    `  springs searched: real water ${r.before.real} → ${r.after.real}, real dry land ${r.before.dry} → ${r.after.dry}; sources ${fmt(place.sources)} → ${fmt(r.place.sources)}` +
+    (r.steps.length ? ` [${r.steps.map((s) => `${at(s.from)} → ${at(s.to)}`).join("; ")}]` : "") +
+    again +
+    (flowOnly.length ? `; better by the measure but for a source in another's flow: ${flowOnly.map((x) => `${at(x.from)} → ${at(x.to)} (real water ${x.real}, real dry land ${x.dry}; ${x.why})`).join("; ")}` : "");
+  return { place: r.place, note };
+}
 
 /** The water checks every offered place passes, and its floor-0 sheet: one log line. */
 function waterVerdict(libraryId: string, b: ReturnType<typeof buildPlace>): { line: string; failed: boolean } {
@@ -649,6 +703,17 @@ function runPlace(item: LibraryItem): Outcome | null {
     }
     everySpot = `  every spot tried for water (${all.length}): ${watered} pass start.water with the room floor${best ? "" : watered ? ", none without failing more" : ""}`;
   }
+  // The springs searched under the game's rules (D(new), tools/lib/placeFeeds.ts): by D271's measure, the settled water
+  // over the real water as high as it goes and over real dry land as low as it goes, by where each spring stands and how
+  // strong it is; kept only where no check the place passed then fails and no film above floor 0 stands. After the start
+  // has found its water (a move, a spring by it, every spot), so a spring the start drinks from is never the one taken
+  // away; before the berries and plants, which settle on the water the springs leave
+  const feeds = feedsFor(item.id, place);
+  if (feeds.place !== place) {
+    place = feeds.place;
+    ({ built, v, strict, blocking, strictFails } = buildChecked(place));
+  }
+  const feedNote = feeds.note;
   // A start short of berries (after a move or a spring, or on its own land) gets the bushes the
   // `start.food` check's own fix plants (the editor's one-click fix: moist tiles within 20 tiles'
   // walk of the start, nearest first; objects only, never land, D331). Where the fix finds too few
@@ -801,6 +866,7 @@ function runPlace(item: LibraryItem): Outcome | null {
       (moved ? `  start moved from ${moved.join(",")} to ${place.start.join(",")}${movedWood}` : "") +
       basin.note +
       mendNote +
+      feedNote +
       (spring ? `  spring by the start at ${spring.map((s) => `${s[0]},${s[1]}`).join(" ")}` : "") +
       (planted ? `  ${planted} berry bushes planted by the start` : "") +
       plants +
@@ -839,6 +905,7 @@ function runPlace(item: LibraryItem): Outcome | null {
 // so the longest are never left to the end), each place's outcome written to a file and put back in the library's
 // order: the same log, files and verdicts as one process gives, which ran one place after another
 const claimDir = arg("claim");
+const resume = arg("resume");
 if (claimDir) {
   for (const i of claimOrder()) {
     try {
@@ -846,8 +913,12 @@ if (claimDir) {
     } catch {
       continue;
     }
+    const t = performance.now();
     const o = runPlace(items[i]);
-    writeFileSync(join(claimDir, `out-${i}.json`), JSON.stringify(o ? { ...o, files: o.files.map(([f, b]) => [f, Buffer.from(b).toString("base64")]) } : null));
+    // written whole, then renamed, so a run stopped part-way never leaves half an outcome for `--resume`
+    writeFileSync(join(claimDir, `out-${i}.json.part`), JSON.stringify(o ? { ...o, files: o.files.map(([f, b]) => [f, Buffer.from(b).toString("base64")]) } : null));
+    renameSync(join(claimDir, `out-${i}.json.part`), join(claimDir, `out-${i}.json`));
+    if (o) console.error(`done ${items[i].id} (${o.id}) in ${Math.round((performance.now() - t) / 1000)} s; ${readdirSync(claimDir).filter((f) => /^out-\d+\.json$/.test(f)).length} of ${items.length} places`);
   }
   process.exit(0);
 }
@@ -870,11 +941,24 @@ function claimOrder(): number[] {
   return items.map((_, i) => i).sort((a, b) => items[b].size - items[a].size || a - b);
 }
 
-/** Every place's outcome, in the library's order: on `SHARDS` processes, or on this one for `--only` or a machine of one core. */
+/** Every place's outcome, in the library's order: on `SHARDS` processes (no more than `--only` names), or on this one for a single place or a machine of one core. */
 async function runShards(): Promise<(Outcome | null)[]> {
-  const n = only ? 1 : Math.min(SHARDS, items.length);
+  const n = Math.min(SHARDS, only ? only.length : items.length);
   if (n <= 1) return items.map((item) => runPlace(item));
-  const dir = mkdtempSync(join(tmpdir(), "real-places-"));
+  // `--resume <dir>`: the places' outcomes are kept in <dir> (one file each, as each place ends), and a run started again
+  // with the same <dir> and the same code skips the places already done there; a place claimed but never finished (the
+  // run stopped) is claimed again
+  const dir = resume ?? mkdtempSync(join(tmpdir(), "real-places-"));
+  if (resume) {
+    mkdirSync(dir, { recursive: true });
+    for (const f of readdirSync(dir)) {
+      const m = /^claim-(\d+)$/.exec(f);
+      if (m && !existsSync(join(dir, `out-${m[1]}.json`))) rmSync(join(dir, f));
+      if (f.endsWith(".part")) rmSync(join(dir, f));
+    }
+    const kept = readdirSync(dir).filter((f) => /^out-\d+\.json$/.test(f)).length;
+    if (kept) console.error(`--resume: ${kept} place(s) already done in ${dir}`);
+  }
   try {
     await Promise.all(
       Array.from(
@@ -892,7 +976,7 @@ async function runShards(): Promise<(Outcome | null)[]> {
       return raw ? { ...raw, files: raw.files.map(([f, b]): [string, Uint8Array] => [f, new Uint8Array(Buffer.from(b, "base64"))]) } : null;
     });
   } finally {
-    rmSync(dir, { recursive: true, force: true });
+    if (!resume) rmSync(dir, { recursive: true, force: true });
   }
 }
 
@@ -915,7 +999,21 @@ console.log(
 );
 
 if (only) {
-  console.log("--only: nothing written");
+  // --write: the places named, their data and card files and their index entries, the rest of the library as it is
+  if (!process.argv.includes("--write")) {
+    console.log("--only: nothing written");
+    process.exit(0);
+  }
+  const was = JSON.parse(readFileSync(join(OUT, "index.json"), "utf8")) as PlaceIndex;
+  for (const e of entries) {
+    const k = was.places.findIndex((p) => p.id === e.id);
+    if (k < 0) throw new Error(`--only --write: ${e.id} is not in ${OUT}/index.json (a new place needs the full run)`);
+    was.places[k] = e;
+  }
+  for (const id of withheld) if (was.places.some((p) => p.name === id)) throw new Error(`--only --write: ${id} would be withheld (the full run withholds it)`);
+  for (const [k, b] of files) if (k !== "index.json") writeFileSync(join(OUT, k), b);
+  writeFileSync(join(OUT, "index.json"), JSON.stringify(was, null, 1) + "\n");
+  console.log(`--only --write: ${entries.length} place(s) written to ${OUT}`);
   process.exit(0);
 }
 if (check) {

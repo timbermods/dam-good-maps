@@ -6,9 +6,12 @@
 import { describe, expect, it } from "vitest";
 import { storedSoil } from "../../src/core/format/world";
 import { describeTile, entitiesByTile } from "../../src/editor/features";
-import { buildEntities, modelKeyOf, modelTriangles } from "../../src/render3d/entities3d";
+import { buildEntities, modelKeyOf, modelOf, modelTriangles } from "../../src/render3d/entities3d";
+import { BERRY_OFF, bushTriangles, domeAt } from "../../src/render3d/bushCards";
+import { BUSH_BERRIES, PATTERN, PATTERN_CUT, PATTERN_GAIN, PATTERN_SIZE, PATTERN_TILE, patternAlpha, patternTexels } from "../../src/render3d/objectPatterns";
 import { casterLevelsOf, decodeTop, DEFAULT_SUN, encodeTop, litFraction, objectCasters, PLANT_WIDEST, shadowMap, shadowTops, SHADOW_RES, soilNibbles, tileData, waterByte, withCasterLevels } from "../../src/render3d/light";
 import { DEAD, entityView, soilView, surfaceWater, waterFromDepth, YOUNG } from "../../src/render3d/model";
+import { START, TREE_COLOURS, type Rgb } from "../../src/render3d/palette";
 import { cliffTint, objectTop, contaminationByte, contaminationVein, cssColor, DEAD_TREE, GROUND, groundColor, groundKind, legendEntries, LIGHT, moistureByte, sunlitTop, WALL, wallColor, waterBody } from "../../src/render3d/palette";
 import { HIGH_WATER } from "../../src/render3d/waterPalette";
 import { cleanWaterShown } from "./waterShown";
@@ -387,6 +390,121 @@ describe("the models", () => {
     // 135 (PineMature; D496, 2026-11-14: its cost measured in docs/progress/3d-view.md, "The pine's boughs")
     for (const k of ["Birch", "Oak", "BlueberryBush", "Pine.dead", "Birch.dead", "Oak.dead"]) expect(modelTriangles(k)).toBeLessThanOrEqual(64);
     expect(modelTriangles("Pine")).toBeLessThanOrEqual(135);
+  });
+
+  it("draws the start's thatch and wood with the game's pictures at the game's scale, each averaging to its part's colour", () => {
+    // (DistrictCenter.Folktails, D496: its roof and the lantern's hood in the thatch's picture, its walls and tower in
+    // the dark planks', the pale wood and the platform's brown in the pale wood's; the door, windows, emblems, bowl and
+    // crown in their colours alone)
+    const m = modelOf("start");
+    const want = new Map<string, number>([
+      [cssColor(START.thatch), PATTERN.thatch],
+      [cssColor(START.thatch.map((v) => v * 1.03) as unknown as Rgb), PATTERN.thatch],
+      [cssColor(START.planks), PATTERN.planks],
+      [cssColor(START.wood), PATTERN.wood],
+      [cssColor(START.brown), PATTERN.wood],
+    ]);
+    const tile = new Map<number, number>([
+      [PATTERN.thatch, PATTERN_TILE.thatch],
+      [PATTERN.planks, PATTERN_TILE.planks],
+      [PATTERN.wood, PATTERN_TILE.wood],
+    ]);
+    const seen = new Set<number>();
+    for (let t = 0; t < m.pos.length / 9; t++) {
+      const c = cssColor(m.col.slice(t * 9, t * 9 + 3) as unknown as Rgb);
+      const pat = m.pat![t * 3];
+      // (the pale wood's ribs are its colour a little shaded)
+      if (!want.has(c) && pat === PATTERN.wood) continue;
+      expect(pat, c).toBe(want.get(c) ?? 0);
+      if (!pat) continue;
+      seen.add(pat);
+      // a metre of the part is the game's share of the picture: its UV as far apart as its corners over the tile
+      const p = [0, 1, 2].map((k) => m.pos.slice((t * 3 + k) * 3, (t * 3 + k) * 3 + 3));
+      const uv = [0, 1, 2].map((k) => m.uv!.slice((t * 3 + k) * 2, (t * 3 + k) * 2 + 2));
+      const area = (a: number[][], k: number) => {
+        const e1 = a[1].map((v, i) => v - a[0][i]);
+        const e2 = a[2].map((v, i) => v - a[0][i]);
+        return k === 3 ? Math.hypot(e1[1] * e2[2] - e1[2] * e2[1], e1[2] * e2[0] - e1[0] * e2[2], e1[0] * e2[1] - e1[1] * e2[0]) : Math.abs(e1[0] * e2[1] - e1[1] * e2[0]);
+      };
+      if (area(p, 3) < 1e-3) continue;
+      // (the roof's square corners and the tower's slope stretch it some)
+      expect(Math.sqrt(area(p, 3) / area(uv, 2)) / tile.get(pat)!, c).toBeGreaterThan(0.6);
+      expect(Math.sqrt(area(p, 3) / area(uv, 2)) / tile.get(pat)!, c).toBeLessThan(1.6);
+    }
+    expect([...seen].sort()).toEqual([PATTERN.thatch, PATTERN.planks, PATTERN.wood].sort());
+    // each tiling layer's mean is its part's colour (and so the light look's, which draws the colour alone)
+    const tx = patternTexels();
+    for (const layer of [PATTERN.thatch, PATTERN.planks, PATTERN.wood]) {
+      const mean = [0, 0, 0];
+      const n = PATTERN_SIZE * PATTERN_SIZE;
+      for (let k = 0; k < n; k++) for (let c = 0; c < 3; c++) mean[c] += (tx[((layer - 1) * n + k) * 4 + c] / 255) * PATTERN_GAIN / n;
+      for (const v of mean) expect(v, `${layer}`).toBeCloseTo(1, 2);
+    }
+  });
+
+  it("builds the blueberry bush as the game does: cards cut by its pattern, as wide from above as the game's, under its triangles", () => {
+    // (BlueberryBushMature, D496: 61 triangles, its cut leaves 0.93 across from above; tools/game-crowns.py)
+    for (const [key, berries] of [["BlueberryBush", true], ["BlueberryBush.dead", false]] as const) {
+      const m = modelOf(key);
+      const n = m.pos.length / 9;
+      expect(n, key).toBeLessThanOrEqual(61);
+      let berry = 0;
+      for (let t = 0; t < n; t++) {
+        expect(m.pat![t * 3], key).toBe(PATTERN.bush);
+        const isBerry = cssColor(m.col.slice(t * 9, t * 9 + 3) as unknown as Rgb) === cssColor(TREE_COLOURS.berry);
+        if (!isBerry) continue;
+        berry++;
+        // (a berry's card at a cluster of berries in the pattern)
+        const [u, v] = m.uv!.slice(t * 6, t * 6 + 2);
+        expect(BUSH_BERRIES.some((r) => u >= r[0] - 1e-6 && u <= r[0] + r[2] + 1e-6 && v >= r[1] - 1e-6 && v <= r[1] + r[3] + 1e-6), key).toBe(true);
+      }
+      expect(berry > 0, key).toBe(berries);
+      // from above: the topmost card where the cut keeps it, on a grid of 1 cm; its extent across x and z
+      if (!berries) continue;
+      const tris = Array.from({ length: n }, (_, t) => ({ p: [0, 1, 2].map((k) => m.pos.slice((t * 3 + k) * 3, (t * 3 + k) * 3 + 3)), uv: [0, 1, 2].map((k) => m.uv!.slice((t * 3 + k) * 2, (t * 3 + k) * 2 + 2)) }));
+      const kept = (x: number, z: number) =>
+        tris.some(({ p, uv }) => {
+          const [a, b, c] = p.map((q) => [q[0], q[2]]);
+          const d = (b[0] - a[0]) * (c[1] - a[1]) - (b[1] - a[1]) * (c[0] - a[0]);
+          if (Math.abs(d) < 1e-9) return false;
+          const w1 = ((b[0] - x) * (c[1] - z) - (b[1] - z) * (c[0] - x)) / d;
+          const w2 = ((c[0] - x) * (a[1] - z) - (c[1] - z) * (a[0] - x)) / d;
+          if (w1 < 0 || w2 < 0 || w1 + w2 > 1) return false;
+          const w0 = 1 - w1 - w2;
+          return patternAlpha(PATTERN.bush, w1 * uv[0][0] + w2 * uv[1][0] + w0 * uv[2][0], w1 * uv[0][1] + w2 * uv[1][1] + w0 * uv[2][1]) >= PATTERN_CUT;
+        });
+      let [x0, x1, z0, z1] = [Infinity, -Infinity, Infinity, -Infinity];
+      for (let x = -0.6; x <= 0.6; x += 0.01)
+        for (let z = -0.6; z <= 0.6; z += 0.01)
+          if (kept(x, z)) [x0, x1, z0, z1] = [Math.min(x0, x), Math.max(x1, x), Math.min(z0, z), Math.max(z1, z)];
+      const across = Math.max(x1 - x0, z1 - z0);
+      expect(across / 0.93).toBeGreaterThan(0.9);
+      expect(across / 0.93).toBeLessThan(1.1);
+    }
+    // each berry card on the dome, touching it and facing out along its surface, as the game's berries sit on its leaves
+    // (none floating, none seen edge-on), whatever the variant
+    for (let v = 0; v < 4; v++) {
+      const all = bushTriangles(true, v);
+      const dome = all.filter((t) => !t.berries).slice(0, 24);
+      const cards = all.filter((t) => t.berries);
+      expect(cards.length).toBe(8);
+      for (let k = 0; k < cards.length; k += 2) {
+        // (a card's two triangles share its diagonal: its middle is the diagonal's)
+        const [a, c] = [cards[k].p[0], cards[k].p[2]];
+        const mid = [0, 1, 2].map((i) => (a[i] + c[i]) / 2);
+        const e1 = [0, 1, 2].map((i) => cards[k].p[1][i] - a[i]);
+        const e2 = [0, 1, 2].map((i) => c[i] - a[i]);
+        const n = [e1[1] * e2[2] - e1[2] * e2[1], e1[2] * e2[0] - e1[0] * e2[2], e1[0] * e2[1] - e1[1] * e2[0]];
+        const l = Math.hypot(...n);
+        const on = domeAt(dome, mid[0] - BERRY_OFF * (n[0] / l), mid[2] - BERRY_OFF * (n[2] / l))!;
+        expect(on, `variant ${v}`).not.toBeNull();
+        // its middle at BERRY_OFF from the surface along the surface's normal, and it lies in the surface's plane
+        expect(Math.abs(mid[1] - BERRY_OFF * (n[1] / l) - on.y)).toBeLessThan(1e-3);
+        expect(Math.abs((n[0] * on.n[0] + n[1] * on.n[1] + n[2] * on.n[2]) / l)).toBeGreaterThan(0.999);
+        // facing up and out, not edge-on to a camera looking down on it
+        expect(on.n[1]).toBeGreaterThan(0.5);
+      }
+    }
   });
 
   it("builds living and dead trees apart: a dead tree has no green crown", () => {
