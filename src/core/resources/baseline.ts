@@ -402,7 +402,8 @@ export interface RuinFieldOptions {
    *  edge or a shore), 2 to 4 tiles wide, ragged, with gaps, never an ellipse's filled blob. */
   follow?: boolean;
   /** The scrap no new field takes (less than a field's least size, or no room left for another) grows the fields
-   *  placed (D527: every 5 % step of Ruins and scrap moves the ruins); else it is left over. */
+   *  placed, and the last field gives back what it grew past the scrap asked (D527: every 5 % step of Ruins and scrap
+   *  moves the ruins); else the remainder is left over and the overshoot kept. */
   topUp?: boolean;
 }
 
@@ -628,6 +629,24 @@ export function planRuinFields(g: BaselineGround, scrap: number, o: RuinFieldOpt
       centres.push(centreOf(tiles, W));
     }
     if (eligible && left > 0 && fields.length) left = topUpFields(g, fields, left, eligible, rim, o);
+  }
+  // (`topUp`: the last field placed gives back the columns it grew past the scrap asked, its last-grown first, while one
+  // goes whole and it keeps 10, so the ruins hold the scrap to within a column either way)
+  const last = fields[fields.length - 1];
+  if (eligible && left < 0 && last) {
+    const scrapOf = (f: RuinField) => (o.scrapOf ? o.scrapOf(f.tiles, f.tallness) : Math.round(f.tiles.length * 15 * meanStoreys(f.tallness)));
+    let had = scrapOf(last);
+    while (last.tiles.length > 10) {
+      const t = last.tiles.pop()!;
+      const now = scrapOf(last);
+      if (left + (had - now) > 0) {
+        last.tiles.push(t);
+        break;
+      }
+      left += had - now;
+      had = now;
+      g.taken[t] = 0;
+    }
   }
   return { fields, scrap: scrap - left };
 }
