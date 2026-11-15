@@ -10,8 +10,9 @@
 // edit keeps its water and momentum (D(new-preview)), but only where a source, a stored lake or the
 // water kept away from the edit reaches it (D385): restarting a stretch of flowing river left a
 // step in its surface with no momentum, which sloshed on past the cap. Then the exact simulation
-// runs until the edit's water has found its level: checked every 64 ticks, the volume changes by under 0.2% and at most 0.05% of
-// the map moves by more than 0.05 (a local change reaches a whole lake or sea, whose level then
+// runs until the edit's water has found its level: checked every 64 ticks, the volume changes by
+// under 0.2% and at most 0.05% of the map moves by more than 0.05 (a local change reaches a whole
+// lake or sea, whose level then
 // drifts by thousandths for a long time), with a cap of one game day. A sealed oxbow lake only
 // evaporating is not the water still moving (D222): the preview stops once everything else has. The
 // editor's background settle (`PreviewJob`, the one driver, with its own cap) runs on past the day
@@ -31,6 +32,13 @@
 // once the preview's water stops, the pre-fill's water that only the walk's thin water had joined to
 // fed water is taken away and the water runs on, by the canonical settle's own drain (sim/fed.ts
 // `withoutUnfed`, a new simulation on the water as it stands).
+//
+// Which water lost its feed depends on the cause (D260 as ruled 2026-11-15). A source removed or
+// weakened takes water out of the map, so standing water above the new level must go and a warm pool
+// drains too slowly to show it; every tile that source's walk reached and that lost over a tenth of
+// its flow starts again as unfed (`LOST_SHARE`). Ground that only turns a walk takes no water out; it
+// moves it, so only the tiles the flow left (under a tenth of it still there, `UNFED_SHARE`) are
+// unfed, and the rest keep their depth and momentum and adjust.
 
 import { drainUnfed, fedTiles, keptSeeds, withoutUnfed } from "./fed";
 import { flowThrough, prefill, type CanonicalWater } from "./prefill";
@@ -38,6 +46,13 @@ import { sealedTiles, SettleRun, TICKS_PER_DAY, WaterSim, type WaterModel, type 
 
 /** How far (tiles, Chebyshev) around a changed tile the warm start takes the pre-fill on dry tiles. */
 export const WARM_MARGIN = 2;
+/** The share of a tile's walk flow (prefill.ts `flowThrough`) below which ground that only turned a walk
+ *  has taken its feed (D260 as ruled 2026-11-15): a channel that still carries more keeps its water and
+ *  momentum and adjusts. */
+export const UNFED_SHARE = 0.1;
+/** The same share on a tile the walk of a source the edit removed or weakened reached: any fall over a
+ *  tenth (D260). */
+export const LOST_SHARE = 0.9;
 /** The preview's settle: checks every 64 ticks, at most 0.05% of tiles moving by more than 0.05,
  *  one day at most. */
 export const PREVIEW_CHECK = 64;
@@ -141,7 +156,10 @@ function lostReach(prev: WaterModel, next: WaterModel): Uint8Array | null {
  *  a fall in it only where a source that is gone or weaker reached it: a cut far away re-routes the
  *  walk without taking any water off the pool, as a LargeRelic's levelling 17 tiles from a dam took a
  *  spring's walk off the dam's tiles and drained them while the water round them stayed (#756); in the
- *  open channel the flow sets the water's height, and any fall counts.
+ *  open channel the flow sets the water's height. How far it must fall depends on its cause (D260 as
+ *  ruled 2026-11-15): on a tile the walk of a source removed or weakened reached, over a tenth
+ *  (`LOST_SHARE`), since that takes water out of the map; elsewhere ground only turned a walk, which
+ *  moves water, and only a tile left under a tenth of its flow (`UNFED_SHARE`) counts.
  *  They take the canonical start, so their water drains in the edit's own journey as the canonical
  *  settle's does. Only water that lost its feed on the new ground: a tile the old ground's canonical
  *  start didn't reach either (nor a tile round it) holds water the settle itself spread there, a lake
@@ -161,7 +179,7 @@ export function unfedTiles(from: WarmState, next: WaterModel, start: WaterState 
   const out = new Uint8Array(N);
   for (let i = 0; i < N; i++) {
     if (!(d[i] > 0) || !(prev.floor[i] + d[i] > next.floor[i])) continue;
-    if (now[i] < was[i] * 0.9 - 1e-9 && (!(level[i] > next.floor[i]) || lost?.[i])) {
+    if (now[i] < was[i] * (lost?.[i] ? LOST_SHARE : UNFED_SHARE) - 1e-9 && (!(level[i] > next.floor[i]) || lost?.[i])) {
       out[i] = 1;
       continue;
     }

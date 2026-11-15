@@ -17,12 +17,27 @@
 // that were wet before the edit or hold more than 0.05 in either; the tolerance is placeNoSpill.test.ts's, 0.1.
 // Digging the bank tile beside the fall at (58, 39) is left out: it leaves a travelling wave in the preview
 // (gap 0.285), with the code before this change too, a separate cause this test does not cover.
+//
+// Which water lost its feed depends on its cause (D260 as ruled 2026-11-15, sim/preview.ts `unfedTiles`): on a
+// tile a removed or weakened source's walk reached, any fall over a tenth of the walk's flow (`LOST_SHARE`);
+// where ground only turned a walk, only a fall below a tenth (`UNFED_SHARE`), and a channel that keeps more
+// keeps its water and momentum while the preview's own steps lower it. Held here: on a land built for it,
+// flattening one tile turns a spring's walk (two sources of 4) away from a river (three of 4), leaving the
+// river 0.6 of its walk's flow; on River Valley 96² seed 8 an Underground Ruins at 82,52 leaves 0.12 of it on
+// 363 wet tiles; and one edit that weakens a source and turns its walk takes each rule where it belongs.
+// Neither turned case fails with the old line (any fall over a tenth restarted the tile dry); the one that
+// does, seed 9's Ruins at 34,34 (0.105 against the settle, now 0.038), needs #1145's land and is held there.
+// Not held, for a ruling: a trench a river filled that a turned walk leaves, another walk still crossing it
+// with half the flow, keeps 1.90 in the preview against the settle's 0 (1.93 before: a pool tile is never
+// judged by its flow).
 
 import { describe, expect, it } from "vitest";
 import { footprintTiles } from "../../src/core/format/footprints";
 import { makeSpec } from "../../src/core/spec/mapspec";
 import { runGenerate } from "../../src/worker/api";
 import * as ed from "../../src/worker/session";
+import { flowThrough } from "../../src/core/sim/prefill";
+import { UNFED_SHARE, unfedTiles } from "../../src/core/sim/preview";
 
 const W = 96;
 const ID = "11111111-2222-4333-8444-555555555555";
@@ -138,4 +153,121 @@ describe("the preview after an edit beside a stream ends where the canonical set
     expect(counts.raised).toBeGreaterThan(10);
     expect(counts.dug).toBeGreaterThan(10);
   }, 600000);
+});
+
+/** Make the edit and read, over the tiles wet before it that still carry some of the walk's flow
+ *  (prefill.ts `flowThrough`), how many lose more than a tenth of it and the least share any keeps. */
+function flowLeft(edit: () => boolean): () => boolean {
+  return () => {
+    const s = ed.collabSession()!;
+    const from = s.lastSettled()!;
+    if (!edit()) return false;
+    const was = flowThrough(from.model).q;
+    const now = flowThrough(s.built.waterModel).q;
+    left = { least: 1, falls: 0 };
+    for (let i = 0; i < W * W; i++) {
+      if (!(from.water.depth[i] > 0) || !(now[i] > 0) || !(now[i] < was[i] * 0.9)) continue;
+      left.falls++;
+      left.least = Math.min(left.least, now[i] / was[i]);
+    }
+    return true;
+  };
+}
+let left = { least: 1, falls: 0 };
+
+/** A land for the turned walk: a blank 96² map at 12 with a river three wide down column 61, its bed at 9
+ *  north of row 50 and at 6 from there (a fall of three), fed by three sources of 4, and a second channel
+ *  down column 11, its bed at 1. On each of `rows` a spring's basin (7, columns 28-32, two rows either side)
+ *  spills east along the row at 8 into the river; west, a channel at 7 runs to column 11, shut by a tile at
+ *  11 on column 27. The first basin holds two sources of 4, any other one. Returns the sources' ids. */
+function springs(rows: number[]): string[] {
+  ed.newBlank(W, 12);
+  for (let y = 0; y < W; y++) {
+    flat(y, 60, 62, y < 50 ? 9 : 6);
+    flat(y, 10, 12, 1);
+  }
+  const ids: string[] = [];
+  const source = (x: number, y: number) => {
+    const id = `00000000-0000-4000-8000-0000000000d${ids.length}`;
+    expect(ed.apply({ op: "placeEntity", params: { id, template: "WaterSource", x, y, orientation: "Cw0", components: { WaterSource: { SpecifiedStrength: 4, CurrentStrength: 4 } } } } as never).errors ?? []).toEqual([]);
+    ids.push(id);
+  };
+  for (const x of [60, 61, 62]) source(x, 1);
+  rows.forEach((r, n) => {
+    for (let y = r - 2; y <= r + 2; y++) flat(y, 28, 32, 7);
+    flat(r, 33, 59, 8);
+    flat(r, 13, 26, 7);
+    flat(r, 27, 27, 11);
+    source(30, r);
+    if (n === 0) source(29, r);
+  });
+  return ids;
+}
+
+describe("a channel that still carries a tenth of its walk's flow keeps its water, and the preview ends where the settle does (D260 as ruled 2026-11-15)", () => {
+  it("built here: a spring's walk turned away from the river it joined, the river left 0.6 of it", () => {
+    springs([55]);
+    settle();
+    const before = snap();
+    expect(before.d[70 * W + 61], "the river runs").toBeGreaterThan(1);
+    expect(before.d[55 * W + 45], "the spring runs into it").toBeGreaterThan(0.1);
+    expect(before.d[55 * W + 20], "and not west").toBe(0);
+    // (flattening the shutting tile to the west channel's level: the basin now spills west, lower)
+    const g = gap(before, flowLeft(() => (flat(55, 27, 27, 7), true)));
+    expect(g).not.toBeNull();
+    expect(left.falls, "the river's walk loses flow").toBeGreaterThan(100);
+    expect(left.least, "the river keeps more than a tenth of its walk's flow").toBeGreaterThan(UNFED_SHARE);
+    expect(left.least, "and loses more than a tenth").toBeLessThan(0.9);
+    expect(g!, `the preview differs from the settle by ${g!.toFixed(3)}`).toBeLessThan(TOL);
+  }, 120000);
+
+  it("built here: one edit weakens a source and turns its walk: the source's rule on every tile its walk reached, the turned rule elsewhere", () => {
+    // (two springs: the first, two sources of 4 on row 55, and the second, one of 4 on row 75 with a third
+    // source of 4 on its run to the river at 45,75, which the turn leaves half the flow)
+    const ids = springs([55, 75]);
+    const third = "00000000-0000-4000-8000-0000000000e0";
+    expect(ed.apply({ op: "placeEntity", params: { id: third, template: "WaterSource", x: 45, y: 75, orientation: "Cw0", components: { WaterSource: { SpecifiedStrength: 4, CurrentStrength: 4 } } } } as never).errors ?? []).toEqual([]);
+    settle();
+    const s = ed.collabSession()!;
+    const from = s.lastSettled()!;
+    // the edit: both shutting tiles flattened to the west channels' level, and one of the first spring's two
+    // sources (29,55) weakened from 4 to 2
+    expect(ed.apply({ op: "sculpt", params: { mode: "flatten", cells: [[55, 27, 27], [75, 27, 27]], level: 7, exact: true } } as never).errors ?? []).toEqual([]);
+    expect(ed.apply({ op: "setEntityProps", params: { id: ids[4], components: { WaterSource: { SpecifiedStrength: 2, CurrentStrength: 2 } } } } as never).errors ?? []).toEqual([]);
+    const next = s.built.waterModel;
+    const weakened = from.model.emitters.filter((e) => e.cells.includes(55 * W + 29));
+    expect(weakened.length, "the weakened source").toBe(1);
+    const reached = flowThrough({ ...from.model, emitters: weakened }).path;
+    const was = flowThrough(from.model).q;
+    const now = flowThrough(next).q;
+    const unfed = unfedTiles(from, next)!;
+    const count = { source: 0, turned: 0 };
+    for (let i = 0; i < W * W; i++) {
+      // (the wet tiles that keep between a tenth and nine tenths of the walk's flow: unfed by the source's rule,
+      // kept by the turned one)
+      if (!(from.water.depth[i] > 0) || !(now[i] > was[i] * UNFED_SHARE) || !(now[i] < was[i] * 0.9)) continue;
+      const at = `${i % W},${Math.floor(i / W)} (${(now[i] / was[i]).toFixed(2)} of its walk's flow left)`;
+      if (reached[i]) {
+        count.source++;
+        expect(unfed[i], `${at}, which the weakened source's walk reached, is unfed`).toBe(1);
+      } else {
+        count.turned++;
+        expect(unfed[i], `${at}, which it did not reach, keeps its water`).toBe(0);
+      }
+    }
+    expect(count.source, "tiles under the source's rule").toBeGreaterThan(50);
+    expect(count.turned, "tiles under the turned rule").toBeGreaterThan(5);
+  }, 120000);
+
+  it("River Valley 96² seed 8: an Underground Ruins at 82,52 leaves the river 0.12 of its walk's flow", async () => {
+    await runGenerate(makeSpec({ seed: 8, theme: "riverValley", size: { x: W, y: W } }));
+    ed.refine();
+    settle();
+    const before = snap();
+    const g = gap(before, flowLeft(place("UndergroundRuins", 82, 52)));
+    expect(g, "the ruins are placed").not.toBeNull();
+    expect(left.falls, "the river's walk loses flow").toBeGreaterThan(100);
+    expect(left.least, "the river keeps more than a tenth of its walk's flow").toBeGreaterThan(UNFED_SHARE);
+    expect(g!, `the preview differs from the settle by ${g!.toFixed(3)}`).toBeLessThan(TOL);
+  }, 120000);
 });
