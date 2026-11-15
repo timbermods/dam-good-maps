@@ -31,10 +31,11 @@ function slide(path: { x: number; y: number }[], side: 1 | -1, power: number): v
   expect(ed.forceStop().kept).toBe(true);
 }
 
-/** Highlands 64², seed 2: twelve Pines planted in a row on dry free ground, (33..44, 27). (D148: D518's mends moved the
- *  land; on seed 1 the row's Slide is no longer kept, seed 2 carries the row as before.) */
+/** Highlands 64², seed 3: twelve Pines planted in a row on dry free ground, (33..44, 27). (D148: D518's mends moved the
+ *  land; on seed 1 the row's Slide is no longer kept, seed 2 carries the row as before. Seed 3 since generator 0.10.28's ruled
+ *  water, D(ruled-water), D148: seed 2's southern Slide meets a cave at (4, 52) now; seeds 3 to 7 carry the row.) */
 async function planted(): Promise<void> {
-  await runGenerate(makeSpec({ seed: 2, theme: "highlands", size: { x: W, y: W } }));
+  await runGenerate(makeSpec({ seed: 3, theme: "highlands", size: { x: W, y: W } }));
   ed.refine();
   PINES.forEach((id, k) => expect(ed.apply({ op: "placeEntity", params: { id, template: "Pine", x: X0 + k, y: ROW, orientation: "Cw0" } }).errors).toEqual([]));
 }
@@ -53,7 +54,7 @@ function rowSlide(): string[] {
 }
 
 describe("an object a force carries lands where the force put it (D425)", () => {
-  it("Highlands 64², seed 2: after a Slide elsewhere, a Pine of a planted row deleted by hand; the row's Slide carries the Pine behind it onto its tile, and that Pine stands there", async () => {
+  it("Highlands 64², seed 3: after a Slide elsewhere, a Pine of a planted row deleted by hand; the row's Slide carries the Pine behind it onto its tile, and that Pine stands there", async () => {
     await planted();
     // a Slide across the south of the map, carrying what stands there
     slide([{ x: 4, y: W - 12 }, { x: W - 5, y: W - 11.5 }], 1, 30);

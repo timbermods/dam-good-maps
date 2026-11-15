@@ -118,7 +118,8 @@ a premise or one still to come, may carry its own, lower playability floor.
   dry tiles; ours at least 28, 30 to 34 where the bare land's share holds it: the cover limit and the spread that make
   a stand a wood allow no more, D516's floor, D518), in two to four old woods where forest was: the old water line, dry beds, a mesa top,
   dry hollows; pines on the tops, birches by old water, a few old oaks. The rest of the dry land is bare: at most a
-  quarter of it within 6 tiles of a dead tree, the count giving way first. A wood is dense inside its outline. A stand is irregular knots of 3 to 8
+  quarter of it within 6 tiles of a dead tree, the count giving way first (and where a 3D form's spring cave later wets
+  dry land under them, the stands farthest from the start, `generate.ts`, `deadStands.ts` `bareShare`). A wood is dense inside its outline. A stand is irregular knots of 3 to 8
   trunks, each its own shape, with gaps, never a filled square, thinning to single trees at its edge, its outline the land's (a rim, a bank, the old
   water line), a third of its trees shorter (died young; D518). A dead tree keeps its logs and grows none back: wood
   travelled for, none in the start's walk.
@@ -176,12 +177,12 @@ a premise or one still to come, may carry its own, lower playability floor.
   centre to centre, reported). `--gen` makes a set, `--frames` marks them (straight shore orange, side by side yellow),
   `tools/ruled-water-sheet.py` lays before and after out with the start's numbers first; `tools/water-tree.ts` reads
   the drainage's hierarchy (courses, joins, wet share, width by order). The 42 maps at 256² (seven themes, seeds 1 to
-  6), dev 0dec5dcf8 → round 2: straight shore 63.3 → 57.4 % (lip left out 62.4 → 56.1), side by side within 6:
-  496 → 232 tiles (within 12: 1,456 → 671), attempts 245 → 190, leaks 61 → 45; River Valley 9's three streams abreast
-  (111 tiles) join. The mends: a course traced beside one already traced joins it (`hydro.ts` `BESIDE`), Delta's arms
-  step diagonally, a planned lake's shore is laid on a noised contour in graded bays (`shores.ts` `wanderShores`);
-  `src/core/land/README.md`. A gently curving shore still counts as straight under an 8-tile strip, so the share is a
-  relative measure, not a limit; the game's own maps have not been run.
+  6), dev d05fa856b → generator 0.10.28: side by side within 6 tiles 254 → 251 (within 12: 1,114 → 1,128), straight
+  shore 63.3 → 62.9 %, attempts 209 → 173, leaks 40 → 38. The mends: a course traced beside one already traced joins
+  it (`hydro.ts` `BESIDE`), and Delta's arms step diagonally; `src/core/land/README.md`. Lake shores laid on a noised
+  contour were tried and dropped (they cost Highlands 4 its start): the shores wait for the water tree. A gently
+  curving shore still counts as straight under an 8-tile strip, so the share is a relative measure, not a limit; the
+  game's own maps have not been run.
 
 **Land first, story second** (planning's ruling of 2026-11-11, for every path: themes, premises, hand maps). Every
 landform is one geology makes, shaped by the shared natural relief. A premise is found in or cut into natural land by a

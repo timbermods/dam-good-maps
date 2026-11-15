@@ -137,6 +137,33 @@ export interface DeadStand {
   giants?: boolean;
 }
 
+/** The share of the dry land (no water, no moisture) within `DEAD_STANDS.bare.reach` tiles of a dead tree on these
+ *  tiles: the bare land's measure, read on a map as built. A later stage that wets the land (a 3D form's spring cave)
+ *  must not take it past `bare.most` (`generate.ts`). */
+export function bareShare(W: number, H: number, deadTiles: readonly number[], water: ArrayLike<number>, moisture: ArrayLike<number>): number {
+  const B = DEAD_STANDS.bare;
+  const R = Math.ceil(B.reach);
+  const near = new Uint8Array(W * H);
+  for (const t of deadTiles) {
+    const tx = t % W;
+    const ty = (t - tx) / W;
+    for (let dy = -R; dy <= R; dy++)
+      for (let dx = -R; dx <= R; dx++) {
+        const x = tx + dx;
+        const y = ty + dy;
+        if (x >= 0 && y >= 0 && x < W && y < H && dx * dx + dy * dy <= B.reach * B.reach) near[y * W + x] = 1;
+      }
+  }
+  let dry = 0;
+  let cover = 0;
+  for (let i = 0; i < W * H; i++)
+    if (!(water[i] > 0) && !(moisture[i] > 0)) {
+      dry++;
+      if (near[i]) cover++;
+    }
+  return dry ? cover / dry : 0;
+}
+
 /** The dry tiles: no water and no moisture. The aim is per 1,000 of them. */
 export function dryTiles(wet: Uint8Array, moist: Uint8Array): number {
   let n = 0;

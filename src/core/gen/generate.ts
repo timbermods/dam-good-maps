@@ -94,12 +94,13 @@ import { description, toTimberFile } from "./pack";
 import { outcomesOf, PROMISES, promiseSides, type Outcomes } from "./outcomes";
 import { mapSays, mapWords, type PlayFacts } from "./names";
 import { nearStartTargets, planResources } from "./resources";
+import { bareShare, DEAD_STANDS } from "./deadStands";
 import { planRuinStories } from "./ruinStories";
 import { DROUGHT, REACH_MIN, RESERVE, reservoirNeeded, RUIN_HEIGHT_SHARES } from "./calibrated";
 import { gameSoil } from "../sim/soil";
 import { DAYS_TO_DIE_DRY } from "../sim/withering";
 import { resourceBudget, ruinColumns, ruinRagged } from "../resources/baseline";
-import { tilesToRuns } from "../math/grid";
+import { runsToTiles, tilesToRuns } from "../math/grid";
 import { obstacleTiles, type ObstaclePlan } from "../features/setpieces/obstaclePayoff";
 import type { SetPieceFeature } from "../features/schema";
 import { dryStart, padFloods, pickStart, prepareStart, waterAim, type DroughtPolicy, type StartPick } from "./settler";
@@ -3530,6 +3531,32 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
       // (and no check, advisory ones included, fails that passed without the forms)
       const failing = new Set(v.report.checks.filter((c) => !c.ok).map((c) => c.id));
       const records: IntentionResult[] = grown.missed.map((m) => ({ id: m.id, ok: false, note: m.why, outcome: "dropped" as const }));
+      // (the dead stands' bare land, D516: a spring cave's stream wets land the stands were planned on as dry, so where a
+      // form takes the dry land within reach of a dead tree past `bare.most`, the stands farthest from the start give way
+      // until it holds again; the start's own wood is checked again with the rest)
+      const isDead = (f: Feature) => f.kind === "forest" && (f.role ?? "").startsWith("forest/dead/");
+      const deadOf = (fs: readonly Feature[]) => fs.flatMap((f) => (f.kind === "forest" && isDead(f) ? runsToTiles(f.params.area, W) : []));
+      const bareMost = Math.max(DEAD_STANDS.bare.most, bareShare(W, H, deadOf(features), built.water, built.moisture));
+      const bareKept = (fs: Feature[], b: BuildResult): Feature[] => {
+        if (bareShare(W, H, deadOf(fs), b.water, b.moisture) <= bareMost) return fs;
+        const sx = b.start ? b.start.x : W / 2;
+        const sy = b.start ? b.start.y : H / 2;
+        const far = (f: Feature): number => {
+          if (f.kind !== "forest") return 0;
+          const t = runsToTiles(f.params.area, W);
+          let d = 0;
+          for (const i of t) d += (i % W - sx) * (i % W - sx) + (Math.floor(i / W) - sy) * (Math.floor(i / W) - sy);
+          return t.length ? d / t.length : 0;
+        };
+        const order = fs.filter(isDead).sort((a, b2) => far(b2) - far(a) || (a.id < b2.id ? -1 : 1));
+        const gone = new Set<Feature>();
+        for (const f of order) {
+          gone.add(f);
+          const rest = fs.filter((g) => !gone.has(g));
+          if (bareShare(W, H, deadOf(rest), b.water, b.moisture) <= bareMost) return rest;
+        }
+        return fs.filter((g) => !gone.has(g));
+      };
       let plans = grown.forms.slice();
       for (let tries = 0; plans.length && tries < 2; tries++) {
         const mask = new Uint32Array(N);
@@ -3541,8 +3568,13 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
         h.set(t3.heights());
         caves = t3;
         for (const f of streams) contains.add(f.id);
-        const f3 = [...features, ...streams];
-        const b3 = build(f3, null);
+        let f3: Feature[] = [...features, ...streams];
+        let b3 = build(f3, null);
+        const kept = bareKept(f3, b3);
+        if (kept !== f3) {
+          f3 = kept;
+          b3 = build(f3, null);
+        }
         // (each form's own check first: a form that did not stand costs no validation)
         let k = 0;
         const checks = plans.map((p) => checkForm(p, b3, p.id === "spring-cave" ? streams[k++].id : null));
@@ -3558,6 +3590,7 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
           (b3.settle.settled || !built.settle.settled) &&
           !tooStraight(straightness(W, H, b3.water, { channels: ditches })) &&
           (g.tall || maxOf(b3.heights) <= 16) &&
+          bareShare(W, H, deadOf(f3), b3.water, b3.moisture) <= bareMost &&
           emerged.every((id) => checkIntention(id, ctx3).ok) &&
           outcomesOf({ spec: shown, built: b3, features: f3, intentions }).score >= before;
         if (holds && own) {

@@ -88,8 +88,10 @@ import * as ed from "../../src/worker/session";
 // `52341eab…` before generator 0.10.23's shown land kept for a rescue round, which moves only maps above 128²: the version
 // in the file alone, D148);
 // `36ed64bf…` before generator 0.10.24's round forms (the look round: no mesa, plateau, butte, cone or knoll is a circle, and
-// the weathering reaches in a disc, so no ring round one has square corners: a new land, D148)
-const LIVE_SHA = "ca3cf458b65043713b4c3ea287ae269b163a222a0dedcebbc92367e34aed2b2d";
+// the weathering reaches in a disc, so no ring round one has square corners: a new land, D148);
+// `ca3cf458…` before generator 0.10.28's ruled water (D(ruled-water)): the version in the file alone, the map otherwise byte
+// for byte 0.10.24's, D148
+const LIVE_SHA = "ec28b79d278a037286e2079f5ed0c1de54f67c747ec5faa5955d62b983430a47";
 const spec = () => makeSpec({ seed: 4242, size: { x: 128, y: 128 }, theme: "riverValley", designedFor: "normal" });
 
 describe("mine sites and ruins, models of our own", () => {
