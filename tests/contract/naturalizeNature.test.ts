@@ -127,9 +127,7 @@ const MAPS: [ThemeId, number, number | undefined][] = [
   ["riverValley", 6, 100],
   ["highlands", 5, 100],
   ["delta", 2, undefined],
-  // (Islands 6 for 5 since generator 0.10.24's ruled water, D(ruled-water), D148: on Islands 5's new land every one of the
-  // eight strokes finds nothing to weather and changes nothing; Islands 6's change land)
-  ["islands", 6, undefined],
+  ["islands", 5, undefined],
 ];
 
 describe("Naturalize keeps the downhill order (D399)", () => {

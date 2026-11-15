@@ -4,7 +4,7 @@
 import Ajv2020 from "ajv/dist/2020";
 import { describe, expect, it } from "vitest";
 import { generate } from "../../src/core/gen/generate";
-import { decodeSpecFragment, DIFFICULTY_RULES, encodeSpecFragment, GENERATOR_MIN_SIDE, generatorSizeRefusal, makeSpec, PREMISE_CHOICES, seedFromText, THEMES, type MapSpec } from "../../src/core/spec/mapspec";
+import { decodeSpecFragment, DIFFICULTY_RULES, encodeSpecFragment, GENERATOR_MIN_SIDE, generatorSizeRefusal, makeSpec, PREMISE_CHOICES, seedFromText, THEMES, upgradeSpec, type MapSpec } from "../../src/core/spec/mapspec";
 import { MAPSPEC_SCHEMA, validateSpec } from "../../src/core/spec/schema";
 
 const ajv = new Ajv2020({ allErrors: true, strict: false });
@@ -147,7 +147,7 @@ describe("URL codec (PLAN §14.5)", () => {
       };
       st.start = {
         area: pick(["small", "normal", "large"] as const),
-        rules: { waterWithin: int(4, 40), woodWithin20: int(0, 800), bushesWithin20: int(0, 200), badwaterWithin: int(12, 60), ruinsWithin: int(0, 60) },
+        rules: { waterWithin: int(4, 40), woodWithin20: int(0, 800), bushesWithin20: int(0, 200), ruinsWithin: int(0, 60) },
       };
       if (rng() < 0.3) spec.archetype = pick(THEMES);
       // (a premise is a closed list since step 9, D508: a premise id or Any)
@@ -197,6 +197,31 @@ describe("URL codec (PLAN §14.5)", () => {
     const bad = decodeSpecFragment("#s=5&t=canyon&st=x")!;
     expect(bad.spec.settings.start.rules.woodWithin20).toBe(DIFFICULTY_RULES.normal.woodWithin20);
     expect(bad.problems.length).toBe(1);
+  });
+
+  it("reads a link's start badwater rule from before D527 into Badwater distance, the larger of the two", () => {
+    const distance = (f: string) => decodeSpecFragment(f)!.spec.settings.hazards.badwaterDistance;
+    // (Normal's Badwater distance is 15; the generator kept the larger of the two, so the link opens the map it made)
+    expect(distance("#s=5&t=canyon&z=96&d=n&sx=40")).toBe(40);
+    expect(distance("#s=5&t=canyon&z=96&d=n&sx=8")).toBe(15);
+    expect(distance("#s=5&t=canyon&z=96&d=n&bd=8&sx=8")).toBe(8);
+    expect(distance("#s=5&t=canyon&z=96&d=n&bd=50&sx=20")).toBe(50);
+    const old = decodeSpecFragment("#s=5&t=canyon&z=96&d=n&bd=30&sx=30")!;
+    expect(old.problems).toEqual([]);
+    expect(encodeSpecFragment(old.spec)).toContain("&bd=30");
+    expect(encodeSpecFragment(old.spec)).not.toContain("sx=");
+    const bad = decodeSpecFragment("#s=5&t=canyon&sx=x")!;
+    expect(bad.spec.settings.hazards.badwaterDistance).toBe(15);
+    expect(bad.problems.length).toBe(1);
+  });
+
+  it("opens a spec from before D527 with Badwater distance the larger of it and the start's badwater rule", () => {
+    const spec = JSON.parse(JSON.stringify(makeSpec({ seed: 5 }))) as MapSpec & { settings: { start: { rules: Record<string, number> } } };
+    spec.settings.start.rules.badwaterWithin = 40;
+    upgradeSpec(spec);
+    expect(spec.settings.hazards.badwaterDistance).toBe(40);
+    expect("badwaterWithin" in spec.settings.start.rules).toBe(false);
+    expect(validateSpec(spec)).toEqual([]);
   });
 
   it("hashes text seeds", () => {

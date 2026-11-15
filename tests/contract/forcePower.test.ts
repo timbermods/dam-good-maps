@@ -133,16 +133,13 @@ describe("a painted Lift answers Power while it is painted (D361 (1))", () => {
   });
 });
 
-describe("Craterize's gentlest is gentle on any ground: seeds 1 to 11 but 3 (D361 (3))", () => {
+describe("Craterize's gentlest is gentle on any ground: seeds 1 to 10 (D361 (3))", () => {
   // (generator 0.10.16's graded slopes left the gentlest crater 6 to 12 levels deep on seeds 1 to 5, 7, 9 and 10: at
   // Power 0 it still levelled the ground under it toward one level (its rim's ground, nearly all off the map at this Size),
   // a fifth of the way, raising a valley or cutting a ridge by two or three levels, and the forces' last step then
   // dropped the corners of the land's own ridges down their cliffs. Now a crater weaker than its Size replaces the
-  // land's relief only as far as its Power, and that step leaves the land's own ground where the force only brushed it;
-  // seed 11 for seed 3 since generator 0.10.24's ruled water, D(ruled-water), D148: seed 3's new land has a 9-level cliff
-  // running diagonally at (63, 102), and the gentlest crater's smoothing moves its corner one tile, so one tile changes
-  // by 9 (the check allows 4); seed 11's gentlest changes 2 at most)
-  for (const seed of [1, 2, 4, 5, 6, 7, 8, 9, 10, 11])
+  // land's relief only as far as its Power, and that step leaves the land's own ground where the force only brushed it)
+  for (let seed = 1; seed <= 10; seed++)
     it(`seed ${seed}: at its largest Size, Power 0 is gentle but visible, and the change grows with Power`, async () => {
       await open(seed);
       const [p0, p50, p100] = [0, 50, 100].map((p) => change("craterize", p));

@@ -91,7 +91,7 @@ Read this index, then [how-we-work.md](how-we-work.md), then only the topic file
 
 ## [The generator](generator.md)
 
-- D(ruled-water): No course runs beside another (it joins the one it would run beside); a planned lake's shore lies on a noised contour, in graded bays, ground only
+- D(ruled-water): No course runs beside another: it joins the one it would run beside; Delta's arms step diagonally
 - D527: Every move of a generator control changes the next map, or the control is greyed with its reason
 - D520: The reach rule: a crossing between two bends under 5 wide is a ruled reach past five times its width; every other straight stretch, wider water and lakes at 12 rows
 - D519: A premise map's moist floor falls as the map grows: 30 % at 128², 25 % at 192², 20 % at 256²
@@ -159,7 +159,8 @@ Read this index, then [how-we-work.md](how-we-work.md), then only the topic file
 - D27: The canonical settle
 - D120: One water model, stacked columns
 - D350: Water that won't settle
-- D99: The editor's water
+- D99: The editor's water (its warm start amended by D(new-preview))
+- D(new-preview): A wet tile beside an edit keeps its water and momentum in the preview's warm start (amends D99)
 - D98: Approximate water on imports
 - D133: Weather: Drought and Badtide
 
