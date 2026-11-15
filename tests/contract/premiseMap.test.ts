@@ -53,9 +53,11 @@ import { decodeSpecFragment, encodeSpecFragment, makeSpec, type MapSpec } from "
 // a third of their trees young, its rolling and rises reweighed and its bend kept off the start, a new ground, D148; and
 // for the dead stands dense in their woods, each knot its own shape: its resources, D148; and for generator 0.10.21's
 // look round, D518: its ruin fields along their level's rim, a wash's banks jogging, the dead stands reading the dry land as the checks do, the version in its description, D148; and generator 0.10.22's version alone, the map otherwise 0.10.21's, D148;
-// and generator 0.10.23's version alone, its shown land kept for a rescue round moving only maps above 128², D148; and
-// generator 0.10.24's berries near the start, a tenth over Berries near start and its rescue planting at that, D527, D148)
-const SHA = "98670d0189016eed45978f1f3473de776cd12241e9c4f4ef706332e739d75656";
+// and generator 0.10.23's version alone, its shown land kept for a rescue round moving only maps above 128², D148;
+// and generator 0.10.24's round forms (the look round: its outlands' knolls, mesas and cones never circles, the weathering
+// reaching in a disc), a new ground, D148; and generator 0.10.26's berries near the start, a tenth over Berries near
+// start and its rescue planting at that, and its dead stands held under their cover limit, D527, D148)
+const SHA = "41ccfeb389074859d6dce757d22a2812734fed4ee39066c236de1e6de5efe634";
 
 // (a Hard map whose start lake parts as it falls: the single analytic reading stood 0.32 over the run there, PR #1040;
 // seed 5 for 7 since D518 with dev's ways out by a ramp's line (#1061), D148: seed 7's Hard lake stair holds no plan now

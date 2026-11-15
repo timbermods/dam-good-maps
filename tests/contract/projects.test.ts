@@ -171,9 +171,11 @@ describe("project files saved before the fix (tests/fixtures/projects, written b
   it("River Valley 96², seed 11 (every point on the map; the page's download) opens and rebuilds its .timber", () => {
     const doc = decodeProject(fixture("river-valley-96-11.damgoodmaps.json"));
     // saved before D164: its 50 starting trees open as 100 logs of starting wood
-    expect(doc.spec!.settings.start.rules).toEqual({ waterWithin: 16, woodWithin20: 100, badwaterWithin: 30, ruinsWithin: 15 });
+    expect(doc.spec!.settings.start.rules).toEqual({ waterWithin: 16, woodWithin20: 100, ruinsWithin: 15 });
     // saved before D527: its Starting berries (40) and Berries near start (48) open as one, the larger
     expect(doc.spec!.settings.resources.berriesNearStart).toBe(48);
+    // and its start badwater rule (30) and Badwater distance (30) open as one
+    expect(doc.spec!.settings.hazards.badwaterDistance).toBe(30);
     expect(pastOldBounds(doc.features)).toBe(false);
     const s = MapSession.open(doc);
     expect(s.history()).toEqual([]);

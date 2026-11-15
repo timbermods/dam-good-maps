@@ -125,8 +125,8 @@ export function rulesFor(spec: MapSpec | null, designedFor: Difficulty = "normal
     woodWithin20: r.woodWithin20,
     // (Berries near start is the start's least berries, D527)
     bushesWithin20: s ? s.resources.berriesNearStart : d.bushesWithin20,
-    // the Badwater distance setting and the start rule say the same thing: the stricter counts
-    badwaterWithin: s ? Math.max(s.hazards.badwaterDistance, s.start.rules.badwaterWithin) : r.badwaterWithin,
+    // (Badwater distance, the start's badwater rule folded into it, D527; a map without settings, its difficulty's)
+    badwaterWithin: s ? s.hazards.badwaterDistance : d.badwaterWithin,
     ruinsWithin: r.ruinsWithin,
     reachMin: Math.round(floors.reach * scale),
     levelLand: Math.round(floors.bench[s?.start.area ?? "normal"] * scale),

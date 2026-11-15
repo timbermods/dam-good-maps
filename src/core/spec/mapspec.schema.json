@@ -104,11 +104,10 @@
             "rules": {
               "type": "object",
               "additionalProperties": false,
-              "required": ["waterWithin", "woodWithin20", "badwaterWithin", "ruinsWithin"],
+              "required": ["waterWithin", "woodWithin20", "ruinsWithin"],
               "properties": {
                 "waterWithin": { "type": "integer", "minimum": 4, "maximum": 40 },
                 "woodWithin20": { "type": "integer", "minimum": 0, "maximum": 800 },
-                "badwaterWithin": { "type": "integer", "minimum": 8, "maximum": 60 },
                 "ruinsWithin": { "type": "integer", "minimum": 0, "maximum": 60 }
               }
             }

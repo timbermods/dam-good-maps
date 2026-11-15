@@ -105,17 +105,17 @@ export const SETTING_KEYS: readonly SettingKey[] = [
   { key: "es", path: ["start", "easyStart"], kind: "flag" },
   { key: "sw", path: ["start", "rules", "waterWithin"], kind: "int" },
   { key: "sl", path: ["start", "rules", "woodWithin20"], kind: "int" },
-  { key: "sx", path: ["start", "rules", "badwaterWithin"], kind: "int" },
   { key: "sr", path: ["start", "rules", "ruinsWithin"], kind: "int" },
 ];
 
 const SPECIES = ["pine", "birch", "oak", "succulent"] as const;
 const DIFF_CODES: Record<Difficulty, string> = { easy: "e", normal: "n", hard: "h" };
 const DIFFS: Record<string, Difficulty> = { e: "easy", n: "normal", h: "hard" };
-/** Keys that are not settings, `st`: Minimum starting trees before D164 (read as wood), and `sb`: Starting berries
- *  before D527 (read into Berries near start, the larger of the two). */
+/** Keys that are not settings, `st`: Minimum starting trees before D164 (read as wood), and from before D527 `sb`:
+ *  Starting berries (read into Berries near start) and `sx`: the start's badwater rule (read into Badwater distance),
+ *  each the larger of the two. */
 // (`sp` and `k`: set pieces and constraints, which older links may carry; ignored)
-const OTHER_KEYS = new Set(["v", "s", "t", "z", "d", "a", "p", "c", "sp", "k", "st", "sb", "vr", "in"]);
+const OTHER_KEYS = new Set(["v", "s", "t", "z", "d", "a", "p", "c", "sp", "k", "st", "sb", "sx", "vr", "in"]);
 
 function getAt(s: Settings, path: Path): unknown {
   let o: unknown = s;
@@ -298,6 +298,17 @@ export function decodeSpecFragment(fragment: string): DecodedFragment | null {
     if (!/^\d+$/.test(sb) || validateSpec(spec).length) {
       spec.settings.resources.berriesNearStart = before;
       problems.push(`setting sb=${sb} is not valid here, so the preset's value is kept`);
+    }
+  }
+  // a link from before D527 may give the start's badwater rule (`sx`) beside Badwater distance (`bd`): the
+  // generator kept the larger of the two, so the one setting now reads the larger (the map the link made)
+  const sx = params.get("sx");
+  if (sx !== undefined) {
+    const before = spec.settings.hazards.badwaterDistance;
+    if (/^\d+$/.test(sx)) spec.settings.hazards.badwaterDistance = Math.max(before, Number(sx));
+    if (!/^\d+$/.test(sx) || validateSpec(spec).length) {
+      spec.settings.hazards.badwaterDistance = before;
+      problems.push(`setting sx=${sx} is not valid here, so the preset's value is kept`);
     }
   }
   const a = params.get("a");

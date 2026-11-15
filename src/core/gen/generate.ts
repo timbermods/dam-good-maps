@@ -1761,7 +1761,6 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
     r.waterWithin = Math.min(r.waterWithin, Math.floor(easyT.water) + 2);
     r.woodWithin20 = Math.max(r.woodWithin20, easyT.wood);
     r.ruinsWithin = Math.min(r.ruinsWithin, 10);
-    r.badwaterWithin = Math.max(r.badwaterWithin, EASY_BADWATER);
     spec.settings.hazards.badwaterDistance = Math.max(spec.settings.hazards.badwaterDistance, EASY_BADWATER);
     // (Berries near start is the start's least, D527, and the generator places a margin over it: about 1.5 × Easy
     // start's berries placed, as ever)
@@ -1780,9 +1779,7 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
   // player's)
   if (ease >= 1) {
     const hz = spec.settings.hazards;
-    const eased = easedBadwater(Math.max(hz.badwaterDistance, spec.settings.start.rules.badwaterWithin), W, H, ease);
-    hz.badwaterDistance = Math.min(hz.badwaterDistance, eased);
-    spec.settings.start.rules.badwaterWithin = Math.min(spec.settings.start.rules.badwaterWithin, eased);
+    hz.badwaterDistance = easedBadwater(hz.badwaterDistance, W, H, ease);
   }
   // the walk the start's settled water is held to: the rule less a margin (`waterAim`); in a rescue
   // round, a rule under 7 is held to itself, as the check reads it (the margin leaves a start at 4
@@ -2097,7 +2094,7 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
     count: g.hazards.badwater === "none" ? 0 : Math.max(1, budget.sources),
     strength: budget.strength > 0 ? budget.strength : Math.round(Math.min(2, Math.max(1, g.hazards.ratio * 0.65 * hy.flowTotal)) * 100) / 100,
     // (the start's rule, D469 amended; a rescue round's is eased above)
-    distance: Math.max(spec.settings.hazards.badwaterDistance, spec.settings.start.rules.badwaterWithin, easyT ? easyT.badwaterSource + 2 : 0),
+    distance: Math.max(spec.settings.hazards.badwaterDistance, easyT ? easyT.badwaterSource + 2 : 0),
     keepOff: (weir ? pool : null) as Uint8Array | null,
     // (the ditches follow the field's own drainage, as the rivers' courses do)
     field: land.E,
@@ -2934,7 +2931,7 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
   }
   // ---- the start on the settled water, clear of the hollows and, where it can be, beyond the
   //      badwater distance from their water and soil (start.badwater: a target the settler aims for)
-  const badWithin = spec.settings.start.rules.badwaterWithin;
+  const badWithin = spec.settings.hazards.badwaterDistance;
   const beyondBad = (b: BuildResult): Uint8Array => {
     const m = new Uint8Array(N);
     let any = false;

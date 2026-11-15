@@ -86,8 +86,12 @@ import * as ed from "../../src/worker/session";
  *  tiles, so its land's edges jog; its ruin fields lie along their level's rim, and the dead stands read the dry land as the checks do: a new map, D148); `46455017…` before the dead stands' dry reading. */
 // (generator 0.10.22, the settings keeping their promises: the version in the file alone, the map otherwise byte for byte 0.10.21's, D148;
 // `52341eab…` before generator 0.10.23's shown land kept for a rescue round, which moves only maps above 128²: the version
-// in the file alone, D148)
-const LIVE_SHA = "36ed64bfa0422fbd6cf5408cb5742e603f3f01bb19b6ef3ac1c8df3fc872a309";
+// in the file alone, D148);
+// `36ed64bf…` before generator 0.10.24's round forms (the look round: no mesa, plateau, butte, cone or knoll is a circle, and
+// the weathering reaches in a disc, so no ring round one has square corners: a new land, D148);
+// `ca3cf458…` before generator 0.10.26's berries near the start (D527: a tenth over Berries near start, the start
+// chosen for the moist ground that wants, and the dead stands held under their cover limit: a new map, D148)
+const LIVE_SHA = "ba1fcae314aad90bd808db7bf99e97de19d18a09bd256b2bc179e3319427e397";
 const spec = () => makeSpec({ seed: 4242, size: { x: 128, y: 128 }, theme: "riverValley", designedFor: "normal" });
 
 describe("mine sites and ruins, models of our own", () => {

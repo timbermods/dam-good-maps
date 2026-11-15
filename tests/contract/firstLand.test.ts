@@ -15,8 +15,10 @@ describe("the first land shown is the map (D348)", () => {
       for (const theme of AVAILABLE_THEMES)
         // (Islands 96² seed 3 for 2 since generator 0.10.20's contour edges, D518, D148: seed 2's shown land fails its start's
         // wood, its moved start water and then its start, and the next round draws another; of Islands 96² seeds 1–12 only
-        // seed 2 shows two lands)
-        for (const seed of theme === "islands" && size === 96 ? [1, 3] : [1, 2]) {
+        // seed 2 shows two lands; Any 96² seed 3 for 2 since generator 0.10.26's berries near the start, D527, D148: seed
+        // 2's map's own groves take all but 33 tiles of its start's moist walk, so its start's berries fall short and the
+        // next round draws another land; of every theme's 96² seeds 1–3 only Any's seed 2 shows two lands)
+        for (const seed of (theme === "islands" || theme === "any") && size === 96 ? [1, 3] : [1, 2]) {
           const { changed, levelled, worn, mainKept } = changedSinceShown(theme as ThemeId, seed, size);
           expect(mainKept, `${theme} ${seed} ${size}²: the main river kept`).toBe(true);
           expect(mainKept, `${theme} 1 256²: the main river kept`).toBe(true);

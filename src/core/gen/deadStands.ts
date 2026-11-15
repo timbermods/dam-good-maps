@@ -60,7 +60,7 @@ export const DEAD_STANDS = {
   /** The rest of the dry land bare (#236, after 6819039430): at most `most` of the dry tiles within `reach` tiles of a
    *  dead tree; a stand that would pass it is not grown, and after `misses` such the woods stop short of the aim. The
    *  stands are held `settle` under it: the water the map settles to after them moves the dry land's edge by a few
-   *  tiles (Delta 4 at 128² since generator 0.10.24: 20 dry tiles moistened and 4 dried of 7,121, which took its built
+   *  tiles (Delta 4 at 128², with D527's berries: 20 dry tiles moistened and 4 dried of 7,121, which took its built
    *  map to 24.52 %). */
   bare: { reach: 6, most: 0.245, settle: 0.003, misses: 8 },
   /** An old giant among a stand's trees: an oak for every `oakEvery` trees, `oakMost` a stand at most. */

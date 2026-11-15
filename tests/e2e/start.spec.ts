@@ -62,7 +62,8 @@ test("the start requirements follow the settings, and the editor's start follows
   const box = page.locator(".start-indicators");
   await expect(box).toContainText(/Water without stairs: [\d.]+ tiles' walk \(at most 20\)/);
   await expect(box).toContainText(new RegExp(`Starting wood: \\d+ logs${WOOD_WORDS} \\(at least 75\\)`));
-  await expect(box).toContainText(/Starting bushes: \d+ \(at least 30\)/);
+  // (the least berries is Berries near start, D527)
+  await expect(box).toContainText(/Starting bushes: \d+ \(at least 48\)/);
   await expect(box).toContainText(/Logs for a Forester: \d+ within 40 tiles' walk \(at least 178\)/);
   const near = await page.evaluate(() => window.dgmEditor!.startCheck());
   expect(near!.problem).toBeNull();

@@ -27,8 +27,10 @@ it("a force started while the page still plays the water's journey starts from t
   // 21, 22 and 25–32, seeds 25 and 27 have no roof, and seed 25's source pools on 423 tiles; seed 27 since generator
   // 0.10.19's dry washes, D517, D148: seed 25's middle holds no dry spot clear of objects now; seed 25 again since D518's
   // mends moved the land, D148: seed 27's dry spot, (55, 40), now pools on only 10 tiles, where seed 25's, (70, 40), pools
-  // on 1472, and its map is still roofless, so the force's first water is the water on screen)
-  await runGenerate(makeSpec({ seed: 25, theme: "highlands", size: { x: W, y: W } }));
+  // on 1472, and its map is still roofless, so the force's first water is the water on screen; seed 21 since generator 0.10.26's berries near the start, D527,
+  // D148: seed 25's source now moves the settled water half a level on only 6 tiles; of seeds 21, 22 and 25–33 the
+  // test holds on 21, 27 and 30, seed 21 the first)
+  await runGenerate(makeSpec({ seed: 21, theme: "highlands", size: { x: W, y: W } }));
   ed.refine();
   const b = MapSession.open(decodeProject(ed.project().bytes)).built;
   // the page shows the map's water as it was before the edit below (its journey has only begun)

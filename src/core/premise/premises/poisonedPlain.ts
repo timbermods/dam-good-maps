@@ -227,7 +227,7 @@ const I = PLAIN_IDS;
 
 const plainTop = (spec: MapSpec) => Math.min(spec.settings.terrain.highestTerrain, EDITOR_LEVEL);
 /** The badwater distance the start keeps (as the shared gate reads it: `validate/playability.ts`). */
-const badwaterOf = (spec: MapSpec) => Math.max(spec.settings.hazards.badwaterDistance, spec.settings.start.rules.badwaterWithin);
+const badwaterOf = (spec: MapSpec) => spec.settings.hazards.badwaterDistance;
 /** The most risers a plain of this side can hold. */
 const mostRisers = (N: number) => Math.max(0, Math.floor((PLAIN.long[1] * N - RISER.end) / RISER.every[0]));
 /** The plain's least level: the river's bed at the downstream end a level over the floor, the Red Fall's pool on it. */
