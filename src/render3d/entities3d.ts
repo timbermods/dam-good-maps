@@ -74,7 +74,7 @@ import { largeRelicParts } from "./largeRelic";
 import { mediumRelicParts, smallRelicParts } from "./smallRelics";
 import { LAND, LAND_GROW } from "./objectFade";
 import { PINE_WHORLS, WHORL_SHADE, whorlTriangles } from "./pineCrown";
-import { IVY_ROOT, IVY_RUN, IVY_TRAILS, PATTERN, type Region } from "./objectPatterns";
+import { IVY_ROOT, IVY_RUN, IVY_TRAILS, PATTERN, PATTERN_TILE, type Region } from "./objectPatterns";
 
 type Rgb = readonly [number, number, number];
 
@@ -138,13 +138,10 @@ class Model {
   }
 
   /** A flat card with a pattern seen from both sides, as the game's cut-out cards are: the corners `p` (counter-clockwise
-   *  seen from its front) at the corners `uv` of the pattern `pattern` (objectPatterns.ts PATTERN), its albedo the
-   *  pattern's times `color`. */
-  card(p: readonly (readonly number[])[], uv: readonly (readonly number[])[], pattern: number, color: Rgb = [1, 1, 1]): this {
-    if (!this.uv || !this.pat) {
-      this.uv = new Array<number>((this.pos.length / 3) * 2).fill(0);
-      this.pat = new Array<number>(this.pos.length / 3).fill(0);
-    }
+   *  seen from its front) at the corners `uv` of the pattern `pattern` (objectPatterns.ts PATTERN), its albedo
+   *  `color` as the pattern varies it. */
+  card(p: readonly (readonly number[])[], uv: readonly (readonly number[])[], pattern: number, color: Rgb): this {
+    const at = this.patterned();
     const a = p[0];
     const n = [0, 1, 2].map((i) => {
       const j = (i + 1) % 3;
@@ -158,9 +155,55 @@ class Model {
         this.nrm.push((side * n[0]) / len, (side * n[1]) / len, (side * n[2]) / len);
         this.col.push(color[0], color[1], color[2]);
         this.lod.push(this.level);
-        this.uv.push(uv[v][0], uv[v][1]);
-        this.pat.push(pattern);
+        at.uv.push(uv[v][0], uv[v][1]);
+        at.pat.push(pattern);
       }
+    return this;
+  }
+
+  /** Its places in patterns, made (none) once a part takes one. */
+  private patterned(): { uv: number[]; pat: number[] } {
+    if (!this.uv || !this.pat) {
+      this.uv = new Array<number>((this.pos.length / 3) * 2).fill(0);
+      this.pat = new Array<number>(this.pos.length / 3).fill(0);
+    }
+    return { uv: this.uv, pat: this.pat };
+  }
+
+  /** The pattern `pattern` on the vertices from `from` on, at the places `uv` (u, v a vertex). */
+  pattern(from: number, pattern: number, uv: readonly number[]): this {
+    const p = this.patterned();
+    for (let v = from; v < this.pos.length / 3; v++) {
+      p.uv[v * 2] = uv[(v - from) * 2];
+      p.uv[v * 2 + 1] = uv[(v - from) * 2 + 1];
+      p.pat[v] = pattern;
+    }
+    return this;
+  }
+
+  /** Each part in one of `rules`' colours, and with no pattern yet, takes that rule's pattern (`tile` metres a unit of
+   *  it) as the game's model lays its wood on: a face that looks up or down at x and z, any other at its run across
+   *  (x or z, whichever it faces less) and its height, so boards along u lie level and those along v stand. */
+  patternBy(rules: readonly (readonly [Rgb, number, number])[]): this {
+    const p = this.patterned();
+    for (let t = 0; t < this.pos.length / 9; t++) {
+      if (p.pat[t * 3]) continue;
+      const c = this.col.slice(t * 9, t * 9 + 3);
+      const rule = rules.find(([rgb]) => rgb.every((v, i) => Math.abs(v - c[i]) < 1e-6));
+      if (!rule) continue;
+      const q = this.pos.slice(t * 9, t * 9 + 9);
+      const e1 = [q[3] - q[0], q[4] - q[1], q[5] - q[2]];
+      const e2 = [q[6] - q[0], q[7] - q[1], q[8] - q[2]];
+      const n = [e1[1] * e2[2] - e1[2] * e2[1], e1[2] * e2[0] - e1[0] * e2[2], e1[0] * e2[1] - e1[1] * e2[0]].map(Math.abs);
+      const s = 1 / rule[2];
+      for (let k = 0; k < 3; k++) {
+        const [x, y, z] = q.slice(k * 3, k * 3 + 3);
+        const [u, v] = n[1] >= 0.75 * Math.hypot(n[0], n[1], n[2]) ? [x, z] : n[0] >= n[2] ? [z, y] : [x, y];
+        p.uv[(t * 3 + k) * 2] = u * s;
+        p.uv[(t * 3 + k) * 2 + 1] = v * s;
+        p.pat[t * 3 + k] = rule[1];
+      }
+    }
     return this;
   }
 
@@ -995,8 +1038,13 @@ const CENTRED: Record<string, [number, number]> = {
 };
 
 /** A surface turned round the vertical through `rings` (radius, height; a radius given as [half-width] is a square of
- *  that half-width), `n` sides, facing out (a flat ring facing up). */
-function lathe(m: Model, rings: readonly (readonly [number | readonly [number], number])[], n: number, color: Rgb): void {
+ *  that half-width), `n` sides, facing out (a flat ring facing up); with `pattern` (the pattern, metres a unit of it),
+ *  u round it, a whole number of units, and v along its rings from the first. */
+function lathe(m: Model, rings: readonly (readonly [number | readonly [number], number])[], n: number, color: Rgb, pattern?: readonly [number, number]): void {
+  const radius = (ring: readonly [number | readonly [number], number]) => (typeof ring[0] === "number" ? ring[0] : ring[0][0]);
+  const along = [0];
+  for (let i = 1; i < rings.length; i++) along.push(along[i - 1] + Math.hypot(radius(rings[i]) - radius(rings[i - 1]), rings[i][1] - rings[i - 1][1]));
+  const round = pattern ? Math.max(1, Math.round((2 * Math.PI * radius(rings[0])) / pattern[1])) : 0;
   const at = (ring: readonly [number | readonly [number], number], j: number): number[] => {
     const a = (2 * Math.PI * j) / n;
     const [s, c] = [Math.sin(a), Math.cos(a)];
@@ -1006,14 +1054,18 @@ function lathe(m: Model, rings: readonly (readonly [number | readonly [number], 
   for (let i = 0; i + 1 < rings.length; i++)
     for (let j = 0; j < n; j++) {
       const q = [at(rings[i], j), at(rings[i], j + 1), at(rings[i + 1], j + 1), at(rings[i + 1], j)];
-      for (const [a, b, c] of [[q[0], q[1], q[2]], [q[0], q[2], q[3]]]) {
+      const quv = [[j, i], [j + 1, i], [j + 1, i + 1], [j, i + 1]].map(([jj, ii]) => [(jj / n) * round, pattern ? along[ii] / pattern[1] : 0]);
+      for (const [ia, ib, ic] of [[0, 1, 2], [0, 2, 3]]) {
+        const [a, b, c] = [q[ia], q[ib], q[ic]];
         const u = b.map((v, k) => v - a[k]);
         const w = c.map((v, k) => v - a[k]);
         const nrm = [u[1] * w[2] - u[2] * w[1], u[2] * w[0] - u[0] * w[2], u[0] * w[1] - u[1] * w[0]];
         const mid = [0, 1, 2].map((k) => (a[k] + b[k] + c[k]) / 3);
         const out = nrm[0] * mid[0] + nrm[2] * mid[2];
         const flip = Math.abs(out) > 1e-6 ? out < 0 : nrm[1] < 0;
+        const from = m.pos.length / 3;
         m.tris(flip ? [...a, ...c, ...b] : [...a, ...b, ...c], color);
+        if (pattern) m.pattern(from, pattern[0], (flip ? [ia, ic, ib] : [ia, ib, ic]).flatMap((k) => quv[k]));
       }
     }
 }
@@ -1072,7 +1124,7 @@ function districtCenter(): Model {
   for (const x of [-1, 1]) plate(m, round(0.26, x, 0.495), 1.42, 1.48, START.window);
   for (const f of [1, 3]) onFace(m, f, () => plate(m, round(0.26, 0, 0.495), -1.48, -1.42, START.window));
   // the thatched roof: its eaves, then up to the collar round the tower
-  lathe(m, [[[1.42], 0.9], [[1.52], 1.08], [[1.42], 1.24], [1.12, 1.48]], 16, START.thatch);
+  lathe(m, [[[1.42], 0.9], [[1.52], 1.08], [[1.42], 1.24], [1.12, 1.48]], 16, START.thatch, [PATTERN.thatch, PATTERN_TILE.thatch]);
   lathe(m, [[1.14, 1.44], [1.14, 1.53], [1.0, 1.53]], 16, W);
   // the tower, its ribs, its windows and the band round it
   lathe(m, [[1.05, 1.47], [0.61, 2.07], [0.39, 2.85]], 12, START.planks);
@@ -1101,10 +1153,17 @@ function districtCenter(): Model {
       m.add(box(0.1, 1.42, 0.1), W, { x, y: 3.62, z });
       m.add(box(0.12, 0.47, 0.12), START.brown, { x, y: 3.965, z });
     }
-  lathe(m, [[0.41, 3.78], [0.6, 3.84], [0.61, 3.9], [0.47, 4.1], [0.34, 4.21]], 12, shade(START.thatch, 1.03));
+  lathe(m, [[0.41, 3.78], [0.6, 3.84], [0.61, 3.9], [0.47, 4.1], [0.34, 4.21]], 12, shade(START.thatch, 1.03), [PATTERN.thatch, PATTERN_TILE.thatch]);
   lathe(m, [[0.34, 4.21], [0.26, 4.28], [0.2, 4.28]], 12, START.brown);
   lathe(m, [[0.34, 4.18], [0, 4.18]], 12, START.crown);
-  return m;
+  // the game's pictures on its wood: the dark planks on the walls and the tower, the pale wood's on the rest (and on
+  // the brown, which is the same picture darker)
+  return m.patternBy([
+    [START.planks, PATTERN.planks, PATTERN_TILE.planks],
+    [W, PATTERN.wood, PATTERN_TILE.wood],
+    [shade(W, 0.94), PATTERN.wood, PATTERN_TILE.wood],
+    [START.brown, PATTERN.wood, PATTERN_TILE.wood],
+  ]);
 }
 
 /** The Iron Teeth's start as the game draws it in play: their district center (DistrictCenter.IronTeeth.Model, its
@@ -1398,7 +1457,7 @@ function drape(m: Model, f: number, variant: number, ivy: number, top: number, h
     const [u0, u1] = mirror ? [r[0] + r[2], r[0]] : [r[0], r[0] + r[2]];
     const [v0, v1] = [r[1] + r[3] * (1 - cropV), r[1] + r[3]];
     // (seen from outside the face, −Z, +x is to the left)
-    m.card([[x1, y0, at], [x0, y0, at], [x0, y1, at], [x1, y1, at]], [[u0, v0], [u1, v0], [u1, v1], [u0, v1]], PATTERN.ivy);
+    m.card([[x1, y0, at], [x0, y0, at], [x0, y1, at], [x1, y1, at]], [[u0, v0], [u1, v0], [u1, v1], [u0, v1]], PATTERN.ivy, RUIN.ivy);
   };
   // the stems, the face's whole width up to the top (the root's cropped from its foot, the running ones from theirs)
   if (ivy >= IVY_MEDIUM) {

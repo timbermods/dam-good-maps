@@ -4287,6 +4287,44 @@ brown stems climbing from the foot; ours was large flat squares set diagonally o
 - **Sheet** (local only): `C:\dgm-showcase\objects\close\ivy-sheet.png`, the game | dev | branch at the `cave`
   camera in both looks, the pattern, and the ruins cropped.
 
+## The district center's thatch and wood as the game draws them (D135, D178 as amended 2026-11-10, D496, D497; `fix/close-thatch`)
+
+Judged on the same `cave` frame as the ivy, close up. The game's Folktails district center wears its materials'
+pictures: a thatch of straw in courses, walls and a tower of wavering dark planks laid level with light edges, pale
+grained wood on its posts, frames and railings. Ours drew each part in its flat mean.
+
+- **Read from the game's model and textures** (`DistrictCenter.Folktails`; numbers only, `tools/game-model-albedo.py`
+  and a measure of each material's UVs against its triangles): every material EnvironmentURP5, uncut; the thatch
+  (`ThatchedRoof`) 2.49 m of roof a unit of UV, v up the slope, four courses a unit, each pale blades pointing up into a
+  dark row of cut stalk ends; its texels 0.56 / 1.03 / 1.38 of its mean (5th / 50th / 95th percentile), the dark rows
+  0.58 and redder, the blades' tips 1.31 and paler. The planks (`IrregularPlanks_Brown`, the walls and the tower) 1.61 m
+  a unit, the boards along v of the texture laid level by the UVs: eight a unit, 0.2 m, a fifth of it their light edges
+  (0.348, 0.294, 0.201), three quarters the grained body (0.173, 0.121, 0.084), the rest the dark between; 0.55 / 0.85 /
+  1.96. The pale wood (`BaseWood_LightBrown`, and `BaseWood_Brown`, the same picture darker) 1.45 m a unit, boards
+  0.09 m wide, near white between them.
+- **Built** (`objectPatterns.ts`, D135: drawn in code from those figures): three more 256² layers in the objects'
+  texture array, tiling every way, ours 0.52 / 1.06 / 1.36 (thatch), 0.57 / 0.81 / 2.01 (planks). Every layer is now the
+  part's albedo over its colour, a third of it (`PATTERN_GAIN`; the ivy's cards take the leaves' colour), so each
+  tiling layer averages to its part's colour and the light look, which samples nothing, is unchanged. `lathe` takes a
+  pattern (u round it a whole number of units, v along its profile: the roof's and the hood's thatch);
+  `Model.patternBy` lays the wood's on the rest by colour, a face's UV its run across and its height (its x and z when
+  it looks up), so the planks lie level and the pale wood's grain stands. The atlas starts with the tiling layers at
+  their mean (the ivy cut away) until the worker's job lands (about 0.2 s in node for all four).
+- **Bloom:** the thatch's brightest straw passes the knee in the game's light, as the game's own does (its texture's
+  brightest texel (1.45, 1.63, 2.27) of its mean); ours is held under the game's (bloom.test.ts). The planks and the
+  pale wood stay under the knee.
+- **Cost:** `benchOrbit` at the `cave` camera (1600 × 900, headed Chrome, RTX 2070 Super; the GPU's median a frame,
+  two runs of two, interleaved, the ivy's branch → this one): Standard 3.16–3.56 → 3.25–3.69 ms, High 3.95–4.07 →
+  4.10–4.17 ms, about 0.1 ms more, at the edge of the runs' spread. Draw calls 93 and 102 and the triangles unchanged
+  (the parts only take UVs). The objects' texture 0.35 → 1.4 MB with its mips (four 256² layers). The light look is
+  untouched: it makes no object patterns and samples none, its parts in the same colours.
+- **Falls short:** (1) The game's normal maps give each blade and board its own light; ours carry it drawn in. (2) The
+  windows are still plain octagons where the game's are spoked wheels (`WindowsAtlas`) and the emblems plain discs. (3)
+  The Iron Teeth's district center keeps its flat colours (its own planks and roof pictures are not drawn yet). (4) The
+  roof's eave is a smooth bulge where the game's is ragged.
+- **Sheet** (local only): `C:\dgm-showcase\objects\close\thatch-logs-sheet.png`, the game's cave frame and the branch
+  in both looks, the district center cropped (game | before | branch, both looks), and the three layers.
+
 ## The rest of the step (next parts)
 
 Each reads the same column masks the mesher reads. The seams:

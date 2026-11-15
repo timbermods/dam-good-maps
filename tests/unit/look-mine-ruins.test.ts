@@ -433,8 +433,8 @@ describe("ruins", () => {
     expect(ruinOvergrown(poisoned, W, 1, 1, 0)).toBe(false);
     expect(ruinOvergrown(soil, W, 4, 1, 0)).toBe(false);
     expect(Array.from(ruinsOvergrown({ count: 2, templates: ["RuinColumnH4", "Pine"], template: Uint16Array.of(0, 1), x: Int16Array.of(1, 1), y: Int16Array.of(1, 1), z: Int16Array.of(0, 0) } as unknown as EntityView, soil, W))).toEqual([1, 0]);
-    // the game's ivy: cards on the outside of the faces cut by their pattern (objectPatterns.ts), its albedo the
-    // pattern's alone, no fewer of them the more ivy
+    // the game's ivy: cards on the outside of the faces cut by their pattern (objectPatterns.ts), in the leaves' colour
+    // as the pattern varies it, no fewer of them the more ivy
     for (const v of ["A", "B", "C", "D", "E"]) {
       const cards = (ivy: number) => {
         const md = modelOf(`scaffold.${v}`, 3, ivy);
@@ -442,7 +442,7 @@ describe("ruins", () => {
         for (let t = 0; t < md.pos.length / 9; t++) {
           if (!isIvy(md, t)) continue;
           n++;
-          expect(colourAt(md, t)).toBe("#ffffff");
+          expect(colourAt(md, t)).toBe(cssColor(RUIN.ivy));
           for (const [x, , z] of corners(md, t)) expect(Math.max(Math.abs(x), Math.abs(z)), `${v} ${ivy}`).toBeGreaterThan(0.45);
         }
         // (each card two triangles a side)

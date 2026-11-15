@@ -79,7 +79,7 @@ import { SHORE_FILM, SHORE_FILM_TERRAIN_GLSL, SHORE_FILM_VERTEX_GLSL } from "./s
 import { EDGE_BAND, SHADOW_OFFSET, SHADOW_RES, SHADOW_SCALE, WATER_BYTE_FINE, WATER_BYTE_STEPS, type TileSpan } from "./light";
 import { LIGHT_LEVELS, SUN_MARCH_STEP, SUN_MARCH_STEPS, type CaveLight } from "./caveLight";
 import { CUT_SLACK, VIEW_TAN } from "./cutWater";
-import { PATTERN_CUT, PATTERN_LAYERS, PATTERN_SIZE as OBJECT_PATTERN_SIZE } from "./objectPatterns";
+import { PATTERN_CUT, PATTERN_GAIN, PATTERN_LAYERS, PATTERN_SIZE as OBJECT_PATTERN_SIZE } from "./objectPatterns";
 import { FALL } from "./waterMesh";
 import { RUN_LEVELS, type RunSoil } from "./runSoil";
 import { DITHER_GLSL, FADE_OFF, OBJECT_FADE_GLSL } from "./objectFade";
@@ -436,11 +436,15 @@ export function fillDetailTexture(detail: Uint8Array, size: number, shape?: Uint
 
 let objectAtlas: DataArrayTexture | null = null;
 /** The objects' patterns (objectPatterns.ts) as one texture array, the object program's `objectAtlas`: 256² RGBA a
- *  layer with its mips (about 0.33 MB each), clear (every pattern cut away) until `fillObjectAtlas` writes them, made in
- *  the textures' worker (renderer.ts `objectPatternsBaked`). */
+ *  layer with its mips (about 0.35 MB each), until `fillObjectAtlas` writes them (made in the textures' worker,
+ *  renderer.ts `objectPatternsBaked`) the ivy's cut away and every other part in its colour. */
 export function objectAtlasTexture(): DataArrayTexture {
   if (objectAtlas) return objectAtlas;
-  const t = new DataArrayTexture(new Uint8Array(OBJECT_PATTERN_SIZE * OBJECT_PATTERN_SIZE * 4 * PATTERN_LAYERS), OBJECT_PATTERN_SIZE, OBJECT_PATTERN_SIZE, PATTERN_LAYERS);
+  const layer = OBJECT_PATTERN_SIZE * OBJECT_PATTERN_SIZE * 4;
+  const data = new Uint8Array(layer * PATTERN_LAYERS);
+  data.fill(Math.round(255 / PATTERN_GAIN), layer);
+  for (let k = layer + 3; k < data.length; k += 4) data[k] = 255;
+  const t = new DataArrayTexture(data, OBJECT_PATTERN_SIZE, OBJECT_PATTERN_SIZE, PATTERN_LAYERS);
   t.format = RGBAFormat;
   t.type = UnsignedByteType;
   t.minFilter = LinearMipmapLinearFilter;
@@ -2797,8 +2801,9 @@ export const LOD_NEAR_PX = 9;
  *  smaller. A vertex's `lod` says which view its part belongs to: 0 any, 1 close up (a unit of the
  *  model takes LOD_NEAR_PX pixels or more), 2 from afar; the others are dropped (the light look draws every part it
  *  has: its models have none for afar). A part with a pattern (`lod` over 3: its view plus 4 × the pattern's layer,
- *  entities3d.ts `Model.card`, at its `puv`) takes its albedo from the pattern (objectPatterns.ts), cut away where its
- *  alpha is under the game's cut (not in the light look, which draws no part with one). Faded round the pointer, an
+ *  entities3d.ts `Model.card`, `Model.pattern`, at its `puv`) takes its albedo from the pattern (objectPatterns.ts)
+ *  times its colour, cut away where its alpha is under the game's cut (not in the light look, which draws each part in
+ *  its colour, the pattern's mean). Faded round the pointer, an
  *  object is drawn as alpha to coverage. */
 export function objectMaterial(scene: SceneUniforms, lite = false, h?: ShaderHooks): ShaderMaterial {
   return new ShaderMaterial({
@@ -2898,11 +2903,11 @@ ${hook(h, "objectVertex")}        vNormal = normalize(mat3(m) * ${hook(h, "objec
         if (vWorld.y > slice + 0.02) discard;
         vec3 vColor = vAlbedo;
         #if !LITE
-          // a part with a pattern: its albedo, cut away where the game's cut takes it
+          // a part with a pattern: its albedo as the pattern varies its colour, cut away where the game's cut takes it
           if (vPattern.z > 0.5) {
             vec4 t = texture(objectAtlas, vec3(vPattern.xy, vPattern.z - 1.0));
             if (t.a < ${f(PATTERN_CUT)}) discard;
-            vColor *= t.rgb;
+            vColor *= ${f(PATTERN_GAIN)} * t.rgb;
           }
         #endif
         // hidden, or faded round the pointer where it is drawn by a dither (objectFade.ts)
