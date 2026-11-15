@@ -4,8 +4,8 @@
 //   badwater; its surface the game's flow-carried one since D496 and D497; its poisoned bed under badwater gave way
 //   to the bed every look draws, D496 as amended 2026-11-07) and
 //   soft shadows from the real meshes (a 2048² sun depth map, 25-tap PCF, receiver-plane bias);
-// - #65 (investigation/maplook3): warm sunlight, rock strata, soil edges and colour variation (its tone
-//   curve, grade and distance haze gave way to the game's fog and post chain, every look's: D497);
+// - #65 (investigation/maplook3): warm sunlight and colour variation (its tone curve, grade and distance haze gave
+//   way to the game's fog and post chain, every look's, and its rock strata to the game's cliff, D497);
 // - #66 (investigation/vegetation): the vegetation's material (palette regions, wrapped light, matte
 //   specular) and its wind;
 // - #67 (investigation/maplook-finish), stages 1–3: the diorama edge (rock beds, soil cap, water
@@ -37,7 +37,6 @@ import type { ShaderHooks } from "../materials";
 export const SWITCHES = [
   "hlWater",
   "hlShadows",
-  "hlStrata",
   "hlVariation",
   "hlGeology",
   "hlSoilCap",
@@ -156,7 +155,7 @@ const ROOFED_SUN = "(hlShadows > 0.5 ? lit : sunMarchAt(vWorld))";
 
 export function terrainHooks(): ShaderHooks {
   return {
-    ...lit(["hlStrata", "hlVariation", "hlGeology", "hlSoilCap", "hlWater"], /* glsl */ `
+    ...lit(["hlVariation", "hlGeology", "hlSoilCap", "hlWater"], /* glsl */ `
   uniform sampler2D hlFlow;
   uniform vec2 hlFlowSize;
 `),
@@ -182,14 +181,6 @@ export function terrainHooks(): ShaderHooks {
     behindShare: "texture2D(hlFlow, g / hlFlowSize).b",
     // (a still film's flow at a tile corner, as the water's vertex shader reads it: shoreFilm.ts)
     shoreFlow: "texture2D(hlFlow, P / hlFlowSize).rg",
-    // rock (#65's strata, D334's stone): stones of unequal size and slope, soft mortar between them, calibrated as
-    // Standard's (D497: their mean albedo the game's CliffDetail texture's, 68/62/52, tools/albedo-means.ts) and tinted
-    // by the game's cliff gradient
-    wall: /* glsl */ `          if (hlStrata > 0.5) {
-            vec3 stone = mix(vec3(0.244, 0.233, 0.197), vec3(0.355, 0.307, 0.259), vnoise(vec2(along * 0.32, y * 0.4)));
-            wc = mix(vec3(0.164, 0.15, 0.137) * cliffTint, stone * cliffTint * (0.40 + k * 0.85 + (vnoise(vec2(along * 8.1, y * 9.3)) - 0.5) * 0.13), smoothstep(0.015, 0.35, k));
-          }
-`,
     // the diorama edge (#67 stage 1): the map's four outer faces cut through its rock, the same
     // soft flagstones as the cliffs inland a shade darker (D334), with a soil cap and the water's section
     lit: /* glsl */ `
@@ -319,9 +310,9 @@ export function waterHooks(): ShaderHooks {
             float hlBad = cont;
             // (the depth as the game reads it, the Standard surface's: along the view to the ground behind, viewDepth.ts)
             float hlDepth = max(0.0, d);
-            // (its smoothness as the Standard surface's, by this look's badwater share: the gloss's slow variation, toward
+            // (its smoothness as the Standard surface's, by this look's badwater share: the gloss's drift, toward
             // badwater's by the tint × the pattern's R)
-            float hlSmooth = mix(clamp(WATER_SMOOTHNESS + (gloss - 0.5) * WATER_SMOOTHNESS_SPREAD, 0.0, 1.0), BADWATER_SMOOTHNESS, waterTint(hlBad) * bpat.x);
+            float hlSmooth = mix(waterSmoothness(gloss), BADWATER_SMOOTHNESS, waterTint(hlBad) * bpat.x);
             vec4 hlSurface = measuredSurfaceWater(g, hlDepth, shore, hlBad, N, Nh, V, lit, albedo, bpat, hlSmooth);
             // the same water at any depth, as the game's and the Standard look's (waterPalette.ts waterOpacity: no film,
             // D154 as amended 2026-11-09); no foam, no froth, as the game draws none
@@ -364,7 +355,7 @@ export function waterHooks(): ShaderHooks {
               // the Standard surface's: viewDepth.ts from just inside its column), with the Standard side's normal, albedo
               // and patterns (the surface's, facing up, carried by its current: stretched down it as on the fall's slope
               // beside it, as the game's are)
-              float stepSmooth = mix(clamp(WATER_SMOOTHNESS + (gloss - 0.5) * WATER_SMOOTHNESS_SPREAD, 0.0, 1.0), BADWATER_SMOOTHNESS, waterTint(cont) * bpat.x);
+              float stepSmooth = mix(waterSmoothness(gloss), BADWATER_SMOOTHNESS, waterTint(cont) * bpat.x);
               vec4 stepSurface = measuredSurfaceWater(g, max(0.0, d), 1.0, cont, N, Nh, V, lit, albedo, bpat, stepSmooth);
               c = stepSurface.rgb;
               // (what the clear water's veil keeps of its badwater: the side's own, at its depth)

@@ -11,11 +11,11 @@ import { MapSession } from "../../src/core/doc/session";
 import { namedFile } from "../../src/core/gen/pack";
 import { jpegSize } from "../../src/core/validate/checks";
 import { readTimber } from "../../src/core/format/timber";
-import { PROVIDER_NOTICES } from "../../src/core/places/attribution";
-import { CONVERSION_FAULT_CHECKS, galleryIndex, NO_WATER_FAULT, NO_WATER_NOTE, PLACE_FAULT_CHECKS, placeDescription, placeNote, placeTimber } from "../../src/core/places/place";
+import { PROVIDER_NOTICES, WATER_LICENCE, WATER_LICENCE_URL, WATER_NOTICE } from "../../src/core/places/attribution";
+import { CONVERSION_FAULT_CHECKS, galleryIndex, MOVING_WATER_FAULT, MOVING_WATER_NOTE, NO_WATER_FAULT, NO_WATER_NOTE, PLACE_FAULT_CHECKS, placeDescription, placeNote, placeTimber } from "../../src/core/places/place";
 import { validateMap } from "../../src/core/validate/checks";
 import type { CheckResult } from "../../src/core/validate/report";
-import { INDEX, PLACES_BELOW_THE_FLOOR, PLACES_DIR, PLACES_HAVE_EDGE_WALLS, PLACES_LACK_BADWATER, PLACES_LACK_MINE_SITES, PLACES_SHORT_OF_WOOD, PLACES_PLANTS_ON_DRY_SOIL, PLACES_SHORT_OF_BERRIES, PLACES_SOURCES_IN_FLOW, PLACES_START_WITHOUT_FED_WATER, PLACES_WATER_WITHOUT_OUTLET, placeData, sha256 } from "./placesCommon";
+import { INDEX, PLACES_BELOW_THE_FLOOR, PLACES_DIR, PLACES_HAVE_EDGE_WALLS, PLACES_LACK_BADWATER, PLACES_LACK_MINE_SITES, PLACES_SHORT_OF_WOOD, PLACES_PLANTS_ON_DRY_SOIL, PLACES_SHORT_OF_BERRIES, PLACES_SOURCES_IN_FLOW, PLACES_START_WITHOUT_FED_WATER, PLACES_WATER_KEEPS_MOVING, PLACES_WATER_WITHOUT_OUTLET, placeData, sha256 } from "./placesCommon";
 
 describe("the gallery's data", () => {
   it("holds the survey's real places: no random-land controls, one entry and two files each", () => {
@@ -23,7 +23,7 @@ describe("the gallery's data", () => {
     expect(INDEX.count).toBe(INDEX.places.length);
     // 85 places in the library; every start meets the floors since the start-moving step ranks a lake's shore
     // plate by the start's land floors and grows its wood (tools/real-places.ts), and one is withheld by name
-    // until its land's sources are mended (Near Dinaric karst Plitvice, `WITHHELD_UNTIL`)
+    // until its land's sources are mended (Dinaric karst Plitvice, `WITHHELD_UNTIL`)
     expect(INDEX.count).toBe(84);
     expect(INDEX.places.filter((p) => p.family === "random" || /random/i.test(p.name))).toEqual([]);
     expect(new Set(INDEX.places.map((p) => p.id)).size).toBe(INDEX.count);
@@ -32,7 +32,10 @@ describe("the gallery's data", () => {
     expect(INDEX.families.map((f) => f.id).sort()).toEqual([...new Set(INDEX.places.map((p) => p.family))].sort());
     for (const p of INDEX.places) {
       expect(p.id, p.name).toMatch(/^[a-z0-9]+(-[a-z0-9]+)*$/);
-      expect(p.name, p.id).toMatch(/^Near \S/);
+      // the place's own name, no "Near", and its id the name's slug (D(new-names); D148: this held "Near <place>")
+      expect(p.name, p.id).toMatch(/^[A-Z]/);
+      expect(p.name, p.id).not.toMatch(/^Near /i);
+      expect(p.id, p.name).toBe(p.name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, ""));
       expect(p.name, p.id).not.toMatch(/sample|m per tile|badwater/i);
       expect(p.plays.length, p.id).toBeLessThan(100);
       expect(existsSync(join(PLACES_DIR, p.data)), p.data).toBe(true);
@@ -50,7 +53,8 @@ describe("the gallery's data", () => {
       const p = placeData(entry);
       expect([p.id, p.name, p.family, p.familyName, p.plays, p.W, p.H, p.metres], entry.id).toEqual([entry.id, entry.name, entry.family, entry.familyName, entry.plays, entry.size, entry.size, entry.metres]);
       expect(p.heights.length).toBe(p.W * p.H);
-      expect(p.place).toBe(p.name.replace(/^Near /, ""));
+      // one name: D(new-names) retired the `place` field that held the name without its "Near" (D148)
+      expect(p).not.toHaveProperty("place");
     }
   });
 
@@ -66,7 +70,7 @@ describe("the gallery's data", () => {
 
 describe("the gallery shows every place, with a note on those whose start reaches no fed water (D445)", () => {
   const gallery = galleryIndex(INDEX);
-  const noWater = INDEX.places.filter((p) => placeNote(p) !== null);
+  const noWater = INDEX.places.filter((p) => p.faults.includes("start.water"));
 
   it("records each place's own faults, from its build, in the index", () => {
     for (const p of INDEX.places) {
@@ -83,18 +87,24 @@ describe("the gallery shows every place, with a note on those whose start reache
     expect(gallery.sizes).toEqual(INDEX.sizes);
   });
 
-  it("notes \"No reachable water\" on exactly the places with the start-water fault, by the checks, never by a list of names", () => {
+  it("notes \"No reachable water\" and \"Water keeps moving\" on exactly the places with those faults, by the checks, never by a list of names", () => {
     expect(NO_WATER_FAULT).toBe("start.water");
     expect(NO_WATER_NOTE).toBe("No reachable water");
-    expect(noWater.map((p) => p.id).sort()).toEqual(INDEX.places.filter((p) => p.faults.includes("start.water")).map((p) => p.id).sort());
+    expect(MOVING_WATER_FAULT).toBe("water.settles");
+    expect(MOVING_WATER_NOTE).toBe("Water keeps moving");
+    for (const p of noWater) expect(placeNote(p), p.id).toContain(NO_WATER_NOTE);
+    const moving = INDEX.places.filter((p) => p.faults.includes("water.settles"));
+    for (const p of moving) expect(placeNote(p), p.id).toContain(MOVING_WATER_NOTE);
+    expect(moving.map((p) => p.id).sort()).toEqual([...PLACES_WATER_KEEPS_MOVING].sort());
     // the same places the checks flag on the real builds (tests/contract/placesCommon.ts checkShard)
     expect(noWater.map((p) => p.id).sort()).toEqual([...PLACES_START_WITHOUT_FED_WATER].sort());
     expect(noWater.length).toBe(18);
     // no other fault gets a note
-    for (const p of INDEX.places) if (!p.faults.includes("start.water")) expect(placeNote(p), p.id).toBeNull();
+    for (const p of INDEX.places) if (!p.faults.includes("start.water") && !p.faults.includes("water.settles")) expect(placeNote(p), p.id).toBeNull();
+    expect(placeNote({ faults: ["start.water", "water.settles"] })).toBe(`${NO_WATER_NOTE} · ${MOVING_WATER_NOTE}`);
     expect(placeNote({ faults: ["start.wood", "plants.survive"] })).toBeNull();
     // a place whose fault is fixed loses its note
-    expect(placeNote({ faults: noWater[0].faults.filter((f) => f !== "start.water") })).toBeNull();
+    expect(placeNote({ faults: noWater[0].faults.filter((f) => f !== "start.water" && f !== "water.settles") })).toBeNull();
   });
 });
 
@@ -103,11 +113,14 @@ describe("credits and the in-game description (investigation/landscapes/ATTRIBUT
     for (const entry of INDEX.places) {
       const p = placeData(entry);
       const d = placeDescription(p);
-      expect(d).toContain(`Inspired by the land near ${p.place}, at Timberborn's scale; not a replica.`);
+      expect(d).toContain(`Inspired by the land near ${p.name}, at Timberborn's scale; not a replica.`);
       expect(d).toContain("public elevation data");
       expect(d).toContain("Terrain Tiles");
       expect(d).toContain("do not endorse");
       for (const n of PROVIDER_NOTICES) expect(d).toContain(n);
+      // the real water the basins follow (D271, CC BY 4.0)
+      expect(d).toContain(WATER_NOTICE);
+      expect(d).toContain(`${WATER_LICENCE} (${WATER_LICENCE_URL})`);
       expect(d.startsWith(`${p.familyName} · ${p.W}×${p.H} · ${p.metres} m per tile. ${p.plays}`)).toBe(true);
     }
   });
@@ -172,8 +185,8 @@ describe.skipIf(!PY)("both validators agree on the sample (prototype/validate.py
       writeFileSync(join(dir, `${e.id}.damgoodmaps.json`), gzipSync(strToU8(JSON.stringify({ spec: null, features: [] })), { mtime: 0 }));
       paths.push(p);
     }
-    // (the places are settled under the port's water rules until Real places 2 converts them, D311)
-    const r = spawnSync(PY!, ["-B", "prototype/validate.py", "--json", "--water-rules", "port", ...paths], { encoding: "utf8", maxBuffer: 256 << 20 });
+    // (the places are settled under the game's water rules since D311's conversion, D(new): the Python's default)
+    const r = spawnSync(PY!, ["-B", "prototype/validate.py", "--json", ...paths], { encoding: "utf8", maxBuffer: 256 << 20 });
     expect(r.error).toBeUndefined();
     const reports = new Map<string, { passed: boolean; checks: { id: string; ok: boolean; na: boolean; approx?: string; information?: boolean }[] }>();
     for (const line of (r.stdout ?? "").split(/\r?\n/)) if (line.startsWith("{")) {
@@ -190,7 +203,7 @@ describe.skipIf(!PY)("both validators agree on the sample (prototype/validate.py
       // (item 47's start land and the start's floors are a preference for real places, D331, D515: known where
       // they fall short, D245)
       const startLand = v0.report.checks.filter((c) => ["start.farmland", "start.level_land", "start.reach", "start.forester", "start.wood_fast"].includes(c.id) && !c.ok && c.applicable !== false).map((c) => c.id);
-      const known = [...startLand, ...(PLACES_HAVE_EDGE_WALLS ? ["terrain.edge_wall"] : []), ...(PLACES_SOURCES_IN_FLOW.has(e.id) ? ["water.source_in_flow"] : []), ...(PLACES_WATER_WITHOUT_OUTLET.has(e.id) ? ["water.outflow"] : []), ...(PLACES_LACK_MINE_SITES ? ["resources.mine_site"] : []), ...(PLACES_LACK_BADWATER ? ["resources.badwater_source"] : []), ...(PLACES_SHORT_OF_WOOD.has(e.id) ? ["start.wood"] : []), ...(PLACES_BELOW_THE_FLOOR.has(e.id) ? ["start.wood_floor"] : []), ...(PLACES_START_WITHOUT_FED_WATER.has(e.id) ? ["start.water"] : []), ...(PLACES_SHORT_OF_BERRIES.has(e.id) ? ["start.food"] : []), ...(PLACES_PLANTS_ON_DRY_SOIL.has(e.id) ? ["plants.survive"] : [])];
+      const known = [...startLand, ...(PLACES_HAVE_EDGE_WALLS ? ["terrain.edge_wall"] : []), ...(PLACES_SOURCES_IN_FLOW.has(e.id) ? ["water.source_in_flow"] : []), ...(PLACES_WATER_WITHOUT_OUTLET.has(e.id) ? ["water.outflow"] : []), ...(PLACES_WATER_KEEPS_MOVING.has(e.id) ? ["water.settles"] : []), ...(PLACES_LACK_MINE_SITES ? ["resources.mine_site"] : []), ...(PLACES_LACK_BADWATER ? ["resources.badwater_source"] : []), ...(PLACES_SHORT_OF_WOOD.has(e.id) ? ["start.wood"] : []), ...(PLACES_BELOW_THE_FLOOR.has(e.id) ? ["start.wood_floor"] : []), ...(PLACES_START_WITHOUT_FED_WATER.has(e.id) ? ["start.water"] : []), ...(PLACES_SHORT_OF_BERRIES.has(e.id) ? ["start.food"] : []), ...(PLACES_PLANTS_ON_DRY_SOIL.has(e.id) ? ["plants.survive"] : [])];
       expect(rep!.passed, e.id).toBe(known.length === 0);
       expect(rep!.checks.filter((c) => !c.ok && !c.na && !c.approx && !(c as { advisory?: boolean }).advisory).map((c) => c.id).sort(), e.id).toEqual(known.sort());
       const b = built(e.id);
@@ -202,7 +215,7 @@ describe.skipIf(!PY)("both validators agree on the sample (prototype/validate.py
       const p = Object.fromEntries(rep!.checks.filter((c) => c.id !== uncomputed).map((c) => [c.id, py(c)]));
       expect(p, e.id).toEqual(a);
     }
-    expect(r.status).toBe(PLACES_HAVE_EDGE_WALLS || PLACES_LACK_MINE_SITES || PLACES_LACK_BADWATER || SAMPLE.some((e) => PLACES_SOURCES_IN_FLOW.has(e.id) || PLACES_WATER_WITHOUT_OUTLET.has(e.id) || PLACES_SHORT_OF_WOOD.has(e.id) || PLACES_BELOW_THE_FLOOR.has(e.id) || PLACES_START_WITHOUT_FED_WATER.has(e.id) || PLACES_SHORT_OF_BERRIES.has(e.id) || PLACES_PLANTS_ON_DRY_SOIL.has(e.id)) ? 1 : 0);
+    expect(r.status).toBe(PLACES_HAVE_EDGE_WALLS || PLACES_LACK_MINE_SITES || PLACES_LACK_BADWATER || SAMPLE.some((e) => PLACES_SOURCES_IN_FLOW.has(e.id) || PLACES_WATER_WITHOUT_OUTLET.has(e.id) || PLACES_WATER_KEEPS_MOVING.has(e.id) || PLACES_SHORT_OF_WOOD.has(e.id) || PLACES_BELOW_THE_FLOOR.has(e.id) || PLACES_START_WITHOUT_FED_WATER.has(e.id) || PLACES_SHORT_OF_BERRIES.has(e.id) || PLACES_PLANTS_ON_DRY_SOIL.has(e.id)) ? 1 : 0);
   });
 });
 

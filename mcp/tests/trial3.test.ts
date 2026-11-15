@@ -1,10 +1,15 @@
 // Mends from the third blind trial (investigation/mcp-trial/run-3/): a place's water after an edit is said, with its
 // numbers; the start is named by the middle of its 3×3 everywhere; a crater on ground at the floor says no bowl formed;
 // the same force call makes the same land; the picture's legend lists only what it shows; the start's water check says
-// what counts; generate counts its lakes.
+// what counts; generate counts its lakes; an opened file whose own water its sources do not keep says so after an edit.
 
+import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { closeAll, generateMap, START_WATER_COUNTS } from "../src/maps";
+import { F, type JsonFloat } from "../../src/core/format/json";
+import { readTimber, writeTimber } from "../../src/core/format/timber";
+import { closeAll, exportFiles, generateMap, START_WATER_COUNTS } from "../src/maps";
 import { callTool } from "../src/server";
 
 type R = Awaited<ReturnType<typeof callTool>>;
@@ -15,23 +20,29 @@ const json = async (name: string, args: Record<string, unknown>) => {
   return JSON.parse(textOf(r));
 };
 
+const dir = mkdtempSync(join(tmpdir(), "dgm-mcp-trial3-"));
+
 beforeAll(() => closeAll());
-afterAll(() => closeAll());
+afterAll(() => {
+  closeAll();
+  rmSync(dir, { recursive: true, force: true });
+});
 
 describe("a real place after the trial", () => {
-  it("says its file's water gives way to its sources' after an edit, names the start by its middle, and legends only what it draws", async () => {
-    const handle = /^Map (map-\d+) /.exec(textOf(await callTool("generate", { place: "near-mount-fuji" })))![1];
+  it("keeps its water after an edit, names the start by its middle, and legends only what it draws", async () => {
+    const handle = /^Map (map-\d+) /.exec(textOf(await callTool("generate", { place: "mount-fuji" })))![1];
     const d = await json("describe", { map: handle, checks: false });
     const start = d.objects.find((o: { kind: string }) => o.kind === "StartingLocation");
     expect([start.x, start.y]).toEqual([d.start.x, d.start.y]);
     expect(d.featuresNote).toMatch(/^An opened map or a real place has no generator's features/);
-    // a one-tile raise in the far corner: the whole map's water settles (core: the place's stored water is not what its
-    // sources keep; run-3's README), and the result says so with the numbers; undo brings the file's water back
+    // a one-tile raise in the far corner: the place's stored water is the water its sources keep (the places are built
+    // under the game's rules; D148: this test held the old difference, 2852 wet before and 2371 after), so the edit
+    // moves no water elsewhere and no note says the file's water gave way
     const b = await json("apply", { map: handle, ops: [{ op: "brush", params: { tool: "raise", size: 1, strength: 1, dabs: [10, 500] } }] });
-    expect(b.water).toMatchObject({ wetBefore: 2852, wetAfter: 2371 });
-    expect(b.notes[0]).toBe("This map showed its file's own water; after an edit it shows the water its sources keep once it settles: 2852 wet tiles before, 2371 after, across the whole map. Undo brings the file's water back.");
+    expect(b.water.wetAfter).toBe(b.water.wetBefore);
+    expect((b.notes ?? []).join(" ")).not.toMatch(/file's own water|water changed beyond the edit/);
     await callTool("undo", { map: handle });
-    expect((await json("describe", { map: handle, checks: false })).water.bodies.reduce((n: number, w: { tiles: number }) => n + w.tiles, 0)).toBeGreaterThanOrEqual(2371);
+    expect((await json("describe", { map: handle, checks: false })).water.bodies.reduce((n: number, w: { tiles: number }) => n + w.tiles, 0)).toBe(b.water.wetBefore);
     // the start moved a tile east: the result's to is the tile asked for (its middle)
     const m = await json("apply", { map: handle, ops: [{ op: "moveEntity", params: { id: start.id, x: d.start.x + 1, y: d.start.y } }] });
     expect(m.start.to.slice(0, 2)).toEqual([d.start.x + 1, d.start.y]);
@@ -61,5 +72,34 @@ describe("a generated map after the trial", () => {
     const k = await json("check", { map: handle });
     const w = k.warnings.find((x: { id: string }) => x.id === "start.water");
     expect(w.counts).toBe(START_WATER_COUNTS);
+  });
+});
+
+describe("an opened file whose own water its sources do not keep", () => {
+  it("says after an edit that the map showed its file's own water, with both counts, and undo brings it back", async () => {
+    // a generated map's .timber with its water sources made twice as strong: the file keeps the water the weaker
+    // sources settled to, so the first edit's settle gives it way to the stronger sources' (mcp/src/maps.ts `notesOf`)
+    const { session: g } = generateMap({ theme: "riverValley", size: 96, seed: 2 });
+    const file = readTimber(exportFiles(g).timber);
+    for (const e of file.world.entities) {
+      const w = (e.Components as Record<string, Record<string, JsonFloat>>).WaterSource;
+      if (e.Template === "WaterSource" && w) for (const k of ["SpecifiedStrength", "CurrentStrength"]) w[k] = F(w[k].value * 2);
+    }
+    const path = join(dir, "Strong Sources.timber");
+    writeFileSync(path, writeTimber(file));
+    const opened = await callTool("open", { path });
+    expect(opened.isError, textOf(opened)).toBeFalsy();
+    const handle = /^Map (map-\d+)\./.exec(textOf(opened))![1];
+    const wet = async () => (await json("describe", { map: handle, checks: false })).water.bodies.reduce((n: number, w: { tiles: number }) => n + w.tiles, 0);
+    const before = await wet();
+    expect(before).toBeGreaterThan(0);
+    const b = await json("apply", { map: handle, ops: [{ op: "brush", params: { tool: "raise", size: 3, strength: 8, dabs: Array.from({ length: 40 }, () => [194, 194]).flat() } }] });
+    expect(b.ground.raised).toBeGreaterThan(0);
+    expect(b.water.wetAfter).toBeGreaterThan(b.water.wetBefore);
+    expect(b.notes).toContain(
+      `This map showed its file's own water; after an edit it shows the water its sources keep once it settles: ${b.water.wetBefore} wet tiles before, ${b.water.wetAfter} after, across the whole map. Undo brings the file's water back.`,
+    );
+    await callTool("undo", { map: handle });
+    expect(await wet()).toBe(before);
   });
 });

@@ -234,8 +234,9 @@ export function useSourcePointer(ed: Ed): SourcePointerSlice {
         const dy = to[1] - from[1];
         const why = check?.refused(dx, dy, level) ?? null;
         end();
-        // (refused where its preview said why: nothing moves, the reason for a moment)
-        if (why) return ed.flashNote(quietWord(why), undefined, 2500);
+        // (refused where its preview said why: nothing moves, and the reason goes with the lift, nothing left in hand to
+        // say it of; #1074 slice 6)
+        if (why) return;
         if (!dx && !dy) {
           // a click selects it (its strength in the row); the shelf's source goes back
           if (shelfRef.current?.source) pickShelf(null);
@@ -370,8 +371,9 @@ export function useSourcePointer(ed: Ed): SourcePointerSlice {
         const dy = to[1] - from[1];
         const why = check?.refused(dx, dy, level) ?? null;
         end();
-        // (refused where its preview said why: nothing moves, the reason for a moment)
-        if (why) return ed.flashNote(quietWord(why), undefined, 2500);
+        // (refused where its preview said why: nothing moves, and the reason goes with the lift, nothing left in hand to
+        // say it of; #1074 slice 6)
+        if (why) return;
         void record.then((rec) => {
           if (!rec) return;
           // a click picks it; a drag moves it

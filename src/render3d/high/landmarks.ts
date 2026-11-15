@@ -23,6 +23,8 @@ class Parts {
   norm: number[] = [];
   col: number[] = [];
   lod: number[] = [];
+  /** Where a part has a pattern, each vertex's place in it (entities3d.ts `Model.card`; its `lod` says which). */
+  uv: number[] | null = null;
   add(g: BufferGeometry, c: Rgb, x = 0, y = 0, z = 0, rx = 0, ry = 0, rz = 0, lod = 0): this {
     const source = g.index ? g.toNonIndexed() : g;
     source.rotateX(rx).rotateY(ry).rotateZ(rz).translate(x, y, z);
@@ -33,6 +35,7 @@ class Parts {
       this.norm.push(n.getX(i), n.getY(i), n.getZ(i));
       this.col.push(c[0], c[1], c[2]);
       this.lod.push(lod);
+      this.uv?.push(0, 0);
     }
     source.dispose();
     if (source !== g) g.dispose();
@@ -44,11 +47,14 @@ class Parts {
     const n = src.getAttribute("normal");
     const c = src.getAttribute("pcolor");
     const l = src.getAttribute("lod");
+    const uv = src.getAttribute("puv");
+    if (uv && !this.uv) this.uv = new Array<number>((this.pos.length / 3) * 2).fill(0);
     for (let i = 0; i < p.count; i++) {
       this.pos.push(p.getX(i), p.getY(i), p.getZ(i));
       this.norm.push(n.getX(i), n.getY(i), n.getZ(i));
       this.col.push(c.getX(i), c.getY(i), c.getZ(i));
       this.lod.push(l ? l.getX(i) : 0);
+      this.uv?.push(uv ? uv.getX(i) : 0, uv ? uv.getY(i) : 0);
     }
     if (src !== g) src.dispose();
     return this;
@@ -76,6 +82,7 @@ class Parts {
     g.setAttribute("normal", new Float32BufferAttribute(this.norm, 3));
     g.setAttribute("pcolor", new Float32BufferAttribute(this.col, 3));
     g.setAttribute("lod", new Float32BufferAttribute(this.lod, 1));
+    if (this.uv) g.setAttribute("puv", new Float32BufferAttribute(this.uv, 2));
     g.computeBoundingSphere();
     return g;
   }
@@ -117,7 +124,8 @@ const models = new Map<string, BufferGeometry>();
 /** A landmark's geometry, made once (the ones built on today's models, per model: today's batch, whatever object it
  *  draws first). */
 function geometryFor(name: string, batch: string, base: BufferGeometry): BufferGeometry {
-  const key = name === "StartingLocation" || name.endsWith("Relic") || ["Thorns", "GeothermalField", "WaterSource", "BadwaterSource", "Blockage", "NaturalDam"].includes(name) ? name : `|${batch}`;
+  // (the start's model is the faction's, its batch says which: entities3d.ts `startBatch`)
+  const key = name === "StartingLocation" ? `${name}|${batch}` : name.endsWith("Relic") || ["Thorns", "GeothermalField", "WaterSource", "BadwaterSource", "Blockage", "NaturalDam"].includes(name) ? name : `|${batch}`;
   let g = models.get(key);
   if (!g) {
     // (the ruins, the start, the sources, the relics, the blockage, the natural dam, the thorns and the geothermal field

@@ -17,7 +17,7 @@ import { Shelf } from "../Shelf";
 import { ObjectWindow } from "../ObjectWindow";
 import { LayerWidget } from "../LayerWidget";
 import { Minimap } from "../Minimap";
-import { ForceFloor } from "../TopBar";
+import { ForceFloor, ObjectsButton } from "../TopBar";
 import { WaterBar } from "../WaterBar";
 import { surfaceWater } from "../../render3d/model";
 import { coreNotes } from "../../core/sim/coreMoment";
@@ -26,9 +26,10 @@ import { hazardDays } from "../../core/sim/weather";
 import type { Ed } from "../ed";
 import type { EditorProps } from "../Editor";
 import { DropTarget } from "./DropTarget";
+import { SavedViews } from "../view/savedViews";
 import { fingerPress } from "../view/fingerPress";
 import { header } from "./header";
-import { topBar } from "./topBar";
+import { heldLine, topBar } from "./topBar";
 import { cornerButtons, FIRST_VIEW_KEY, firstViewOf, hideObjectsButton, hoverHandler, layerCaption, levelLinesButton, viewButtons } from "./viewControls";
 
 export function editorView(ed: Ed, props: EditorProps) {
@@ -38,7 +39,10 @@ export function editorView(ed: Ed, props: EditorProps) {
     shapeNote, blockNote, startDrag, needs, startReach, showHistory, setShowHistory, presenceMarkers
   } = ed;
   const drawerOpen = props.drawerOpen;
-  const { phone, phoneSheet, setPhoneSheet } = ed;
+  const { phone, tablet, phoneSheet, setPhoneSheet } = ed;
+  // the phone's sheets: a phone's, or a tablet's (a big phone, planning 2026-11-14: Show, the objects and the menu's pages
+  // as the phone has them, its dock and its minimap as they are)
+  const sheets = !!phone || tablet;
   const waterBar = player.current ? <WaterBar weather={weather} onWeather={toggleWeather} day={ed.weatherDay} target={ed.weatherTarget} counting={ed.weatherCounting} onStep={ed.stepWeather} onDay={ed.holdWeatherDay} length={weather ? hazardDays(info.spec?.designedFor ?? "normal", weather) : null} coreNotes={weather ? [...coreNotes(info.features, info.spec?.designedFor ?? "normal", weather, ed.weatherTarget ?? ed.weatherDay), ...startWaterNotes(ed.startWater, weather, info.version)] : []} /> : null;
   const minimap = (
     <Minimap
@@ -50,10 +54,10 @@ export function editorView(ed: Ed, props: EditorProps) {
       stamp={`${info.version}:${waterTick}:${weather ?? ""}:${heldTick}:${ed.compareFlipped ? "other" : ""}`}
     />
   );
-  // a phone's pages (#1074): each of the menu's panels the whole screen under the bar, a plain way back to the map at
-  // its top; the desktop's panels as they are
+  // a phone's pages (#1074), and a tablet's: each of the menu's panels the whole view under the bar, over the dock, a plain
+  // way back to the map at its top, scrolling as one page; the desktop's panels as they are
   const phonePage = (title: string, close: () => void, panel: JSX.Element) =>
-    phone ? (
+    sheets ? (
       <div class="phone-page" role="region" aria-label={title}>
         <div class="phone-page-head">
           <button type="button" class="phone-back" {...tip("Back to the map")} onClick={close}>
@@ -69,12 +73,14 @@ export function editorView(ed: Ed, props: EditorProps) {
     ) : (
       panel
     );
-  // a phone's Show sheet (#1074): what to show and the camera, with Look and the minimap, the weather days, the sound
-  const phoneShow = phone ? { open: phoneSheet === "show", weather: waterBar, minimap, look: <LookMenu renderer={renderer.current} buttonClass="ghost" /> } : null;
+  // a phone's Show sheet (#1074): what to show and the camera, with Look and the minimap, the weather days, the sound; a
+  // tablet's the same, its minimap staying on the map and Look in its header
+  // (and the camera bookmarks for a finger, #1074 slice 7: the keys' nine slots)
+  const phoneShow = sheets ? { open: phoneSheet === "show", weather: waterBar, minimap: phone ? minimap : null, look: phone ? <LookMenu renderer={renderer.current} buttonClass="ghost" /> : null, views: <SavedViews ed={ed} props={props} /> } : null;
 
   return (
     <ForceFloor.Provider value={floorContext}>
-    <div class={`editor${drawerOpen || props.mapsOpen || props.placesOpen ? " drawer-open" : ""}${drawerOpen ? " gen-open" : ""}`} data-phone={phone ?? undefined} data-sheet={phone ? (phoneSheet ?? undefined) : undefined} data-tall={phone && ed.sheetTall ? "" : undefined} aria-busy={busy > 0} inert={props.replacing}>
+    <div class={`editor${drawerOpen || props.mapsOpen || props.placesOpen ? " drawer-open" : ""}${drawerOpen ? " gen-open" : ""}`} data-phone={phone ?? undefined} data-tablet={tablet ? "" : undefined} data-sheet={sheets ? (phoneSheet ?? undefined) : undefined} data-tall={phone && ed.sheetTall ? "" : undefined} aria-busy={busy > 0} inert={props.replacing}>
       {header(ed, props)}
       <div class="editor-main">
         {drawerOpen ? phonePage("Map Generator", () => props.onDrawer(false), <GeneratorPanel model={props.drawer} icon={(t) => icons[t] ?? null} counts={mapCounts(mirror.current.entities)} onClose={() => props.onDrawer(false)} />) : null}
@@ -118,7 +124,8 @@ export function editorView(ed: Ed, props: EditorProps) {
               {ed.compareVeil()}
               {ed.compareFlipped ? null : startHintTag()}
               {topBar(ed, props)}
-              {phone ? (
+              {tablet ? <ObjectsButton class="tablet-objects-button" open={phoneSheet === "objects"} holding={!!shelf} onClick={() => setPhoneSheet(phoneSheet === "objects" ? null : "objects")} /> : null}
+              {sheets ? (
                 <button type="button" class="phone-show-button" aria-expanded={phoneSheet === "show"} {...tip(phoneSheet === "show" ? "Close what the map shows" : "Choose what the map shows")} onClick={() => setPhoneSheet(phoneSheet === "show" ? null : "show")}>
                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                     <path d="M12 4l9 5-9 5-9-5z" />
@@ -127,10 +134,16 @@ export function editorView(ed: Ed, props: EditorProps) {
                   <span class="icon-word">Show</span>
                 </button>
               ) : null}
-              {phone ? null : waterBar}
+              {sheets ? null : waterBar}
               {/* the objects: the picked one's window directly above the list, the list never moving */}
               <div class="objects-dock">
                 {/* (a phone's stands in the settings' sheet above the tool row, render/topBar.tsx) */}
+                {/* (a tablet's object in hand from its sheet: the phone's row saying what it is, with Put it down, over its window) */}
+                {tablet && shelf ? (
+                  <div class="phone-held object-window" role="group" aria-label={`${shelf.name} in hand`}>
+                    {heldLine(ed)}
+                  </div>
+                ) : null}
                 {phone ? null : <ObjectWindow panel={ed.unleashRow() ? null : (ed.shelfRow() ?? ed.pickedRow())} />}
                 <Shelf picked={shelf?.id ?? null} onPick={pickShelf} onDragStart={pickShelf} onDrop={dropShelf} icon={(t) => icons[t] ?? null} loading={!ready || !!forcer.current?.running} />
               </div>

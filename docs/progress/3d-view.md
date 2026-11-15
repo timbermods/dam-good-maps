@@ -414,10 +414,10 @@ investigation's mesher (`investigation/erode/core/mesher.ts`) as the proposal. E
 Kyler's notes at the approval of `investigation/3d-view` (item 7, the terrain side; moving water waits for item 4) and
 Standard's shadow before a cave (item 8).
 - **The stone on ceilings:** a run's underside (a cave's ceiling, an overhang's roof seen from below) was a flat mortar
-  colour. It is now the walls' cobbled stone laid on the level plane, its stones along x and its courses along y, at
-  the walls' scale (`materials.ts`, the wall branch with `ceiling`), so it keeps its scale and orientation on ceilings,
-  walls and their corners in both looks (High's strata hook reads the same `along` and `y`); the level lines, the seams
-  between levels and the top's lip stay the walls' alone. Only maps with terrain above terrain have undersides.
+  colour. It is now the walls' stone (since `fix/cliff-face` their rock, "The cliff face as the game draws it") laid on
+  the level plane, along x and up y, at the walls' scale (`materials.ts`, the wall branch with `ceiling`), so it keeps
+  its scale and orientation on ceilings, walls and their corners in every look; the level lines and the top's lip
+  stay the walls' alone (the seams between levels went with `fix/cliff-face`). Only maps with terrain above terrain have undersides.
 - **Interiors that read** (*superseded by D497*: a cave is lit as open ground, "The game's light" below): a cave's least sky rose from 0.30 to 0.55 (`caveLight.ts` `CAVE_SKY_FLOOR`, the volume's
   least byte too) and the walk in from an opening loses 16 a cell instead of 26, so light carries about six cells in
   before the least; deeper in, the sky's light comes bounced off the rock, so walls and ceilings take nearly a floor's
@@ -832,6 +832,67 @@ Two plain pieces for the Block tool, only drawn or plain data; the page's interf
   of violet (all of it ground the force leaves as it is, D487). Under water on a roof the marks lie on the ground,
   seen through the water as the brush's own disc is.
 
+## The caves through the rock (D488, D497; `feature/caves-through-rock`, `feature/caves-through-rock-2`)
+
+- **Why:** an audit of D488 (3) on dev in real Chrome (Canyon 128 seed 1, Highlands 128 seed 12, the generator's spring
+  cave, cliff overhangs and gorge arch, 50° pitch at distance 34, both looks) found the caves the hardest thing to
+  read while editing. Without the layer the spring cave's tunnel and the overhangs are invisible at that pitch; with
+  the Caves and overhangs layer on, the roofs' tops (and the faces of their columns) are flat violet, which says where
+  but not the air's shape, how far it runs under the rock, how high it is or where it opens. The hollow under the
+  cursor (above) answers that only under the cursor.
+- **What:** `src/render3d/caveGhost.ts`. With the layer on (`renderer.showCaves`, from the page's overlay effect,
+  `useView.ts`), the air under every roof is drawn through the rock in the layer's violet: each cell of air under a
+  roof (a layer clear below its column's top) gives its floor a pale fill (0.8 0.64 1.0, alpha 0.36) outlined where the
+  floor ends (at a wall, a drop or the open: hollow.ts's light line, 0.07 wide, over the brush ring's dark edge, 0.11),
+  its sides against rock a fainter violet wall (alpha 0.22), and its sides against the open air (a neighbour's layer at
+  or above that neighbour's top) a mouth, filled pale (0.3) and framed where the opening ends. A side against rock
+  that rises solid from the cell's floor at most two layers (`STEP`) to a floor of air under a roof (a slab with air
+  under it is a wall), with the cell's own air
+  reaching that floor's level, is a step of the floor, not a wall: its riser is filled as the floor is, the floor's
+  outline runs up its ends (where the step's run ends, joining the outlines along the walls), and the floors' outlines
+  across it are left out, so a stepped tunnel reads as one passage from mouth to mouth; no air is drawn that isn't
+  there (a rise the cell's air does not reach, or a higher one, stays a wall). The fills are drawn only where the
+  terrain hides them (depth test reversed); the lines twice, plainly where in sight and at 0.65 where hidden, so an
+  overhang's reach and a tunnel's mouth read over the real rock too. The fills and the hidden lines are drawn in the
+  opaque pass, blended (three.js draws it by group order, then render order: after the terrain's chunks, before the
+  objects' group, order 1), so a tree or anything else standing in front of them, on a roof or not, draws over
+  them; the lines in sight are drawn with the other aids after the water. An editing aid on its own channel
+  (`aidLayer.ts`, D497): the look is unchanged and none of it blooms. Under a layer cut it reads the masks the cut
+  leaves (a roof cut away leaves no cave). The map's edge is a wall nobody sees and is not drawn; ceilings are not
+  drawn (from above they would hide the floor).
+- **Tried:** the hollow under the cursor tried an x-ray at the ceiling and kept the footprint on the roof, because a
+  stroke changes the roof's tiles (above). The layer asks a different question, the whole cave's shape and its
+  openings, which only the cave's own floor, walls and mouths answer; the parallax that misplaced the cursor's marks
+  is what gives the depth here.
+- **Cost:** nothing on a map without terrain above terrain, nor while the layer is off (one test a frame). With it on,
+  the caves are built in the terrain's 32² chunks (three draws a chunk with a cave: fills, hidden lines, lines in
+  sight): all of them when the layer turns on, the map opens or the cut moves, and after an edit only the chunks its
+  changed rect reaches, a tile round it (`updateTerrain`'s and a stroke's `updateTerrainRect`'s rect, kept by
+  `CaveBook` whenever caves are drawn, even after another change earlier in the frame; a source changed some other
+  way builds all again unless only a pit's cutout changed). Never per frame. Measured once in real Chrome (information; Raise, size 5, a 60-move stroke across the
+  caves with the layer on, Standard, 1600×900, the caves' share of each frame): Canyon 128 seed 1 over its spring cave
+  (124 cells), p90 0.54–0.58 ms and max 2.4–3.2 ms on dev, p90 0.25–0.36 ms and max 0.7–1.0 ms now; a 128² with a
+  tenth of its tiles single-tile caves four layers deep (5992 cells, put straight into the renderer's ground), p90
+  8.3–10.6 ms and max 13.6–27.7 ms on dev, p90 1.2–1.3 ms and max 3.0–4.1 ms now (the whole frame's p90 13–17 ms then,
+  6.2–6.6 ms now). In Node, that case's whole build is 12 ms (once, the layer turned on), a stroke's frame 0.75 ms in one
+  chunk and 2.2 ms on the corner of four.
+- **Tests:** `tests/unit/caveGhost.test.ts` (no cave on a plain map; a closed pocket's floor and walls, no mouth; an
+  overhang's mouths and their frames and the floor's outline, counted; a cut that takes the roof leaves no cave; a
+  stepped tunnel's riser drawn as the floor with its ends outlined and no outline across it, a rise its air does not
+  reach, higher than `STEP` or a slab with air under it a wall; after an edit only the chunks it reaches built again,
+  the same as a whole build; a stroke's rect kept after a cutout-only change in the same frame; the hidden marks in the
+  opaque pass outside any group).
+- **Captures:** local only, `C:\dgm-showcase\d488\caves-through-rock\sheet.png` (12 frames, real Chrome with the GPU,
+  1600×900 dark, 50° at distance 26): Canyon 128 seed 1's spring cave and a cliff overhang, Highlands 128 seed
+  12's overhang, Standard and High, the layer as dev draws it beside the same frame with the caves through the rock.
+- **Captures, round 2:** local only, `C:\dgm-showcase\d488\caves-through-rock-2\sheet.png` (12 frames, real Chrome
+  with the GPU, 1920×1200 dark cropped, 50° at distance 22): Canyon 128 seed 1's spring cave (its floor steps one and
+  two layers) and pines placed on its roof, Standard and High, the layer off, as dev draws it and as now.
+- **Falls short:** the walls under a roof the page paints violet are violet on violet, so the floor and its outline
+  carry the shape. Under water standing on a roof the hidden fills are seen through the water (drawn before it), so
+  fainter there. A map whose caves fill every chunk draws three more meshes a chunk (48 at 128²) while the layer is
+  on.
+
 ## What an edit changed (D488; `feature/3d-edits-show`)
 
 - **Why:** two usability audits agreed that a 3D edit is hard to see once it lands: a block added to a cliff or dug into
@@ -888,6 +949,82 @@ Two plain pieces for the Block tool, only drawn or plain data; the page's interf
   dig, the Block tool's next preview (white) over the red glow reads pink for a moment. The first hollow dug on a plain
   map held the page for seconds in a cold browser (the cave light and shaders, before this change and dev's shader
   warm-up); the glow waits for it.
+
+## The Block tool's blocks grow and crumble (D240, D488, D342; `feature/block-pop`, `feature/block-pop-2`)
+
+- **Why:** D240 asks for "raised blocks grow up with a tiny overshoot, lowered ones sink and crumble with a puff of
+  dust". An audit of D488 (3) on dev found that the Block tool had its preview, aim and edit glow, but its blocks
+  appeared and vanished in one frame (EDITOR_PLAN: "the blocks' own pop-in and crumble are the renderer's, to come").
+- **What:** `src/render3d/blockPop.ts`. Only the Block tool's edits play it: the renderer already knows them
+  (`blockEditSent`, "What an edit changed"). Both ways its land comes play it: `updateTerrain` (columns) and
+  `flushTerrain` (plain heights). It is a moment of an edit already applied (D342). The map's land is the new land
+  from the first frame, and the pick, the water, the support check and the file see nothing else. Nothing waits on it.
+  - **A block added** grows out of the rock it stands on. That is the first way that is rock and not growing: down,
+    then the sides (a block jutting from a wall), then up. It grows in 260 ms by an ease-out curve that
+    peaks 5 % past its size, about two thirds of the way through, and settles (`growScale`).
+  - **Drawn with the look's own terrain material** (D497; Timberborn's editor sets a block at once, so the motion is
+    ours and the look is the game's). While a block grows, the terrain shader leaves out the terrain's own faces of the
+    block (`popCells`: up to 64 cells by key, four to a vec4, with a box round them, tested only while any grow). The
+    test covers fragments on the grid whose voxel is a growing cell. The pop draws the growing box a hair off the grid,
+    so the test never leaves it out. Each side of a growing block is drawn one way or the other. Toward air or another
+    growing block, its own face is drawn. Toward rock that is not growing, the face it covers is drawn as it stands:
+    the ground's top under it, the wall it juts from, or a block of the same edit past the cap, drawn at once. So
+    neither the ground nor a cap's edge ever shows a hole or a slit. When a block finishes growing, those still growing
+    beside it are reshaped at that frame, so its side becomes their cover (`feature/block-pop-3`).
+  - **A block taken** sinks a level into the ground below it in 420 ms, shrinking to 0.65 across, again in the terrain
+    material, so it disappears into the rock under it. It draws its sides that face air now, the blocks taken with it
+    included, so blocks shrinking apart show their sides. Five puffs of its own wall's stone, ground fine and a little
+    lighter (Erode's dust, the same drawing, never white smoke), rise from the top of where it was and fade in 0.9 s.
+  - **The edit glow** plays over both. Its faces, colours and clock are its own. Its white for a block added comes in
+    as the block grows (`glowRiseAt`, the glow's `rise`): none in the newest growth's first quarter, full from three
+    quarters on, so it frames the block once it has a size and never veils it small. The hollow's red frames the block
+    sinking.
+  - **Stopped by what contradicts it** (`reconcile`, on every other change of the land drawn). An undo, a redo, a
+    brush or a version flipped to stops at once a growing block that is air again, and a sinking one that is rock
+    again with its dust. The rest are reshaped to the new land. The same covers the page's own prediction of the land
+    followed by the core's answer: a block added to a wall is first painted as a column down to the ground, then
+    answered as the overhang it is, and only the block itself grows.
+  - **Off with reduced motion and in the light look** (software drawing; the renderer's `juicy`): the land is simply
+    there (D240). It is also off for blocks at or above the layer cut. At most 64 blocks grow at once and 64 sink;
+    past that, a block is simply there.
+- **Cost:** fixed buffers made once (768 quads, a 96-puff pool). The dust's program is compiled ahead with the
+  others, on an instanced stand-in without three.js's instance colour, which would be another program. Measured on
+  `feature/block-pop-2`: the dust material keeps one program through the first crumble in both looks (#1134's head
+  compiled a second one there, a hitch), and the warm-up compiles one program fewer. Each frame while it plays, the boxes and puffs are
+  written into them, with no allocation. Once it ends nothing is drawn or asked for, and the shader's test is one
+  uniform compare. GPU time a frame by timer queries while orbiting (`benchOrbit`, the median over 6 s, two runs each,
+  real Chrome with the GPU, 1280 × 800, Highlands 256² seed 1, dev at ef43fb04 → this branch): idle,
+  Standard 2.85 / 3.18 ms → 2.76 / 2.98 ms and High 3.01 / 2.92 ms → 2.93 / 2.63 ms; with 64 blocks growing (an 8 × 8
+  add held at 130 ms, 160 quads), Standard 2.85 / 3.18 ms and High 2.82 / 2.69 ms. All within the runs' own spread:
+  nothing measurable.
+- **Tests:** `tests/unit/blockPop.test.ts` covers:
+  - the growth curve and the sink;
+  - which rock a block grows from (flat ground, a wall with air under the block);
+  - the faces a taken block shows, and those of two taken together;
+  - the caps, and every side of every growing block drawn past them (no slit);
+  - a side toward a neighbour that finishes growing first becoming a cover;
+  - the pops an undo contradicts dropped and the rest reshaped, and `BlockPops` stopping a sink, its dust and a growth
+    at an undo;
+  - the glow's white coming in as the blocks grow;
+  - every face drawn wound to face its normal, the covered top on the grid and the growing faces off it;
+  - nothing once over;
+  - the shader's cell keys and box.
+- **Captures:** local only, `C:\dgm-showcase\d488\block-pop\sheet.png` (12 frames, real Chrome with the GPU,
+  1280 × 800 dark, the renderer's clock held at each time). On Lake Basin 96 seed 77, a 3 × 3 block of ground four
+  levels up gets a block added on top and one out of its east wall (an overhang) at 25, 60 and 130 ms. Then two
+  blocks are taken off its top at 105, 231 and 378 ms. Standard and High. `C:\dgm-showcase\d488\block-pop-2\sheet.png`
+  (8 frames): the same pops with the glow's white coming in (Standard 25, 60 and 130 ms; High 25 and 130 ms), 81
+  blocks added at once at 60 ms (64 growing, the rest drawn at once, no slit between), and a dig at 150 ms undone at
+  160 ms (the block back, nothing sinking).
+- **Falls short:**
+  - A growing block's top, partway up, is lit and coloured as a wall by the terrain shader's rules (it is not on a
+    tile's top level) for the quarter second it moves. It also lies in the tile's own baked sun shadow, so it reads
+    dark until it is most of the way up (its first 40 ms or so).
+  - The growing and sinking blocks cast no shadow of their own; the High look's shadow keeps the block's full shape
+    meanwhile.
+  - The undo of a Block edit plays nothing (the page's undo does not say which operation it takes back, as for the
+    glow). On plain ground the glow of the edit undone fades out over the land as it was (the glow's own rule:
+    plain land glows only for the Block tool's edits).
 
 ## Software frames (`perf/software-frames`)
 
@@ -3784,7 +3921,7 @@ frames, and the start was still the white map-editor marker.
   third. The top storey's posts are broken off at the variant's heights, one of them bent in A and E.
 - **Built** (`entities3d.ts` `RUIN_FACES`, `storey`, `band`, `rails`, `drape`): each storey from that table, the slab
   bands boxes 0.03 thick with a broken edge, the rails thin rods; the ivy flat leaves on the faces' outsides placed as
-  the game's cover: seen from a side, wet (h = 4) the game's 0.74 / 0.63 / 0.38 / 0.28 of each storey from the foot up
+  the game's cover (cut-out cards since "The ruins' ivy as the game draws it", below): seen from a side, wet (h = 4) the game's 0.74 / 0.63 / 0.38 / 0.28 of each storey from the foot up
   and ours 0.71 / 0.63 / 0.33 / 0.31–0.32; dry the foot 0.66 and ours 0.63 (held within 0.07, look-mine-ruins.test.ts). The game shows the dry model on dry or
   contaminated ground (`RuinModelUpdater`), as before. A storey is at most 284 triangles with its densest ivy (was 288 near, 24 far), in the
   game's colours, untinted (`palette.ts` `RUIN`: the means of the texels its cut-out keeps, rust #5d2f17, slab #6c5a39,
@@ -3815,15 +3952,146 @@ frames, and the start was still the white map-editor marker.
   2070 Super; the GPU's median a frame, one run each, base → branch): Standard whole map 2.94 → 2.86 ms, the ruins 14
   away 3.41 → 3.40; High 2.66 → 2.35 and 3.98 → 4.22: within the runs' spread. Draw calls 104 → 103. Triangles
   Standard 183 k → 193 k; High 297 k → 182 k (High's own scaffold augment is gone). Every frame 7.0 ms at 144 Hz.
-- **Falls short:** (1) The game lights a fire in the bowl (its particles); left out. (2) The Iron Teeth's district
-  center differs; ours is the Folktails' for both factions. (3) The ruins' slab bands are clean boxes with a broken
-  edge where the game's are cracked cut-outs, and our leaves are larger and fewer than the game's. (4) The ivy's brown
-  roots at the foot (`IvyWet0A`) are left out. (5) The ruins' shadow in Standard is a solid post, half again the
+- **Falls short:** (1) The game lights a fire in the bowl (its particles); left out (drawn since "The fire and the
+  Iron Teeth's start", below). (2) The Iron Teeth's district center differs; ours is the Folktails' for both factions
+  (drawn since the same). (3) The ruins' slab bands are clean boxes with a broken
+  edge where the game's are cracked cut-outs, and our leaves are larger and fewer than the game's (the leaves drawn
+  since "The ruins' ivy as the game draws it", below). (4) The ivy's brown roots at the foot (`IvyWet0A`) are left out
+  (its stems drawn since the same). (5) The ruins' shadow in Standard is a solid post, half again the
   area of the model's latticed one.
 - **Revived on dev** (`look/ruins-start`, 2026-11-14, 522 commits on; no conflict): dev still drew the start as the grey
   placeholder house with its entrance post, and the ruins as the scaffold towers. Sheet: `docs/sheets/ruins-start.jpg`,
   made by `tools/capture-ruins-start.ts --soft` (High, River Valley 4242 at 256², dev against this checkout, close and
   90 away, the same cameras).
+
+### The Iron Teeth's start and the fire, read (D178 as amended 2026-11-10, D496; `fix/iron-teeth-figures`)
+
+Falls short (1) and (2) above, read from the game's files (Timberborn 1.1.2.8, `resources.assets`; read-only, the game
+not started; numbers only, no mesh or texture kept) so they can be drawn; drawn since the next section. The colours are in
+`palette.ts` `START_IRON_TEETH` and `START_FIRE`, with each material's raw albedo, metallic, smoothness and occlusion.
+Lengths are metres (a tile), in the model's own frame: y up, the origin the footprint's corner (the models span
+−0.049 to 3.049), the door on the z = 0 face, as the Folktails' is (ours turns that face to +Z).
+
+- **Read with:** `tools/game-model-albedo.py DistrictCenter.IronTeeth.Model --parts` (each material's albedo, its
+  metallic, smoothness and occlusion, and its parts' bounds; `--parts` and the albedo × (1 − metallic) line are new) and
+  `tools/game-particles.py DistrictCenterFire` (new: a prefab's transforms, particle systems, their renderers' materials
+  and textures, and its lights, Unity 6000.5's layout read by structure, each curve checking its own end). The fire's
+  shader was disassembled with `tools/game-water-shader.py --shader "Shader Graphs/FireParticles"` and its pass "Unlit"
+  (a local one-line change to the pass it picks, not kept). Where the fire stands is in both factions' blueprints
+  (`buildings/districtmanagement/districtcenter/districtcenter.{folktails,ironteeth}.blueprint`, which differ only in
+  their model, their template name and their flavour text): `TemplateAttachmentsSpec` puts `DistrictCenterFire` under
+  `#Finished` at (1.5, 3.0, 1.5), unturned, scale 1.
+- **The Iron Teeth's district center** (DistrictCenter.IronTeeth.Model; one node, 1923 vertices, 1280 triangles; the
+  Folktails' 1788): 3.10 across (its corner posts overhang the 3 × 3 by 0.049, as the Folktails' do) and 4.37 high
+  (the Folktails' 4.33). From the ground up, centred on (1.5, 1.5) unless said:
+  - a floor of indigo wood 3 × 3, 0 to 0.10;
+  - walls of pale grey planks, four planes 0.07 inside the edges (2.86 across), 0 to 1.00 (the Folktails' planes, in
+    other planks);
+  - four indigo corner posts 0.247 square, −0.049 to 0.198 at each corner, 0 to 1.11 (the Folktails' 1.21);
+  - on the z = 0 face, centred, a square-topped door: an indigo frame 0.87 wide to 0.695, 0.073 deep, a lintel 0.86
+    wide from 0.64 to 0.75, the dark door leaf 0.74 wide to 0.70 at z 0.059 (the Folktails' is arched);
+  - round windows 0.47 across (a 12-cornered disc in a frame 0.08 deep), centred 0.50 up: two on the door's face centred at
+    x 0.5 and 2.5, one on each side face (x = 0 and x = 3) centred at z 1.5, none at the back (the Folktails' layout);
+  - a square hip roof of dark olive planks in two tiers, by its half-width (from the centre to a side) at each height:
+    1.42 at its eaves at 0.97, out to 1.50 at 1.09, in to 1.21 at 1.36, a step to 1.20 at 1.46, up to 0.83 at 1.83
+    (192 triangles; its edges a little ragged, 1.38–1.43 at the eaves);
+  - a band of the roof's planks round the tower's foot, four boards 1.68 across, 1.80 to 1.93;
+  - the tower: square, of pale grey planks, four planes leaning in 17° from upright, 1.61 across at 1.93 to 1.03 at
+    2.87; at its corners four dark brown posts about 0.11 thick, along the diagonals from 0.79 out of the centre (each
+    axis) at 1.79 to 0.48 at 2.89;
+  - on each of the tower's faces an emblem, a 12-sided blue-violet plate 0.45 across centred at 2.45 high, tilted with
+    the face, in an indigo ring 0.60 wide, 0.62 tall (2.11 to 2.74) and 0.155 deep;
+  - the platform: a dark brown deck, a square frame 1.82 across with a square hole 0.83 across, 2.83 to 2.93; an indigo
+    rim 1.31 across, 2.81 to 3.01; sixteen indigo spindles 0.046 square, 2.91 to 3.085, four on each side 0.505 out of
+    the centre at −0.35, −0.115, 0.115 and 0.35 along it; an indigo rail round them 1.07 across, 3.07 to 3.125;
+  - the fire bowl: an indigo stand 0.52 across, 3.03 to 3.24, four indigo blocks 0.21 square at ±0.244 (each axis) from
+    2.90 to 3.16, and the iron bowl 0.42 across, 3.08 to 3.23, the same piece and place as the Folktails';
+  - the lantern: eight dark brown beams about 0.09 thick, two on each side, each from a corner of the platform (±0.53,
+    ±0.53) at 2.95 up to the middle of that side, 0.51 out, at 3.95: an inverted V on each side;
+  - the hood: a dark brown frame, a square ring 1.37 across with a hole 0.63 across, 3.80 to 3.85; dark brown planks
+    under it 1.40 across, 3.80 to 3.89; a square roof of the dark olive planks, by its half-width 0.70 at 3.89, 0.60 at
+    3.96, 0.62 at 4.04, 0.46 at 4.22 and 0.445 at 4.33; a pale grey collar from 0.445 at 4.33 to 0.36 at 4.37; and an
+    iron flue, a square tube 0.63 across from 3.85 to 4.32 flaring to 0.72 at 4.37, open at the top over the fire.
+- **The fire** (both factions'): a particle system, `Flames`, its emitter at (1.5, 3.16, 1.5), in the bowl, and a light.
+  - Emission: 50 particles a second, steady, from a disc 0.09 in radius, all straight up; each lives 2 to 3 s and rises
+    at 0.2 to 0.5 m/s the whole of its life (no gravity, force, noise or velocity over lifetime; the limit-velocity
+    module is on with dampen 0, which takes nothing off), so it dies 0.4 to 1.5 above the emitter; about 125 alive at
+    once (at most 200). Simulated in world space, looping, from the start.
+  - Size: a camera-facing square, its start side 0.5 to 1, × a curve over its life: 0.36 at birth, 0.42 at 0.29 of its
+    life, 0.03 at 0.98 (keys with slopes in `START_FIRE.sizeOverLife`). Turned at random at birth and spinning 45° a
+    second.
+  - Colour over its life (white at birth × this gradient, in Gamma colour space, linear between keys): dark grey
+    0.14/0.14/0.13 at 0, yellow 1/0.80/0 at 0.078, orange 1/0.44/0 at 0.185, red 0.74/0/0 at 0.263, grey
+    0.24/0.24/0.24 at 0.400, a lighter grey 0.36/0.36/0.36 at 0.988; alpha 0 at 0, 1 from 0.035 to 0.271, 0.345 at
+    0.604, 0 at 1. So the flame's colours last the first quarter of a particle's life, up to about 0.23 above the
+    emitter on average (0.4 at most), and the rest is a grey smoke thinning as it rises through the lantern and the flue.
+  - Drawing: unlit, alpha-blended, no depth write, no shadow. The FireParticles shader's Unlit pass: colour = 2 × texel ×
+    particle colour × `_Tint` (1, 1, 1, 0.349), alpha = saturate(2 × texel alpha × particle alpha × 0.349). The texture
+    `Fire` (512²) is white; its alpha is a soft round puff, 0.43 out to 0.2 of the texture's width from its middle, 0.38
+    at 0.25–0.3, 0.23 at 0.3–0.35, 0.06 at 0.35–0.4 and none past 0.45 (peak 0.678; its centre of mass 0.04 off the
+    middle). So a particle in full colour is about 0.30 opaque over its middle (0.47 at the texture's peak), and its
+    colour doubled: the yellow draws 2/1.6/0, which the game's HDR frame keeps and its bloom takes where particles stack
+    ("Bloom" above).
+  - Its light: the child "Point Light", a spot in fact, 1.24 above the attachment (4.24, inside the flue) pointing
+    straight down: colour 0.991/0.789/0.453, intensity 5, range 8, spot angle 120°, inner 75°, no shadows. Nothing on it
+    but URP's `UniversalAdditionalLightData`, so it does not flicker.
+- **Not read:** whether the game's code dims or stops the fire or its light by time of day, or when the district center
+  is paused or unstaffed (the prefab has no script of its own; the decompiled code wasn't searched); what URP's
+  intensity 5 makes of the ground and the platform under our light, which has no point or spot lights yet. The map
+  names no faction (the player picks one when starting it), so which center stands there is the renderer's choice.
+
+## The fire and the Iron Teeth's start as the game draws them (D178 as amended 2026-11-10, D496, D497; `feature/start-fire-ironteeth`)
+
+The start is the faction's district center with the game's fire in its bowl, drawn from the figures read above
+(`START_IRON_TEETH`, `START_FIRE`), in Standard and High alike.
+
+- **The faction:** one renderer input, `setFaction("Folktails" | "IronTeeth")`, Folktails by default; the map names
+  none (the player picks one when starting it). It changes only the start's model (entities3d.ts `startModel`, batch
+  `start` or `start.IronTeeth`; the model key stays `start`, so picking, tooltips and the High look's landmark copy
+  follow it). The page's control comes later; nothing on the page sets it yet.
+- **The Iron Teeth's district center** (entities3d.ts `ironTeethCenter`): built part by part from the measures above,
+  each part in its material's colour from `START_IRON_TEETH` (floor, walls, posts, square-topped door, round windows,
+  the two-tier hip roof as an eight-sided lathe, the band, the leaning tower and its corner posts, the four emblems
+  tilted with the faces, the platform with its spindles and rail, the bowl, the lantern's eight beams, the hood, collar
+  and iron flue). Drawn in the game's light like the other objects (D135 as amended 2026-11-09).
+- **The fire** (startFire.ts): the game's `Flames`, 125 camera-facing particles a start (50 a second × 2.5 s), each
+  placed and timed on the GPU from its seed and born again with new draws as it dies; its size curve (Hermite between
+  the game's keys), colour and alpha gradients, texture alpha (the `Fire` texture's radial means) and the FireParticles
+  shader's Unlit pass (colour 2 × texel × colour, alpha saturate(2 × texel alpha × alpha × 0.349)) as read. Through the
+  game's finish (`gamePost`), its doubled colour kept for the bloom, which runs only while lava burns (`blooms`), so
+  the fire does not bloom yet. An object's: hidden with the objects,
+  faded round the pointer with them and cut away above the layer. On the objects' clock, so still with reduced motion,
+  as the geothermal steam is (D240 covers the editor's own animations; the fire is the game's look, frozen, not
+  removed). Never in the light look. It asks for frames (`animated`, 30 a second as the water's) only while a start's
+  fire is drawn (not hidden with the objects or cut away, `fireDrawn`), its bowl inside the frame and its flame at least
+  2 pixels across (renderer.ts `fireShows`): a map at rest whose start
+  is out of view or too far off to see the flame draws nothing, as dev did before the fire (a blank map, a dry one;
+  D453). A map with water draws its water's 30 frames a second anyway, as on dev. Its program is compiled ahead with the others (renderer.ts `scheduleWarm`), so a
+  start placed later does not hitch.
+- **Its light** (materials.ts `START_LIGHT_GLSL`): URP's additional spot light as the game sets it, 1.24 above the
+  attachment pointing down: colour × intensity 5 × URP's distance attenuation (1/d² × (1 − (d²/range²)²)², range 8) ×
+  its spot attenuation (outer 120°, inner 75°, squared) × n·L, no shadows, added in `gameLight`, which lights the land
+  and the objects in both looks. Up to four starts lit (`START_LIGHTS`); none while the objects are hidden, none where
+  the layer cut takes the fire, and faded with the start round the pointer (`dimStartLights`). At the
+  game's close camera on Four Lakes r14 it brings the thatch under the bowl from 138/116/77 to 154/128/82 (the game's
+  145/122/80) and the grass before the door from 116 to 125 (the game's 126); High measures the same.
+- **Cost:** `benchOrbit` on Highlands 1 at 256 (1600 × 900, headed Chrome, RTX 2070 Super; the GPU's median a
+  frame, dev → branch, Folktails): Standard 3.41 and 3.75 → 3.18 and 3.28 ms; High, six runs of dev 2.60–2.97 against
+  four of the branch 2.97–3.46 (interleaved, 2.97/2.76 → 2.97/3.02): about 0.1–0.2 ms in High, within Standard's spread.
+  +1 draw call (the fire, one batch for every start); the Iron Teeth's center is 1404 triangles, the Folktails' 1428.
+  Nothing is allocated a frame: the fire's buffers and the lights' places are set when the starts change, the frame
+  sets how many lights and how much each shows. At rest on a blank map (128², dry, the start in its middle; frames
+  drawn a second, the page's main thread a second): dev draws none anywhere (3.7–7.5 ms/s); the branch draws 26 a
+  second with the start close in view (28 ms/s, the GPU about 0.9 ms a frame) and none with the whole map in view
+  (the flame under 2 pixels) or the start out of view (0.1–4.5 ms/s).
+- **Sheet** (local only, `C:/dgm-showcase/start/fire-ironteeth/sheet.png`): the game's own day-1 captures of the
+  Folktails start (Four Lakes r14, the opening and close cameras) beside dev's and ours, Standard and High, both
+  factions, at the same cameras.
+- **Falls short:** (1) Our flame reads a little shorter than the game's: it doesn't fill the lantern up to the hood as
+  the game's does in the close capture. (2) Day only: our view has no night, where the game's fire light shows most.
+  (3) The water doesn't take the start's light (whether the game's does is not read). (4) No game capture of the Iron
+  Teeth start to set ours beside. (5) The fire does not bloom: our bloom runs only for lava, so the game's glow where
+  its flame's particles stack is missing.
 
 ## Falls that pour, against the game's Four Lakes frames (PERFECT Water 3; D154, D496; `fix/falls-pour-2`)
 
@@ -3861,8 +4129,280 @@ row's luma less its 3-pixel mean. `.scratch` measures, not kept.
   Every term is the game's (P4, P5, P11 to P15 above), so no change is made: the gaps change sign from curtain to
   curtain, and none follows one term. What is left to read is how the game lights the face's pixels at these two
   views (its sun's direction there against ours among them).
-- **Falls short:** (1) to (3) stand, unexplained. A frame of the game's falls in motion would settle (4) beyond its
-  formula.
+- **Falls short:** (1) to (3): their gloss followed, what stands of them in "The falls' sheen" below. A frame of the
+  game's falls in motion would settle (4) beyond its formula.
+
+### The falls' sheen (Q9 P8; D154, D496; `fix/falls-pour-3`)
+
+(1) to (3) above, read again from how the game lights the face. The same frames, regions and measures; the game's
+L* here are read over our regions, so they differ from the list above by up to 1.
+
+- **The sun and the day's light are ours.** The game's sun is Euler(45, the camera's yaw + 40) (its `SunXAngle` and
+  the yaw the capture kit poses), full day at hour 4.03 (the sunrise's turn ends by hour 2, the turn to sunset starts
+  at 15); `sunOfYaw` gives the same at both cameras. The land beside the curtains agrees: the cave's pillar 25.1
+  against the game's 25.6, the grass alike. The probe played Medium with High-quality water, so the waterfall mask is
+  whole on the faces (the falls' section above).
+- **What drives a curtain's L* is its gloss.** Seen near level, the face's light is URP's environment term, (f0 +
+  (s + 0.04 − f0)(1 − N·V)⁴) / (1 + r²), and the smoothness s moves it most. Held at one gloss, in Standard at 12.5 s:
+  - s 0.15: the left curtain (`cave`) 27.3 / 22.7 / 20.5, streaks 1.42; the right (`falls`) 32.7 / 29.0 / 27.4; the
+    cave mouth's streaks 0.75; the middle's 2.85.
+  - s 0.44: the left curtain 37.9 / 31.1 / 25.7, streaks 1.84; the right 40.9 / 35.3 / 30.7; the cave mouth's
+    streaks 1.45; the middle's 2.96.
+  - The game's: the left 39.9 / 33.5 / 26.0, streaks 2.05; the right 29.0 / 25.5 / 23.8; the cave mouth's streaks
+    0.61; the middle's 4.29.
+- **The cause found: our gloss drifted about 40 times slower than the game's, and spread too narrow.** The game
+  samples `WaterMetalAndGloss` twice at xz × 0.01, panned by T × (−0.008, −0.002) and (0.01, 0.004) in its texture's
+  units, so its patches (about a tile across) drift 0.8 and 1.1 tiles a second and the gloss at a point keeps half its
+  likeness 1.1 s. Ours took the speeds as tiles. Its smoothness, read from the texture soft-lit with itself over 10
+  minutes at the curtains, has mean 0.263, spread 0.088, 0.149 / 0.248 / 0.432 at its 5th, 50th and 95th
+  percentiles (1st 0.12–0.14, 99th 0.51–0.54); ours ran straight from 0.10 to 0.40. Now ours drifts at the game's
+  speeds (`WATER_SURFACE.glossPan`, `waterGloss`) and is curved to the game's spread (`smoothnessSpread` 0.566,
+  `smoothnessCurve` 0.68, `waterSmoothness`): mean 0.264, spread 0.088, 0.149 / 0.248 / 0.433. A curtain's sheen now
+  comes and goes in seconds, as the game's does: over 12 clocks in Standard (L* of the middle third, least / median /
+  most, dev then branch):
+  - `falls` middle: 30.0 / 30.7 / 32.2, then 30.2 / 32.5 / 35.9 (the game's 32.4, at its median);
+  - `falls` right: 33.8 / 34.3 / 36.3, then 32.5 / 34.2 / 38.3 (the game's 29.0);
+  - `cave` left: 26.8 / 29.0 / 34.3, then 26.7 / 30.9 / 36.0 (the game's 39.9);
+  - `cave` mouth: 31.5 / 34.0 / 35.3, then 31.7 / 36.2 / 45.6 (the game's 32.8, a third of the way up).
+  The streaks' median is unchanged; High reads within 0.3 L* of Standard.
+- **Cost:** none measured. benchOrbit at the `falls` camera, the GPU's median a frame, two runs each: Standard 4.24 /
+  4.03 ms on dev, 4.32 / 4.10 on the branch; High 4.98 / 4.92, then 4.95 / 4.85.
+- **Falls short:** (1) The left curtain's game frame needs s ≈ 0.495 at that spot, a gloss the game's own texture
+  reaches there about 2 % of the time: the capture caught a bright moment, which ours now reaches too, just as seldom.
+  Since `_NonlinearTime` counts from the scene's load, the game's T at the capture can't be read, so the same moment
+  can't be posed. (2) The right curtain reads 3.5 L* over the game's even at the game's dullest gloss (s 0.15:
+  32.7 against 29.0). Its cliffs read 2–2.5 light too, and so does every south-facing cliff in the `falls` frame
+  (+2.0 to +2.5; its pools within ±2), so about 2 of it is the cliffs' own residual ("The land's tone" above); the
+  last 1–1.5 is unexplained. (3) The middle curtain's streaks reach 0.69 of the game's at best (2.96 against 4.29),
+  whatever the gloss; the gloss is not their cause, and what is has not been found.
+
+## The cliff face as the game draws it (D497, D135 as amended 2026-11-14; `fix/cliff-face`)
+
+Judged on the in-game capture kit's Four Lakes r14 frames (day 1; local only), the close `cave` camera and the
+opening `first` one, ours posed from their cameras (tools/capture-ingame.ts), real Chrome on the RTX 2070 SUPER.
+
+- **The finding:** in the game's `cave` frame the rock is fine-grained and low in contrast; ours was a cobble four to
+  six times too large with thick black mortar, a dark seam at every level and faint vertical cracks, and High drew its
+  own strata over it (#65's). None of it is the game's.
+- **The game's material** (TerrainURP's `Cliff` variant, its pixel program disassembled locally, the `Cliff` material's
+  values; `tools/game-cliff-texture.py`): albedo `CliffDetail` triplanar at world × `_Albedo_Triplanar_Tile` 0.45 (a
+  repeat every 2.2 tiles) × the height gradient, no detail texture; normal `Cliff_N` triplanar at ×
+  `_Normal_Triplanar_Tile` 0.125 (8 tiles), whiteout blend, `_Normalmap_Strength` 1. `CliffDetail`: mean 67.3 / 61.8
+  / 51.7, its luma's spread 0.152 of its mean (0.66 / 0.99 / 1.36 at its 1st, 50th and 99th percentiles), rounded
+  translucent patches with darker bands round them, most of its power at 0.06–0.5 tiles; a blue–red hue spread of
+  0.035. `Cliff_N`: faceted stones in rough courses about half a tile wide and a third tall, slopes spread 0.36 a
+  component at full size and 0.28 at 16 texels a tile. No mortar, no seam at a level, no cracks.
+- **Ours now** (`materials.ts` `ROCK`): our own texture at those statistics, a second layer of the pattern texture (now
+  a two-layer array, one sampler as before), 4 tiles across: R the albedo's lightness, G its hue, B and A the stones'
+  normal. Measured from Chrome (`tools/rock-texture.ts`): spread 0.150 (0.67 / 1.00 / 1.33), hue 0.034; slopes 0.34 /
+  0.36 at full size, 0.28 / 0.29 at 16 texels a tile. A wall's albedo is the game's mean × it × the gradient; its light
+  takes the stones' normal (`litN`: the ambient by it, the sun by n·L and its shadow, the specular); a face turned from
+  the sun takes none through a tilted stone (`faceSun`, as the block shades it in the game). The light look draws the
+  mean, flat. Every look draws the same rock: High's "Rock strata" switch goes (D135 as amended 2026-11-14).
+- **Against the game** (rock pixels, L* by CIE; game / dev Standard / branch, Standard and High the same within 0.1):
+  - `cave` (in shade): mean 15.5 / 17.9 / 14.8; 10th–90th percentile 12.5–18.7 / 14.4–21.2 / 11.2–18.5; on the left
+    face the spread 2.4 / 6.3 / 2.8, its fine part (under 4 px) 1.53 / 3.09 / 1.48, its middle (2–10 px) 1.41 / 3.79 /
+    1.61.
+  - `first` (part in sun): mean 18.6 / 20.6 / 18.1; 10th–90th 15.2–22.8 / 16.4–25.9 / 13.9–22.6; fine 2.21 / 2.45 /
+    2.19. The sunlit faces show the stones' courses as the game's do.
+- **Cost:** none measured. benchOrbit at both cameras, the GPU's median a frame, two runs each, dev → branch: Standard
+  `first` 3.73, 3.63 → 3.52, 3.66 ms, `cave` 3.62, 3.77 → 3.60, 3.64; High `first` 4.43, 4.06 → 4.08, 4.28, `cave`
+  3.18, 3.58 → 3.13, 3.49. One texture read a wall where the cobbles took five.
+- **The sheet:** `C:\dgm-showcase\cliff\face\sheet.png` (local only): both cameras, game | dev | branch in both looks,
+  and the rock at the close camera, game against branch.
+- **Falls short:** (1) Our albedo's power sits a little broader than the game's (0.27 of it at 0.25–0.5 tiles against
+  0.19, 0.11 at 0.06–0.125 against 0.18), and the game's darker bands read longer and wider at the close camera. (2)
+  The `cave` face reads 0.7 L* darker than the game's and its middle scales 1.1 times; the rock is a texture of our
+  own, so it matches the game's statistics, not its texels.
+
+## The pine's boughs as the game draws them (D135, D178, D496; `fix/close-objects`)
+
+At the Four Lakes r14 cave camera the game's pines are five whorls of drooping boughs, each whorl a star; ours were
+three smooth cones in Standard and four scalloped cones in High, which read as one spire.
+
+- **Read from the game's model** (`PineMature`, `tools/game-model-albedo.py --parts`; numbers only): 135 triangles,
+  3.01 high. Its crown is five whorls, each a shallow cone of 5 to 18 triangles from an apex (1.86, 2.21, 2.48, 2.78,
+  3.01) out and down, its texture a white star of 7 to 12 broad, grooved boughs that the vertex colours tint
+  (VegetationURP, cut at alpha 0.5). Measured over the model where the texture's alpha keeps it, by the model's middle:
+  each whorl's boughs' tips reach 0.50, 0.50, 0.41, 0.28 and 0.13 (the lowest two 0.43–0.55) and droop 0.36–0.49 below
+  their apex, about 45°; the notches between them reach 0.31, 0.31, 0.23, 0.15 and 0.07 (the edge's 5th percentile);
+  12, 11, 10, 9 and 7 boughs (`pineCrown.ts` `PINE_WHORLS`). The vertex colours darken toward each apex and lighten
+  toward the tips (the lowest whorl's 0.13/0.23/0.10 at its apex, 0.17/0.27/0.15 past its tips), and lighten whorl by
+  whorl up the tree, as `crownShade` already does.
+- **Built** (`pineCrown.ts` `whorlTriangles`): each whorl's star as geometry, an inner cone from the apex to the notches
+  and one triangle a bough out and down to its tip, each tip's reach within ±10 % of its whorl's; the inner cone at 0.92
+  of the pine's colour, the tips at 1.08 (`WHORL_SHADE`); each whorl turned from the last by the golden angle. Standard's
+  pine (`entities3d.ts`) and High's close pine (`high/models.ts`) are both built from it; High's far pine keeps its three
+  cones. The top whorl's apex is 3.0, not the game's 3.009, so the tallest pine keeps within the air a pine needs.
+- **High's close pines at the frame's foot:** the forest drew a plant close up only when its root was in view, so the
+  tallest trees whose foot lay below the frame showed their far cones up close; a plant now counts as on screen by its
+  root or its top (`high/forest.ts`).
+- **Cost:** Standard's pine is 108 triangles (was 31; the game's 135), High's close pine 122 (was 144), its far pine
+  30 as before; the test of a living pine's triangles now holds it under the game's 135, the other trees under 64.
+  `benchOrbit` (1600 × 900, headed Chrome, RTX 2070 Super; the GPU's median a frame, two runs of dev and of the branch,
+  interleaved): Highlands 1 at 256, the whole map, Standard 3.06–3.58 ms on both, High 2.92–3.24 and 3.03–3.31, the
+  frame's triangles 393 k → 436 k in Standard (High's far pines unchanged); Four Lakes r14 from the game's opening
+  camera, where every pine in view is close, Standard 3.53–4.41 and 3.60–4.55, High 5.30–5.50 and 5.29–5.45, the
+  triangles 533 k → 610 k in Standard, the same in High. Draw calls unchanged. Within the runs' spread.
+- **Sheet** (local only): `C:/dgm-showcase/objects/close/pines-sheet.png`, the game's cave frame against dev and this
+  branch in both looks, with a crop of the pines.
+- **Falls short:** (1) The game's boughs are grooved by their texture and its normal map, a lit and a shaded side to
+  each; ours are flat facets, two to a bough. (2) Each whorl is a little rounder in the game's (its boughs broad lobes);
+  ours are triangles to their tips. (3) Standard's pine shadows are still the fitted discs (`light.ts`
+  `PLANT_SHAPES`).
+
+## The ruins' ivy as the game draws it (D135, D178 as amended 2026-11-10, D496, D497; `fix/close-ivy`)
+
+Judged on the in-game capture kit's Four Lakes r14 `cave` start frame (day light; local only), ours posed from its
+camera with the map opened from its file. The game's ivy hangs over its ruins in trails of five-lobed leaves with light
+brown stems climbing from the foot; ours was large flat squares set diagonally on the faces.
+
+- **Read from the game's models and atlas** (numbers only, `tools/game-model-albedo.py`; no texture in git): `Ivy_Wet`
+  and `Ivy_Dry` are one material (EnvironmentURP5, cut at alpha 0.312), each model a few dozen double-sided cards at the
+  tile's edges, 72–292 triangles, 6.4 m of card a unit of UV in a 2048² atlas: cards of stems branching up from a
+  column's foot and cards of leaf trails hanging from its top, the leaves about 0.16 m across. The texels the cut keeps:
+  the leaves (0.148, 0.180, 0.095), from 0.56 to 1.31 times that in lightness (its normal map's light), the stems
+  (0.236, 0.203, 0.124), 0.035 m wide.
+- **Built** (`objectPatterns.ts`, D135: drawn in code): one 256² layer at 128 texels a metre, made once a page in the
+  textures' worker (about 0.1 s; the ivy is cut away until it lands): three strips of trails 0.5 × 1 m that run on from
+  storey to storey (the same at their foot as their top), one strip hanging from a column's top, a root of stems and
+  stems running on, each part's mean over the cut the game's (`palette.ts` `RUIN.ivy`, `RUIN.ivyStem`). A model's part
+  takes a pattern by `Model.card` (`entities3d.ts`): double-sided, its UV in a `puv` attribute and its pattern packed
+  into `lod` (its view plus 4 × the pattern), so no other model carries anything more. The object program samples the
+  pattern's layer and cuts at the game's 0.312 (not in the light look, whose ruins have no ivy); High's sun-depth pass
+  cuts the same, so the cards cast the leaves' shadow. `drape` lays the cards at the tile's edge over the posts: stems
+  on the storeys with clearly some (a root on the foot of a wet column), running trails on every storey below the
+  column's top, trails hanging from the top storey.
+- **Coverage held** (look-mine-ruins.test.ts, now through the pattern's alpha at each point): seen from a side, wet
+  (h = 4) the game's 0.74 / 0.63 / 0.38 / 0.28 of each storey from the foot up and ours 0.76 / 0.67 / 0.35 /
+  0.32–0.34; dry the foot 0.66 and ours 0.67. A storey with the most ivy is 16 cards, 64 triangles (was 128).
+- **Cost:** `benchOrbit` at the `cave` camera (1600 × 900, headed Chrome, RTX 2070 Super; the GPU's median a frame,
+  two runs of two, dev → branch): Standard 2.73–3.76 → 2.72–2.88 ms, High 3.41–4.35 → 3.39–3.97 ms:
+  within the runs' spread. Draw calls 93 and 102, unchanged; triangles Standard 526 k → 519 k, High 513 k → 507 k. The
+  pattern is 0.33 MB with its mips. The light look is untouched (its ruins have no ivy; its program samples nothing).
+- **Falls short:** (1) Each storey's ivy is its own batch, as before, so a column's trails change density at each
+  storey's top rather than hanging as one from the column's top as the game's do. (2) The game's normal map lights each
+  leaf by its own tilt; ours carry that light drawn into the pattern, the same under every sun. (3) The game's ivy
+  spills past the tile at the foot (`IvyWet0A`, a skirt on the ground); ours stays within the tile.
+- **Sheet** (local only): `C:\dgm-showcase\objects\close\ivy-sheet.png`, the game | dev | branch at the `cave`
+  camera in both looks, the pattern, and the ruins cropped.
+
+## The district center's thatch and wood as the game draws them (D135, D178 as amended 2026-11-10, D496, D497; `fix/close-thatch`)
+
+Judged on the same `cave` frame as the ivy, close up. The game's Folktails district center wears its materials'
+pictures: a thatch of straw in courses, walls and a tower of wavering dark planks laid level with light edges, pale
+grained wood on its posts, frames and railings. Ours drew each part in its flat mean.
+
+- **Read from the game's model and textures** (`DistrictCenter.Folktails`; numbers only, `tools/game-model-albedo.py`
+  and a measure of each material's UVs against its triangles): every material EnvironmentURP5, uncut; the thatch
+  (`ThatchedRoof`) 2.49 m of roof a unit of UV, v up the slope, four courses a unit, each pale blades pointing up into a
+  dark row of cut stalk ends; its texels 0.56 / 1.03 / 1.38 of its mean (5th / 50th / 95th percentile), the dark rows
+  0.58 and redder, the blades' tips 1.31 and paler. The planks (`IrregularPlanks_Brown`, the walls and the tower) 1.61 m
+  a unit, the boards along v of the texture laid level by the UVs: eight a unit, 0.2 m, a fifth of it their light edges
+  (0.348, 0.294, 0.201), three quarters the grained body (0.173, 0.121, 0.084), the rest the dark between; 0.55 / 0.85 /
+  1.96. The pale wood (`BaseWood_LightBrown`, and `BaseWood_Brown`, the same picture darker) 1.45 m a unit, boards
+  0.09 m wide, near white between them.
+- **Built** (`objectPatterns.ts`, D135: drawn in code from those figures): three more 256² layers in the objects'
+  texture array, tiling every way, ours 0.52 / 1.06 / 1.36 (thatch), 0.57 / 0.81 / 2.01 (planks). Every layer is now the
+  part's albedo over its colour, a third of it (`PATTERN_GAIN`; the ivy's cards take the leaves' colour), so each
+  tiling layer averages to its part's colour and the light look, which samples nothing, is unchanged. `lathe` takes a
+  pattern (u round it a whole number of units, v along its profile: the roof's and the hood's thatch);
+  `Model.patternBy` lays the wood's on the rest by colour, a face's UV its run across and its height (its x and z when
+  it looks up), so the planks lie level and the pale wood's grain stands. The atlas starts with the tiling layers at
+  their mean (the ivy cut away) until the worker's job lands (about 0.2 s in node for all four).
+- **Bloom:** the thatch's brightest straw passes the knee in the game's light, as the game's own does (its texture's
+  brightest texel (1.45, 1.63, 2.27) of its mean); ours is held under the game's (bloom.test.ts). The planks and the
+  pale wood stay under the knee.
+- **Cost:** `benchOrbit` at the `cave` camera (1600 × 900, headed Chrome, RTX 2070 Super; the GPU's median a frame,
+  two runs of two, interleaved, the ivy's branch → this one): Standard 3.16–3.56 → 3.25–3.69 ms, High 3.95–4.07 →
+  4.10–4.17 ms, about 0.1 ms more, at the edge of the runs' spread. Draw calls 93 and 102 and the triangles unchanged
+  (the parts only take UVs). The objects' texture 0.35 → 1.4 MB with its mips (four 256² layers). The light look is
+  untouched: it makes no object patterns and samples none, its parts in the same colours.
+- **Falls short:** (1) The game's normal maps give each blade and board its own light; ours carry it drawn in. (2) The
+  windows are still plain octagons where the game's are spoked wheels (`WindowsAtlas`) and the emblems plain discs. (3)
+  The Iron Teeth's district center keeps its flat colours (its own planks and roof pictures are not drawn yet). (4) The
+  roof's eave is a smooth bulge where the game's is ragged.
+- **Sheet** (local only): `C:\dgm-showcase\objects\close\thatch-logs-sheet.png`, the game's cave frame and the branch
+  in both looks, the district center cropped (game | before | branch, both looks), and the three layers.
+
+## The blueberry bush as the game builds it (D135, D178 as amended 2026-11-10, D496, D497; `fix/close-bushes`)
+
+Judged on the `cave` frame against the birch, the other close plant left: the game's bushes are mounds of pointed leaf
+rosettes with clusters of blue berries, and there are dozens of them in a start's view; ours were faceted olive blobs
+with blue points, the larger gap of the two (the birch's crown is next).
+
+- **Read from the game's model and texture** (`BlueberryBushMature`; numbers only, `tools/game-model-albedo.py` and a
+  measure of its pieces): 61 triangles, VegetationURP, cut at alpha 0.312, single-sided; a low dome 0.97 × 1.1 and 0.29
+  high under its texture's mound of rosettes, rosette cards about 0.33 m on its shoulders and 0.2 m on its top,
+  tilted out, to 0.42; five twigs flat on the ground under it; 2.26 m of bush a unit of UV. Its leaves are grey texels
+  (0.318) that its vertex colours (0.51, 0.58, 0.29) tint to the bush's colour, 0.67 / 0.96 / 1.38 of their mean (5th /
+  50th / 95th percentile), each about 0.2 m long; its berries its detail map's clusters over the leaves (12 % of what
+  the camera sees), round, about 0.06 m, 0.54 / 1.04 / 1.39.
+- **Built:** the bush's pattern (`objectPatterns.ts` layer 5, D135: drawn in code) is a mound of thirteen rosettes, four
+  rosettes for cards and four clusters of berries, each part over its colour (the leaves 0.71 / 0.99 / 1.34, the
+  berries 0.56 / 0.99 / 1.33), cut at the game's 0.312. `bushCards.ts` builds the bush from it for both looks: a dome
+  of 24 triangles its mound covers from above, seven rosette cards (the four on its shoulders laid on the dome), four
+  berry cards laid on the dome where they stand, facing out along it, so none floats or shows edge-on (two triangles
+  each; look.test.ts): 46
+  triangles (was 60 in Standard and 164 close up in High, whose five crowns and berry points it replaces; High's far
+  mound stays). Seen from above it covers 0.96 × 0.93 where the cut keeps it (the game's 0.93; look.test.ts). A dead
+  bush keeps its cards in the dead leaves' brown without its berries; a dying one shrinks and dries as before (a
+  dying Standard model now keeps its parts' patterns). High's plants take patterns as Standard's do (`Shape.patterned`,
+  the pattern packed in `lod`, its UV in `puv`), so the vegetation program and the sun's depth pass cut them the same.
+  Both read a cut layer's alpha no coarser than its 3rd mip (`PATTERN_ALPHA_MIP`): from the 5th a rosette's whole card
+  averages past the cut (a cluster of berries' from the 4th), so a card seen edge-on far off would draw whole.
+- **Cost:** the GPU a frame (median of two runs, #1148's branch → this one) on `cave` Standard 3.57–3.72 → 3.48–3.86 ms,
+  High 4.11–4.36 → 4.13–4.49 ms; on `start` Standard 4.29–4.84 → 4.36–4.64 ms, High 5.45–5.59 → 5.03–5.42 ms; draw calls
+  unchanged; triangles at `cave` Standard 591–596k → 580k, High 501–507k → 495–501k, at `start` Standard 604–609k →
+  597k, High 559k → 540k; the pattern atlas 1.4 → 1.75 MB (a fifth layer); its drawing about 0.25 s in the worker; the
+  light look unchanged (no pattern, each part in its colour).
+- **Bare bushes** (`fix/bare-bushes`): a bush whose `Yielder:Gatherable` holds no berries (picked, growing again) is
+  drawn without them in both looks, as the game draws it (its `_EnableDetail` 0 while no yield stands): the flag BARE
+  (render3d/model.ts, read by worker/api.ts `lifeOf`), Standard's `BlueberryBush.bare`, High's `bare` state; the light
+  look's bush, which draws no berries, the same bush in its batch (`liteKeyOf`). Until 2026-11-15 every living bush
+  showed berries; the Four Lakes r14 capture holds none on 400 of its 839 (wood.test.ts). Our generator writes some
+  bare too, as the game's maps hold them: the start's patches ripe (`ripeShare` 1), the others 0.55 ripe (gen/resources.ts),
+  a painted stroke half (gen/paint.ts); 46 of 147 on seed 1 at 96² (River valley).
+- **Falls short:** (1) The twigs under the bush are left out. (2) The game's berries sit on the leaves by a second UV
+  set; ours are cards on the dome under them. (3) The game's normal map lights each leaf; ours carry that light drawn in. (4) High's
+  far bush is still the faceted mound.
+- **Sheet** (local only): `C:\dgm-showcase\objects\close\bushes-sheet.png`, the game's cave frame and the branch in
+  both looks, the bushes cropped (game | before | branch, both looks), and the pattern.
+
+## The ruins' concrete as the game draws it (D135, D178 as amended 2026-11-10, D496, D497; `fix/close-ruin-wall`)
+
+With the ivy, thatch and bushes done, the ruins' own wall was the close frame's next gap: the game's slabs are weathered
+pale stone, cracked, shaded where its ivy hangs over them; ours were flat beige boxes in one colour.
+
+- **Read from the game's atlas** (`Ruins`, EnvironmentURP5; numbers only, its bands of slab over their cut, 512 texels a
+  metre, one row a storey, v up the storey): its mean is our `RUIN.slab` already (#6c5939); what it has that ours had
+  not is its spread. Over a band's upper part (to 0.69 of the storey) cells of pale-edged stone about 0.11 m across
+  between dark cracks, a tenth to a seventh of it crack (0.148, 0.131, 0.103), its lightness 0.42 / 0.78 / 0.94 / 1.11 /
+  1.28 of the mean (5th / 25th / 50th / 75th / 95th percentile); under it, to the band's foot, the stone weathered pale
+  and almost uncracked, 0.87 / 1.08 / 1.19 / 1.31 / 1.47, a few paler streaks rising from its foot; its cells
+  (0.447, 0.363, 0.224), its palest (0.547, 0.482, 0.314). In the game's `cave` frame its stone seen through the ivy is
+  about 0.9 of the bare stone's, its brightest 0.7.
+- **Built:** the concrete's pattern (`objectPatterns.ts` layer 6, D135: drawn in code), tiling across, a storey a unit up
+  it: wavering cracks of uneven width between cells lit at their rims, some cells split by fainter cracks, the line to
+  the pale lower part wandering (ours 0.40 / 0.84 / 0.93 / 1.04 / 1.21 above, 0.96 / 1.13 / 1.20 / 1.26 / 1.33 below;
+  look-mine-ruins.test.ts holds its mean to the slabs' tan and its two parts' lightness). Every band takes it as the
+  game's atlas lays it, across the face from its own place, its v its height in the storey (`concrete`); the floors take
+  its cracked part from above. A storey's frame is shaded by the ivy over it (`RUIN_IVY_SHADE`: 0.9, 0.78, 0.66 from a
+  little ivy to the most), the ivy itself untinted. The top storey's bands end raggedly at their top as the game's stubs
+  do (humps up to 0.11 m), as their foot already did. Both looks draw it; the light look draws the slabs in their
+  colour, as before. The patterns are drawn in the worker in about 0.4 s now, all six layers.
+- **Cost:** the GPU a frame (median of two runs, #1151's branch → this one) on `cave` Standard 3.23–3.26 → 3.30–3.76 ms,
+  High 4.15–4.25 → 3.99–4.07 ms; on `start` Standard 4.39–4.74 → 4.38–4.64 ms, High 5.07–5.15 → 5.04–5.11 ms; draw calls
+  the same in High (102, 125) and at `start` (107), at `cave` in Standard 91 → 93 (the base carries a newer dev; the
+  wall adds no batch: its frames keep their batches, the shade is each storey's tint); triangles at `cave` 579.7k →
+  584.9k in Standard (the stubs' ragged tops), 500.7k → 501.0k in High; the pattern atlas 1.75 → 2.1 MB (a sixth layer);
+  the light look unchanged.
+- **Falls short:** (1) The game's top-storey stubs are larger and puffier, broken into rounded humps; ours are the
+  storey's band cut short. (2) Its normal map raises each cell; ours carry that light drawn in. (3) Our cells are more
+  even in size than the game's, a few of whose are large.
+- **Sheet** (local only): `C:\dgm-showcase\objects\close\ruin-wall-sheet.png`, the game's cave frame and the branch in
+  both looks, the ruins cropped (game | before | branch, both looks), the game's band beside our layer, and the shade
+  under the ivy.
 
 ## The rest of the step (next parts)
 

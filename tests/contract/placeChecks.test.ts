@@ -27,8 +27,10 @@ function opened(id: string, asPlace: boolean) {
 
 describe("a real place's check summary", () => {
   it("a place under the starting-logs floor is not 'all pass': the floor is a warning", () => {
-    const { s, groups } = opened("near-glencoe", true);
-    expect(s.meta.place).toBe("near-glencoe");
+    // (Godavari delta: under the starting-logs floor after D311's conversion, D(new); Glencoe, the place
+    // here before, now meets it with the groves planted by its start)
+    const { s, groups } = opened("godavari-delta", true);
+    expect(s.meta.place).toBe("godavari-delta");
     expect(groups.warnings.map((c) => c.id)).toContain("start.wood_floor");
     expect(groups.existing).toEqual([]);
     // (the difficulty's own wood target is information on a place)
@@ -36,14 +38,14 @@ describe("a real place's check summary", () => {
   });
 
   it("a place whose start reaches no clean water warns, once", () => {
-    const { groups } = opened("near-drumheller", true);
+    const { groups } = opened("drumheller", true);
     expect(groups.warnings.map((c) => c.id)).toContain("start.water");
     expect(groups.advisory.map((c) => c.id)).not.toContain("water.storage_possible");
     expect(groups.existing).toEqual([]);
   });
 
   it("its information rows read as facts, without a target that reads failed", () => {
-    const { groups } = opened("near-aso-caldera", true);
+    const { groups } = opened("aso-caldera", true);
     for (const c of groups.advisory) expect(c.message).not.toMatch(/at least|aim for|needed|allows/);
     // (a fact asks for nothing: information rows carry no fix; the berry rows stand side by side)
     for (const c of groups.advisory) expect(c.fix).toBeUndefined();
@@ -58,7 +60,7 @@ describe("a real place's check summary", () => {
   });
 
   it("a place meeting the floors has no warnings; its other failing rows are information", () => {
-    const { v, groups } = opened("near-tagliamento-river", true);
+    const { v, groups } = opened("tagliamento-river", true);
     expect(groups.blocking).toEqual([]);
     expect(groups.warnings).toEqual([]);
     expect(groups.existing).toEqual([]);
@@ -68,7 +70,7 @@ describe("a real place's check summary", () => {
   });
 
   it("a load problem blocks a place: its start taken away", () => {
-    const { s } = opened("near-tagliamento-river", true);
+    const { s } = opened("tagliamento-river", true);
     const start = s.built.entities.find((e) => e.template === "StartingLocation")!;
     expect(s.apply({ op: "deleteEntities", params: { entities: [start.id] } }).ok).toBe(true);
     const v = s.validate("export", { loadOnly: true });
@@ -76,14 +78,14 @@ describe("a real place's check summary", () => {
   });
 
   it("the same file opened as a plain import lists its own problems apart (D3)", () => {
-    const { groups } = opened("near-glencoe", false);
+    const { groups } = opened("godavari-delta", false);
     expect(groups.existing.map((c) => c.id)).toContain("start.wood_floor");
     expect(groups.warnings).toEqual([]);
   });
 
   it("a place stays a place when saved and reopened; a map generated afterwards is not one", () => {
-    const { s } = opened("near-tagliamento-river", true);
-    expect(MapSession.open(decodeProject(encodeProject(s.document))).meta.place).toBe("near-tagliamento-river");
+    const { s } = opened("tagliamento-river", true);
+    expect(MapSession.open(decodeProject(encodeProject(s.document))).meta.place).toBe("tagliamento-river");
     const r = generate(makeSpec({ seed: 1, theme: "riverValley", size: { x: 96, y: 96 } }));
     expect(MapSession.fromGenerated(r, r.file).meta.place).toBeUndefined();
   });

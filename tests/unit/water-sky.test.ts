@@ -7,7 +7,7 @@ import { DataTexture } from "three";
 import { sceneUniforms, waterMaterial } from "../../src/render3d/materials";
 import { waterHooks } from "../../src/render3d/high/shaders";
 import { GAME_ENV } from "../../src/render3d/palette";
-import { WATER, WATER_LIGHT, WATER_PROBE } from "../../src/render3d/waterPalette";
+import { WATER, WATER_LIGHT, WATER_PROBE, WATER_SURFACE } from "../../src/render3d/waterPalette";
 
 const tex = () => new DataTexture(new Uint8Array(4), 1, 1);
 const U = () => sceneUniforms(1, 1, tex(), tex(), tex(), tex());
@@ -90,13 +90,30 @@ describe("the game's light on its water (Q9 P15)", () => {
       "colour += waterEnvironment(N, V, smoothness, float(WATER_HELD_HIGH));",
       "colour += GAME_SUN_COLOUR * waterSunGlint(N, V, sunDir, smoothness) * lit;",
       // (its smoothness the Standard surface's, toward badwater's by High's own share)
-      "float hlSmooth = mix(clamp(WATER_SMOOTHNESS + (gloss - 0.5) * WATER_SMOOTHNESS_SPREAD, 0.0, 1.0), BADWATER_SMOOTHNESS, waterTint(hlBad) * bpat.x);",
+      "float hlSmooth = mix(waterSmoothness(gloss), BADWATER_SMOOTHNESS, waterTint(hlBad) * bpat.x);",
     ])
       expect(s).toContain(line);
     // (the diffuse share by High's own switch)
     expect(s).toMatch(/#if WATER_HELD_HIGH\s+gameWaterDiffuse = 0\.96;/);
     expect(s).toContain(`#define WATER_DETAIL_HIGH ${WATER_LIGHT.detail.high ? 1 : 0}`);
     expect(s).toContain("gameWaterDetail = float(WATER_DETAIL_HIGH);");
+  });
+});
+
+describe("the water's gloss (Q9 P8)", () => {
+  it("drifts as the game's two samples of its gloss map: their speeds in its texture's units over its tiling 0.01, in tiles a second", () => {
+    // (the game's _MetallicGlossMapSpeed (−0.008, −0.002) and _MetallicGlossMapSpeed2 (0.01, 0.004): a sample at
+    // xz × 0.01 + T × speed shows a patch that moves −speed / 0.01 tiles a second; ours at (g − T × pan) × its scale)
+    const game = [[-0.008, -0.002], [0.01, 0.004]];
+    WATER_SURFACE.glossPan.forEach((p, i) => p.forEach((v, k) => expect(v).toBeCloseTo(-game[i][k] / 0.01, 6)));
+    const s = waterMaterial(U(), false, waterHooks()).fragmentShader;
+    expect(s.match(/gloss = waterGloss\(g, t\);/g)?.length).toBe(2);
+  });
+  it("spreads as the game's smoothness: 0.149, 0.248 and 0.432 at its 5th, 50th and 95th percentiles, where our gloss swings ±0.25", () => {
+    const sm = (k: number) => WATER_SURFACE.smoothness + k * WATER_SURFACE.smoothnessSpread + k * k * WATER_SURFACE.smoothnessCurve;
+    expect(sm(-0.25)).toBeCloseTo(0.149, 2);
+    expect(sm(0)).toBeCloseTo(0.248, 2);
+    expect(sm(0.25)).toBeCloseTo(0.432, 2);
   });
 });
 

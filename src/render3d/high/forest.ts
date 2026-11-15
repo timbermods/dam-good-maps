@@ -10,19 +10,19 @@
 import { BufferGeometry, Color, InstancedBufferAttribute, InstancedMesh, Matrix4, Vector3, type Camera, type Object3D, type ShaderMaterial } from "three";
 import { whenIdle } from "../idle";
 import { disposeSharedBatch } from "./sharedBatch";
-import { DEAD, DYING, YOUNG, type EntityView } from "../model";
+import { BARE, DEAD, DYING, YOUNG, type EntityView } from "../model";
 import { model, noise, placement, registry, species, type Detail, type PlantState, type Species } from "./models";
 
 export const isPlant = (name: string): name is Species => (species as readonly string[]).includes(name);
 
 /** The renderer's batch names of the models the forest replaces (entities3d.ts `modelKeyOf`). */
 export function replacedBatch(name: string): boolean {
-  const base = name.replace(/\.(dead|dying)$/, "");
+  const base = name.replace(/\.(dead|dying|bare)$/, "");
   return isPlant(base);
 }
 
-/** A plant's state from its flags: dead over dying. */
-const stateOf = (flags: number): PlantState => (flags & DEAD ? "dead" : flags & DYING ? "dying" : "alive");
+/** A plant's state from its flags: dead over dying, dying over bare (only a bush is drawn bare). */
+const stateOf = (flags: number, name: string): PlantState => (flags & DEAD ? "dead" : flags & DYING ? "dying" : flags & BARE && name === "BlueberryBush" ? "bare" : "alive");
 
 /** Dead trees grow on screen when far off, with **Markers** (entities3d.ts GROW_DEAD). */
 const GROW_DEAD = [14, 0, 2.5] as const;
@@ -130,7 +130,7 @@ export class Forest {
       const x = view.x[i];
       const y = view.y[i];
       const z = view.z[i];
-      const state = stateOf(view.flags[i]);
+      const state = stateOf(view.flags[i], name);
       const dead = state === "dead";
       const p = placement(x, y, view.flags[i] & YOUNG ? 0.35 : 1, name);
       m.makeRotationY(p.turn).scale(new Vector3(p.scale, p.scaleY, p.scale));
@@ -217,7 +217,7 @@ export class Forest {
   setState(flags: ArrayLike<number>): number {
     let changed = 0;
     for (const e of this.entries) {
-      const state = stateOf(flags[e.index]);
+      const state = stateOf(flags[e.index], e.species);
       if (state === e.state) continue;
       changed++;
       e.state = state;
@@ -253,10 +253,15 @@ export class Forest {
     for (const e of this.entries) {
       const depth = -(c[2] * e.x + c[6] * e.y + c[10] * e.z + c[14]);
       const perUnit = (pixels * 0.5 * proj[5]) / (ortho ? 1 : Math.max(0.1, depth));
-      const cx = c[0] * e.x + c[4] * e.y + c[8] * e.z + c[12];
-      const cy = c[1] * e.x + c[5] * e.y + c[9] * e.z + c[13];
-      const w = ortho ? 1 : depth;
-      const onScreen = w > 0 && Math.abs(cx * proj[0]) < w * 1.25 && Math.abs(cy * proj[5]) < w * 1.25;
+      // (on screen by its root or its top: a tall tree whose foot is below the frame still shows close up, its crown in
+      // the view)
+      const seen = (y: number) => {
+        const d = ortho ? 1 : -(c[2] * e.x + c[6] * y + c[10] * e.z + c[14]);
+        const cx = c[0] * e.x + c[4] * y + c[8] * e.z + c[12];
+        const cy = c[1] * e.x + c[5] * y + c[9] * e.z + c[13];
+        return d > 0 && Math.abs(cx * proj[0]) < d * 1.25 && Math.abs(cy * proj[5]) < d * 1.25;
+      };
+      const onScreen = seen(e.y) || seen(e.y + e.wind[3]);
       const near = detail && onScreen && perUnit > (e.near ? 18 : 23);
       if (near !== e.near) changed = true;
       e.near = near;

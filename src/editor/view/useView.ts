@@ -245,6 +245,8 @@ export function useView(ed: Ed): ViewSlice {
     paintOverlay(data, info.W, info.H, layers);
     // (a selection taken on a run, a cave's floor, is drawn on that ground; the rest of its columns as the land outside it)
     r.setOverlayRuns(selection.current.count ? selection.current.levels : null, LOCKED);
+    // (the Caves layer also draws the air under the roofs through the rock, caveGhost.ts)
+    r.showCaves(layer === "roofed");
     r.commitOverlay();
   }, [fit, picked, targeted, pickedObject, hoverObject, startDrag, instant, ready, waterLayers, layer, sourceDrag, selectionTick, selectDraw, selectPreview, painted, forceStroke, rockHeld, info.version, sourceDragBad]);
   // the force's one ring (D312, D321 item 13): its size round the cursor, drawn once where the cursor

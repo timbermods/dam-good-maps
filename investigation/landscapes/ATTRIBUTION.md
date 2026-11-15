@@ -5,6 +5,8 @@ Data: `s3://elevation-tiles-prod/terrarium`. Provider notices below apply to eve
 
 Changes: bilinear resampling, cropped patches, vertical compression and integer quantisation; inferred sources; local edge sealing; simulated water and planted game resources. These are modified data, not endorsed by the providers.
 
+Real water (D271; `library/real-water.json`, written by `tools/places-real-water.ts`, accessed 2026-11-14): ESA WorldCover 2021 v200, class 80 (permanent water bodies), 10 m, from https://esa-worldcover.s3.eu-central-1.amazonaws.com/ (Registry of Open Data on AWS), licensed under CC BY 4.0 (https://creativecommons.org/licenses/by/4.0/). Required notice: "© ESA WorldCover project 2021 / Contains modified Copernicus Sentinel data (2021) processed by ESA WorldCover consortium". Changes: sampled every 10 m under each map tile and reduced to the tiles over half of whose area is permanent water (or open sea, where WorldCover has no file); the Real places cut their basins only on those tiles.
+
 Random land mask: Natural Earth, public domain, https://www.naturalearthdata.com/about/terms-of-use/.
 
 The following upstream notice is preserved from https://github.com/tilezen/joerd/blob/master/docs/attribution.md (SHA-256 2ce4d3414b4592d17ad56a5af57feb480686ddcfb0a3e4ea0b566d28cde13567).
