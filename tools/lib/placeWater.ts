@@ -71,10 +71,13 @@ export function compareWater(opened: ArrayLike<number>, settled: ArrayLike<numbe
 }
 
 /** A film (D(new), planning's rule on #236: a place's water runs in a bed to an exit or stands in a basin its feed
- *  holds; no films, no sheets): a body of water of `FILM_TILES` tiles or more, `FILM_DEPTH` deep or less on every tile,
- *  of which less than `FILM_BED_SHARE` lies in a bed. Named so one ruling moves them. */
+ *  holds; no films, no sheets): a body of water of `FILM_TILES` tiles or more, `FILM_DEPTH` deep or less on
+ *  `FILM_THIN_SHARE` of its tiles or more (D(new-films), planning's ruling of 2026-11-15: by share of the body, not every
+ *  tile, so a film keeps its name where its spring rises a little deeper: Kunlun fan's 1,907-tile body has 10 deeper
+ *  tiles), of which less than `FILM_BED_SHARE` lies in a bed. Named so one ruling moves them. */
 export const FILM_TILES = 100;
 export const FILM_DEPTH = 0.11;
+export const FILM_THIN_SHARE = 0.9;
 export const FILM_BED_SHARE = 0.5;
 
 /** Whether tile i's water lies in a bed: the ground rises on both sides across it (west and east, or south and north;
@@ -101,17 +104,14 @@ export function films(depth: ArrayLike<number>, floor: ArrayLike<number>, W: num
   for (const b of bodies(depth, W, H)) {
     if (b.length < FILM_TILES) continue;
     let bed = 0;
-    let thin = true;
+    let thin = 0;
     let floor0 = 0;
     for (const i of b) {
-      if (depth[i] > FILM_DEPTH) {
-        thin = false;
-        break;
-      }
+      if (depth[i] <= FILM_DEPTH) thin++;
       if (inBed(floor, W, H, i)) bed++;
       if (floor[i] === 0) floor0++;
     }
-    if (thin && bed < FILM_BED_SHARE * b.length) out.push({ tiles: b, at: [b[0] % W, Math.floor(b[0] / W)], floor0 });
+    if (thin >= FILM_THIN_SHARE * b.length && bed < FILM_BED_SHARE * b.length) out.push({ tiles: b, at: [b[0] % W, Math.floor(b[0] / W)], floor0 });
   }
   return out;
 }
