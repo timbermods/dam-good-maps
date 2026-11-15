@@ -3,6 +3,9 @@
 // relative to the new origin, everything outside is gone, and an object the edge cuts is removed (counted). It is
 // one undo step that brings the full map back exactly, it is recorded in the log and the project, and a saved
 // project opens and saves again byte for byte.
+//
+// The generated maps are fixtures (tests/fixtures/projects: River Valley 64² seeds 1, 2, 4 and 5, 128² seed 14; `fixtureSession`): the subject is the crop,
+// not the generator, so a land change moves nothing here (D148).
 import { describe, expect, it } from "vitest";
 import { cropObjects, planCrop } from "../../src/core/doc/crop";
 import { decodeProject } from "../../src/core/doc/document";
@@ -12,11 +15,12 @@ import { footprintTiles, slopeHighSide } from "../../src/core/format/footprints"
 import { readTimber, writeTimber } from "../../src/core/format/timber";
 import { LAYERS } from "../../src/core/format/world";
 import { validateMap } from "../../src/core/validate/checks";
-import { generate } from "../../src/core/gen/generate";
-import { makeSpec } from "../../src/core/spec/mapspec";
-import { map, sha, session, timber } from "./gateHelpers";
+import { sha, timber } from "./gateHelpers";
+import { fixtureSession } from "../fixtureProjects";
 
 const W = 64;
+/** The River Valley 64² fixture of `seed` (tests/fixtures/projects), settling its water as the generator's map does (`fromGenerated`). */
+const session = (seed = 1) => fixtureSession("riverValley", W, seed);
 const crop = (x: number, y: number, w: number, h: number) => ({ op: "crop" as const, params: { x, y, w, h } });
 
 /** A rectangle of the 64² map that holds its start and a water source whole (so water stands in it after the crop),
@@ -174,7 +178,8 @@ describe("Crop map to selection: refusals, one line each, and nothing changes", 
     expect(s.logOps).toHaveLength(0);
     expect(s.history()).toEqual([]);
     expect(s.size).toEqual({ x: W, y: W });
-    expect(timber(s)).toBe(sha(map().bytes));
+    // (the map as the generation made it: an unedited session of the same fixture exports the same file)
+    expect(timber(s)).toBe(timber(session()));
   });
 
   it("is answered as plain data before it is applied (planCrop)", () => {
@@ -246,7 +251,7 @@ describe("Crop map to selection: an imported map keeps its caves and overhangs",
   /** A generated map's file with a cave under one tile and a ledge, imported. */
   function withCaves(): { s: MapSession; at: { x: number; y: number }[] } {
     // (the map of seed 2 since generator 0.10.21's look round (D518: the land's long straight steps jog, the dead stands read the dry land as the checks do), D148: seed 1's holds fewer than three columns tall enough to hollow away from its objects; seeds 2 to 9 each hold them, seed 2 the first)
-    const file = readTimber(map(2).bytes);
+    const file = readTimber(session(2).exportTimber().bytes);
     const w = file.world;
     const plane = w.sizeX * w.sizeY;
     const at: { x: number; y: number }[] = [];
@@ -441,16 +446,12 @@ describe("Crop map to selection: the lip at the new edge (M9b's rule, water/edge
   // the first whose crop leaves the start whole, raises the edge beside the head (2 tiles at 0 behind, 1 at 1) and leaves no water beside it, at both distances; its spring is at (23, 20);
   // seed 5 since generator 0.10.21's look round (D518: the land's long straight steps jog, the dead stands read the dry land as the checks do), D148: seed 4's springs at (23, 29) and (23, 30) have a berry patch on the edge tile beside them, which the lip never raises (the ground under an object stays), so
   // water pours past it; of seeds 1–60 only 4, 5, 7, 39, 41 and 60 have a spring 23 tiles in from the west edge, and of those seed 5, whose spring is at (23, 0), passes at both distances);
-  // seed 4 again besides seed 5 since the lip lifts the objects on the ground it raises (planning's ruling, 2026-11-13): its berry patch beside the springs rises with the edge;
-  // seeds 12 and 107 for 4 and 5 since generator 0.10.23's round forms (the look round), D148: seeds 4 and 5 have no spring 23 tiles in from the
-  // west edge now; of seeds 1–110 seeds 1, 2, 12, 16, 18, 20, 38, 65, 72, 79, 103, 106 and 107 have one, and of those 12, 16, 18, 38, 65, 106 and 107
-  // pass at both distances (1, 2, 72 and 79 cut the start; 20 and 103 leave water beside the new edge at 1 behind); seed 12, whose spring is at (23, 33),
-  // is the first, and seed 107, whose springs are at (23, 27), is the one whose lip lifts an object beside them: a pine at (23, 30), at 0 behind
+  // seed 4 again besides seed 5 since the lip lifts the objects on the ground it raises (planning's ruling, 2026-11-13): its berry patch beside the springs rises with the edge
   it.each([
-    [12, 0],
-    [12, 1],
-    [107, 0],
-    [107, 1],
+    [4, 0],
+    [4, 1],
+    [5, 0],
+    [5, 1],
   ])("seed %i: a source %i tile(s) behind the new edge does not pour its water off the map", (seed, behind) => {
     const original = session(seed);
     const spring = original.built.entities.filter((e) => e.template === "WaterSource" && e.x === 23);
@@ -483,10 +484,10 @@ describe("Crop map to selection: the lip stays at the new edges and is no wall",
   // seed 14 at 128²: sources at (40..44, 127) on the old north edge, cropped to {27, 44, 60, 84} (it holds the
   // start at (82, 60)): their river mouth stands on a side the crop did not cut
   it("changes no tile on a side the crop did not cut, and little beside the new ones", () => {
-    const original = MapSession.fromGenerated(generate(makeSpec({ seed: 14, size: { x: 128, y: 128 } })));
+    const original = fixtureSession("riverValley", 128, 14);
     original.settleCanonical();
     const r = { x: 27, y: 44, w: 60, h: 84 };
-    const s = MapSession.fromGenerated(generate(makeSpec({ seed: 14, size: { x: 128, y: 128 } })));
+    const s = fixtureSession("riverValley", 128, 14);
     s.settleCanonical();
     expect(s.apply(crop(r.x, r.y, r.w, r.h)).errors).toEqual([]);
     let raised = 0;

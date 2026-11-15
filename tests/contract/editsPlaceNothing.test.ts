@@ -5,6 +5,9 @@
 // generation; an edited map keeps those that still stand and loses those an edit took away. An edit
 // that leaves something unreachable shows in the checks (the mine site's walk,
 // `resources.mine_site`, advisory in the editor), for the player to fix; nothing is placed silently.
+//
+// The maps are fixtures (tests/fixtures/projects: Highlands 128² seeds 1 and 3, 96² seeds 4 and 5; `fixtureInEditor`): the subject is
+// what an edit does to the objects, not the generator, so a land change moves nothing here (D148).
 
 import { describe, expect, it } from "vitest";
 import { decodeProject, encodeProject } from "../../src/core/doc/document";
@@ -22,8 +25,8 @@ import { entityTiles } from "../../src/core/features/edits";
 import { writeTimber } from "../../src/core/format/timber";
 import { toTimberFile } from "../../src/core/gen/pack";
 import { makeSpec } from "../../src/core/spec/mapspec";
-import { runGenerate } from "../../src/worker/api";
 import * as ed from "../../src/worker/session";
+import { fixtureInEditor } from "../fixtureEditor";
 
 const W = 128;
 
@@ -38,8 +41,7 @@ function added(before: ReturnType<typeof entities>, after: ReturnType<typeof ent
 }
 
 async function open(seed: number, side = W) {
-  await runGenerate(makeSpec({ seed, theme: "highlands", size: { x: side, y: side } }));
-  ed.refine();
+  fixtureInEditor("highlands", side, seed);
   const b = MapSession.open(decodeProject(ed.project().bytes)).built;
   const st = b.start!;
   // dry ground well away from the start, and a fault across the far half
@@ -204,8 +206,8 @@ describe("a spring the build derives again after an edit keeps its id (PLAN §19
   // Generator 0.8.1's Highlands 128² seed 3 (#265): a spring river's head row stood two long, the
   // start's ground keeping the third tile; a Lift carried the start away, the row was placed again
   // three long, and the third spring was new, an object the force added (D368 (10), D314). An edited
-  // map keeps the row the generation placed. Here Highlands 96² seed 3's three-spring row at
-  // (59–61, 12) is stored two long, as that one was: no edit may give it its third. ((14–16, 44) until
+  // map keeps the row the generation placed. Here Highlands 96² seed 4's three-spring row at
+  // (20–22, 78) is stored two long, as that one was: no edit may give it its third. ((14–16, 44) until
   // the Canyon and Highlands height round, 0.8.8, D148: that spring's row is two long on its map now,
   // and this one is the map's three-spring row. Seed 1's (65–67, 58) until generator 0.10.5, D148: its
   // three-spring row stands up the map now, (74, 75–77), and seed 3's runs along the fault as this one did. Seed 3's second
@@ -213,15 +215,12 @@ describe("a spring the build derives again after an edit keeps its id (PLAN §19
   // is the main river now, its head standing up the map at (73, 34–36); the map's three-spring rows are its second spring's
   // and its third's at (61–63, 83), and the first of them is taken. Seed 4's row at (20–22, 78) since generator 0.10.20's
   // contour edges, D518, D148: seed 3's three-spring row stands up the map now, (43, 16–18), and of seeds 1–6 seed 4's is
-  // the first that runs across it, its start beside it at (32, 79). Seed 3's row at (59–61, 12) since generator 0.10.23's round
-  // forms, the look round, D148: seed 4's three-spring rows stand up the map's east edge now, (95, 39–41) and (95, 69–71), and of
-  // seeds 1–4 seed 3's row of f-6krpq3fsfoh3i is the first that runs across it.)
+  // the first that runs across it, its start beside it at (32, 79).)
   it("a Quake Lift leaves a generated spring's two-spring head row as it was: the same sources, count and ids", async () => {
-    await runGenerate(makeSpec({ seed: 3, theme: "highlands", size: { x: 96, y: 96 } }));
-    ed.refine();
+    fixtureInEditor("highlands", 96, 4);
     const doc = decodeProject(ed.project().bytes);
-    const row = (es: ReturnType<typeof entities>) => es.filter((e) => e.template === "WaterSource" && e.owner === "f-6krpq3fsfoh3i").map((e) => `${e.id}@${e.x},${e.y}`);
-    const third = MapSession.open(doc).built.entities.find((e) => e.template === "WaterSource" && e.x === 61 && e.y === 12)!;
+    const row = (es: ReturnType<typeof entities>) => es.filter((e) => e.template === "WaterSource" && e.owner === "f-ieizb3y6dpgpk").map((e) => `${e.id}@${e.x},${e.y}`);
+    const third = MapSession.open(doc).built.entities.find((e) => e.template === "WaterSource" && e.x === 22 && e.y === 78)!;
     const world = JSON.parse(doc.base.world!) as { Entities: { Id: string }[] };
     const k = world.Entities.findIndex((e) => e.Id === third.id);
     world.Entities.splice(k, 1);
@@ -230,10 +229,10 @@ describe("a spring the build derives again after an edit keeps its id (PLAN §19
     doc.stored = undefined;
     ed.openProject(encodeProject(doc));
     const before = row(entities());
-    expect(before.map((s) => s.split("@")[1])).toEqual(["59,12", "60,12"]);
+    expect(before.map((s) => s.split("@")[1])).toEqual(["20,78", "21,78"]);
     for (const side of [1, -1] as const) {
       // (Ride, D474: the row rides the ground; Clear would take it)
-      run({ verb: "quake", settings: { ...QUAKE_DEFAULTS, power: 60, sources: "ride" }, path: [{ x: 2, y: 12.5 }, { x: 48, y: 12.5 }, { x: 93, y: 12.5 }], side, cut: null, natural: true });
+      run({ verb: "quake", settings: { ...QUAKE_DEFAULTS, power: 60, sources: "ride" }, path: [{ x: 2, y: 78.5 }, { x: 48, y: 78.5 }, { x: 93, y: 78.5 }], side, cut: null, natural: true });
       expect(row(entities()), `the Lift on side ${side}`).toEqual(before);
       ed.undo();
     }
@@ -250,7 +249,8 @@ describe("an edit that leaves the mine site out of reach shows in the checks, an
     // next to the site, so the checks rightly counted it reached)
     let middle: [number, number] = [0, 0];
     // (7 to 12 since the start's badwater distance became a rule, Kyler, 2026-10-05, D148: none of 4, 2, 5, 6 has one now)
-    for (const seed of [4, 2, 5, 6, 7, 8, 9, 10, 11, 12]) {
+    // (seed 5, the first of 4, 2, 5, 6 and 7–12 whose map has a reachable mine site standing clear of the edge, as the scan found it when the fixture was saved)
+    for (const seed of [5]) {
       await open(seed, 96);
       const found = entities().find((e) => e.template === "UndergroundRuins");
       if (!found) continue;

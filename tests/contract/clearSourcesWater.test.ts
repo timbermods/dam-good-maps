@@ -1,14 +1,16 @@
 // Item 15 (D322): a stroke that clears sources takes their water with them, at once and exactly as
 // deleting a source does (D260). The stroke's own water (D197) ran on the old sources while it was
 // painted; once the stroke and its clearing are applied, that water goes with its cause.
+//
+// The maps are fixtures (tests/fixtures/projects: River Valley 96² seeds 15 and 33, `fixtureInEditor`): the subject is the
+// session and its water on a given map, not the generator, so a land change moves nothing here (D148).
 
 import { describe, expect, it } from "vitest";
 import { decodeProject } from "../../src/core/doc/document";
 import type { EditOp } from "../../src/core/doc/ops";
 import { MapSession } from "../../src/core/doc/session";
-import { makeSpec } from "../../src/core/spec/mapspec";
-import { runGenerate } from "../../src/worker/api";
 import * as ed from "../../src/worker/session";
+import { fixtureInEditor } from "../fixtureEditor";
 
 const W = 96;
 const SRC = "d3220000-0000-4000-8000-000000000015";
@@ -23,8 +25,7 @@ async function wait(ms: number) {
  *  on: the stroke's water stops with it, and the pit the source was filling drains once the water settles. Whether the
  *  map's water settles on stacked columns. */
 async function clearedPit(seed: number): Promise<boolean> {
-  await runGenerate(makeSpec({ seed, theme: "riverValley", size: { x: W, y: W } }));
-  ed.refine();
+  fixtureInEditor("riverValley", W, seed);
   const open = () => MapSession.open(decodeProject(ed.project().bytes));
   const b = open().built;
   // dry, flat ground far from any water
@@ -98,10 +99,8 @@ describe("Clear sources and the water (item 15)", () => {
     // seed 2 since generator 0.10.13, whose starts frame the map (D507), D148: seed 1's map now has stacked columns, so
     // its settle no longer runs on the heightfield's engine; seed 2's spot is at (77, 81), level 6, on a heightfield map;
     // seed 15 since generator 0.10.18's dead stands on the dry land, D516, D148: a stand stands within five tiles of seed 2's
-    // spot, and seed 15's is at (77, 12), level 12, on a heightfield map; seed 59 since generator 0.10.23's round forms, the look
-    // round, D148: seed 15 has no dry flat spot now; of seeds 1–20, 33, 44, 59 and 68 only 11, 13, 16, 44 and 59 have one, and of those
-    // 11, 16 and 59 settle on the heightfield's engine; seed 59's spot is at (13, 17), level 5)
-    expect(await clearedPit(59)).toBe(false);
+    // spot, and seed 15's is at (77, 12), level 12, on a heightfield map)
+    expect(await clearedPit(15)).toBe(false);
   }, 120_000);
 
   it("and on a map with terrain above terrain: the pit drains there too (#814)", async () => {
@@ -113,9 +112,7 @@ describe("Clear sources and the water (item 15)", () => {
     // map settles on the heightfield's engine now; of seeds 1–80 with a dry flat spot, seeds 6, 33, 44, 59 and 68 have stacked columns
     // and seeds 6, 33 and 44 pass (59 and 68 were not tried); seed 6's spot is at (60, 17), level 16; seed 33 since generator 0.10.21's look round
     // (D518: the land's long straight steps jog), D148: seed 6's map settles on the heightfield's engine now, and of seeds 6, 33, 44, 59, 68 and 2–5, 7 and 8
-    // only seed 33 holds a pit that drains on stacked columns; seed 44 since generator 0.10.23's round forms, the look round, D148:
-    // seed 33 has no dry flat spot now; of seeds 1–20, 33, 44, 59 and 68 with one, seeds 13 and 44 have stacked columns, and seed
-    // 44's spot is at (35, 15), level 11, its pit draining there)
-    expect(await clearedPit(44)).toBe(true);
+    // only seed 33 holds a pit that drains on stacked columns)
+    expect(await clearedPit(33)).toBe(true);
   }, 120_000);
 });

@@ -4,16 +4,13 @@
 
 import { describe, expect, it } from "vitest";
 import { MapSession } from "../../src/core/doc/session";
-import { generate } from "../../src/core/gen/generate";
-import { makeSpec } from "../../src/core/spec/mapspec";
+import { fixtureSession } from "../fixtureProjects";
 
 const W = 64;
 // seed 1 for 4 since generator 0.10.20's contour edges, D518, D148: seed 4's Lake Basin has no level spot now (no 3×3 of
 // dry ground at one level with room to rise six); of seeds 1–30, seeds 1, 2, 7, 8, 9, 11, 14 and others have one, and
 // seed 1 is the first.
-// seed 2 for 1 since generator 0.10.23's round forms (the look round), D148: seed 1's Lake Basin has no level spot now;
-// of seeds 1 to 14, seeds 2, 4, 7, 8, 11, 12 and 14 have one, and seed 2 is the first.
-const r = generate(makeSpec({ seed: 2, theme: "lakeBasin", size: { x: W, y: W } }));
+// (the map is a fixture, tests/fixtures/projects/scenario-lakeBasin-64-1: the subject is the sculpt, not the generator, so a land change moves nothing here, D148)
 
 /** A dry tile on level ground, low enough to rise six: the 3Ã—3 round it and the tiles either side of the row at its
  *  level and dry, and nothing standing on the row of three the test shapes. */
@@ -37,7 +34,7 @@ function levelSpot(s: MapSession): [number, number] {
 
 describe("a sculpt the land wears away is refused (D342)", () => {
   it("a lone tile flattened far above its neighbours is refused with why, the land as it was; exact, or two tiles, it stands", () => {
-    const s = MapSession.fromGenerated(r, r.file);
+    const s = fixtureSession("lakeBasin", W, 1);
     s.setWaterMode("defer");
     const [x, y] = levelSpot(s);
     const h = s.built.heights[y * W + x];

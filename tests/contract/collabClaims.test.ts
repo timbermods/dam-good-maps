@@ -14,6 +14,7 @@ import { captureState, cloneState, difference } from "../../src/core/collab/mapS
 import { Mask } from "../../src/core/collab/mask";
 import { describeWaterNote, waterNote, waterNotes } from "../../src/core/collab/waterNotes";
 import { decodeProject } from "../../src/core/doc/document";
+import { GENERATOR_VERSION } from "../../src/core/spec/mapspec";
 import type { EditOp } from "../../src/core/doc/ops";
 import { planEntity, planMoveEntity } from "../../src/core/doc/placing";
 import { planRemove } from "../../src/core/doc/remove";
@@ -44,16 +45,15 @@ const square = (x0: number, y0: number, x1: number, y1: number): [number, number
  *  saved), and on its new map a lock toggle writes 2 tiles; of seeds 1–40 the first, seed 3, serves every test here but the water
  *  note's, whose spring moves to (38, 32), see there; seed 58 since generator 0.10.21's look round (D518: the land's long straight steps jog, the
  *  dead stands read the dry land as the checks do), D148: on seed 3's new map a lock toggle writes 2 tiles and no relic fits twice; of seeds 1–91 only 58 and 84 serve
- *  every test here, the water note's too, and 58 is the first; seed 3 since generator 0.10.23's round forms, the look round, D148:
- *  the 0.10.22 project of seed 58 opens as saved but a lock toggle on it writes 2 tiles and a hill raised far from her area moves
- *  the water in it, and seed 58's new map has no bare block for two claims; seed 1's spring at (38, 32) floods none of her area, and on
- *  seed 2's map no relic fits twice; seed 3 serves every test here, the water note's too) saved as the
- *  app saves it (tests/fixtures/projects: made with `MapSession.fromGenerated(generate(makeSpec({ seed: 3, theme:
+ *  every test here, the water note's too, and 58 is the first) saved as the
+ *  app saves it (tests/fixtures/projects: made with `MapSession.fromGenerated(generate(makeSpec({ seed: 58, theme:
  *  "highlands", size: { x: 48, y: 48 } }))).project()`; it opens exactly as saved, so the test does not wait on the
  *  generator). Every test opens its own session from it. */
-const bytes = new Uint8Array(readFileSync("tests/fixtures/projects/collab-highlands-48-3.damgoodmaps"));
+const bytes = new Uint8Array(readFileSync("tests/fixtures/projects/collab-highlands-48-58.damgoodmaps"));
 function session(water: "defer" | "canonical" = "defer"): MapSession {
-  const s = MapSession.open(decodeProject(bytes));
+  // (its version relabelled as the current generator's own, as tests/fixtureProjects.ts does: a project of an older generator opens frozen, and a land change then
+  // would change how the session edits it; the map, its water and its objects are the file's either way)
+  const s = MapSession.open({ ...decodeProject(bytes), generatorVersion: GENERATOR_VERSION });
   s.setWaterMode(water);
   return s;
 }

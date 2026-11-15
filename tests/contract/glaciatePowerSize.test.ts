@@ -5,23 +5,26 @@
 // wider valley reaches higher up the old slopes, so its walls stand taller there: the land's, not
 // Size's). Measured on the land the editor's worker leaves (the page's way, nature drawing the
 // details), across the glacier's path (`glacierSections`), on the stretch of valley every run shares.
+//
+// The maps are fixtures (tests/fixtures/projects: Highlands 128² seeds 26 and 28; `fixtureInEditor`): the subject is the force's Power and Size, not the generator, so a land
+// change moves nothing here (D148).
 
 import { beforeAll, describe, expect, it } from "vitest";
 import { GLACIATE_DEFAULTS } from "../../src/core/forces/glaciate/model";
 import { glacierSections, type GlacierSection } from "../../tools/lib/glaciate";
 import * as ed from "../../src/worker/session";
-import { openMap } from "./forceEverywhere";
+import { fixtureInEditor } from "../fixtureEditor";
 
 const W = 128;
 const SEED = 28;
 /** Size's map and head (its own map since generator 0.10.11, see below). */
-const SIZE_SEED = 29;
-const SIZE_HEAD: [number, number] = [60, 64];
-const POWER_HEAD: [number, number] = [8, 96];
+const SIZE_SEED = 26;
+const SIZE_HEAD: [number, number] = [56, 36];
+const POWER_HEAD: [number, number] = [8, 104];
 let at: [number, number] = [W >> 1, W >> 1];
 
 beforeAll(async () => {
-  await openMap("highlands", W, SEED);
+  fixtureInEditor("highlands", W, SEED);
   // (D148, M9b's maps: the head is re-picked from the map. The old pick, the highest dry ground, is on
   // seed 21 a tile near the north rim whose ice runs 16 tiles and stops, so the comparisons had no
   // stretch to share; (80, 24), level 14, sends its ice 70 tiles at the narrowest Size, and every check
@@ -64,13 +67,7 @@ beforeAll(async () => {
   // on seed 29 Power 0's walls are 4 (it needs 3 or fewer) and Power 100's stand 7 to Power 50's 7, as on the 60 heads nearest it,
   // and the first head found that keeps every check of Power, searching the highest heads of seeds 22 to 28, 30 and 21 at once,
   // is seed 28's (8, 104), level 16, the thirteenth of seed 28's taking the heads of level 16 first; on seed 26 (50, 30) and the three heads nearest it make no sections at
-  // Power 20, and Size's is (56, 36), level 11, the fifth nearest it, which keeps every check of Size at Power 20, 60 and 100).
-  // Power's moved with generator 0.10.23's round forms (the look round), D148: from (8, 104) on seed 28 the ice at Size 24 makes no
-  // sections on the shared stretch; of seed 28's heads on the grid of 4, taking those of level 16 first by their distance from it,
-  // (8, 96), level 16, the tenth, keeps every check of Power. Size's moved too: on seed 26 at (56, 36) Power 20's floor is cut 2 at
-  // Size 10 and 4 at Size 40, and none of the 40 heads nearest it (level 10 or more, on the grid of 4) keeps every check of Size,
-  // nor any of the 15 nearest the middle on seed 27; on seed 29, (60, 64), level 15, the third nearest the middle, keeps them all
-  // at Power 20, 60 and 100
+  // Power 20, and Size's is (56, 36), level 11, the fifth nearest it, which keeps every check of Size at Power 20, 60 and 100)
   at = SIZE_HEAD;
 });
 
@@ -137,7 +134,7 @@ describe("Glaciate: Power is how deep, Size how wide (D368 (3))", () => {
   }, 300_000);
 
   it("at a fixed Power, Size alone widens it, its floor cut to the same level", async () => {
-    await openMap("highlands", W, SIZE_SEED);
+    fixtureInEditor("highlands", W, SIZE_SEED);
     at = SIZE_HEAD;
     for (const power of [20, 60, 100]) {
       const [narrow, wide] = compare([glacier(power, 10), glacier(power, 40)], 40);

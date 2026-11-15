@@ -2,6 +2,9 @@
 // beside their own map. Interleaved edits, claims ordered through the host, an undo blocked and freed, presence, a drop in
 // the middle of a stroke, a rejoin with a new "code" that carries on, and the host's whole-map change. The maps are compared
 // byte for byte at the settled points (the .timber the game loads, the project the app saves, the hashes).
+//
+// The maps are fixtures (tests/fixtures/projects, `mapProject` in collabFixtures.ts: Highlands 48² seeds 5 and 7): the subject is the session layer, not the generator, so a land change
+// moves nothing here (D148).
 
 import { beforeAll, describe, expect, test } from "vitest";
 import type { Command, PeerEvent } from "../../src/core/collab";
@@ -163,13 +166,11 @@ describe("claims", () => {
     rig.connect();
     rig.settle();
     // the guest claims ground the water reaches when the host puts a strong spring outside it (at (28, 24) since generator
-    // 0.10.20's contour edges, D518, D148: from (22, 24) the water no longer reaches the claim; from (28, 28) it floods 12 of its tiles;
-    // at (28, 25) since generator 0.10.23's round forms, the look round, D148: from (28, 28) the water runs west and floods none of the
-    // claim now; from (28, 25), the nearest spot tried in steps of 2 round the claim, it floods 51 of its tiles, from x 30)
+    // 0.10.20's contour edges, D518, D148: from (22, 24) the water no longer reaches the claim; from (28, 28) it floods 12 of its tiles)
     const claim = rig.guest.claim({ kind: "claim", runs: square(30, 21, 46, 28) });
     rig.drain();
     expect((await claim).ok).toBe(true);
-    const spring: Command = { kind: "edit", label: "Place WaterSource", ops: [{ op: "placeEntity", params: { id: GUID(9001), template: "WaterSource", x: 28, y: 25, orientation: "Cw0", components: { WaterSource: { SpecifiedStrength: 8, CurrentStrength: 8 } } } } as EditOp] };
+    const spring: Command = { kind: "edit", label: "Place WaterSource", ops: [{ op: "placeEntity", params: { id: GUID(9001), template: "WaterSource", x: 28, y: 28, orientation: "Cw0", components: { WaterSource: { SpecifiedStrength: 8, CurrentStrength: 8 } } } } as EditOp] };
     const r = rig.host.submit(spring);
     rig.drain();
     expect(await r).toMatchObject({ ok: true });

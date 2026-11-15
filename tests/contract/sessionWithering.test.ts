@@ -1,13 +1,15 @@
 // The plants a held Drought day has surely killed, as the session worker sends them (src/worker/session.ts, D250): each earlier
 // day's soil is worked out off the worker, a day at a time, and the dead tiles follow the day in a `withered` event; a press or a
 // key stops the work and the next idle moment takes it up; a map with caves gets its day soil but no withering yet.
+//
+// The map is a fixture (tests/fixtures/projects/riverValley-64-2; `fixtureInEditor`): the subject is the session worker's withering, not
+// the generator, so a land change moves nothing here (D148).
 
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
-import { makeSpec } from "../../src/core/spec/mapspec";
 import { WITHERING_SPECIES } from "../../src/core/sim/withering";
-import { runGenerate } from "../../src/worker/api";
 import { computeDaySoil, type SoilJob } from "../../src/worker/daySoil";
 import * as ed from "../../src/worker/session";
+import { fixtureInEditor } from "../fixtureEditor";
 
 // a map the stacked water model owns, for the cave test: the one predicate for a map with caves says so
 let caves = false;
@@ -40,10 +42,8 @@ const plantTiles = () => {
 beforeEach(async () => {
   caves = false;
   events = [];
-  // (seed 2 on 0.10.6's maps, D148: seed 1's River Valley now has caves, which the withering leaves out, `stackedMap`; seed 3
-  // since generator 0.10.23's round forms, the look round, D148: seed 2's map has caves now, and of seeds 1–12, 3 is the first without)
-  await runGenerate(makeSpec({ seed: 3, theme: "riverValley", size: { x: 64, y: 64 } }));
-  ed.refine();
+  // (seed 2 on 0.10.6's maps, D148: seed 1's River Valley now has caves, which the withering leaves out, `stackedMap`)
+  fixtureInEditor("riverValley", 64, 2);
   ed.setSoilRunner(null);
   ed.listen((e) => events.push(e));
 });

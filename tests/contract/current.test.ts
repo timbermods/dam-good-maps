@@ -1,13 +1,15 @@
 // The moving water's current on a generated river (D353): it moves, it runs downstream, and the
 // outflows it comes from are the ones the file stores.
+//
+// The map is a fixture (tests/fixtures/projects/scenario-riverValley-128-4; `fixtureSession`): the subject is the current drawn from the settled water, not the
+// generator, so a land change moves nothing here (D148).
 
 import { describe, expect, it } from "vitest";
 import { readTimber } from "../../src/core/format/timber";
 import { storedOutflows } from "../../src/core/format/world";
-import { generate } from "../../src/core/gen/generate";
-import { decodeSpecFragment } from "../../src/core/spec/codec";
 import { outflowsOf, surfaceCurrent } from "../../src/render3d/current";
 import { surfaceWater, waterFromDepth } from "../../src/render3d/model";
+import { fixtureSession } from "../fixtureProjects";
 
 // (seed 25: a map whose water is flat columns with the settle's outflows, as the file stores them; a map with terrain
 // above terrain has its columns' own, `stack.flows`. Seed 4241 before generator 0.10.10, whose land grows a cliff
@@ -23,19 +25,18 @@ import { surfaceWater, waterFromDepth } from "../../src/render3d/model";
 // and 26 have flat columns now, and only seed 26 has films, D148; seed 7 for seed 26 since the D518 mends (compact hills, no broad wash flats, dead-stand knots), D148: seed 26's map has no film on its banks now; of seeds 1–34 only 4, 7, 9, 24, 26 and 31 have flat columns, and only seeds 7 and 24 have films (1 and 2 tiles), seed 7 the first)
 // (seed 4 since generator 0.10.21's look round (D518: the land's long straight steps jog, the dead stands read the dry land as the checks do), D148:
 // seed 7's map has no film on its banks now; of seeds 1–12, 24, 26 and 29 only 4 and 24 pass every rule below, and seed 4 is the first)
-// (seed 9 since generator 0.10.23's round forms, the look round, D148: seed 4's map has terrain above terrain now, so its water has no
-// flat columns' outflows; of seeds 1–12, 24, 26 and 29 only 9 and 24 have flat columns, and only seed 9 has films, 2 tiles)
-const r = generate(decodeSpecFragment("s=9&t=riverValley&z=128&d=n")!.spec);
-const { W, H } = r.built;
-const S = r.built.settle;
-const view = waterFromDepth(r.built.heights, S.depth, S.contamination);
+const fixture = fixtureSession("riverValley", 128, 4);
+const built = fixture.built;
+const { W, H } = built;
+const S = built.settle;
+const view = waterFromDepth(built.heights, S.depth, S.contamination);
 view.outflow = outflowsOf(view, W, H, S.out)!;
 const sw0 = surfaceWater(W, H, view);
 /** The current of each column (the renderer's, from the outflows the worker sends). */
 const c0 = surfaceCurrent(W, H, sw0);
 const cur = Float32Array.from({ length: view.count * 2 }, (_, n) => c0[view.tile[n >> 1] * 2 + (n & 1)]);
 
-describe("the current of River Valley seed 9 at 128 squared", () => {
+describe("the current of River Valley seed 4 at 128 squared", () => {
   it("the river moves: a quarter of the wet columns are quicker than 0.5, none beyond 10", () => {
     let fast = 0;
     for (let k = 0; k < view.count; k++) {
@@ -76,7 +77,7 @@ describe("the current of River Valley seed 9 at 128 squared", () => {
   });
 
   it("the file stores the settle's outflows on every wet tile", () => {
-    const singletons = readTimber(r.bytes).world.singletons;
+    const singletons = readTimber(fixture.exportTimber().bytes).world.singletons;
     const stored = storedOutflows(singletons, W, H)!;
     expect(stored).not.toBeNull();
     // (the reader reads the water deeper than a film, 0.001, as `storedWater` does; a film's outflows are read from its

@@ -3,10 +3,13 @@
 // what the checks would flag with it there (the generation's objects out of their distance band from the start).
 // The core's `startProblem`, the move operation (`planStart`) and the page's preview share the rule, and the checks
 // (`entities.placement`, `start.clear`, `extras.placement`) agree with it on a generated map.
+//
+// The generated maps are fixtures (tests/fixtures/projects: Highlands 128² seeds 3 and 7; `fixtureSession`, and for the imported cases its exported .timber): the subject is the start's
+// fit rule, not the generator, so a land change moves nothing here (D148).
 
 import { describe, expect, it } from "vitest";
 import { MapSession } from "../../src/core/doc/session";
-import { cornerFor, moveStartNear, startGroundOf, startMiddle, startProblem } from "../../src/core/doc/start";
+import { moveStartNear, startGroundOf, startMiddle, startProblem } from "../../src/core/doc/start";
 import type { Feature } from "../../src/core/features/schema";
 import { makesRoomForStart, standingFeatures, standingOf, startFitExtras, startFitProblem, startFitWarnings, takenTiles, type StartFitGround } from "../../src/core/doc/startFit";
 import { EVERY_KIND, planRemove } from "../../src/core/doc/remove";
@@ -19,9 +22,7 @@ import { tilesToRuns } from "../../src/core/math/grid";
 import type { MapObjectFeature, StartFeature } from "../../src/core/features/schema";
 import { entityTiles } from "../../src/core/features/edits";
 import { footprintTiles } from "../../src/core/format/footprints";
-import { writeTimber } from "../../src/core/format/timber";
-import { generate } from "../../src/core/gen/generate";
-import { makeSpec } from "../../src/core/spec/mapspec";
+import { fixtureSession } from "../fixtureProjects";
 
 const W = 20;
 const ground = (over: Partial<StartFitGround> = {}): StartFitGround => ({ W, H: W, river: () => false, depth: () => 0, taken: () => false, ...over });
@@ -95,8 +96,7 @@ describe("startFitWarnings", () => {
 
 describe("an imported map's start", () => {
   it("is refused on a geothermal field, a mine site, a relic or thorns, though every imported object is owned by \"import\" (the start is skipped by its template, not its owner)", () => {
-    const g = generate(makeSpec({ seed: 3, theme: "highlands", size: { x: 128, y: 128 } }));
-    const s = MapSession.importMap(writeTimber(g.file), "valley.timber");
+    const s = MapSession.importMap(fixtureSession("highlands", 128, 3).exportTimber().bytes, "valley.timber");
     const start = s.built.entities.find((e) => e.template === "StartingLocation")!;
     expect(start.owner).toBe("import");
     const objects = s.built.entities.filter((e) => /^(GeothermalField|UndergroundRuins|SmallRelic|MediumRelic|Thorns)$/.test(e.template));
@@ -116,18 +116,14 @@ describe("an imported map's start", () => {
     if (ops) {
       const move = ops.find((o) => o.op === "moveEntity") as { params: { x: number; y: number } };
       const ground = startGroundOf(s.built, s.features, null);
-      // (the spot's middle, from the corner the move gives and the start's orientation: (x + 1, y + 1) holds only for Cw0;
-      // since generator 0.10.23's round forms, the look round, D148, seed 3's start stands turned (Cw180), so the move's corner (33, 59) stands one past its middle (32, 58) on both axes)
-      const [mx, my] = [[1, 1], [1, -1], [-1, -1], [-1, 1]].map(([dx, dy]) => [move.params.x + dx, move.params.y + dy]).find(([x, y]) => cornerFor(x, y, start.orientation).join() === `${move.params.x},${move.params.y}`)!;
-      expect(startProblem(s.built, mx, my, start.orientation, true, null, null, ground)).toBeNull();
+      expect(startProblem(s.built, move.params.x + 1, move.params.y + 1, start.orientation, true, null, null, ground)).toBeNull();
     }
   });
 });
 
 describe("the fit rule and the checks agree on a generated map", () => {
-  const r = generate(makeSpec({ seed: 3, theme: "highlands", size: { x: 128, y: 128 } }));
-  const objects = r.features.filter((f): f is MapObjectFeature => f.kind === "mapObject" && f.origin === "generated" && ["geothermal", "mineSite", "relicSmall", "relicMedium"].includes(f.params.kind));
-  const fresh = () => MapSession.fromGenerated(r, r.file);
+  const fresh = () => fixtureSession("highlands", 128, 3);
+  const objects = fresh().features.filter((f): f is MapObjectFeature => f.kind === "mapObject" && f.origin === "generated" && ["geothermal", "mineSite", "relicSmall", "relicMedium"].includes(f.params.kind));
 
   it("a start on an object's footprint is refused and the checks flag it; one the rule warns about is flagged by extras.placement; one it accepts raises neither", () => {
     expect(objects.length).toBeGreaterThan(0);
@@ -209,8 +205,7 @@ describe("the fit rule and the checks agree on a generated map", () => {
 
 describe("Clear everything on a generated map", () => {
   it("leaves no distance flag behind: the checks and the start's preview measure only the objects that stand, before and after a start is placed", () => {
-    const r = generate(makeSpec({ seed: 3, theme: "highlands", size: { x: 128, y: 128 } }));
-    const s = MapSession.fromGenerated(r, r.file);
+    const s = fixtureSession("highlands", 128, 3);
     const { x: W, y: H } = s.size;
     const owners = () => standingOf(s.built.entities);
     // on the map as generated every relic, mine site, field, belt and core stands: the checks read every feature
@@ -259,10 +254,7 @@ describe("a map object measured where it stands, by the checks and the start's p
   // from the relic has only the relic out of its band; of Highlands seeds 1–13, 2, 6, 7 and 11 serve all four tests, and 2 is the first)
   // (seed 7 since generator 0.10.21's look round (D518: the land's long straight steps jog, the dead stands read the dry land as the checks do), D148: seed 2's relic, once
   // flagged, finds no spot that the move allows and its band clears; of Highlands seeds 6, 7 and 11 only 7 serves all four tests here)
-  // (seed 5 since generator 0.10.23's round forms, the look round, D148: on seed 7 no spot 5 to 12 tiles from the relic, where a
-  // start fits, has only the relic out of its band; of Highlands seeds 1–16, 5, 6, 8 and 14 serve all four tests here, and 5 is the first)
-  const r = generate(makeSpec({ seed: 5, theme: "highlands", size: { x: 128, y: 128 } }));
-  const fresh = () => MapSession.fromGenerated(r, r.file);
+  const fresh = () => fixtureSession("highlands", 128, 7);
   const W = 128;
   const startOf = (s: MapSession) => s.features.find((g): g is StartFeature => g.kind === "start")!;
   /** The start's preview at (x, y), or at its middle: the core's strict reading, what the page's amber shows. */
@@ -272,7 +264,7 @@ describe("a map object measured where it stands, by the checks and the start's p
   };
   const fits = (s: MapSession, x: number, y: number) => !startProblem(s.built, x, y, startOf(s).params.orientation, false, startOf(s).id, null, startGroundOf(s.built, s.features, startOf(s).id), false);
   const check = (s: MapSession) => s.validate().report.checks.find((c) => c.id === "extras.placement")!;
-  const relic = r.features.find((f): f is MapObjectFeature => f.kind === "mapObject" && f.origin === "generated" && f.params.kind === "relicSmall")!;
+  const relic = fresh().features.find((f): f is MapObjectFeature => f.kind === "mapObject" && f.origin === "generated" && f.params.kind === "relicSmall")!;
   const near = /^Small relic \d+ tiles from the start, wanted 13–70$/;
   /** Drags the relic, as the select tool does, to the first spot within `radius` of the start the move allows whose
    *  preview matches `want`. */
@@ -406,8 +398,7 @@ describe("a map object measured where it stands, by the checks and the start's p
 
 describe("an imported map", () => {
   it("refuses the start over another object, though every imported object is owned by 'import'", () => {
-    const r = generate(makeSpec({ seed: 3, theme: "highlands", size: { x: 128, y: 128 } }));
-    const imp = MapSession.importMap(writeTimber(r.file), "valley.timber");
+    const imp = MapSession.importMap(fixtureSession("highlands", 128, 3).exportTimber().bytes, "valley.timber");
     expect(imp.features.some((f) => f.kind === "start")).toBe(false);
     const own = imp.built.entities.find((e) => e.template === "StartingLocation")!;
     expect(own.owner).toBe("import");

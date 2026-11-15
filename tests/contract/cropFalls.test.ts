@@ -19,32 +19,31 @@
 // since the later D518 mends (the rolling ground reweighed, compact rises, dead stands in woods), D148, seed 12 has none now, nor has any of
 // seeds 1 to 16 but seeds 3 and 5 (corners scanned in steps of four, the 48 × 48 crops, the start staying in); seed 3's corner at X 24 · Y 32
 // leaves one block unheld at X 24 · Y 76, its start at X 53 · Y 52 staying in it, and the crop four tiles east, X 28, holds it; seed 5's
-// blocks stay unheld four tiles east; since generator 0.10.23's round forms (the look round), D148, seed 3 has none now; of seeds 1 to 16
-// seeds 10, 11 and 16 have one whose crop four tiles east holds every block and keeps the start, and seed 10 is the first: its
-// corner at X 20 · Y 36 leaves 17 blocks unheld, the first at X 21 · Y 36, its start at X 58 · Y 63 staying in it, and the
-// crop four tiles east, X 24, holds them).
+// blocks stay unheld four tiles east).
 // A crop whose edge
 // leaves every block held goes ahead, and its file's ground is all supported.
+//
+// The map is a fixture (tests/fixtures/projects/scenario-riverValley-128-3; `fixtureSession`): the subject is the crop, not the generator, so a land change
+// moves nothing here (D148).
 
 import { describe, expect, it } from "vitest";
 import { cropFalls, cropObjects } from "../../src/core/doc/crop";
 import { MapSession } from "../../src/core/doc/session";
 import { readTimber } from "../../src/core/format/timber";
 import { validateMap } from "../../src/core/validate/checks";
-import { map } from "./gateHelpers";
+import { fixtureSession } from "../fixtureProjects";
 
 const supported = (s: MapSession) => validateMap(readTimber(s.exportTimber().bytes), { profile: "import", loadOnly: true }).report.checks.find((c) => c.id === "terrain.supported")!;
 
 describe("a crop never leaves ground floating", () => {
   it("an edge that would leave blocks unheld is refused with how many and where; one that holds them all goes ahead", () => {
-    const r = map(10, 128);
     const session = () => {
-      const s = MapSession.fromGenerated(r, r.file);
+      const s = fixtureSession("riverValley", 128, 3);
       s.setWaterMode("defer");
       return s;
     };
     const s = session();
-    const bad = { x: 20, y: 36, w: 48, h: 48 };
+    const bad = { x: 24, y: 32, w: 48, h: 48 };
     expect(cropObjects(s.built.entities, bad).cutStart).toBeNull();
     const falls = cropFalls(s.terrain, bad);
     expect(falls.length).toBeGreaterThan(0);
@@ -57,7 +56,7 @@ describe("a crop never leaves ground floating", () => {
     expect(s.size).toEqual({ x: 128, y: 128 });
     expect(Buffer.from(s.built.heights).equals(Buffer.from(before))).toBe(true);
     // (a crop whose west edge is four tiles further east keeps what holds them, and the game keeps all its ground)
-    const ok = { x: 24, y: 36, w: 48, h: 48 };
+    const ok = { x: 28, y: 32, w: 48, h: 48 };
     const t = session();
     expect(cropFalls(t.terrain, ok)).toEqual([]);
     expect(t.apply({ op: "crop", params: ok }).errors).toEqual([]);

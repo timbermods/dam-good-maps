@@ -2,6 +2,9 @@
 // effect where it is used). It leaves only what must not change for the map to stay correct: the start's
 // pad, and the ground under water sources and objects. A force's result, a Raise stroke (exact since
 // item 37), a river and a set piece are all fair game.
+//
+// The map is a fixture (tests/fixtures/projects/scenario-riverValley-96-21; `fixtureSession`): the subject is what Naturalize weathers, not the generator, so a land
+// change moves nothing here (D148).
 
 import { describe, expect, it } from "vitest";
 import { decodeProject } from "../../src/core/doc/document";
@@ -14,8 +17,7 @@ import { inBench } from "../../src/core/features/raster/terrain";
 import type { BrushParams } from "../../src/core/features/raster/brush";
 import { groundUnderObjects } from "../../src/core/features/raster/objectGround";
 import { tilesToRuns } from "../../src/core/math/grid";
-import { generate } from "../../src/core/gen/generate";
-import { makeSpec } from "../../src/core/spec/mapspec";
+import { fixtureSession } from "../fixtureProjects";
 
 const W = 96;
 const PLANT = /^(Pine|Birch|Oak|Maple|ChestnutTree|Mangrove|Succulent|BlueberryBush|Slope|RuinColumnH\d+)$/;
@@ -28,13 +30,12 @@ const PLANT = /^(Pine|Birch|Oak|Maple|ChestnutTree|Mangrove|Succulent|BlueberryB
 // seed 3 for generator 0.10.16's ground with grade, D148: seed 9's best spot has 5 bad tiles; seeds 3, 6, 7 and 10 have an open spot, seeds 7 and 10 fail two
 // of the six, seeds 3 and 6 pass all six)
 // (seed 9 since generator 0.10.21's look round (D518: the land's long straight steps jog, the dead stands read the dry land as the checks do), D148: of seeds 1–11 only seed 9 passes all six)
-// (seed 10 since generator 0.10.23's round forms (the look round), D148: seed 9's best spot has 22 bad tiles, and its start stands at level 15,
-// so the wall lifted beside its pad stops at 16, a single level, with nothing to wear; of seeds 1–24 seeds 10, 13, 14, 15, 18, 23 and 24 have
-// an open spot, seeds 10, 13 and 18 pass all six (on 14 and 24 the cliff's tallest step stays, on 15 a slope stands by the source, on 23 the
-// pad's wall does not weather), and seed 10 is the first)
-function session(seed = 10): MapSession {
-  const r = generate(makeSpec({ seed, theme: "riverValley", size: { x: W, y: W } }));
-  const s = MapSession.fromGenerated(r, r.file);
+// (fixture seed 21 since rule 6's whole pull-back (#1102, D479, D514 amended), D148: on seed 9 the Quake Lift's open spot (50,12)
+// has its north foot on the way the hill's water runs (draining 380–550 tiles, a stream to the weathering), a foot that may not
+// rise, so the cliff pulls back whole with its height kept and its tallest step stays 6; of the River Valley 96 fixtures only 21
+// passes all six)
+function session(seed = 21): MapSession {
+  const s = fixtureSession("riverValley", W, seed);
   s.setWaterMode("defer");
   return s;
 }

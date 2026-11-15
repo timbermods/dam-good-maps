@@ -7,9 +7,8 @@ import { describe, expect, it } from "vitest";
 import { applySelection, selectionHeld } from "../../src/core/doc/start";
 import { MapSession } from "../../src/core/doc/session";
 import type { EditOp } from "../../src/core/doc/ops";
-import { generate } from "../../src/core/gen/generate";
 import { tilesToRuns } from "../../src/core/math/grid";
-import { makeSpec } from "../../src/core/spec/mapspec";
+import { fixtureSession } from "../fixtureProjects";
 
 const W = 96;
 
@@ -21,13 +20,12 @@ describe("Select's actions on a map with a 3D form (D487)", () => {
   // with it again; since generator 0.10.20's contour edges, D518, D148, seed 4245's one spring cave stands at (76–79,
   // 73–78), and the box moved with it once more;
   // since the D518 mends (wash treads and dead-stand knots), D148: seed 4245 has no 3D form now, and of seeds 4242 to 4253 seed 4242,
-  // the first, has one spring cave, at (40–44, 38–44), holding 45 tiles up, so the box moved to X 34–50 · Y 32–50;
-  // since generator 0.10.23's round forms (the look round), D148: seed 4242's one 3D form stands at (22–27, 61–66) now, holding 42
-  // tiles up, so the box moved with it, six tiles round it as before, to X 16–33 · Y 55–72)
-  const r = generate(makeSpec({ seed: 4242, theme: "highlands", size: { x: W, y: W } }));
+  // the first, has one spring cave, at (40–44, 38–44), holding 45 tiles up, so the box moved to X 34–50 · Y 32–50)
+  // (the map is a fixture, tests/fixtures/projects/scenario-highlands-96-4242: the subject is Select, not the generator, so a land change moves nothing here, D148)
+  const fresh = () => fixtureSession("highlands", W, 4242);
 
   it("the whole map cut down to level 8: every tile but the cave's and its roof's holders, which stay as they were", () => {
-    const s = MapSession.fromGenerated(r, r.file);
+    const s = fresh();
     s.setWaterMode("defer");
     const held = selectionHeld(s);
     expect(held.size).toBeGreaterThan(0);
@@ -45,13 +43,13 @@ describe("Select's actions on a map with a 3D form (D487)", () => {
   });
 
   it("Delete's ground over a selection that takes in the cave (the Delete menu's Ground, the Delete key): a level off the rest, the cave's ground and its roof's holders left, counted", () => {
-    const s = MapSession.fromGenerated(r, r.file);
+    const s = fresh();
     s.setWaterMode("defer");
     const held = selectionHeld(s);
     const h0 = s.built.heights.slice();
     // (a box round the cave, as the page sends it: an exact lower of one level, useDelete.ts `deleteGround`)
     const box: number[] = [];
-    for (let y = 55; y <= 72; y++) for (let x = 16; x <= 33; x++) if (h0[y * W + x] > 0) box.push(y * W + x);
+    for (let y = 32; y <= 50; y++) for (let x = 34; x <= 50; x++) if (h0[y * W + x] > 0) box.push(y * W + x);
     const inBox = box.filter((i) => held.has(i));
     expect(inBox.length).toBeGreaterThan(0);
     const op: EditOp = { op: "sculpt", params: { mode: "lower", cells: tilesToRuns(box, W), amount: 1, exact: true } };
@@ -63,7 +61,7 @@ describe("Select's actions on a map with a 3D form (D487)", () => {
   });
 
   it("a selection of only the ground holding up the roof is refused saying so", () => {
-    const s = MapSession.fromGenerated(r, r.file);
+    const s = fresh();
     s.setWaterMode("defer");
     const holders = [...selectionHeld(s)].filter((i) => !s.columns.has(i));
     expect(holders.length).toBeGreaterThan(0);
@@ -74,7 +72,7 @@ describe("Select's actions on a map with a 3D form (D487)", () => {
   });
 
   it("a selection of the cave's ground alone is refused with the core's one line, and nothing changes", () => {
-    const s = MapSession.fromGenerated(r, r.file);
+    const s = fresh();
     s.setWaterMode("defer");
     const cave = [...s.columns.keys()];
     const h0 = s.built.heights.slice();

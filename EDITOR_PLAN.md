@@ -670,7 +670,8 @@ on one shared forces core, `src/core/forces/` (D203, D206, D220; see its README)
   advance, the land changing, three quarters of it. **Slow forces**
   (a toggle beside Sound, remembered): about four times as long, to be watched; a click anywhere or a new
   gesture's key jumps it to its final land. On a page that draws slowly a Slow showing moves on at most a quarter
-  second a frame, so none of it is skipped unseen (`WATCH_STRIDE_MS`). The pace never follows the water's speed. What is only a show (water
+  second a frame, so none of it is skipped unseen (`WATCH_STRIDE_MS`); the water's journey after an edit counts the same
+  quarter second at most, so a slow page still sees its water travel (`waterPlayer.ts`). The pace never follows the water's speed. What is only a show (water
   filling a new channel, falls starting, dust, lava's glow) plays on after the land is final, never blocking; a
   new force started while it plays skips it to its end and plays in full itself, however quickly it came (D378).
 - **Whole levels, once** (`rust/forces/src/levels.rs`, showcase-craft gap 25): a force works out a real-valued

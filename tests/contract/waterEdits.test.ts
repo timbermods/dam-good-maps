@@ -2,22 +2,24 @@
 // questions report what each will do before it acts, each is one operation and one undo step, the
 // water after it is what the game's rules make of the map, and project files rebuild it byte for
 // byte. The engine's own rules are in tests/unit/fedFill.test.ts.
+//
+// The generated maps are fixtures (tests/fixtures/projects: Lake Basin 96² seed 2, River Valley 96² seed 1; `fixtureSession`): the subject is the water edits, not the
+// generator, so a land change moves nothing here (D148).
 
 import { beforeAll, describe, expect, it } from "vitest";
 import { decodeProject } from "../../src/core/doc/document";
 import type { EditOp, OpOf } from "../../src/core/doc/ops";
 import { MapSession } from "../../src/core/doc/session";
 import { fillLevel, planFill, unfedWater } from "../../src/core/doc/waterEdits";
-import { generate } from "../../src/core/gen/generate";
 import { fedTiles, WATER } from "../../src/core/sim/fed";
 import { fillDays } from "../../src/core/sim/fill";
 import { TICKS_PER_DAY, waterSteady, WaterSim } from "../../src/core/sim/water";
-import { makeSpec } from "../../src/core/spec/mapspec";
+import { fixtureSession } from "../fixtureProjects";
 
 const N = 96;
 
 function session(theme: "lakeBasin" | "riverValley", seed: number): MapSession {
-  return MapSession.fromGenerated(generate(makeSpec({ seed, theme, size: { x: N, y: N } })));
+  return fixtureSession(theme, N, seed);
 }
 
 /** The water the game's rules make of the map's stored water after `days`. */
@@ -75,9 +77,7 @@ describe("Remove unfed water (D387 (2))", () => {
   let fileBefore: Uint8Array;
 
   beforeAll(() => {
-    // Lake Basin 3 for 2 since generator 0.10.23's round forms, the look round, D148: seed 2's 96² map has no dry plateau for the two
-    // pits now; of seeds 1–6, 8, 10, 14, 15, 18, 21, 22, 24, 26, 27, 29 and 30 only 3, 5, 6, 8, 18, 21, 24, 26, 27, 29 and 30 have one,
-    // seed 3 the first, from (6, 6) at level 14. Lake Basin 2 for 5 since the D518 mends (compact hills, no broad wash flats, dead-stand knots), D148: seed 5's 96² map has no dry
+    // Lake Basin 2 for 5 since the D518 mends (compact hills, no broad wash flats, dead-stand knots), D148: seed 5's 96² map has no dry
     // plateau for the two pits now; of seeds 1–30 only 2, 6, 8, 10, 14, 15, 18, 21, 22, 24, 26, 27, 29 and 30 have one, seed 2 the first,
     // from (34, 70) at level 13. Lake Basin 5 (2 on generator 0.10.7's first D502 maps, where seed 5 had no dry plateau; 5 again on D502 narrowed to
     // one landmark form per whole 128², where seed 2 has none; 5 before generator 0.10.7; 3 before generator 0.10.6, D498; 2 before
@@ -86,7 +86,7 @@ describe("Remove unfed water (D387 (2))", () => {
     // of grouped sources (D314), two badwater sources, and two Fills, pools no source's water
     // reaches (the canonical settle's pre-fill left such pools in hollows until D385, which takes
     // that water from nowhere away; a stored lake is the unfed water a map keeps)
-    s = session("lakeBasin", 3);
+    s = session("lakeBasin", 2);
     for (const p of digPits(s, 2)) expect(s.apply(planFill(s, p.at[0], p.at[1], p.level).op!).errors).toEqual([]);
     before = s.built.water.slice();
     fedBefore = fedTiles(s.built.waterModel, before);
@@ -189,8 +189,8 @@ describe("Fill (D387 (3), D394) and Remove unfed water within a selection", () =
     // since generator 0.10.17's start floors (D515), D148: seed 7's map has none now; of seeds 1–14, seeds 1, 9, 10, 12 and 13
     // have one, seed 1's from (44, 8) at level 14; the same map for the byte-for-byte test below; River Valley 2 for 1 since
     // generator 0.10.20's contour edges, D518, D148: seed 1's map has none now; of seeds 1–30, seeds 2, 7, 9, 10, 11, 16, 17, 18,
-    // 21, 23, 25, 26, 28 and 29 have one, seed 2 the first, from (40, 62) at level 9, and the file passes on seeds 2 and 7; River Valley 1 for 2 since the D518 mends (compact hills, no broad wash flats, dead-stand knots), D148: seed 2's map has none now; of seeds 1–30, seeds 1, 5, 9, 10, 13, 15, 16, 17, 18, 20, 21, 23, 25, 26, 27, 28 and 29 have one, seed 1 the first, from (52, 18) at level 12, and the file passes on seed 1; River Valley 5 for 1 since generator 0.10.23's round forms, the look round, D148: seed 1's map has none now; of seeds 1–5, 9, 10, 13 and 15–18, seeds 5, 9, 10, 13, 15, 16, 17 and 18 have one, seed 5 the first, from (54, 26) at level 14, and the file passes on seed 5)
-    s = session("riverValley", 5);
+    // 21, 23, 25, 26, 28 and 29 have one, seed 2 the first, from (40, 62) at level 9, and the file passes on seeds 2 and 7; River Valley 1 for 2 since the D518 mends (compact hills, no broad wash flats, dead-stand knots), D148: seed 2's map has none now; of seeds 1–30, seeds 1, 5, 9, 10, 13, 15, 16, 17, 18, 20, 21, 23, 25, 26, 27, 28 and 29 have one, seed 1 the first, from (52, 18) at level 12, and the file passes on seed 1)
+    s = session("riverValley", 1);
     pits = digPits(s, 2);
   });
 
@@ -338,7 +338,7 @@ describe("Fill (D387 (3), D394) and Remove unfed water within a selection", () =
   });
 
   it("the same edits give the same file, byte for byte, every time", () => {
-    const dug = session("riverValley", 5);
+    const dug = session("riverValley", 1);
     const p = digPits(dug, 2);
     const start = dug.project();
     const run = () => {

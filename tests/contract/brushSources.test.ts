@@ -5,6 +5,9 @@
 // rebuild round it equals a full build; the project replays it. A stroke saved before this (its
 // `keep` runs over a source) replays exactly as it did (D158). With Clear sources on, the stroke and
 // the sources it pressed on go in one undo step.
+//
+// The generated maps are fixtures (tests/fixtures/projects: River Valley 96² seed 98, Islands 96² seed 5; `fixtureSession`, `fixtureInEditor`): the subject is brushes and
+// water sources, not the generator, so a land change moves nothing here (D148).
 
 import Ajv2020 from "ajv/dist/2020";
 import { describe, expect, it } from "vitest";
@@ -14,10 +17,9 @@ import type { EditOp } from "../../src/core/doc/ops";
 import { MapSession } from "../../src/core/doc/session";
 import { brushProblems, type BrushParams } from "../../src/core/features/raster/brush";
 import { StrokePreview } from "../../src/core/features/raster/strokePreview";
-import { generate } from "../../src/core/gen/generate";
-import { makeSpec } from "../../src/core/spec/mapspec";
-import { runGenerate } from "../../src/worker/api";
 import * as ed from "../../src/worker/session";
+import { fixtureInEditor } from "../fixtureEditor";
+import { fixtureSession } from "../fixtureProjects";
 
 const W = 96;
 const WATER = "d2490000-0000-4000-8000-000000000001";
@@ -59,26 +61,16 @@ function spot(s: MapSession): [number, number] | null {
  *  now, nor do 66, 17, 25, 20–28 or 3–19 but 13, whose mine site is still under the Keep test's raise; of seeds 27–140 only
  *  seed 59 holds one, at (71, 20); seed 20 first since generator 0.10.20's contour edges, D518, D148: seed 59 holds no
  *  spot now, and of seeds 1–70 only seed 20 holds one, at (17, 18); seed 98 first since the D518 mends (compact hills, no broad
- *  wash flats, dead-stand knots), D148: seed 20 holds no spot now, and of seeds 1–120 only seeds 98 and 109 hold one, seed 98's at (61, 22);
- *  seed 60 first since generator 0.10.23's round forms, the look round, D148: seeds 98 and 109 hold no spot now (seed 98's 59 dry,
- *  level candidates each have a slope, a geothermal field, a relic or thorns beside them), and of seeds 1–17, 20 and 25–109 only
- *  seed 60 holds one, at (20, 38)). */
-let cached: { r: ReturnType<typeof generate>; at: [number, number] } | null = null;
+ *  wash flats, dead-stand knots), D148: seed 20 holds no spot now, and of seeds 1–120 only seeds 98 and 109 hold one, seed 98's at (61, 22)). */
+// (the map is the fixture tests/fixtures/projects/scenario-riverValley-96-98, the first of the seeds above to hold a spot when it was saved, its spot at (17, 57):
+// the subject is brushes and sources, not the generator, so a land change moves nothing here, D148; `spot` stays the test's own check of it)
+const SEED = 98;
 function session(): { s: MapSession; x: number; y: number } {
-  // (the map found is kept, so the search runs once for the file)
-  if (!cached)
-    for (const seed of [60, 98, 20, 59, 43, 66, 17, 25, ...Array.from({ length: 17 }, (_, k) => k + 3)]) {
-      if (cached) break;
-      const r = generate(makeSpec({ seed, theme: "riverValley", size: { x: W, y: W } }));
-      const probe = MapSession.fromGenerated(r, r.file);
-      probe.setWaterMode("defer");
-      const at = spot(probe);
-      if (at) cached = { r, at };
-    }
-  if (!cached) throw new Error("no spot");
-  const s = MapSession.fromGenerated(cached.r, cached.r.file);
+  const s = fixtureSession("riverValley", W, SEED);
   s.setWaterMode("defer");
-  const [x, y] = cached.at;
+  const at = spot(s);
+  if (!at) throw new Error("no spot");
+  const [x, y] = at;
   const place = (id: string, template: string, px: number, py: number) =>
     s.apply({ op: "placeEntity", params: { id, template, x: px, y: py, orientation: "Cw0", components: { WaterSource: { SpecifiedStrength: 2, CurrentStrength: 2 } } } });
   expect(place(WATER, "WaterSource", x, y).errors).toEqual([]);
@@ -216,9 +208,10 @@ describe("brushes and water sources (D249)", () => {
     // source in a lake 1.4 deep; the preview without the ride painted 10 and 12 where the operation,
     // which rides the source itself, built 11)
     let found: { s: MapSession; x: number; y: number } | null = null;
-    for (let seed = 5; seed < 20 && !found; seed++) {
-      const r = generate(makeSpec({ seed, theme: "islands", size: { x: W, y: W } }));
-      const s = MapSession.fromGenerated(r, r.file);
+    // (Islands 96² seed 5, the first of seeds 5–19 with such a lake when the fixture tests/fixtures/projects/scenario-islands-96-5 was saved)
+    for (const seed of [5]) {
+      if (found) break;
+      const s = fixtureSession("islands", W, seed);
       s.setWaterMode("defer");
       const b = s.built;
       const st = b.start!;
@@ -267,9 +260,7 @@ describe("brushes and water sources (D249)", () => {
 
   it("Clear sources: the stroke and the sources it pressed on go in one undo step; the others stay; undo brings them back", async () => {
     // (the map the other tests use: the first with a dry spot)
-    const seed = Number(session().s.spec?.seed ?? 3);
-    await runGenerate(makeSpec({ seed, theme: "riverValley", size: { x: W, y: W } }));
-    ed.refine();
+    fixtureInEditor("riverValley", W, SEED);
     const open = () => MapSession.open(decodeProject(ed.project().bytes));
     const [x, y] = spot(open())!;
     const place = (id: string, template: string, px: number, py: number) =>
