@@ -371,8 +371,8 @@ function albedoTextureMade(): Promise<void> {
 
 let objectPatternsMade: Promise<void> | null = null;
 /** The objects' patterns (objectPatterns.ts: the ruins' ivy and concrete, the district center's thatch and wood, the
- *  blueberry bush), made once a page in the textures' own worker, its first job (about 0.4 s), and written into the
- *  page's texture (materials.ts `fillObjectAtlas`); until then the ivy and the bush are cut away (none shows) and the
+ *  blueberry bush and the birch's leaves), made once a page in the textures' own worker, its first job (about 0.4 s), and written into the
+ *  page's texture (materials.ts `fillObjectAtlas`); until then the ivy, the bush and the birch's crown are cut away (none shows) and the
  *  tiling layers' parts are drawn in their colours. */
 function objectPatternsBaked(): Promise<void> {
   return (objectPatternsMade ??= textureBake({ kind: "objectPatterns" }).then(

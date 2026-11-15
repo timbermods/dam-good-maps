@@ -41,17 +41,27 @@
 // stone weathered pale and nearly uncracked, 0.87 / 1.08 / 1.19 / 1.31 / 1.47, streaked paler up from its foot; its
 // cells (0.447, 0.363, 0.224), its palest (0.547, 0.482, 0.314). Ours: 256 texels a metre, tiling across, a storey a
 // unit up it (`CONCRETE_CRACKED_FROM`).
+//
+// Layer 7, the birch's (`BirchMature`, VegetationURP, cut at alpha 0.5; numbers read from its texture over its cut):
+// clusters of pointed grey leaves about 0.13 m long in rosettes of three rings, which its vertex colours tint, their
+// lightness 0.62 / 0.85 / 1.0 / 1.16 / 1.36 of their mean (the 5th / 25th / 50th / 75th / 95th percentile), their mean
+// 0.66 of white (`BIRCH_LEAF_MEAN`); a cluster of seven rosettes, lobed, laid over each of its four broad tiers from the
+// tier's tip (birchCrown.ts), and single rosettes over its lowest and its top tier. Ours: the cluster 176 texels across
+// (about 180 a metre), three rosettes 80 across beside it.
 
 import { RUIN } from "./palette";
 
 /** A layer's side in texels. */
 export const PATTERN_SIZE = 256;
 /** The layers, by the number a model's part gives (0 none). */
-export const PATTERN = { ivy: 1, thatch: 2, planks: 3, wood: 4, bush: 5, concrete: 6 } as const;
-export const PATTERN_LAYERS = 6;
+export const PATTERN = { ivy: 1, thatch: 2, planks: 3, wood: 4, bush: 5, concrete: 6, birch: 7 } as const;
+export const PATTERN_LAYERS = 7;
 /** The layers never cut, a part in each its colour until the patterns are drawn (materials.ts `objectAtlasTexture`). */
 export const PATTERN_TILING: readonly number[] = [PATTERN.thatch, PATTERN.planks, PATTERN.wood, PATTERN.concrete];
-/** Where a pattern's alpha cuts the part away: the game's ivy's and bush's `_Cutoff` (the tiling layers are never cut). */
+/** The layers cut by their alpha: the ivy's, the bush's and the birch's. */
+export const PATTERN_CUT_LAYERS: readonly number[] = [PATTERN.ivy, PATTERN.bush, PATTERN.birch];
+/** Where a pattern's alpha cuts the part away: the game's ivy's and bush's `_Cutoff` (the tiling layers are never cut;
+ *  the birch's 0.5 is the same edge on our leaves, drawn with a texel's soft rim). */
 export const PATTERN_CUT = 0.312;
 /** A texel is the part's albedo over its colour divided by this. */
 export const PATTERN_GAIN = 3;
@@ -65,7 +75,7 @@ export const PATTERN_ALPHA_MIP = 3;
 export const PATTERN_KEPT_GLSL = /* glsl */ `
   bool patternKept(sampler2DArray atlas, vec3 at, vec2 dx, vec2 dy) {
     float layer = at.z + 1.0;
-    if (abs(layer - ${PATTERN.ivy}.0) > 0.5 && abs(layer - ${PATTERN.bush}.0) > 0.5) return true;
+    if (${PATTERN_CUT_LAYERS.map((l) => `abs(layer - ${l}.0) > 0.5`).join(" && ")}) return true;
     float most = ${((1 << PATTERN_ALPHA_MIP) / PATTERN_SIZE).toFixed(6)};
     vec2 gx = dx * min(1.0, most / max(length(dx), 1e-8));
     vec2 gy = dy * min(1.0, most / max(length(dy), 1e-8));
@@ -685,6 +695,65 @@ function drawBush(): Canvas {
   return cv;
 }
 
+/** The birch's layer's parts (UV, v up): its cluster of rosettes (`BIRCH_CLUSTER`), three single rosettes
+ *  (`BIRCH_ROSETTES`), each laid over a tier of its crown from the tier's tip (birchCrown.ts). */
+export const BIRCH_CLUSTER: Region = [0, 0, 176 / S, 176 / S];
+export const BIRCH_ROSETTES: readonly Region[] = [0, 1, 2].map((k) => [176 / S, (k * 80 + (k ? 8 : 0)) / S, 80 / S, 80 / S] as const);
+/** The game's birch leaves' mean over its cut (of white): its vertex colours times this are the crown's albedo. */
+export const BIRCH_LEAF_MEAN = 0.66;
+
+/** A birch rosette round (cx, cy), `r` texels out: three rings of pointed leaves, the outer from about halfway out, the
+ *  inner over them, within `clip`. */
+function birchRosette(cv: Canvas, cx: number, cy: number, r: number, seed: number, clip: readonly number[]): void {
+  const turn = hash(seed, 1, 60) * 6.28;
+  const rings: readonly [number, number, number, number, number][] = [
+    // (start out, length, leaves, width, tone: of r)
+    [0.38, 0.62, 11, 0.27, 0.86],
+    [0.16, 0.56, 8, 0.25, 0.98],
+    [0, 0.42, 5, 0.2, 1.1],
+  ];
+  rings.forEach(([start, length, n, width, tone], ring) => {
+    for (let k = 0; k < n; k++) {
+      const a = turn + ((k + ring * 0.5) / n) * 2 * Math.PI + (hash(seed, k + ring * 20, 61) - 0.5) * 0.3;
+      const s = start * r;
+      bushLeaf(cv, cx + Math.cos(a) * s, cy + Math.sin(a) * s, a, length * r * (0.88 + 0.2 * hash(seed, k + ring * 20, 62)), width * r * 1.6, tone * (0.85 + 0.3 * hash(seed, k + ring * 20, 63)), clip);
+    }
+  });
+}
+
+/** The birch's layer (`BIRCH_CLUSTER`, `BIRCH_ROSETTES`). */
+function drawBirch(): Canvas {
+  const cv = new Canvas();
+  // the cluster: six rosettes round one, the outer first, kept 2 texels in from its sides
+  const box = [2, 2, 174, 174];
+  for (let k = 0; k < 6; k++) {
+    const a = (k / 6) * 2 * Math.PI + 0.4 + (hash(k, 3, 64) - 0.5) * 0.3;
+    const d = 40 + 6 * hash(k, 4, 64);
+    birchRosette(cv, 88 + Math.cos(a) * d, 88 + Math.sin(a) * d, 30 + 5 * hash(k, 5, 64), 300 + k, box);
+  }
+  birchRosette(cv, 88, 88, 34, 310, box);
+  BIRCH_ROSETTES.forEach((r, k) => {
+    const [x, y] = [r[0] * S, r[1] * S];
+    birchRosette(cv, x + 40, y + 40, 37, 320 + k, [x + 2, y + 2, x + 78, y + 78]);
+  });
+  // its mean over the cut 1 (the crown's colours carry the leaves' mean), and the cut-away texels 1
+  const parts = [BIRCH_CLUSTER, ...BIRCH_ROSETTES];
+  const each = (f: (k: number) => void) => {
+    for (const r of parts) for (let y = r[1] * S; y < (r[1] + r[3]) * S; y++) for (let x = r[0] * S; x < (r[0] + r[2]) * S; x++) f(y * S + x);
+  };
+  let sum = 0;
+  let n = 0;
+  each((k) => {
+    if (cv.a[k] < PATTERN_CUT) return;
+    sum += cv.rgb[k * 3] / cv.a[k];
+    n++;
+  });
+  each((k) => {
+    for (let c = 0; c < 3; c++) cv.rgb[k * 3 + c] = cv.a[k] > 0.004 ? cv.rgb[k * 3 + c] / cv.a[k] / (sum / n) : 1;
+  });
+  return cv;
+}
+
 /** The concrete's layer, its rows a storey's height (v up, 1 at its top): about where its cracked upper part gives way
  *  to its pale lower one, as the game's atlas rows do. */
 export const CONCRETE_CRACKED_FROM = 0.69;
@@ -827,6 +896,13 @@ export function patternTexels(): Uint8Array {
   for (let k = 0; k < S * S; k++) {
     for (let c = 0; c < 3; c++) out[o + k * 4 + c] = byte(bush.rgb[k * 3 + c]);
     out[o + k * 4 + 3] = Math.round(Math.min(1, bush.a[k]) * 255);
+  }
+  // the birch, over its mean, cut by its alpha
+  const birch = drawBirch();
+  const ob = (PATTERN.birch - 1) * S * S * 4;
+  for (let k = 0; k < S * S; k++) {
+    for (let c = 0; c < 3; c++) out[ob + k * 4 + c] = byte(birch.rgb[k * 3 + c]);
+    out[ob + k * 4 + 3] = Math.round(Math.min(1, birch.a[k]) * 255);
   }
   // the concrete, never cut, over its mean on a band (from 0.53 of the storey up: its colour is the game's mean there)
   const concrete = drawConcrete().rgb;

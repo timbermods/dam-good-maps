@@ -11,6 +11,7 @@ import { plantScale, RANDOMIZER } from '../plantSize';
 import { crownShade, ownAlbedo, TREE_COLOURS } from '../palette';
 import { PINE_WHORLS, WHORL_SHADE, whorlTriangles } from '../pineCrown';
 import { bushTriangles, type BushTriangle } from '../bushCards';
+import { birchCrownTriangles, type CrownTriangle } from '../birchCrown';
 import { PATTERN } from '../objectPatterns';
 import { BufferGeometry, CylinderGeometry, Float32BufferAttribute, IcosahedronGeometry, OctahedronGeometry, TetrahedronGeometry, Matrix4, Quaternion, Vector3 } from 'three';
 
@@ -106,6 +107,21 @@ class Shape {
       const from = this.uvs.length / 2;
       this.add(triangles(t.p.flat()), slotOf(t));
       for (let k = 0; k < 3; k++) { this.uvs[(from + k) * 2] = t.uv[k][0]; this.uvs[(from + k) * 2 + 1] = t.uv[k][1]; this.patterns[from + k] = pattern; }
+    }
+    return this;
+  }
+  /** The birch's tiers (birchCrown.ts) in `slot`, each corner with the game's normal and its colour as a shade of the
+   *  slot's (the birch's foliage, `TREE_COLOURS.birch`), at its place in the birch's pattern. */
+  tiers(tris: readonly CrownTriangle[], slot: keyof Palette) {
+    const base = TREE_COLOURS.birch;
+    for (const t of tris) {
+      const from = this.uvs.length / 2;
+      this.add(triangles(t.p.flat()), slot);
+      for (let k = 0; k < 3; k++) {
+        this.uvs[(from + k) * 2] = t.uv[k][0]; this.uvs[(from + k) * 2 + 1] = t.uv[k][1]; this.patterns[from + k] = PATTERN.birch;
+        // (a dying birch's tiers drawn in and sunk keep their normals: the game's, about as true of the smaller crown)
+        for (let c = 0; c < 3; c++) { this.normals[(from + k) * 3 + c] = t.n[k][c]; this.shades[(from + k) * 3 + c] = t.c[k][c] / base[c]; }
+      }
     }
     return this;
   }
@@ -218,12 +234,8 @@ export const registry: Record<Species, SpeciesDefinition> = {
       const y = 0.15 + i * 0.135;
       m.branch([0, y, 0], [0.003, y + 0.035, 0], 0.07 * (1 - 0.5 * (y + 0.0175) / 0.94) + 0.004, 'marks', 5, 1);
     }
-    const n = near ? 7 : 2;
-    for (let i = 0; i < n; i++) {
-      const side = i % 2 ? 1 : -1, a = i * 2.4 + v * 0.7;
-      m.crown([side * (near ? 0.18 : 0.2), 1.1 + (near ? i * 0.09 : i * 0.2), near ? Math.sin(a) * 0.16 : 0],
-        [near ? 0.3 : 0.34, near ? 0.3 : 0.46, near ? 0.24 : 0.3], 'birch', 1, a);
-    }
+    // its six tiers of leaves as the game's, cut by their pattern (birchCrown.ts; until 2026-11-15 seven round crowns)
+    m.tiers(birchCrownTriangles(v), 'birch');
   } },
   // the game's grown oak: a thick trunk to about 1.2, under one broad, flat-layered crown from 1.13 to 2.26, 1.7 across
   Oak: { height: 2.26, wind: 0.027, build(m, v, detail, dead) {
@@ -275,7 +287,8 @@ export function model(spec: Species, variant = 0, detail: Detail = 'near', state
   if (st === 'dead') shape.upright = DEAD_FORM[spec].height * heightOf(spec, variant, detail, false) / heightOf(spec, variant, detail, true);
   registry[spec].build(shape, variant, detail, st === 'dead');
   // the foliage lighter higher up, as the game's (palette.ts `crownShade`), by each vertex's height
-  for (let i = 0; i < shape.regions.length; i++) if (FOLIAGE_SLOTS.has(shape.regions[i])) {
+  // (the birch's tiers carry the game's own colours up its crown: birchCrown.ts)
+  for (let i = 0; i < shape.regions.length; i++) if (FOLIAGE_SLOTS.has(shape.regions[i]) && shape.patterns[i] !== PATTERN.birch) {
     const s = crownShade(spec, shape.positions[i * 3 + 1]);
     for (let c = 0; c < 3; c++) shape.shades[i * 3 + c] *= s;
   }

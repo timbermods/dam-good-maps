@@ -76,6 +76,7 @@ import { LAND, LAND_GROW } from "./objectFade";
 import { PINE_WHORLS, WHORL_SHADE, whorlTriangles } from "./pineCrown";
 import { IVY_ROOT, IVY_RUN, IVY_TRAILS, PATTERN, PATTERN_TILE, type Region } from "./objectPatterns";
 import { bushTriangles } from "./bushCards";
+import { birchCrownTriangles } from "./birchCrown";
 
 type Rgb = readonly [number, number, number];
 
@@ -261,6 +262,22 @@ function bush(leaves: Rgb, berries: boolean): Model {
   return m;
 }
 
+/** The birch's crown (birchCrown.ts) on `m`: its tiers' triangles at their places in the birch's pattern, each corner
+ *  with the game's normal and colour (already its own gradient up the crown: no `graded` over it). */
+function birchCrown(m: Model): Model {
+  for (const t of birchCrownTriangles()) {
+    const from = m.pos.length / 3;
+    m.tris(t.p.flat(), t.c[0]);
+    for (let k = 0; k < 3; k++)
+      for (let c = 0; c < 3; c++) {
+        m.nrm[(from + k) * 3 + c] = t.n[k][c];
+        m.col[(from + k) * 3 + c] = t.c[k][c];
+      }
+    m.pattern(from, PATTERN.birch, t.uv.flat());
+  }
+  return m;
+}
+
 /** A plant's dying form (dying.ts): its foliage in the game's dry colour, drawn in toward the trunk and sunk as much as the
  *  game's is; each triangle's normal made again where it moved. */
 function dyingOf(species: string, m: Model): Model {
@@ -395,16 +412,16 @@ const MODELS: Record<string, () => Model> = {
   },
   // (each dead tree the game's at its size: dying.ts DEAD_LIMBS)
   "Pine.dead": () => deadTree("Pine", { wood: DEAD_WOOD, dark: DEAD_DARK }),
-  // the game's grown birch: a warm grey trunk forking low into two stems, under a round crown from 0.95 to 1.92, 1.0 across
+  // the game's grown birch: a warm grey trunk forking low into two stems, under its six tiers of leaves from 1.0 to 1.92,
+  // 1.0 across (birchCrown.ts; until 2026-11-15 a round blob of two hulls)
   Birch: () =>
-    new Model()
-      .add(cyl(0.075, 0.06, 0.45, 5), BIRCH_BARK, { y: 0.225 })
-      .add(cyl(0.077, 0.075, 0.06, 5), ownAlbedo([0.18, 0.16, 0.15]), { y: 0.3 })
-      .add(cyl(0.055, 0.035, 0.75, 4), BIRCH_BARK, { x: -0.07, y: 0.78, rz: 0.2 })
-      .add(cyl(0.05, 0.035, 0.7, 4), BIRCH_BARK, { x: 0.07, y: 0.76, rz: -0.22, ry: 0.4 })
-      .add(ico(0.5), TREE_COLOURS.birch, { y: 1.42, sy: 0.98 })
-      .add(oct(0.3), shade(TREE_COLOURS.birch, 1.08), { x: 0.2, y: 1.58, z: -0.14 })
-      .graded("Birch"),
+    birchCrown(
+      new Model()
+        .add(cyl(0.075, 0.06, 0.45, 5), BIRCH_BARK, { y: 0.225 })
+        .add(cyl(0.077, 0.075, 0.06, 5), ownAlbedo([0.18, 0.16, 0.15]), { y: 0.3 })
+        .add(cyl(0.055, 0.035, 0.75, 4), BIRCH_BARK, { x: -0.07, y: 0.78, rz: 0.2 })
+        .add(cyl(0.05, 0.035, 0.7, 4), BIRCH_BARK, { x: 0.07, y: 0.76, rz: -0.22, ry: 0.4 }),
+    ),
   "Birch.dead": () => deadTree("Birch", { wood: DEAD_BIRCH }),
   // the game's grown oak: a thick trunk to 1.2, flared at the root, under one broad, flat-layered crown from 1.13 to 2.26,
   // 1.7 across
