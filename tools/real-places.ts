@@ -62,7 +62,7 @@ import {
   type PlaceIndexEntry,
 } from "../src/core/places/place";
 import { encodeHeights, encodeTiles } from "./lib/placeData";
-import { BODY, FILM_DEPTH, FILM_THIN_SHARE, FILM_TILES, WET, compareWater, films, settleFile, startFails } from "./lib/placeWater";
+import { BODY, FILM_DEPTH, FILM_TILES, WET, compareWater, films, settleFile, startFails } from "./lib/placeWater";
 import { cutBasins, cutBed, filmBasin, floor0Sheet, realFilms, realMask } from "./lib/placeBasins";
 import { decodeTiles as decodeGaps } from "../src/core/places/place";
 import { keepNearest, settlePlants, startWood, startWoodSpecies } from "./lib/placePlants";
@@ -421,7 +421,7 @@ function basinsFor(libraryId: string, place: PlaceData): { place: PlaceData; not
   const real = realOf(libraryId, place.W, place.H);
   const port = buildPlace(place, undefined, "port").settle.depth;
   let game = buildPlace(place, undefined, "game");
-  const r = cutBasins(decodeHeights(place.heights), place.W, place.H, port, game.settle.depth, game.model.floor, real, filmBefore);
+  const r = cutBasins(decodeHeights(place.heights), place.W, place.H, port, game.settle.depth, game.model.floor, real, FILM_BEFORE);
   const notes: string[] = [];
   for (const b of r.basins) notes.push(`${b.kind} ${b.size} at ${b.at.join(",")} over ${b.real} real-water tiles ${b.cut ? `cut ${b.cut} tiles` : b.kind === "lost" ? "goes" : "not cut"}`);
   let heights = r.heights;
@@ -445,7 +445,7 @@ function basinsFor(libraryId: string, place: PlaceData): { place: PlaceData; not
   // (a bed after which the water no longer settles is not cut: `water.settles`, whose list never grows)
   const settled = game.settle.settled;
   for (let round = 0; round < BED_ROUNDS; round++) {
-    const left = films(game.settle.depth, game.model.floor, place.W, place.H, filmBefore).filter((f) => f.floor0 * 2 <= f.tiles.length);
+    const left = films(game.settle.depth, game.model.floor, place.W, place.H, FILM_BEFORE).filter((f) => f.floor0 * 2 <= f.tiles.length);
     if (!left.length) break;
     let any = false;
     for (const f of left) {
@@ -510,9 +510,26 @@ function unneededBeds(libraryId: string, place: PlaceData, beds: number[][], had
  *  check's share finds besides (`FILM_THIN_SHARE`) are left to the springs' search, and those it leaves get their mend
  *  after it (`filmsAfter`), so a film the springs take away costs the land nothing. */
 const FILM_BEFORE = 1;
-/** The share `basinsFor` mends the films of in the place being run: `FILM_BEFORE`, or the check's own where the films the
- *  springs leave cannot be mended after the search without a check failing (`runPlace`'s second build). */
-let filmBefore: number = FILM_BEFORE;
+
+/** The places whose film above floor 0 (the check's, `FILM_THIN_SHARE`) no ruled mend reaches (D(new-films), planning's
+ *  ruling of 2026-11-15): the springs' search leaves it and its mend after the search (`filmsAfter`) is refused. Such a
+ *  place keeps the build the ruled path gives it, film and all ("ruled"), or, where that build holds less water over real
+ *  water than today's (fix/places-ruins) or gains a fault, today's build unchanged ("today": the committed place, its
+ *  ruins laid again as `--ruins` lays them, which gives today's files). Every run prints each by name with its film and
+ *  the reason; the check passes its film, and fails a place listed here that has no film (take it off the list) and any
+ *  other place with one. The list never grows past the places the films ruling left. */
+const FILMS_LEFT: Record<string, { keep: "ruled" | "today"; why: string }> = {
+  "twelve-apostles": { keep: "ruled", why: "film 2064 at 74,1: its basin costs start.wood and real water; film 141 at 77,54: its bed costs real water" },
+  "waimakariri-river": { keep: "ruled", why: "film 363 at 217,230: its bed costs start.farmland and start.forester" },
+  "na-pali-coast": { keep: "ruled", why: "film 519 at 46,1: its bed gives water.outflow and costs real water; film 2199 at 2,62: its basin gives water.outflow and a source in another's flow" },
+  "gullfoss": { keep: "ruled", why: "film 435 at 112,25: its bed costs start.food and real water" },
+  "taklimakan-kunlun-fan": { keep: "ruled", why: "film 1506 at 239,75: its bed costs start.farmland and start.forester; films 420 and 439: their beds leave the water unsettled" },
+  "milford-sound": { keep: "ruled", why: "film 359 at 191,121: its bed grows the water over real dry land" },
+  "mount-fuji": { keep: "ruled", why: "film 138 at 28,22: its bed leaves the water unsettled and costs start.food" },
+  "victoria-falls": { keep: "ruled", why: "film 1353 at 35,86: its basin gives water.outflow and costs real water" },
+  "ilulissat-icefjord": { keep: "ruled", why: "film 119 at 19,28: its basin costs real water" },
+  "yosemite-valley": { keep: "ruled", why: "film 104 at 62,1: its bed costs the real water" },
+};
 
 /** The films above floor 0 the searched springs leave (D(new-films): thin on 90 % of their tiles) mended as `basinsFor`
  *  mends a film: a basin where real water lies under it, else a bed to where its water leaves its flat; each kept only
@@ -665,7 +682,7 @@ function startNumbers(s: Checked["strict"]): string {
 }
 
 /** The water checks every offered place passes, and its floor-0 sheet: one log line. */
-function waterVerdict(libraryId: string, b: ReturnType<typeof buildPlace>): { line: string; failed: boolean; measure: Measure } {
+function waterVerdict(libraryId: string, b: ReturnType<typeof buildPlace>, id: string): { line: string; failed: boolean; measure: Measure; filmLeft: boolean } {
   const { W, H } = b.model;
   const again = settleFile(b.file);
   const c = compareWater(b.settle.depth, again.water.depth, W, H);
@@ -675,12 +692,15 @@ function waterVerdict(libraryId: string, b: ReturnType<typeof buildPlace>): { li
   const real = realOf(libraryId, W, H);
   const sheet = floor0Sheet(b.settle.depth, b.model.floor, W, H, real, FILM_DEPTH, FILM_TILES);
   const measure = realParts(b.settle.depth, b.model.floor, W, H, real);
+  // (a place in `FILMS_LEFT` keeps its film, printed with the reason; listed with none, it fails: take it off the list)
+  const left = FILMS_LEFT[id];
+  const filmAt = above.map((f) => `${f.tiles.length} tiles at ${f.at.join(",")}`).join("; ");
   const line =
     `   water: opened ${c.wetOpened} wet, settled again ${c.wetSettled}${c.lost.length ? `, ${c.lost.length} bodies of ${BODY}+ lost` : ""}${unequal ? " (FAILS: opened is not settled)" : ""}` +
-    (above.length ? `; FAILS: film above floor 0 (${above.map((f) => `${f.tiles.length} tiles at ${f.at.join(",")}`).join("; ")})` : "") +
+    (above.length ? (left ? `; film above floor 0 kept, no ruled mend (${filmAt}; ${left.keep === "today" ? "today's build" : "the ruled build"}: ${left.why})` : `; FAILS: film above floor 0 (${filmAt})`) : left ? "; FAILS: listed in FILMS_LEFT with no film above floor 0 (take it off the list)" : "") +
     `; floor-0 sheet ${sheet.tiles} tiles (${sheet.real} over real water, ${sheet.dry} over real dry land)` +
     `; over real water ${measure.real}, over real dry land ${measure.dry} (floor-0 sheet ${measure.sheet}, the rest ${measure.rest})`;
-  return { line, failed: unequal || above.length > 0, measure };
+  return { line, failed: unequal || (above.length > 0) !== !!left, measure, filmLeft: !!left && above.length > 0 };
 }
 
 const only = arg("only")?.split(",") ?? null;
@@ -706,13 +726,14 @@ interface Outcome {
   failed: boolean;
   /** D271's measure of its water as it opens (D(new-films): the water over real dry land in its two parts). */
   measure?: Measure;
+  /** Whether it keeps a film no ruled mend reaches (`FILMS_LEFT`). */
+  filmLeft?: boolean;
 }
 /** The water over real water and over real dry land, the latter as the floor-0 sheet and the rest (`realParts`). */
 type Measure = ReturnType<typeof realParts>;
 
 /** One place, built, mended and checked (null: not among `--only`'s). */
-function runPlace(item: LibraryItem, mendFirst = false): Outcome | null {
-  filmBefore = mendFirst ? FILM_THIN_SHARE : FILM_BEFORE;
+function runPlace(item: LibraryItem): Outcome | null {
   const fx = JSON.parse(new TextDecoder().decode(gunzipSync(new Uint8Array(readFileSync(join(LIBRARY, item.fixture)))))) as Fixture;
   const out: Outcome = { id: "", lines: [], withheld: [], entries: [], files: [], failed: false };
   settles = new SettleCache();
@@ -737,11 +758,14 @@ function runPlace(item: LibraryItem, mendFirst = false): Outcome | null {
   // `--ruins`: everything before the ruins is the committed place's (its land, water, springs, start and plants, which
   // the ruins never change), and only its ruin fields are laid again: minutes, where the springs' search takes hours.
   // A full run gives the same files (`--check`)
-  if (relayRuins) {
-    const kept = join(OUT, `data/${place.id}.json.gz`);
-    if (!existsSync(kept)) throw new Error(`--ruins: ${kept} is missing (a new place needs the full run)`);
+  // A place whose film no ruled mend reaches and whose ruled build is worse than today's keeps today's build
+  // (`FILMS_LEFT`): the committed place, as `--ruins` takes it
+  const today = FILMS_LEFT[place.id]?.keep === "today";
+  if (relayRuins || today) {
+    const kept = join(today ? "public/real-places" : OUT, `data/${place.id}.json.gz`);
+    if (!existsSync(kept)) throw new Error(`${today ? "FILMS_LEFT" : "--ruins"}: ${kept} is missing (a new place needs the full run)`);
     const committed = JSON.parse(new TextDecoder().decode(gunzipSync(new Uint8Array(readFileSync(kept))))) as PlaceData;
-    return finishPlace(item, committed, surveyedRuins, t, "  (--ruins: the committed place)", out);
+    return finishPlace(item, committed, surveyedRuins, t, today ? `  today's build kept (its film has no ruled mend: ${FILMS_LEFT[place.id].why})` : "  (--ruins: the committed place)", out);
   }
   // Sources only at heads (D171, tools/lib/placeSources.ts): a source in another's flow merges into the upstream source
   // where that file's rules allow it; the rest stay, and the place keeps the fault until none is left. (The sealed-land
@@ -890,16 +914,9 @@ function runPlace(item: LibraryItem, mendFirst = false): Outcome | null {
     place = unbed.place;
     ({ built, v, strict, blocking, strictFails } = unbed.r);
   }
-  // the films the searched springs leave get their mend (D(new-films))
-  const after = mendFirst ? { place, r: { built, v, strict, blocking, strictFails }, note: "" } : filmsAfter(item.id, place, { built, v, strict, blocking, strictFails });
-  // a film the springs leave whose mend fails a check: the place is built again with every film the check finds mended
-  // before the search, as its start, springs and plants then take it (the film check is never weakened)
-  if (!mendFirst && films(after.r.built.settle.depth, after.r.built.model.floor, place.W, place.H).some((f) => f.floor0 * 2 <= f.tiles.length)) {
-    const again = runPlace(item, true);
-    const at = again ? again.lines.findIndex((l) => /^(ok  |FAIL) /.test(l)) : -1;
-    if (again && at >= 0) again.lines[at] += `  built with its films mended before the search (after it:${after.note.replace(/^ +films after the springs:/, "")})`;
-    return again;
-  }
+  // the films the searched springs leave get their mend (D(new-films)); a film none of whose mends is kept stays, and
+  // the check refuses it unless the place is in `FILMS_LEFT`
+  const after = filmsAfter(item.id, place, { built, v, strict, blocking, strictFails });
   if (after.place !== place) {
     place = after.place;
     ({ built, v, strict, blocking, strictFails } = after.r);
@@ -1108,9 +1125,10 @@ function finishPlace(item: LibraryItem, place: PlaceData, columns: number, t: nu
   // what opens is what the game keeps (planning's rule, #236: no known list): the file's water model settled again,
   // as the first edit settles it, keeps the wet tiles within 1 % and every body of 30 tiles or more; and no film above
   // floor 0. A floor-0 sheet the edge's spill holds (D303) is allowed and counted, over real water and real dry land.
-  const w = waterVerdict(item.id, built);
+  const w = waterVerdict(item.id, built, place.id);
   say(w.line);
   out.measure = w.measure;
+  out.filmLeft = w.filmLeft;
   if (w.failed) out.failed = true;
   return out;
 }
@@ -1164,8 +1182,11 @@ if (claimDir) {
 const outcomes: (Outcome | null)[] = await runShards();
 /** The offered places' measure, summed (D(new-films): over real water; over real dry land as the floor-0 sheet and the rest). */
 const totals = { real: 0, dry: 0, sheet: 0, rest: 0 };
+/** The places that keep a film no ruled mend reaches (`FILMS_LEFT`), by name. */
+const filmsLeft: string[] = [];
 for (const o of outcomes) {
   if (!o) continue;
+  if (o.filmLeft) filmsLeft.push(`${o.id} (${FILMS_LEFT[o.id].keep === "today" ? "today's build" : "the ruled build"})`);
   if (o.measure) for (const k of ["real", "dry", "sheet", "rest"] as const) totals[k] += o.measure[k];
   for (const line of o.lines) console.log(line);
   withheld.push(...o.withheld);
@@ -1238,6 +1259,7 @@ const cardBytes = [...files].filter(([k]) => k.startsWith("cards/")).reduce((s, 
 console.log(
   `${entries.length} offered, ${withheld.length} withheld${withheld.length ? `: ${withheld.join(", ")}` : ""}; ${Math.round((performance.now() - t0) / 1000)} s; left out ${skipped.length} random-land controls (${skipped.map((s) => s.id).join(", ")}). ` +
     `Water over real water ${totals.real} tiles, over real dry land ${totals.dry} (floor-0 sheet no deeper than ${FILM_DEPTH} ${totals.sheet}, the rest ${totals.rest}). ` +
+    (filmsLeft.length ? `${filmsLeft.length} keep a film no ruled mend reaches: ${filmsLeft.join(", ")}. ` : "") +
     `Data ${(dataBytes / 1024).toFixed(0)} KB, cards ${(cardBytes / 1024).toFixed(0)} KB (${(cardBytes / 1024 / Math.max(1, entries.length)).toFixed(1)} KB each), total ${(total / 1024).toFixed(0)} KB.`,
 );
 
