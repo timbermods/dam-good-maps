@@ -3,12 +3,15 @@
 // - Every new object passes the placement emulation (entities.placement, the loader's rules), on
 //   edited maps and on generated maps of all six themes; the Python validator agrees (npm run
 //   oracle).
+//
+// Generated live: the tests of what the generator places (every object on, the resource sites, the rise, the weir). The placement-by-hand tests open a fixture
+// (tests/fixtures/projects/scenario-riverValley-128-4242; `fixtureSession`), so a land change moves nothing there (D148).
 
 import { describe, expect, it } from "vitest";
 import { MapSession } from "../../src/core/doc/session";
 import { footprintCheck, moveProblem, planEntity, planMoveEntity } from "../../src/core/doc/placing";
 import { generate } from "../../src/core/gen/generate";
-import { decodeSpecFragment, makeSpec, type ThemeId } from "../../src/core/spec/mapspec";
+import { makeSpec, type ThemeId } from "../../src/core/spec/mapspec";
 import { validateFile } from "../../src/core/validate/checks";
 import { walkRegions } from "../../src/core/analysis/regions";
 import { walkWorld } from "../../src/core/analysis/walk";
@@ -18,15 +21,9 @@ import { objectTiles } from "../../src/core/features/objects";
 import { obstacleTiles, type ObstaclePlan } from "../../src/core/features/setpieces/obstaclePayoff";
 import { pumpableWithin, type DistrictPlan } from "../../src/core/features/setpieces/secondDistrict";
 import { levelRegions } from "../../src/core/math/grid";
+import { fixtureSession } from "../fixtureProjects";
 
 const uuid = (k: number) => `0b8e9a64-${String(1000 + k)}-4c2d-9e1f-2a3b4c5d6e7f`;
-
-function session(fragment: string): MapSession {
-  const d = decodeSpecFragment(fragment)!;
-  const r = generate(d.spec);
-  expect(r.report.passed).toBe(true);
-  return MapSession.fromGenerated(r);
-}
 
 /** A tile where an object from the shelf stands as it is, without levelling (its footprint check
  *  green, on level dry ground), scanning from the far corner of the start (every other row, from
@@ -46,7 +43,9 @@ function loadChecks(s: MapSession) {
 }
 
 describe("objects placed from the shelf (ROADMAP M7)", () => {
-  const s = session("s=4242&t=riverValley&z=128&d=n");
+  // (the map is a fixture, tests/fixtures/projects/scenario-riverValley-128-4242: the subject is placing by hand, not the generator, so a land change moves
+  // nothing here, D148; the generated-maps tests below generate live, being about what the generator places)
+  const s = fixtureSession("riverValley", 128, 4242);
   const W = 128;
 
   it("previews the footprint under the pointer: red with the reason where the click would be refused", () => {
@@ -237,11 +236,11 @@ describe("the generator's M7 set pieces keep their rules (ROADMAP M7)", () => {
     // canyon 2, canyon 8 and river valley 4 for canyon 1, canyon 15 and river valley 1 since the D518 mends (the rolling ground's
     // reweighed noise, compact rises, a dry wash's broad flat broken up, the lake stair's bench bend 24 tiles off the start), D148:
     // those three hold no rise now, and over seeds 1–20 of Canyon and River Valley 15 hold one that keeps every rule (Canyon 2, 3, 7, 8,
-    // 11, 12, 17, 20; River Valley 4, 5, 7, 11, 15, 18, 20))
-    // (canyon 3 and river valley 5 for canyon 2 and river valley 4 since generator 0.10.23, D(new-leaks): a course's water
-    // leaves only by its own way, so the land moved, D148: those two hold no rise now; over seeds 1–20 of Canyon and River
-    // Valley 11 hold one, and every one keeps every rule (Canyon 3, 6, 7, 8, 9, 12, 14; River Valley 5, 7, 18, 20))
-    for (const [theme, seed] of [["canyon", 3], ["canyon", 7], ["canyon", 8], ["riverValley", 5]] as [ThemeId, number][]) {
+    // 11, 12, 17, 20; River Valley 4, 5, 7, 11, 15, 18, 20); canyon 20, river valley 5 and river valley 7 for canyon 7, canyon 8 and
+    // river valley 4 since generator 0.10.24's round forms, the look round, D148: those three hold no rise now; of Canyon seeds 1–12, 17
+    // and 20 only 2 and 20 hold one that keeps every rule, and of River Valley seeds 1–7, 11, 15, 18 and 20, seeds 2, 5, 7, 11, 15, 18
+    // and 20 do)
+    for (const [theme, seed] of [["canyon", 2], ["canyon", 20], ["riverValley", 5], ["riverValley", 7]] as [ThemeId, number][]) {
       const r = generate(makeSpec({ seed, size: { x: 128, y: 128 }, theme }));
       const f = r.features.find((g) => g.kind === "setPiece" && g.params.kind === "obstaclePayoff");
       if (!f || f.kind !== "setPiece") continue;
@@ -290,10 +289,7 @@ describe("the generator's M7 set pieces keep their rules (ROADMAP M7)", () => {
     // compact rises, a dry wash's broad flat broken up, the lake stair's bench bend 24 tiles off the start), D148: those two rivers
     // take no weir now; of Canyon and Highlands 96² seeds 1–20, 10 hold 0.6 or more (Canyon 3, 7, 10, 17; Highlands 2, 4, 9, 10, 12,
     // 13) and none holds less)
-    // highlands 4 for canyon 17 since generator 0.10.23, D(new-leaks): a course's water leaves only by its own way, so the
-    // land moved, D148: canyon 17's river takes no weir now; of Canyon and Highlands 96² seeds 1–20, 8 hold 0.6 or more (Canyon
-    // 3, 7, 10; Highlands 2, 4, 9, 12, 13, all 0.65 to 0.87) and none holds less)
-    for (const [theme, seed] of [["canyon", 7], ["canyon", 10], ["canyon", 3], ["highlands", 4], ["highlands", 2]] as [ThemeId, number][]) {
+    for (const [theme, seed] of [["canyon", 7], ["canyon", 10], ["canyon", 3], ["canyon", 17], ["highlands", 2]] as [ThemeId, number][]) {
       const r = generate(makeSpec({ seed, size: { x: 96, y: 96 }, theme }));
       const w = r.features.find((g) => g.kind === "mapObject" && g.params.kind === "weir");
       if (!w || w.kind !== "mapObject") continue;

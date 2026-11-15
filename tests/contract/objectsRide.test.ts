@@ -2,6 +2,8 @@
 // ground is not level under it, so a stroke that would tilt it is given again with its rectangle kept level.
 // Highlands 48² seed 5 on generator 0.10.5: a raise at (34, 30) once left its mine site at (33, 28) with part of its
 // ground a level above the rest, and the export refused "Mine site floating" (the collab session spec's edit).
+// The map is a fixture (tests/fixtures/projects/highlands-48-5; `fixtureInEditor`): the subject is how a stroke treats an object, not the
+// generator, so a land change moves nothing here (D148).
 import { describe, expect, it } from "vitest";
 import { caveFile, CAVE_W, LEDGE } from "./caveMap";
 import { decodeProject } from "../../src/core/doc/document";
@@ -16,14 +18,12 @@ import { writeTimber } from "../../src/core/format/timber";
 import type { BrushParams } from "../../src/core/features/raster/brush";
 import { StrokePreview } from "../../src/core/features/raster/strokePreview";
 import { unsupportedVoxels } from "../../src/core/terrain/support";
-import { makeSpec } from "../../src/core/spec/mapspec";
-import { runGenerate } from "../../src/worker/api";
 import * as ed from "../../src/worker/session";
+import { fixtureInEditor } from "../fixtureEditor";
 
 describe("objects of several tiles ride a stroke level", () => {
   it("a raise over part of a mine site keeps its ground level, and the map exports", async () => {
-    await runGenerate(makeSpec({ seed: 5, theme: "highlands", size: { x: 48, y: 48 } }));
-    ed.refine();
+    fixtureInEditor("highlands", 48, 5);
     const W = ed.sessionInfo().W;
     // (the map's mine site at (43, 22) since generator 0.10.23, D(new-leaks): a course's water leaves only by its own way,
     // D148: the land moved and the site at (27, 37) is gone; the map has two, at (43, 22) (turned Cw270, its tiles 39 to 43
@@ -65,8 +65,7 @@ describe("objects of several tiles ride a stroke level", () => {
 
 describe("the start rides a stroke with the tile at its door (D491)", () => {
   it("a raise over the start's middle lifts the start and its door together, and the map exports", async () => {
-    await runGenerate(makeSpec({ seed: 5, theme: "highlands", size: { x: 48, y: 48 } }));
-    ed.refine();
+    fixtureInEditor("highlands", 48, 5);
     const W = ed.sessionInfo().W;
     const start = () => ed.collabSession()!.built.entities.find((e) => e.template === "StartingLocation")!;
     const s0 = start();

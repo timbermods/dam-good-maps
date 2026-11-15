@@ -169,8 +169,10 @@ const SETTLE_BUDGET = 5;
  *  distance 60 spent 24 attempts, about four minutes, on a land shown at the land stage whose start
  *  never stood that far from its badwater, before the rescue round's fresh land made the map in 3).
  *  There a land is shown before its start is proved, so three attempts in a row on it that fail for
- *  the same reason, or 10 settles in a round, end the round as spent attempts do; the next draws fresh
- *  land, easing (D471's one exception to D348). At 128² and under the shown land was proved, and it
+ *  the same reason, or 10 settles in a round, end the round as spent attempts do; the next goes on
+ *  with it once, easing, and only a round after that draws fresh land (D471's one exception to D348:
+ *  Highlands 1 at 256², generator 0.10.20, failed its shown land's start three times and its map was a
+ *  rescue round's fresh land, 56,154 tiles off the land shown). At 128² and under the shown land was proved, and it
  *  keeps its attempts (bounding it there replaced lands that passed two attempts later). A caller
  *  that caps the attempts keeps the old way. */
 const SHOWN_SAME = 3;
@@ -747,9 +749,13 @@ function attemptRound(specIn: MapSpec, optsIn: GenerateOptions, t0: number, roun
         continue;
       }
       // (a land shown before its start was proved failing the same way three times in a row, or its
-      // settles spent, ends the round as one whose attempts are spent does: the next draws fresh land,
-      // easing, D471's one exception to D348)
-      if (bounded && committed.shown && !a.stuck && (same >= SHOWN_SAME || land.settles - keptAt >= LAND_SETTLES)) break;
+      // settles spent, ends the round as one whose attempts are spent does: the next goes on with it
+      // once, easing, as a start that finds no place does, so the land shown stays the map; only after
+      // that does a round draw fresh land, D471's one exception to D348)
+      if (bounded && committed.shown && !a.stuck && (same >= SHOWN_SAME || land.settles - keptAt >= LAND_SETTLES)) {
+        if (!record.carried) record.carry = { land, committed };
+        break;
+      }
       if (a.stuck) break;
       continue;
     }
@@ -1759,7 +1765,6 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
     r.woodWithin20 = Math.max(r.woodWithin20, easyT.wood);
     r.bushesWithin20 = Math.max(r.bushesWithin20, easyT.bushes);
     r.ruinsWithin = Math.min(r.ruinsWithin, 10);
-    r.badwaterWithin = Math.max(r.badwaterWithin, EASY_BADWATER);
     spec.settings.hazards.badwaterDistance = Math.max(spec.settings.hazards.badwaterDistance, EASY_BADWATER);
     spec.settings.resources.berriesNearStart = Math.max(spec.settings.resources.berriesNearStart, Math.ceil(1.5 * easyT.bushes));
   }
@@ -1776,9 +1781,7 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
   // player's)
   if (ease >= 1) {
     const hz = spec.settings.hazards;
-    const eased = easedBadwater(Math.max(hz.badwaterDistance, spec.settings.start.rules.badwaterWithin), W, H, ease);
-    hz.badwaterDistance = Math.min(hz.badwaterDistance, eased);
-    spec.settings.start.rules.badwaterWithin = Math.min(spec.settings.start.rules.badwaterWithin, eased);
+    hz.badwaterDistance = easedBadwater(hz.badwaterDistance, W, H, ease);
   }
   // the walk the start's settled water is held to: the rule less a margin (`waterAim`); in a rescue
   // round, a rule under 7 is held to itself, as the check reads it (the margin leaves a start at 4
@@ -2093,7 +2096,7 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
     count: g.hazards.badwater === "none" ? 0 : Math.max(1, budget.sources),
     strength: budget.strength > 0 ? budget.strength : Math.round(Math.min(2, Math.max(1, g.hazards.ratio * 0.65 * hy.flowTotal)) * 100) / 100,
     // (the start's rule, D469 amended; a rescue round's is eased above)
-    distance: Math.max(spec.settings.hazards.badwaterDistance, spec.settings.start.rules.badwaterWithin, easyT ? easyT.badwaterSource + 2 : 0),
+    distance: Math.max(spec.settings.hazards.badwaterDistance, easyT ? easyT.badwaterSource + 2 : 0),
     keepOff: (weir ? pool : null) as Uint8Array | null,
     // (the ditches follow the field's own drainage, as the rivers' courses do)
     field: land.E,
@@ -2930,7 +2933,7 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
   }
   // ---- the start on the settled water, clear of the hollows and, where it can be, beyond the
   //      badwater distance from their water and soil (start.badwater: a target the settler aims for)
-  const badWithin = spec.settings.start.rules.badwaterWithin;
+  const badWithin = spec.settings.hazards.badwaterDistance;
   const beyondBad = (b: BuildResult): Uint8Array => {
     const m = new Uint8Array(N);
     let any = false;

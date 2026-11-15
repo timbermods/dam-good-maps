@@ -234,7 +234,7 @@ function toPlace(item: LibraryItem, fx: Fixture): PlaceData {
     edgeLip(heights, W, H, { row: [s.y * W + s.x], surface: heights[s.y * W + s.x] + 1, keep: heads, reach: EDGE_LIP_REACH });
   }
   if (heights.some((v) => v > EDITOR_LEVEL)) throw new Error(`${item.id}: land above level ${EDITOR_LEVEL}`);
-  // the place's one name (D(new-names), Kyler: "Mount Fuji", not "Near Mount Fuji"): the survey's name without its "Near",
+  // the place's one name (D522, Kyler: "Mount Fuji", not "Near Mount Fuji"): the survey's name without its "Near",
   // its scale and its sample's direction
   const survey = item.name.replace(/, \d+ m per tile$/, "").replace(/ \((north|south|east|west|northeast|northwest|southeast|southwest) sample\)$/, "").trim();
   if (!/^Near /.test(survey)) throw new Error(`${item.id}: unexpected survey name ${survey}`);
@@ -431,7 +431,7 @@ function basinsFor(libraryId: string, place: PlaceData): { place: PlaceData; not
     place = { ...place, heights: encodeHeights(heights) };
     game = buildPlace(place, undefined, "game");
   }
-  // a film above floor 0 the real water does not lie under gets a bed to where its water leaves it (D(new)); a bed that
+  // a film above floor 0 the real water does not lie under gets a bed to where its water leaves it (D521); a bed that
   // would put a source in another's flow (`water.source_in_flow`, whose list never grows) goes out onto dry ground
   // instead, and where none is left the film stays (the check refuses it)
   const inFlow = (p: PlaceData) => flaggedSources(p).flagged.length;
@@ -465,7 +465,7 @@ function basinsFor(libraryId: string, place: PlaceData): { place: PlaceData; not
 /** The rounds of beds a place gets: a bed can carry its water on to a flat below, where the next round's bed runs on. */
 const BED_ROUNDS = 8;
 
-/** What a place's beds and springs are seeded from: the id it had before D(new-names) took "Near" out of its name
+/** What a place's beds and springs are seeded from: the id it had before D522 took "Near" out of its name
  *  ("near-glencoe"), so the rename moves no land or water. */
 const seedKey = (p: PlaceData) => `near-${p.id}`;
 
@@ -581,7 +581,7 @@ function runPlace(item: LibraryItem): Outcome | null {
   // where that file's rules allow it; the rest stay, and the place keeps the fault until none is left. (The sealed-land
   // comparison for the start's water below is the survey's own, so it keeps the unmended sources.)
   const surveyed = place;
-  // Basins where the real water lies (D(new), tools/lib/placeBasins.ts): a body the port's rules showed and the game's
+  // Basins where the real water lies (D521, tools/lib/placeBasins.ts): a body the port's rules showed and the game's
   // lose is cut one level inside its own flat's rim where the observed water lies, so the place's rivers fill it; where
   // none lies it goes. Before the sources' mend, so a source the new lake takes in merges as any other.
   const basin = basinsFor(item.id, place);
@@ -703,7 +703,7 @@ function runPlace(item: LibraryItem): Outcome | null {
     }
     everySpot = `  every spot tried for water (${all.length}): ${watered} pass start.water with the room floor${best ? "" : watered ? ", none without failing more" : ""}`;
   }
-  // The springs searched under the game's rules (D(new), tools/lib/placeFeeds.ts): by D271's measure, the settled water
+  // The springs searched under the game's rules (D521, tools/lib/placeFeeds.ts): by D271's measure, the settled water
   // over the real water as high as it goes and over real dry land as low as it goes, by where each spring stands and how
   // strong it is; kept only where no check the place passed then fails and no film above floor 0 stands. After the start
   // has found its water (a move, a spring by it, every spot), so a spring the start drinks from is never the one taken

@@ -2,19 +2,25 @@
 // it is refused, not walled into islets: its cheapest closure a level up stands far downstream, and the bank found at
 // its outlet all the same leaves a plateau at 14 the lake would lie over and pour off. Cut to 10 it holds, down its
 // river's own course.
+//
+// The map is Lake Basin 3 at 192² as generator 0.10.19 made it, saved (tests/fixtures/projects/lake-basin-192-3.damgoodmaps:
+// made with that generator's `MapSession.fromGenerated(generate(makeSpec({ seed: 3, theme: "lakeBasin", size: { x: 192,
+// y: 192 } })), g.file).project()`), opened as this generator's own: generator 0.10.20's contour edges (#1066) raised the
+// lake's ground at X 129 · Y 111 to 14 (D148), and a saved map keeps the land the case was written for, whatever the
+// generator does next.
 
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import { decodeProject } from "../../src/core/doc/document";
 import { applyLakeLevel, planLakeLevel } from "../../src/core/doc/lakeLevel";
 import { MapSession } from "../../src/core/doc/session";
-import { generate } from "../../src/core/gen/generate";
-import { GENERATOR_VERSION, makeSpec } from "../../src/core/spec/mapspec";
+import { GENERATOR_VERSION } from "../../src/core/spec/mapspec";
 
 describe("Lakes by number on a generated map", () => {
   it("refuses the Lake Basin's lake at 14 where it would pour over a plateau at 14, and cuts it to 10", () => {
-    const n = 192;
-    const s = MapSession.fromGenerated(generate(makeSpec({ seed: 3, theme: "lakeBasin", size: { x: n, y: n } })));
+    const bytes = new Uint8Array(readFileSync("tests/fixtures/projects/lake-basin-192-3.damgoodmaps"));
+    const s = MapSession.open({ ...decodeProject(bytes), generatorVersion: GENERATOR_VERSION });
+    expect(s.built.W).toBe(192);
     expect(planLakeLevel(s, 129, 111, 14).reason).toMatch(/^at level 14 the lake would also pour over land at its level at X \d+ · Y \d+: one bank can't hold it$/);
     const plan = planLakeLevel(s, 129, 111, 10);
     expect(plan.reason).toBeNull();

@@ -123,7 +123,6 @@ export const PREMISE_SETTINGS: Record<PremiseId, readonly PremiseSetting[]> = {
     { key: "sw", path: "start.rules.waterWithin", role: "rules", does: "How far the start may walk to water" },
     { key: "sl", path: "start.rules.woodWithin20", role: "rules", does: "The wood the start needs within 20 tiles' walk" },
     { key: "sb", path: "start.rules.bushesWithin20", role: "rules", does: "The berry bushes the start needs within 20 tiles' walk" },
-    { key: "sx", path: "start.rules.badwaterWithin", role: "rules", does: "How far from the start badwater must stay" },
     { key: "sr", path: "start.rules.ruinsWithin", role: "rules", does: "How far from the start ruins must stay" },
   ],
 };

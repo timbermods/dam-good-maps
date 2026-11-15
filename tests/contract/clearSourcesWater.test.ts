@@ -1,14 +1,16 @@
 // Item 15 (D322): a stroke that clears sources takes their water with them, at once and exactly as
 // deleting a source does (D260). The stroke's own water (D197) ran on the old sources while it was
 // painted; once the stroke and its clearing are applied, that water goes with its cause.
+//
+// The maps are fixtures (tests/fixtures/projects: River Valley 96² seeds 15 and 33, `fixtureInEditor`): the subject is the
+// session and its water on a given map, not the generator, so a land change moves nothing here (D148).
 
 import { describe, expect, it } from "vitest";
 import { decodeProject } from "../../src/core/doc/document";
 import type { EditOp } from "../../src/core/doc/ops";
 import { MapSession } from "../../src/core/doc/session";
-import { makeSpec } from "../../src/core/spec/mapspec";
-import { runGenerate } from "../../src/worker/api";
 import * as ed from "../../src/worker/session";
+import { fixtureInEditor } from "../fixtureEditor";
 
 const W = 96;
 const SRC = "d3220000-0000-4000-8000-000000000015";
@@ -23,8 +25,7 @@ async function wait(ms: number) {
  *  on: the stroke's water stops with it, and the pit the source was filling drains once the water settles. Whether the
  *  map's water settles on stacked columns. */
 async function clearedPit(seed: number): Promise<boolean> {
-  await runGenerate(makeSpec({ seed, theme: "riverValley", size: { x: W, y: W } }));
-  ed.refine();
+  fixtureInEditor("riverValley", W, seed);
   const open = () => MapSession.open(decodeProject(ed.project().bytes));
   const b = open().built;
   // dry, flat ground far from any water

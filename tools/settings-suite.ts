@@ -407,20 +407,6 @@ export const EXPERIMENTS: Experiment[] = [
     delta: 30,
   },
   {
-    setting: "Start rules: no badwater within",
-    target: "least distance from the start to badwater or contaminated soil",
-    theme: "riverValley",
-    values: ["15", "50"],
-    apply: (s, v) => {
-      s.settings.start.rules.badwaterWithin = num(v);
-      s.settings.hazards.badwaterDistance = 15;
-    },
-    metric: (m) => (Number.isFinite(m.badwaterDistance) ? m.badwaterDistance : 200),
-    expect: "up",
-    delta: 15,
-    digits: 1,
-  },
-  {
     setting: "Start rules: no ruins within",
     target: "distance from the start to the nearest ruin column",
     theme: "riverValley",

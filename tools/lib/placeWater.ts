@@ -70,7 +70,7 @@ export function compareWater(opened: ArrayLike<number>, settled: ArrayLike<numbe
   return { wetOpened, wetSettled, change: wetOpened ? (wetSettled - wetOpened) / wetOpened : 0, bodies: bs.length, lost };
 }
 
-/** A film (D(new), planning's rule on #236: a place's water runs in a bed to an exit or stands in a basin its feed
+/** A film (D521, planning's rule on #236: a place's water runs in a bed to an exit or stands in a basin its feed
  *  holds; no films, no sheets): a body of water of `FILM_TILES` tiles or more, `FILM_DEPTH` deep or less on every tile,
  *  of which less than `FILM_BED_SHARE` lies in a bed. Named so one ruling moves them. */
 export const FILM_TILES = 100;
