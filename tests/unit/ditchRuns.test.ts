@@ -1,0 +1,68 @@
+// A badwater ditch's runs (src/core/land/hazards.ts `ditchRuns`; the look round of 2026-11-14, item
+// (c)): its longest run along a row or a column, and its longest even 45° stair, counted as item (b)
+// counts a level's stair edge (the tiles on one diagonal line). The planner never walks a ditch whose
+// run is over 4 or whose stair reaches 6, so neither a dug slot nor a ruled diagonal comes back
+// (D(new-ditch)); and a ditch's bed widened beside its route (`channelTiles`' `side`).
+
+import { describe, expect, it } from "vitest";
+import { ditchRuns } from "../../src/core/land/hazards";
+import { channelTiles, checkChannel } from "../../src/core/features/route";
+
+const W = 64;
+
+/** The tiles a walk from (x, y) takes, one move per letter: E, W, N, S. */
+function walk(x: number, y: number, moves: string): number[] {
+  const out = [y * W + x];
+  for (const m of moves) {
+    if (m === "E") x++;
+    else if (m === "W") x--;
+    else if (m === "N") y--;
+    else y++;
+    out.push(y * W + x);
+  }
+  return out;
+}
+
+describe("a ditch's runs", () => {
+  it("counts a run along a row or a column in tiles", () => {
+    expect(ditchRuns(walk(10, 10, "EEE"), W).axis).toBe(4);
+    expect(ditchRuns(walk(10, 10, "EEEE"), W).axis).toBe(5);
+    expect(ditchRuns(walk(10, 10, "ESSSSSE"), W).axis).toBe(6);
+    expect(ditchRuns(walk(10, 10, ""), W).axis).toBe(1);
+  });
+
+  it("counts an even 45° stair by the tiles on one diagonal line", () => {
+    // 9 moves alternating: 10 tiles, 5 on each diagonal
+    expect(ditchRuns(walk(10, 10, "ESESESESE"), W).stair).toBe(5);
+    // 10 moves: 11 tiles, 6 on one diagonal
+    expect(ditchRuns(walk(10, 10, "ESESESESES"), W).stair).toBe(6);
+    // the same stair broken by a second step one way is two short stairs
+    expect(ditchRuns(walk(10, 10, "ESESEESESES"), W).stair).toBe(4);
+  });
+
+  it("reads a winding ditch as neither", () => {
+    const r = ditchRuns(walk(10, 10, "EESEESSESSEENEENNEESEESS"), W);
+    expect(r.axis).toBeLessThanOrEqual(3);
+    expect(r.stair).toBeLessThan(6);
+  });
+});
+
+describe("a ditch's widened bed", () => {
+  // a route east along row 10 at levels 6, 6, 5, 5, widened north of its second tile and south of its third
+  const c = { tiles: [10, 10, 11, 10, 12, 10, 13, 10], levels: [6, 6, 5, 5], width: 1, to: "edge", side: [11, 9, 12, 11] };
+
+  it("takes the tiles beside the route at the lowest route level beside them, with banks round them", () => {
+    const { bed, bank } = channelTiles(c, W, W);
+    expect(bed.get(9 * W + 11)).toBe(6);
+    expect(bed.get(11 * W + 12)).toBe(5);
+    expect(bed.size).toBe(6);
+    expect(bank.get(8 * W + 11)).toBe(7);
+    expect(bank.get(12 * W + 12)).toBe(6);
+    expect(bank.has(9 * W + 11)).toBe(false);
+  });
+
+  it("refuses a widening that lies beside no route tile", () => {
+    expect(checkChannel(c, W, W)).toEqual([]);
+    expect(checkChannel({ ...c, side: [11, 8] }, W, W)).toEqual(["each of the outflow channel's widenings lies beside its route"]);
+  });
+});
