@@ -65,6 +65,7 @@ import { springCandidates } from "../water/springSites";
 import { orientationOf, orientDir, orientField, orientXY, type Orientation as LandOrientation } from "../land/orient";
 import { mapShape, startAlong } from "../land/shape";
 import { planHydro, type Hydro } from "../land/hydro";
+import { bendShores } from "../land/shores";
 import { ACTIVE, checkIntention, INTENTION_TEXT, type IntentionId } from "../land/intentions";
 import type { FormPlan, FormsWanted } from "../land/forms3d";
 import { carveOutlets, widenOutlets, unreachedLakes, cleanPitsAndSpikes, contourField, fillDryHollows, footComponents, mergeSmallRegions, naturalRamps, relaxEdges, snapLevels } from "../land/levels";
@@ -1725,6 +1726,8 @@ function planLandStage(land: Land, attempt: number, W: number, H: number, seed: 
     // them; kept as water, a start on one read no walkable land and its score was not a number)
     for (let i = 0; i < N; i++) if (keep[i] && !hy.water[i]) keep[i] = 0;
   }
+  // (ruled water: the planned lakes' straight shores notched, the bank taken down a level where it runs ruler-straight)
+  bendShores(h, W, H, hy.water, hy.lakes, hash32(seed, "shores", attempt));
   const mouthArms = hy.arms.filter((a) => a.kind === "mouth").map((a) => a.path);
   let blocked = blockedCourses(h, W, H, hy.rivers, mouthArms);
   for (let k = 0; k < 3 && blocked.some((b) => b.back) && closeBackEdges(h, W, H, blocked, hy.rivers, g.hydro.exactInflows ? 4 : 2); k++) blocked = blockedCourses(h, W, H, hy.rivers, mouthArms);

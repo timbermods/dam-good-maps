@@ -40,7 +40,7 @@ import { stream, type Rng } from "../math/rng";
 import { drainage } from "./drainage";
 import { BED_FLOOR, type Genome } from "./genome";
 import { sinDet, TWO_PI } from "../math/detmath";
-import { distanceFrom, MinHeap, N4 } from "../math/grid";
+import { distanceFrom, MinHeap, N4, N8 } from "../math/grid";
 import { DIRS8 } from "./num";
 import { mapShape } from "./shape";
 import { clamp } from "../math/clamp";
@@ -87,6 +87,9 @@ const REACH_WANT = 0.45;
  *  water; the soil's reach from the planned courses (`moistCost`, the game's moisture of a river's bank less a little);
  *  and the share of the map the courses aim to bring within it. */
 const REACH_HEADS = 2;
+/** Ruled water (planning's ruling of 2026-11-15): a course within `near` tiles of one already traced for `run` cells
+ *  joins it there, never running side by side with it (`planHydroSingle`'s trace). */
+export const BESIDE = { near: 12, run: 24 } as const;
 const MOIST_REACH = 10;
 const WIDE_WANT = 0.5;
 
@@ -453,7 +456,9 @@ function deltaCourse(from: Point, to: Point, E: Float64Array, W: number, H: numb
     if (i === goal) break;
     const x = i % W, y = Math.floor(i / W);
     const forward = axis === 0 ? x : y;
-    for (const [dx, dy] of DIRS8) {
+    // (ruled water: the eight neighbours on the grid; `DIRS8`'s unit vectors made every diagonal a fractional tile that
+    // was never taken, so an arm went by rows and columns alone, in long straight legs)
+    for (const [dx, dy] of N8) {
       const xx = x + dx, yy = y + dy;
       if (xx < 0 || yy < 0 || xx >= W || yy >= H) continue;
       const j = yy * W + xx;
@@ -582,10 +587,74 @@ function planHydroSingle(E: Float64Array, h: Uint8Array, g: Genome, seed: number
     if (!up.includes("north")) d = Math.min(d, H - 1 - y);
     return d;
   };
+  // (ruled water) the traced courses' nearest tile within `BESIDE.near`, by a flood from them, made again as courses are
+  // added
+  let besideFor = -1;
+  const besideSrc = new Int32Array(N);
+  const besideField = (): Int32Array => {
+    if (besideFor === heads.length) return besideSrc;
+    besideFor = heads.length;
+    besideSrc.fill(-1);
+    const q: number[] = [];
+    for (let i = 0; i < N; i++) if (owner[i] >= 0) { besideSrc[i] = i; q.push(i); }
+    const R2 = BESIDE.near * BESIDE.near;
+    for (let k = 0; k < q.length; k++) {
+      const i = q[k];
+      const x = i % W, y = (i - x) / W;
+      const s = besideSrc[i];
+      const sx = s % W, sy = (s - sx) / W;
+      for (const [dx, dy] of N8) {
+        const xx = x + dx, yy = y + dy;
+        if (xx < 0 || yy < 0 || xx >= W || yy >= H) continue;
+        const j = yy * W + xx;
+        if (besideSrc[j] >= 0 || (xx - sx) * (xx - sx) + (yy - sy) * (yy - sy) > R2) continue;
+        besideSrc[j] = s;
+        q.push(j);
+      }
+    }
+    return besideSrc;
+  };
+  /** A course's cells that run beside a traced course (within `BESIDE.near` for `BESIDE.run` cells or more) end where
+   *  that stretch begins, joined to its nearest tile by a straight link that never climbs: the new cells and the course
+   *  joined; undefined when it runs beside none (or no link holds), null when it runs beside one from its head. */
+  const besideJoin = (cells: number[]): { cells: number[]; joins: number } | null | undefined => {
+    const src = besideField();
+    // (the last cell is the course it joins, or the edge)
+    const end = owner[cells[cells.length - 1]] >= 0 ? cells.length - 1 : cells.length;
+    let q0 = -1;
+    for (let q = 0, run = 0; q < end; q++) {
+      run = src[cells[q]] >= 0 ? run + 1 : 0;
+      if (run >= BESIDE.run) { q0 = q - run + 1; break; }
+    }
+    if (q0 < 0) return undefined;
+    if (q0 === 0) return null;
+    for (let q = q0; q < Math.min(end, q0 + BESIDE.run); q++) {
+      const c = cells[q];
+      const o = src[c];
+      const top = h[c];
+      if (h[o] > top) continue;
+      const cx = c % W, cy = (c - cx) / W;
+      const ox = o % W, oy = (o - ox) / W;
+      const steps = Math.max(Math.abs(ox - cx), Math.abs(oy - cy));
+      const link: number[] = [];
+      let at = o;
+      let ok = true;
+      for (let t = 1; t < steps; t++) {
+        const i = Math.round(cy + ((oy - cy) * t) / steps) * W + Math.round(cx + ((ox - cx) * t) / steps);
+        // (a course met on the way is the one joined)
+        if (owner[i] >= 0) { at = i; break; }
+        if (h[i] > top || borderDist(i) < 4) { ok = false; break; }
+        if (link[link.length - 1] !== i) link.push(i);
+      }
+      if (!ok) continue;
+      return { cells: [...cells.slice(0, q + 1), ...link, at], joins: owner[at] };
+    }
+    return undefined;
+  };
   const trace = (hd: Head, alongUp = false, mustJoin = natural && heads.length > 0): boolean => {
     if (heads.length >= maxHeads) return false;
     const k = heads.length;
-    const cells: number[] = [];
+    let cells: number[] = [];
     let c = hd.cell;
     let joins = -1;
     const guard = new Set<number>();
@@ -606,6 +675,18 @@ function planHydroSingle(E: Float64Array, h: Uint8Array, g: Genome, seed: number
       c = dr.rcv[c];
     }
     if (cells.length < (alongUp ? 8 : 12)) return false;
+    // (ruled water, planning's ruling of 2026-11-15: a course that runs beside one already traced, within `BESIDE.near`
+    // tiles of it for `BESIDE.run` cells, joins it where that stretch begins, so the streams on one plain gather as a
+    // land's do; River Valley 256² seed 9's three springs ran side by side down its floor like drawn lines)
+    if (natural && heads.length > 0) {
+      const met = besideJoin(cells);
+      if (met === null) return false;
+      if (met) {
+        cells = met.cells;
+        joins = met.joins;
+        toSea = false;
+      }
+    }
     // A default valley trunk crosses the land; a short corner course cannot stand for it.
     if (natural && g.theme === "riverValley" && !g.hydro.exactInflows && !g.hydro.noInflows && !g.intentions.includes("upper-lower") && heads.length === 0) {
       if (hd.kind !== "edge") return false;

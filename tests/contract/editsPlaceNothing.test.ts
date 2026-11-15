@@ -204,8 +204,8 @@ describe("a spring the build derives again after an edit keeps its id (PLAN §19
   // Generator 0.8.1's Highlands 128² seed 3 (#265): a spring river's head row stood two long, the
   // start's ground keeping the third tile; a Lift carried the start away, the row was placed again
   // three long, and the third spring was new, an object the force added (D368 (10), D314). An edited
-  // map keeps the row the generation placed. Here Highlands 96² seed 4's three-spring row at
-  // (20–22, 78) is stored two long, as that one was: no edit may give it its third. ((14–16, 44) until
+  // map keeps the row the generation placed. Here Highlands 96² seed 3's three-spring row at
+  // (12–14, 51) is stored two long, as that one was: no edit may give it its third. ((14–16, 44) until
   // the Canyon and Highlands height round, 0.8.8, D148: that spring's row is two long on its map now,
   // and this one is the map's three-spring row. Seed 1's (65–67, 58) until generator 0.10.5, D148: its
   // three-spring row stands up the map now, (74, 75–77), and seed 3's runs along the fault as this one did. Seed 3's second
@@ -213,13 +213,15 @@ describe("a spring the build derives again after an edit keeps its id (PLAN §19
   // is the main river now, its head standing up the map at (73, 34–36); the map's three-spring rows are its second spring's
   // and its third's at (61–63, 83), and the first of them is taken. Seed 4's row at (20–22, 78) since generator 0.10.20's
   // contour edges, D518, D148: seed 3's three-spring row stands up the map now, (43, 16–18), and of seeds 1–6 seed 4's is
-  // the first that runs across it, its start beside it at (32, 79).)
+  // the first that runs across it, its start beside it at (32, 79). Seed 3's (12–14, 51) since generator 0.10.23's ruled water,
+  // D(ruled-water), D148: seed 4's row is two long on its map now, (31–32, 67), and of seeds 1–6 seed 3's is the first
+  // three-spring row that runs across the map.)
   it("a Quake Lift leaves a generated spring's two-spring head row as it was: the same sources, count and ids", async () => {
-    await runGenerate(makeSpec({ seed: 4, theme: "highlands", size: { x: 96, y: 96 } }));
+    await runGenerate(makeSpec({ seed: 3, theme: "highlands", size: { x: 96, y: 96 } }));
     ed.refine();
     const doc = decodeProject(ed.project().bytes);
-    const row = (es: ReturnType<typeof entities>) => es.filter((e) => e.template === "WaterSource" && e.owner === "f-ieizb3y6dpgpk").map((e) => `${e.id}@${e.x},${e.y}`);
-    const third = MapSession.open(doc).built.entities.find((e) => e.template === "WaterSource" && e.x === 22 && e.y === 78)!;
+    const row = (es: ReturnType<typeof entities>) => es.filter((e) => e.template === "WaterSource" && e.owner === "f-xis3bre6lye2u").map((e) => `${e.id}@${e.x},${e.y}`);
+    const third = MapSession.open(doc).built.entities.find((e) => e.template === "WaterSource" && e.x === 14 && e.y === 51)!;
     const world = JSON.parse(doc.base.world!) as { Entities: { Id: string }[] };
     const k = world.Entities.findIndex((e) => e.Id === third.id);
     world.Entities.splice(k, 1);
@@ -228,10 +230,10 @@ describe("a spring the build derives again after an edit keeps its id (PLAN §19
     doc.stored = undefined;
     ed.openProject(encodeProject(doc));
     const before = row(entities());
-    expect(before.map((s) => s.split("@")[1])).toEqual(["20,78", "21,78"]);
+    expect(before.map((s) => s.split("@")[1])).toEqual(["12,51", "13,51"]);
     for (const side of [1, -1] as const) {
       // (Ride, D474: the row rides the ground; Clear would take it)
-      run({ verb: "quake", settings: { ...QUAKE_DEFAULTS, power: 60, sources: "ride" }, path: [{ x: 2, y: 78.5 }, { x: 48, y: 78.5 }, { x: 93, y: 78.5 }], side, cut: null, natural: true });
+      run({ verb: "quake", settings: { ...QUAKE_DEFAULTS, power: 60, sources: "ride" }, path: [{ x: 2, y: 51.5 }, { x: 48, y: 51.5 }, { x: 93, y: 51.5 }], side, cut: null, natural: true });
       expect(row(entities()), `the Lift on side ${side}`).toEqual(before);
       ed.undo();
     }

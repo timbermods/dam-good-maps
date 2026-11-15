@@ -167,6 +167,19 @@ a premise or one still to come, may carry its own, lower playability floor.
   lake stair failed on its corners alone (rectangular plates of one level, 6 to 15 tiles, half of them on the outlands'
   rim) until D518 turned its plates' scatter off the grid and bent its benches' sides; at 128² it passes now. The real places (`places/`) are warned only. The game's maps are run on the
   machine that holds them: `npx tsx tools/ruled-land.ts <folder>/*.timber`.
+- **Ruled water** (planning's ruling of 2026-11-15): lake shores that run ruler-straight and channels that run side by
+  side like drawn lines. `tools/ruled-water.ts` measures both on a generated map: the share of lake shore (wide water,
+  every tile within 4.5 of it water; shore tiles with a dry side, not on the map's edge) in straight runs (8 tiles or
+  more whose centres lie in a strip under a tile wide, at any angle), and the tiles of channel centre line (thinned)
+  with another channel's centre line within 12 tiles, heading the same way (|cos| ≥ 0.9) and more than 8 tiles farther
+  by water than by air, in runs of 20 or more (and within 6, reported). `--gen` makes a set, `--frames` marks them
+  (straight shore orange, side by side yellow), `tools/ruled-water-sheet.py` lays before and after out with the start's
+  numbers first. The 42 maps at 256² (seven themes, seeds 1 to 6), dev 0dec5dcf8 → generator 0.10.23: straight shore
+  63.3 → 55.0 %, side by side 1,202 → 852 tiles (2.9 → 2.1 % of centre line; within 6: 94 → 89), attempts 245 → 218,
+  leaks (a river's water leaves its course) 61 → 49; River Valley 9 side by side 262 → 131, Delta 3 28 → 0. The mends:
+  a course traced beside one already traced joins it (`hydro.ts` `BESIDE`), Delta's arms step diagonally, a planned
+  lake's straight shores are notched (`shores.ts`); `src/core/land/README.md`. A gently curving shore still counts as
+  straight under an 8-tile strip, so the share is a relative measure, not a limit; the game's own maps have not been run.
 
 **Land first, story second** (planning's ruling of 2026-11-11, for every path: themes, premises, hand maps). Every
 landform is one geology makes, shaped by the shared natural relief. A premise is found in or cut into natural land by a
