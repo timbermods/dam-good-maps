@@ -3,6 +3,8 @@
 // smaller than planned, the river's course across the lake's dry part had no channel, its ground
 // left above the river's bed, and the water spread or stood there instead of running on (River
 // Valley 96² seed 5: 107 tiles of its courses above the bed, 84 of them dry once settled).
+//
+// Generates live, not from a fixture: its subject is what the generator makes (a river's course through a planned lake), D148.
 import { describe, expect, it } from "vitest";
 import { bedAt, pointAtArc } from "../../src/core/features/geometry";
 import type { RiverFeature } from "../../src/core/features/schema";

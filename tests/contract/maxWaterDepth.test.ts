@@ -2,6 +2,9 @@
 // ground under it rises so the water sits that deep; shallower water and the land stay as they are.
 // A lake keeps its surface (its spill level), so it ends that deep; a river's surface may rise a
 // little, so it ends about that deep. Exact and one undo step, as every Select action.
+//
+// The maps are fixtures (tests/fixtures/projects: River Valley 96² seeds 4 and 18; `fixtureInEditor`): the subject is the Select action
+// and the water on a given map, not the generator, so a land change moves nothing here (D148).
 
 import { describe, expect, it } from "vitest";
 import { decodeProject } from "../../src/core/doc/document";
@@ -14,8 +17,8 @@ import { tilesToRuns } from "../../src/core/math/grid";
 import { makeSpec } from "../../src/core/spec/mapspec";
 import { canonicalSettle } from "../../src/core/sim/prefill";
 import { depthLevels } from "../../src/editor/select";
-import { runGenerate } from "../../src/worker/api";
 import * as ed from "../../src/worker/session";
+import { fixtureInEditor } from "../fixtureEditor";
 
 const W = 96;
 const open = () => MapSession.open(decodeProject(ed.project().bytes));
@@ -31,8 +34,7 @@ function maxDepthOps(s: MapSession, tiles: number[], depth: number): { ops: Edit
 
 describe("Max water depth (D264)", () => {
   const lakeAndRiver = async (seed: number) => {
-    await runGenerate(makeSpec({ seed, theme: "riverValley", size: { x: W, y: W } }));
-    ed.refine();
+    fixtureInEditor("riverValley", W, seed);
     let s = open();
     // a lake: a 10 × 10 pit at level 4 in a 14 × 14 block at level 10, on dry ground far from the
     // start, and a source in it: it fills to its rim, six deep
