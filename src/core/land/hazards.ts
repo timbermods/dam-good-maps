@@ -795,9 +795,6 @@ function gullySides(tiles: readonly number[], h: Uint8Array, W: number, H: numbe
   return out;
 }
 
-/** The most tiles at the end of a gully whose bed may lie at or under the water it joins (D(new-ditch)). */
-const BACKWATER = 12;
-
 /** The banks' widest step, in tiles either side of the bed (a cut of 4 below the ground beside). */
 const STEP_REACH = 3;
 
@@ -1214,10 +1211,11 @@ export function planBadwater(h: Uint8Array, W: number, H: number, wetNow: ArrayL
       const ring3 = (i: number) => nearOfAt(i, W, H, 3, (j) => pit[j] === 1);
       const wet = (j: number) => hy.water[j] === 1 || hy.water[j] === 2;
       let dug: { next: Uint8Array; plan: BadwaterPlan; bed: Map<number, number>; stepped: number[] } | null = null;
-      // (and its bed held a level over the water it joins as planned where its banks allow, else as cut;
-      // the water planned stands up to a level lower than it settles)
+      // (and its bed held a level over the water it joins as planned where its banks allow, else at its
+      // level, else as cut: the water planned stands up to a level lower than it settles, and a gully cut
+      // under it stood full of it back up for tens of tiles, Highlands 256² seeds 3 and 5)
       const surface = goal[route.end] ? Math.floor(hh[route.end] + wetNow[route.end]) : -1;
-      const tries: [boolean, boolean][] = gully ? [[true, true], [false, true], [true, false], [false, false]] : [[false, false]];
+      const tries: [boolean, number][] = gully ? [[true, 1], [false, 1], [true, 0], [false, 0], [true, -1], [false, -1]] : [[false, -1]];
       for (const [wide, held] of tries) {
         const side = wide ? gullySides(tiles, hh, W, H, (i) => !pit[i] && !keepOff[i] && !goal[i] && !wet(i) && !ring3(i), hash32(seed, "ditch-width", attempt, c)) : [];
         const sideAt = new Map<number, number>();
@@ -1227,7 +1225,7 @@ export function planBadwater(h: Uint8Array, W: number, H: number, wetNow: ArrayL
         // rose over its banks and spread a sheet of badwater over the flat beside it, which stayed until
         // the badtide)
         const onDitch = new Set(tiles);
-        const joinLevel = held && goal[route.end] ? surface + 1 : 0;
+        const joinLevel = held >= 0 && surface >= 0 ? surface + held : 0;
         const levels: number[] = [];
         let run = floor + 1;
         for (let k = 0; k < tiles.length; k++) {
@@ -1288,13 +1286,6 @@ export function planBadwater(h: Uint8Array, W: number, H: number, wetNow: ArrayL
           }
         }
         if (!banks) continue;
-        // (and no long reach of its bed under the water it joins: that water stood back up it, and its
-        // badwater stayed there, never reaching the water, Highlands 256² seeds 3 and 5)
-        if (gully && surface >= 0) {
-          let under = 0;
-          for (let k = levels.length - 1; k >= 0 && levels[k] <= surface; k--) under++;
-          if (under > BACKWATER) continue;
-        }
         dug = { next, plan, bed, stepped };
         break;
       }
