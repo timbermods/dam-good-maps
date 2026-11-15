@@ -27,7 +27,7 @@ function opened(id: string, asPlace: boolean) {
 
 describe("a real place's check summary", () => {
   it("a place under the starting-logs floor is not 'all pass': the floor is a warning", () => {
-    // (Godavari delta: under the starting-logs floor after D311's conversion, D(new); Glencoe, the place
+    // (Godavari delta: under the starting-logs floor after D311's conversion, D521; Glencoe, the place
     // here before, now meets it with the groves planted by its start)
     const { s, groups } = opened("godavari-delta", true);
     expect(s.meta.place).toBe("godavari-delta");
