@@ -10,7 +10,7 @@
 // shallows run under the 0.1 `tools/ruled-water.ts` reads, and cut there a course read as pieces). The lakes: the
 // water in a disc of radius 8.5 all water (`LAKE_R2`, 17 tiles across, so a river and its pools stay channel, where
 // `ruled-water.ts`'s wide water, 10 across, took a 256² trunk for a lake); the rest is channel. The sea: a part of the
-// lakes touching the map's border with `SEA` of the map or more.
+// lakes touching the map's border with `SEA` of the map or more, along `SEA_SHORE` of its side.
 //
 // (a) Courses. Every course begins at a head, and every head is the game's: the map's clean water sources (a
 //   `WaterSource` with a strength; badwater sources are left out), those within 3 tiles of each other one head (a
@@ -53,7 +53,12 @@
 //     is a tile or more wider (medians) than both the path joining (its last `NEAR` tiles) and the one it joins above
 //     the join (its `NEAR` tiles up from it). (The thinning's own joins, a braid's or a pool's, are not read, nor a
 //     head's whose path is under `NEAR[0]` tiles, a spring on another's water that brings no stream of its own, nor
-//     one under `NEAR[0]` tiles from a way out, with no stretch below it to read.)
+//     one under `NEAR[0]` tiles from a way out, with no stretch below it to read.) A join through a lake: the paths
+//     that end in one lake (not the sea) against the lake's outlet stretch below it, read as that many joins less one.
+// (d) The start's own water: the water nearest the start's middle tile, on a trunk, a tributary, a lake, the sea or
+//   other water (a pond, a stretch no head's path takes).
+// (e) Order: the paths that join none are trunks; those that join another are tributaries, or brooks when their
+//   median width is `BROOK_WIDTH` or less.
 
 import { readdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
 import { basename, join, resolve } from "node:path";
@@ -72,8 +77,11 @@ export const WET = 0.02;
 /** Lakes: water in a disc of this radius² all water (17 tiles across: a river, 8.4 wide at most by D26, and its
  *  pools stay channel). */
 export const LAKE_R2 = 72.25;
-/** A lake touching the border with this share of the map or more is the sea. */
+/** A lake touching the border with this share of the map or more is the sea, */
 export const SEA = 0.02;
+/** where it runs along the border for this share of the map's side (round 3: a trunk 17 wide leaving by an edge is a
+ *  lake by `LAKE_R2` but no sea, and the tributaries joining it were counted alone). */
+export const SEA_SHORE = 0.25;
 /** Sources this close (Chebyshev) are one head. */
 export const HEAD_GAP = 3;
 /** A line's end within its half-width and this many tiles of a source is a head's. */
@@ -86,6 +94,8 @@ export const MIN_LINE = 8;
 export const NEAR = [4, 20] as const;
 /** Irrigable dry (b'): a short canal's walk from a course's water, and the levels above its surface it may lift. */
 export const IRR_CANAL = 24;
+/** A path that joins another no wider than this (median) is a brook (e). */
+export const BROOK_WIDTH = 2.5;
 /** How far from the start's middle tile its own water is looked for (d). */
 export const START_REACH = 40;
 export const IRR_LIFT = 2;
@@ -139,6 +149,11 @@ export interface WaterTree {
    *  tributary (one that joins another), a lake, the sea, other water (a pond, a stretch no head's path takes), or none
    *  within `START_REACH`. */
   startOn: "trunk" | "tributary" | "lake" | "sea" | "other" | "none";
+  /** The heads' paths by order (e): trunks (a path that joins none), tributaries (one that joins another, its median
+   *  width over `BROOK_WIDTH`) and brooks (one that joins another, no wider). */
+  trunks: number;
+  tributaries: number;
+  brooks: number;
   /** For a picture: 1 the centre line kept, 2 a join, 3 a join wider below. */
   marks: Uint8Array;
 }
@@ -279,7 +294,7 @@ export function waterTree(W: number, H: number, heights: ArrayLike<number>, dept
   };
   // ---- the sea
   const sea = new Uint8Array(N);
-  for (const p of parts(wide, W, H).tiles) if (p.length >= SEA * N && p.some(onBorder)) for (const i of p) sea[i] = 1;
+  for (const p of parts(wide, W, H).tiles) if (p.length >= SEA * N && p.filter(onBorder).length >= SEA_SHORE * Math.min(W, H)) for (const i of p) sea[i] = 1;
   // ---- (a) the heads and their systems
   const srcs = objects.filter((o) => o.template === "WaterSource" && specifiedStrength(o.components) > 0 && o.x >= 0 && o.y >= 0 && o.x < W && o.y < H);
   const groups: MapObject[][] = [];
@@ -690,6 +705,15 @@ export function waterTree(W: number, H: number, heights: ArrayLike<number>, dept
       }
     }
   }
+  // ---- (e) the paths by order
+  let trunks = 0,
+    tributaries = 0,
+    brooks = 0;
+  pathOf.forEach((path, p) => {
+    if (ended[p]) trunks++;
+    else if (median(path.map((t) => wOf[t])) <= BROOK_WIDTH) brooks++;
+    else tributaries++;
+  });
   const n = (f: Head["fate"]) => heads.filter((h) => h.fate === f).length;
   return {
     heads,
@@ -716,6 +740,9 @@ export function waterTree(W: number, H: number, heights: ArrayLike<number>, dept
     wider,
     courseLen: pathLen,
     startOn,
+    trunks,
+    tributaries,
+    brooks,
     marks,
   };
 }
@@ -746,7 +773,7 @@ const pct = (x: number) => `${(100 * x).toFixed(1)} %`;
 function row(name: string, m: WaterTree): string {
   return (
     `${name.padEnd(16)} courses ${String(m.courses).padStart(3)} (in ${m.inflows}, springs ${String(m.springs).padStart(2)}) joined ${String(m.joined).padStart(2)} alone ${String(m.alone).padStart(2)} (edge ${m.edge}, sea ${m.sea}) lost ${m.lost}  systems ${String(m.systems).padStart(2)}` +
-    `  spacing ${m.spacing.toFixed(1).padStart(5)}  wet ${pct(m.wetShare).padStart(7)}  irrigable ${pct(m.irrigable).padStart(7)}  width ${m.width.toFixed(1)} one ${pct(m.oneWidth)} thin ${pct(m.thin)} w1 ${m.w1.toFixed(1)} w2 ${m.w2.toFixed(1)}  joins ${m.joins} wider ${m.wider}  course ${m.courses ? Math.round(m.courseLen / m.courses) : 0}  start ${m.startOn}`
+    `  spacing ${m.spacing.toFixed(1).padStart(5)}  wet ${pct(m.wetShare).padStart(7)}  irrigable ${pct(m.irrigable).padStart(7)}  width ${m.width.toFixed(1)} one ${pct(m.oneWidth)} thin ${pct(m.thin)} w1 ${m.w1.toFixed(1)} w2 ${m.w2.toFixed(1)}  joins ${m.joins} wider ${m.wider}  course ${m.courses ? Math.round(m.courseLen / m.courses) : 0}  start ${m.startOn}  order ${m.trunks}/${m.tributaries}/${m.brooks}`
   );
 }
 
@@ -762,6 +789,7 @@ export function total(name: string, ms: WaterTree[]): string {
     ` heads/system ${(courses / Math.max(1, s((m) => m.systems))).toFixed(2)}; spacing ${(land / Math.max(1, centre)).toFixed(1)}; wet ${pct(s((m) => m.wetShare * m.land) / Math.max(1, land))}; irrigable ${pct(s((m) => m.irrigable * m.land) / Math.max(1, land))};` +
     ` width ${wmean((m) => m.width).toFixed(1)}, one width ${pct(wmean((m) => m.oneWidth))}, thin ${pct(wmean((m) => m.thin))}, w1 ${wmean((m) => m.w1).toFixed(1)}, w2 ${wmean((m) => m.w2).toFixed(1)};` +
     ` joins ${joins}, wider below ${s((m) => m.wider)} (${pct(s((m) => m.wider) / Math.max(1, joins))}); course length ${(s((m) => m.courseLen) / Math.max(1, courses)).toFixed(0)};` +
+    ` order (trunks/tributaries/brooks) ${s((m) => m.trunks)}/${s((m) => m.tributaries)}/${s((m) => m.brooks)};` +
     ` start on ${(["trunk", "tributary", "lake", "sea", "other", "none"] as const).map((k) => `${k} ${ms.filter((m) => m.startOn === k).length}`).join(", ")}`
   );
 }

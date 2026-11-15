@@ -106,8 +106,15 @@ const REACH_HEADS = 2;
  *    land no course serves yet, dry ground within `reach` tiles' walk of it and no more than a level over the ground it
  *    runs on, past the moist band beside it (round 2, planning's rule 5);
  *  - `rough`, `bays`: a channel wider than `MAX_WIDTH` has banks that come and go by `rough` of its half-width, bays
- *    and points about `bays` tiles long (round 2: its smooth banks read as ruled shore). */
-export const TREE = { heads: [3, 1.5], seat: [0.0015, 4], apart: 0.15, floor: 0.4, grow: 3, width: 3, bank: 3, reach: 24, pick: 6, rough: 0.3, bays: 6 } as const;
+ *    and points about `bays` tiles long (round 2: its smooth banks read as ruled shore);
+ *  - `brook` (round 3, planning's rule 5 over rule 3's count): beyond the larger courses, `count` brooks for each
+ *    √(area / 128²), each `width` wide carrying `flow` (half the map's water at most, taken from the rest), heading on
+ *    the land farthest from the moisture's reach, seated where `seat` of a spring's water gathers, at least `apart` of
+ *    the side from every head and joining a larger course (never another brook) `len` of the side down or more; a
+ *    brook's join widens the course below it by `grow`;
+ *  - `deltaCap`: Delta's courses are this wide at most (round 3: its trunk read as a drowned valley 20 tiles wide).
+ *  The trunk, the first course, is the land's own: the first that traces (round 3). Never on a sea's map (Islands). */
+export const TREE = { heads: [3, 1.5], seat: [0.0015, 4], apart: 0.15, floor: 0.4, grow: 3, width: 3, bank: 3, reach: 24, pick: 6, rough: 0.3, bays: 6, brook: { count: 5, apart: 0.08, flow: 0.5, width: 2, grow: 1, seat: 0.05, len: 0.1 }, deltaCap: 10 } as const;
 /** Ruled water (planning's ruling of 2026-11-15): a course within `near` tiles of one already traced for `run` cells
  *  joins it there, never running side by side with it (`planHydroSingle`'s trace). */
 export const BESIDE = { near: 12, run: 16 } as const;
@@ -416,6 +423,8 @@ interface Head {
   flow: number;
   /** On the water tree, the flow an equal split gave it, which sets how deep it cuts (D(water-tree)). */
   even?: number;
+  /** On the water tree, a brook: a first-order branch `TREE.brook.width` wide that joins a larger course (D(water-tree)). */
+  brook?: boolean;
 }
 
 /** The sea of an island sea's map: the largest hollow of the land's levels (4-connected tiles a level
@@ -600,12 +609,15 @@ function planHydroSingle(E: Float64Array, h: Uint8Array, g: Genome, seed: number
   let maxHeads = natural ? Math.min(headCap, Math.floor(3.5 + 1.5 * portable.pow(areaK, 0.75))) : Infinity;
   const wide = Math.max(1, areaK);
   // (the water tree above 128², D(water-tree): fewer heads, seated where water gathers, the flow by the land drained)
-  const tree = natural && wide > 1;
+  // (round 3: never on a sea's map, whose islands drain to the sea as before; planning, 2026-11-15)
+  const tree = natural && wide > 1 && !g.seaLayout;
   if (tree) maxHeads = Math.min(headCap, Math.round(TREE.heads[0] + TREE.heads[1] * portable.sqrt(areaK)));
   const seatA = TREE.seat[0] * N;
   const seated = (i: number) => !tree || (dr.area[i] >= seatA && dr.area[i] <= TREE.seat[1] * seatA);
   const headGap = tree ? Math.round(TREE.apart * side) : 26;
   const minTributary = Math.max(12, Math.round(0.18 * side));
+  // (a brook is shorter: `TREE.brook.len` of the side to its join, round 3)
+  const minBrook = Math.max(12, Math.round(TREE.brook.len * side));
   const drainDist = (i: number) => {
     const x = i % W;
     const y = (i - x) / W;
@@ -722,9 +734,10 @@ function planHydroSingle(E: Float64Array, h: Uint8Array, g: Genome, seed: number
     return benchWalk(cells.filter((c) => owner[c] < 0), null);
   };
   /** The first of `list` that traces, or on the water tree the one of the first `TREE.pick` that do whose course
-   *  serves the most bench land (its trace kept). */
+   *  serves the most bench land (its trace kept). The trunk, the first course, is the land's own: its first that traces
+   *  (round 3: a trunk chosen for its bench left River Valley 256² seed 9 no place for its badwater, then 11 attempts). */
   const pickTrace = (list: readonly number[], head: (i: number) => Head, alongUp?: boolean, mustJoin?: boolean): boolean => {
-    if (!tree) {
+    if (!tree || heads.length === 0) {
       for (const i of list) if (trace(head(i), alongUp, mustJoin)) return true;
       return false;
     }
@@ -766,7 +779,8 @@ function planHydroSingle(E: Float64Array, h: Uint8Array, g: Genome, seed: number
     // (ruled water, planning's ruling of 2026-11-15: a course that runs beside one already traced, within `BESIDE.near`
     // tiles of it for `BESIDE.run` cells, joins it where that stretch begins, so the streams on one plain gather as a
     // land's do; River Valley 256² seed 9's three springs ran side by side down its floor like drawn lines)
-    if (natural && heads.length > 0) {
+    // (not on a sea's map: its islands' water is as before, round 3)
+    if (natural && !g.seaLayout && heads.length > 0) {
       const met = besideJoin(cells);
       if (met === null) return false;
       if (met) {
@@ -782,7 +796,7 @@ function planHydroSingle(E: Float64Array, h: Uint8Array, g: Genome, seed: number
       for (const i of cells) { const x = i % W, y = Math.floor(i / W); x0 = Math.min(x0, x); x1 = Math.max(x1, x); y0 = Math.min(y0, y); y1 = Math.max(y1, y); }
       if (Math.max(x1 - x0, y1 - y0) < 0.5 * side) return false;
     }
-    if (mustJoin && (joins < 0 || cells.length < minTributary)) return false;
+    if (mustJoin && (joins < 0 || cells.length < (hd.brook ? minBrook : minTributary))) return false;
     // M9b: a head below the spill of its own way down (a low point of an edge behind a ridge, or a
     // spring below the rim of a hollow on its way) would have its channel cut up through the rise,
     // and the water beyond would stand higher than where it begins: it could never flow that way
@@ -799,6 +813,8 @@ function planHydroSingle(E: Float64Array, h: Uint8Array, g: Genome, seed: number
     for (let q = 10; q < cells.length - 10; q++) if ((alongUp ? drainDist(cells[q]) : borderDist(cells[q])) < 4) return false;
     // (M9b: an inflow heads inland from its mouth, never along its edge first)
     if (natural && hd.kind === "edge") for (let q = 1; q <= Math.min(8, cells.length - 1); q++) if (borderDist(cells[q]) < q >> 1) return false;
+    // (a brook is first-order: it joins a larger course, never another brook)
+    if (hd.brook && (joins < 0 || heads[joins].brook)) return false;
     if (dry) {
       tried = cells;
       return true;
@@ -967,8 +983,8 @@ function planHydroSingle(E: Float64Array, h: Uint8Array, g: Genome, seed: number
       // never joins the main one, D273 (1); D504: above 128² one for each 128² of the map's area, and
       // first where the land farthest from the water drains away from it, so the green spreads over
       // the whole map, not one side)
-      const separateOk =
-        separateMore < (tree ? Math.max(0, Math.floor(portable.sqrt(wide)) - 1) : Math.floor(wide)) && g.theme !== "riverValley";
+      // (the water tree has none: every course is its trunk or joins it, round 3)
+      const separateOk = !tree && separateMore < Math.floor(wide) && g.theme !== "riverValley";
       const separate = () => {
         if (pickTrace(apart.slice(0, tree ? 160 : 40).map(([, i]) => i), (i) => ({ cell: i, kind: "spring", flow: 0 }), false, false)) {
           added = true;
@@ -1053,12 +1069,46 @@ function planHydroSingle(E: Float64Array, h: Uint8Array, g: Genome, seed: number
       trace({ cell: hl.head, kind: "spring", flow: 0 }, false, natural && heads.length > 0);
     }
   }
+  // (the water tree's brooks, D(water-tree) round 3: first-order branches that bring the water to the land the larger
+  // courses leave dry, as D504's reach heads did: `TREE.brook.count` for each √(area / 128²), each heading on the land
+  // farthest from the moisture's reach of the courses planned so far, seated where a little water gathers (`TREE.brook.seat`
+  // of a spring's), joining a larger course at least `TREE.brook.len` of the side down; of the first `TREE.pick` that
+  // trace, the one whose course serves the most bench land. Dry ground a brook crosses is ground one dam turns into fields)
+  if (tree && heads.length > 0 && !g.hydro.exactInflows && g.hydro.reachSprings !== false) {
+    maxHeads = heads.length + Math.round(TREE.brook.count * portable.sqrt(areaK));
+    const gap = Math.round(TREE.brook.apart * side);
+    while (heads.length < maxHeads) {
+      const wetP = new Uint8Array(N);
+      for (let i = 0; i < N; i++) if (owner[i] >= 0) wetP[i] = 1;
+      const dist = moistCost(wetP, h, W, H);
+      const joinable = reachesOwned();
+      const cands: [number, number][] = [];
+      for (let y = 12; y < H - 12; y++)
+        for (let x = 12; x < W - 12; x++) {
+          const i = y * W + x;
+          if (dist[i] <= MOIST_REACH || owner[i] >= 0 || !(dr.area[i] >= seatA * TREE.brook.seat && dr.area[i] <= TREE.seat[1] * seatA) || !joinable.reach[i] || joinable.len[i] < minBrook) continue;
+          if (heads.some((hd) => Math.abs((hd.cell % W) - x) + Math.abs(Math.floor(hd.cell / W) - y) < gap)) continue;
+          cands.push([dist[i], i]);
+        }
+      cands.sort((a, c) => c[0] - a[0] || a[1] - c[1]);
+      if (!pickTrace(cands.slice(0, 160).map(([, i]) => i), (i) => ({ cell: i, kind: "spring", flow: 0, brook: true }))) break;
+    }
+  }
   // the map's flow goes to the heads that made it: inflows carry most, springs a share each
   const nIn = heads.filter((hd) => hd.kind === "edge").length;
-  const nSp = heads.length - nIn;
+  // (a brook takes its water from the springs' share, and no share of its own, round 3)
+  const nSp = heads.filter((hd) => hd.kind === "spring" && !hd.brook).length;
   const springShare = nIn ? Math.min(0.35, 0.12 * nSp) : 1;
+  // (a brook carries `TREE.brook.flow`, never more than half the map's water in all, taken from the rest)
+  const nBrook = heads.filter((hd) => hd.brook).length;
+  const bq = nBrook ? Math.max(0.5, Math.min(TREE.brook.flow, flowTotal / 2 / nBrook)) : 0;
+  const rest = flowTotal - nBrook * bq;
   for (const hd of heads) {
-    hd.flow = hd.kind === "edge" ? (flowTotal * (1 - (nSp ? springShare : 0))) / nIn : (flowTotal * springShare) / nSp;
+    if (hd.brook) {
+      hd.flow = hd.even = Math.round(bq * 100) / 100;
+      continue;
+    }
+    hd.flow = hd.kind === "edge" ? (rest * (1 - (nSp ? springShare : 0))) / nIn : (rest * springShare) / nSp;
     hd.flow = Math.round(Math.max(0.5, hd.flow) * 100) / 100;
   }
   // (the water tree, D(water-tree): the springs' water split by the land each course drains, its own, the land whose
@@ -1072,8 +1122,8 @@ function planHydroSingle(E: Float64Array, h: Uint8Array, g: Genome, seed: number
     }
     const own = new Float64Array(heads.length);
     for (let i = 0; i < N; i++) if (first[i] >= 0) own[first[i]]++;
-    const sp = heads.map((hd, k) => (hd.kind === "spring" ? k : -1)).filter((k) => k >= 0);
-    const budget = nIn ? flowTotal * springShare : flowTotal;
+    const sp = heads.map((hd, k) => (hd.kind === "spring" && !hd.brook ? k : -1)).filter((k) => k >= 0);
+    const budget = nIn ? rest * springShare : rest;
     const sum = sp.reduce((a, k) => a + own[k], 0);
     const share = sp.map((k) => Math.max(TREE.floor / sp.length, sum > 0 ? own[k] / sum : 1 / sp.length));
     const total = share.reduce((a, b) => a + b, 0);
@@ -1083,9 +1133,12 @@ function planHydroSingle(E: Float64Array, h: Uint8Array, g: Genome, seed: number
   // (the width a flow keeps: on the water tree a large river's with the root of its water (`TREE.width`), up to
   // `MAX_WIDTH·√(area / 128²)`, so a trunk keeps growing at each join and a course's own head never passes
   // `MAX_WIDTH`, which its feature keeps)
-  const treeCap = MAX_WIDTH * portable.sqrt(Math.max(1, areaK));
+  // (Delta's trunk divides toward the sea, never a broad water across the map: `TREE.deltaCap`, round 3)
+  const treeCap = g.theme === "delta" ? TREE.deltaCap : MAX_WIDTH * portable.sqrt(Math.max(1, areaK));
   const wq = (q: number): number => (tree ? Math.round(clamp(Math.min(q / 0.75, TREE.width * portable.sqrt(q)), MIN_WIDTH, treeCap) * 10) / 10 : widthFor(q));
   const headWidth = (q: number): number => Math.min(MAX_WIDTH, wq(q));
+  /** A course's own width at its head: a brook's `TREE.brook.width`. */
+  const ownWidth = (hd: Head): number => (hd.brook ? TREE.brook.width : headWidth(hd.flow));
 
   // ---- the courses: each traced path smoothed, then (M9a) wandering within its valley; a
   //      tributary's course ends on the course of the river it joins
@@ -1129,7 +1182,7 @@ function planHydroSingle(E: Float64Array, h: Uint8Array, g: Genome, seed: number
           return [Math.round((lx + (1 - pull) * (px - lx)) * 100) / 100, Math.round((ly + (1 - pull) * (py - ly)) * 100) / 100] as Point;
         });
     }
-    const wv = natural ? wanderOf(g, wq(hd.flow)) : null;
+    const wv = natural ? wanderOf(g, hd.brook ? TREE.brook.width : wq(hd.flow)) : null;
     if (wv) {
       if (tr.joins >= 0) {
         // the joined river's course is final: end on its nearest point
@@ -1567,13 +1620,16 @@ function planHydroSingle(E: Float64Array, h: Uint8Array, g: Genome, seed: number
     if (seen.has(k)) return [];
     seen.add(k);
     let q = traced.find((t) => t.k === k)?.head.flow ?? 0;
-    let w = headWidth(q);
+    const hd0 = traced.find((t) => t.k === k)?.head;
+    let w = hd0 ? ownWidth(hd0) : headWidth(q);
     const out: number[] = [];
     for (const j of (joinsOf.get(k) ?? []).slice().sort((a, b) => a.s - b.s)) {
       q += j.q;
       const up = treeWidths(j.k, seen);
-      const wIn = up.length ? up[up.length - 1] : headWidth(traced.find((t) => t.k === j.k)?.head.flow ?? 0);
-      w = Math.max(wq(q), Math.min(Math.round(treeCap), Math.max(w, wIn) + TREE.grow));
+      const inHd = traced.find((t) => t.k === j.k)?.head;
+      const wIn = up.length ? up[up.length - 1] : inHd ? ownWidth(inHd) : 0;
+      // (a brook's join widens the course below it by `TREE.brook.grow`, a larger course's by `TREE.grow`)
+      w = Math.max(wq(q), Math.min(Math.round(treeCap), Math.max(w, wIn) + (inHd?.brook ? TREE.brook.grow : TREE.grow)));
       out.push(w);
     }
     treeMemo.set(k, out);
@@ -1589,7 +1645,7 @@ function planHydroSingle(E: Float64Array, h: Uint8Array, g: Genome, seed: number
     const last = tr.cells[tr.cells.length - 1];
     const exitEdge = tr.joins < 0 ? edgeOf(last, W, H) : null;
     // (a course's own width at its head, which its feature keeps, never past `MAX_WIDTH`; only joins widen it more)
-    const width = headWidth(hd.flow);
+    const width = tree ? ownWidth(hd) : headWidth(hd.flow);
     const ws = hash32(seed, "width", attempt, tr.k);
     const wv = wanders[tr.k];
     // (wider below each river that joins it, as wide as the water it then carries; on the water tree as
