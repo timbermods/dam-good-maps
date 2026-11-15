@@ -23,6 +23,7 @@ import type { BuildResult } from "../features/build";
 import { featureId } from "../features/ids";
 import { footprintAt } from "../features/objects";
 import type { Feature, ForestFeature } from "../features/schema";
+import { WATER_CONTAMINATION_LEAST } from "../format/world";
 import { pickSeeds } from "../gen/blobs";
 import { distanceFrom, runsToTiles, tilesToRuns } from "../math/grid";
 import { stream } from "../math/rng";
@@ -32,11 +33,12 @@ import type { MapSpec } from "../spec/mapspec";
 import type { StyleTheme } from "./choice";
 import { PLAN_TRIES } from "./draw";
 import { startNumbers, VEIL_SHORT } from "./gateMap";
+import { dist } from "./geom";
 import { ladderOf, type Ladder } from "./ladder";
 import { LIFE } from "./life";
 import { premiseBase, premiseFinish, type PremiseLand, type PremiseMap } from "./map";
 import { courseGaps, plainAttempt, valleyTiles, type PlainLand, type PlainRelief } from "./plainLand";
-import { DEAD_SHARE, DRY_LEAST, PLAIN_IDS, plainOf, poisonedPlain, toLocal, turnOf, walk } from "./premises/poisonedPlain";
+import { DEAD_SHARE, DRY_LEAST, PLAIN_IDS, plainLevel, plainOf, poisonedPlain, toLocal, turnOf, walk } from "./premises/poisonedPlain";
 import { premiseStyle } from "./style";
 import type { PremisePlan, Point } from "./types";
 import type { StageWater } from "./water";
@@ -147,13 +149,45 @@ export function plainLeaks(courses: Uint8Array, depth: ArrayLike<number>, W: num
   return { tiles, at };
 }
 
-/** The clean water's tiles: the river above the red stream's join (all of it where the red stream leaves by its own
- *  exit), its springs' pool, the terrace's spring and its brook. */
+/** Where the red stream's water first meets the river, tiles along the river (Infinity where it leaves by its own
+ *  exit): the least `along` of the river's tiles beside (4-neighbour) the red stream's own or its mouth's cut
+ *  (`courseGaps`), and a tile above the join at most. */
+export function joinEdge(plan: PremisePlan, w: StageWater): number {
+  const r = w.raster;
+  const red = plan.links.find((l) => l.id === I.red);
+  if (red?.joins?.link !== I.river) return Infinity;
+  const { W, H } = plan;
+  const river = plan.links.findIndex((l) => l.id === I.river) + 1;
+  const redK = plan.links.findIndex((l) => l.id === I.red) + 1;
+  const mine = new Uint8Array(W * H);
+  for (let i = 0; i < mine.length; i++) if (r.channel[i] === redK) mine[i] = 1;
+  for (const g of courseGaps(plan, w)) if (g.link === I.red) for (const i of g.tiles) mine[i] = 1;
+  // (the join is the reach under the river's step above it, `RIVER_STAGE.join`: the step's middle where its bed last
+  // falls above the join)
+  const rv = plan.links[river - 1];
+  const bed = rv.bed as number[];
+  let run = 0;
+  let edge = red.joins.at - 1;
+  for (let k = 0; k + 1 < rv.path!.length; k++) {
+    const len = dist(rv.path![k], rv.path![k + 1]);
+    if (bed[k + 1] < bed[k] && run + len / 2 < red.joins.at) edge = Math.min(red.joins.at - 1, run + len / 2);
+    run += len;
+  }
+  for (let i = 0; i < mine.length; i++) {
+    if (r.channel[i] !== river) continue;
+    const x = i % W;
+    const y = (i - x) / W;
+    if ((x > 0 && mine[i - 1]) || (x + 1 < W && mine[i + 1]) || (y > 0 && mine[i - W]) || (y + 1 < H && mine[i + W])) edge = Math.min(edge, r.along[i]);
+  }
+  return edge;
+}
+
+/** The clean water's tiles: the river above the red stream's join (above `joinEdge`; all of it where the red stream
+ *  leaves by its own exit), its springs' pool, the terrace's spring and its brook. */
 export function cleanWater(plan: PremisePlan, w: StageWater): Uint8Array {
   const r = w.raster;
   const out = new Uint8Array(r.W * r.H);
-  const red = plan.links.find((l) => l.id === I.red);
-  const join = red?.joins?.link === I.river ? red.joins.at : Infinity;
+  const join = joinEdge(plan, w);
   const k = (id: string) => plan.links.findIndex((l) => l.id === id) + 1;
   const b = (id: string) => plan.bodies.findIndex((x) => x.id === id) + 1;
   const river = k(I.river);
@@ -161,23 +195,96 @@ export function cleanWater(plan: PremisePlan, w: StageWater): Uint8Array {
   const springs = b(I.springs);
   const well = b(I.well);
   for (let i = 0; i < out.length; i++) {
-    if (r.channel[i] === river && r.along[i] < join - 1) out[i] = 1;
+    if (r.channel[i] === river && r.along[i] < join) out[i] = 1;
     else if (r.channel[i] && r.channel[i] === brook) out[i] = 1;
     else if (r.lake[i] && (r.lake[i] === springs || r.lake[i] === well)) out[i] = 1;
   }
   return out;
 }
 
-/** `river.clean`: the clean water's wet tiles at contamination over 0, and the most there. */
+/** `river.clean`: the clean water's wet tiles at contamination over 0 as the map's file holds it (the water the game
+ *  loads: the file writes a contamination at or under `WATER_CONTAMINATION_LEAST` as 0; the settle's doubles keep
+ *  traces under it, `redMix` `creep`), and the most there. */
 export function riverRed(clean: Uint8Array, depth: ArrayLike<number>, contamination: ArrayLike<number>): { tiles: number; most: number } {
   let tiles = 0;
   let most = 0;
   for (let i = 0; i < clean.length; i++)
-    if (clean[i] && depth[i] >= WET && contamination[i] > 0) {
+    if (clean[i] && depth[i] >= WET && contamination[i] > WATER_CONTAMINATION_LEAST) {
       tiles++;
       most = Math.max(most, contamination[i]);
     }
   return { tiles, most };
+}
+
+/** The red water where the red stream joins the river (planning's verdict on step 3, round 1): `creep`, how far up the
+ *  river any red water stands above where the red stream's water first meets it (`joinEdge`; tiles along it, 0 none)
+ *  in the settle's doubles, and `trace` the most there;
+ *  `below`, the median contamination of the river's water past the join's mouth (the red stream's half-width below
+ *  it), and the most. Null where the red stream leaves by its own exit. */
+export function redMix(plan: PremisePlan, w: StageWater, depth: ArrayLike<number>, contamination: ArrayLike<number>): { creep: number; trace: number; below: number; most: number } | null {
+  const red = plan.links.find((l) => l.id === I.red);
+  if (red?.joins?.link !== I.river) return null;
+  const r = w.raster;
+  const river = plan.links.findIndex((l) => l.id === I.river) + 1;
+  const mouth = joinEdge(plan, w);
+  let creep = 0;
+  let trace = 0;
+  let most = 0;
+  const past: number[] = [];
+  for (let i = 0; i < r.channel.length; i++) {
+    if (r.channel[i] !== river || !(depth[i] >= WET)) continue;
+    if (r.along[i] < mouth) {
+      if (contamination[i] > 0) {
+        creep = Math.max(creep, mouth - r.along[i]);
+        trace = Math.max(trace, contamination[i]);
+      }
+    } else if (r.along[i] > red.joins.at + (red.half ?? 1.5)) {
+      past.push(contamination[i]);
+      most = Math.max(most, contamination[i]);
+    }
+  }
+  past.sort((a, b) => a - b);
+  return { creep, trace, below: past.length ? past[past.length >> 1] : 0, most };
+}
+
+/** The river's water against its levees (planning's verdict on step 3, round 1): along the river from where the plain
+ *  begins, the least its levees' crest (the lowest bank beside it, a low place's the plain) and the plain beside it
+ *  stand over its water's surface; and its steps (the plan's bed falling a level). */
+export function riverStand(plan: PremisePlan, w: StageWater, relief: Pick<PlainRelief, "bank">, built: Pick<BuildResult, "heights" | "water">): { steps: number; crest: number; plain: number } {
+  const r = w.raster;
+  const { W, H } = plan;
+  const p = plainOf(plan)!;
+  const T = turnOf(plan, p);
+  const k = plan.links.findIndex((l) => l.id === I.river);
+  const rv = plan.links[k];
+  const half = rv.half ?? 2.5;
+  const bed = rv.bed as number[];
+  let steps = 0;
+  for (let j = 1; j < bed.length; j++) if (bed[j] < bed[j - 1]) steps++;
+  let crest = Infinity;
+  let plain = Infinity;
+  const R = half + 7;
+  for (const q of walk(rv.path!, 1)) {
+    if (q.s < p.levee.from) continue;
+    let surf = -Infinity;
+    let bank = Infinity;
+    for (let dy = -Math.ceil(R); dy <= Math.ceil(R); dy++)
+      for (let dx = -Math.ceil(R); dx <= Math.ceil(R); dx++) {
+        const x = Math.floor(q.p[0]) + dx;
+        const y = Math.floor(q.p[1]) + dy;
+        if (x < 0 || y < 0 || x >= W || y >= H) continue;
+        const i = y * W + x;
+        const e = (x + 0.5 - q.p[0]) * (x + 0.5 - q.p[0]) + (y + 0.5 - q.p[1]) * (y + 0.5 - q.p[1]);
+        if (r.channel[i] === k + 1 && e <= (half + 0.5) * (half + 0.5) && built.water[i] >= WET) surf = Math.max(surf, built.heights[i] + built.water[i]);
+        else if (relief.bank[i] > 0 && !r.channel[i] && e <= R * R) bank = Math.min(bank, built.heights[i]);
+      }
+    if (surf === -Infinity) continue;
+    const [u, v] = toLocal(T, q.p);
+    const low = p.levee.low.some((o) => q.s >= o.from && q.s <= o.to);
+    crest = Math.min(crest, (low ? plainLevel(p, u, v) : bank) - surf);
+    plain = Math.min(plain, (u < p.plainFrom ? p.L : plainLevel(p, u, v)) - surf);
+  }
+  return { steps, crest, plain };
 }
 
 // ------------------------------------------------------------------------------------------------- the bands
@@ -327,6 +434,10 @@ export interface PlainSettled {
   fall: ReturnType<typeof redFallDrop>;
   badtide: ReturnType<typeof badtideReach>;
   sources: ReturnType<typeof plainSources>;
+  /** The river's steps and its water against its levees' crest and the plain (`riverStand`). */
+  stand: ReturnType<typeof riverStand>;
+  /** The red water at the join (`redMix`), null where the red stream leaves by its own exit. */
+  mix: ReturnType<typeof redMix>;
   /** The dead band's dead trees. */
   deadTrees: number;
 }
@@ -372,6 +483,8 @@ export function plainSettled(land: PlainLand, map: PremiseMap, deadTrees: number
     fall: redFallDrop(plan, water, b.heights, b.water),
     badtide: badtideReach(plan, water, relief, b),
     sources: plainSources(plan),
+    stand: riverStand(plan, water, relief, b),
+    mix: redMix(plan, water, b.water, b.contamination),
     deadTrees,
   };
 }

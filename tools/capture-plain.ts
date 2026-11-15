@@ -98,8 +98,9 @@ function waterMap(seed: number, size: number): Made | null {
   const s = m.settled;
   const pct = (v: number) => `${Math.round(100 * v)} %`;
   const caption = [
-    `seed ${seed} at ${size}²${m.held ? "" : " (did not hold: " + m.settledFails.map((f) => f.id).join(", ") + ")"}`,
     `start: level land ${n("start.level_land")}, reach ${n("start.reach")}, wood ${n("start.wood")} (fast ${n("start.wood_fast")}), water within ${n("start.water")}, food ${n("start.food")}, farmland ${n("start.farmland")}`,
+    `seed ${seed} at ${size}²${m.held ? "" : " (did not hold: " + m.settledFails.map((f) => f.id).join(", ") + ")"}`,
+    `river: ${s.stand.steps} steps; its water ${s.stand.crest.toFixed(2)} under the levees' crest at the least, ${s.stand.plain.toFixed(2)} under the plain beside it; ${s.mix ? `below the join the mix is ${s.mix.below.toFixed(3)} (median), the most ${s.mix.most.toFixed(2)}; above it red reaches ${s.mix.creep.toFixed(0)} tiles up at ${s.mix.trace.toExponential(0)} (0 in the file)` : "the red stream leaves by its own exit: no join, no mix"}`,
     `settled: dead ${pct(s.bands.dead)}, green ${pct(s.bands.green)}, dry ${pct(s.bands.dry)} of the floor; ${s.deadTrees} dead trees on the dead band`,
     `sources: river ${s.sources.river}, brook ${s.sources.brook}, red ${s.sources.red}; leaks ${s.leaks.tiles}; clean water red ${s.river.tiles}; the Red Fall drops ${s.fall.drop.toFixed(1)}; a badtide past the low places ${s.badtide.beyond}`,
     `attempt ${m.attempt + 1} took ${m.ms.total} ms (land ${m.ms.land}, settle ${m.ms.settle}, life ${m.ms.life}, checks ${m.ms.checks}); all attempts ${ms} ms`,

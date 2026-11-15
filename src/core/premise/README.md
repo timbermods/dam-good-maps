@@ -136,8 +136,11 @@ control on the page yet); and step 9's core: the theme and the premise as two ch
   source in a niche dug level in the Red Spring's pool (`redNiche`), and holds a map whose shared checks pass (the
   start's among them) and whose `settled` invariants hold (`settledFailures`: `river.clean`, `water.leaks`,
   `plain.bands`, `fall.settled`, `levee.holds`), within 3 settles (`PLAIN_SETTLES`). Each measure is its own export
-  (`plainCourses`, `plainLeaks`, `cleanWater`, `riverRed`, `settledBands`, `redFallDrop`, `badtideReach`).
-  `tools/capture-plain.ts --water` draws the sheet.
+  (`plainCourses`, `plainLeaks`, `cleanWater`, `riverRed`, `settledBands`, `redFallDrop`, `badtideReach`), and the
+  reports with no bound: `riverStand` (the river's steps, its water under the levees' crest and the plain) and
+  `redMix` (the mix below the join, `joinEdge`, and how far traces creep above it). The river's steps themselves are
+  drawn in the plan (`poisonedPlain.ts` `riverSteps`, `riverStage`, `riffles`). `tools/capture-plain.ts --water`
+  draws the sheet.
 - `gateWater.ts`: the wall with one gate's stage 1 (§5.1 "As built (water)"): `gateWater` (the shared `waterByNumber`,
   then the leat's bar, the Veil's foot a level under the sill with its outer row the ribbon, the first frame's beds under
   two), `GATE_WATER_CHECKS` (the shared ones, the Still Pool a `Body.backwater`; `gate.dry`, `frame.water`) and `gateSettleModel` (the undrawn ground over every

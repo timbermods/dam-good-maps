@@ -51,6 +51,16 @@ describe("The poisoned floodplain's water", () => {
     }
   });
 
+  it("runs its river in steps under its levees' crest, and reads the river's red on the file's water", () => {
+    // (ruling 1 of step 3's round 2: the bed falls a level at riffles, as often as its length needs; the water stands
+    // under the levees' crest and the plain beside it all along; an exit map has no join, so no mix)
+    expect(good.settled.stand.steps).toBeGreaterThanOrEqual(1);
+    expect(good.settled.stand.crest).toBeGreaterThan(0);
+    expect(good.settled.stand.plain).toBeGreaterThan(0);
+    expect(good.settled.river.tiles).toBe(0);
+    expect(good.settled.mix).toBeNull();
+  });
+
   it("is the same map for the same seed", () => {
     const again = plainMap(spec);
     if ("reason" in again) throw new Error(again.reason);

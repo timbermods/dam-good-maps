@@ -131,6 +131,17 @@ valley in the land the shared relief made:
   through ground left between them, that ground is cut to its bed (`courseGaps`): the Red Pool's outlet as wide as
   its stream and at the stream's bed, so the pool's water stands at the stream's head, a level under the backswamp,
   and the Red Fall drops its whole height onto it; the brook's mouth through the river's bank.
+- **The river's steps (step 3, round 2).** Width follows flow (the river and the brook, and the red stream's share
+  below a join: 6 wide over 18 a second, else 5), never length. A longer river needs more fall: its bed steps down a
+  level at natural riffles (where its bends cross over, `riffles`), as few as hold its water `RIVER_STAGE.margin` under
+  its ceiling everywhere: the lowest plain within its levees' reach beside it, and at a join the backswamp's floor
+  (`riverSteps`, a step at the farthest riffle that holds). The stage is measured on the settle: about 1.6 deep over a
+  step's lip and 0.0055 deeper a tile up the reach for 15.7 a second on a bed 5 wide, scaled by flow over width to the
+  2/3 (`riverStage`). The red stream joins 3 to 7 tiles below one of those steps (a yazoo: it keeps to the backswamp
+  until the river has dropped), its last reach at the river's bed below the step, so the trunk's water stands under
+  the red bed's banks and cannot back up it.
+- **The brook's site (step 3, round 2).** On a long terrace the brook crosses it `TERRACE.walk` (12) tiles up the
+  valley from the start, not `brookAt` from the terrace's head, so its clean water stays inside the start's 20-tile walk.
 - **Hazards.** The premise plans the map's badwater. `land/hazards.ts` places none of its own on a map of this
   premise. The start keeps its badwater distance and its clean water (D469, D85).
 - **Settings.** Badwater off, Rivers 0 or a side under 128 make the premise ineligible, each with its one-line
@@ -187,7 +198,9 @@ Stage as PREMISES §1.4; each with a hand-broken case in its test.
   (the shared look check, and each wall's side valleys never a comb: `combOf`).
 - **settled** (`plainMap.ts`, on the map built and settled once, its life and dead trees in): `river.clean` (no tile
   of the clean water, the river above the join, the brook, the springs and the terrace's pool, at contamination over
-  0); `water.leaks` (no settled water off its courses: stage 1's bodies and channels, the gaps cut between them and
+  0 as the map file writes it: the file writes 1e-6 or less as 0, `WATER_CONTAMINATION_LEAST`; "above the join" is
+  above the middle of the river's last step over the join and above every river tile beside the red stream's cut,
+  `joinEdge`; below it the mix is reported per map, `redMix`, with no bound); `water.leaks` (no settled water off its courses: stage 1's bodies and channels, the gaps cut between them and
   the gulch's floor); `plain.bands` again on the settled water and the game's soil; `fall.settled` (the Red Fall
   drops its height less the veil's half level, lip to the Red Pool's water, as settled); `levee.holds` (the river's
   water made red as settled, the game's soil: no tile of the plain past the banks poisoned farther than 7 tiles from the
@@ -239,3 +252,17 @@ frames, judged by planning.
 - Whether moisture from the old red bed climbs the backswamp's riser far enough for 70 %: step 4's table decides
   (§7, `riverIn.proved`).
 - Pairing beyond River Valley and Delta: after step 5, on the judged maps.
+- *Findings (step 3, round 2).* (1) A step of one level does not cut the reach above it off from the red water: the
+  river stands about 1.5 deep, over the reach above's bed, and the settle's eddies carry traces up it, 1e-39 to 1e-323
+  as far as 47 to 93 tiles above the step on the joined maps at 256² (seeds 3, 5, 7). The file writes them as 0, so
+  the game loads that river clean; in the core's doubles they are not 0. (2) Joins are rare: the level budget (the plain
+  at 6 plus its risers, the river's head two under it, beds no deeper than `BED_FLOOR`) leaves too few levels for the
+  river's steps and a join under the backswamp, so most draws that ask for a join find none and draw again with the
+  red stream's own exit (seeds 1 to 12: joins only at 256², seeds 3, 5 and 7). (3) The red stream's long last reach on
+  a join stands over 1 deep and floods the backswamp's floor (256² seed 5), and the Red Pool can stand over its sill
+  (256² seed 6): each is a first-attempt miss the next attempt mends. (4) The whole-map frame: the renderer draws
+  poisoned soil from afar as its crack pattern's mean, a 20 % tint toward a dull brown (`render3d/palette.ts`
+  `contaminationMean`, `materials.ts` `groundColor`): the cracks are 4 texels of the 128 a tile has
+  (`soilTexture.ts`), so they fall under a pixel once a tile is drawn under about 32 pixels, and the light look draws
+  only the mean at every distance. The dead band then reads as dry ground. Passed to the renderer's owner; no look
+  is invented here.
