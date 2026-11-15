@@ -925,7 +925,8 @@ on one shared forces core, `src/core/forces/` (D203, D206, D220; see its README)
   result as it is painted, kept when let go; Slide shows the fault while it is painted, then its block slides
   along it, 2 to 20 tiles (D361 (3)), the way the drawn line runs there (where level ground slides along level
   ground and nothing would show, the ground splits along the fault a level up and down, D356), and a river that crossed the fault is
-  joined again along it. A crack runs along the fault and dust rises at its head. Objects ride with the land (a
+  joined again along it. A Lift on the map's edge whose raised side lies off the map, changing fewer than 9 tiles,
+  splits the ground the same way (D356). A crack runs along the fault and dust rises at its head. Objects ride with the land (a
   rigid one on flat ground of its own), trees on the fault go (D321 item 7), the start is carried to level ground
   when its own breaks (D257); it never adds water.
 - **Erupt** (D206, D216, D226; key 0): raises a volcano. A click vents, a drag opens a fissure (D289). **Power**,
