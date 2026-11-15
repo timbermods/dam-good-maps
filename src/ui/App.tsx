@@ -22,6 +22,7 @@ import { surfaceWater, type MapView } from "../render3d/model";
 import { YourMapsSaver } from "../core/library/saver";
 import {
   decodeSpecFragment,
+  DEFAULT_THEME,
   defaultSettings,
   encodeSpecFragment,
   GENERATOR_MIN_SIDE,
@@ -122,7 +123,7 @@ function initialSpec(): { spec: MapSpec; fromLink: boolean; note?: string } {
     return { spec: d.spec.designedFor === "normal" ? d.spec : { ...makeSpec({ seed: d.spec.seed, size: d.spec.size, theme: d.spec.theme, premise: d.spec.premise }), settings: defaultSettings(d.spec.theme, "normal", d.spec.size, d.spec.premise) }, fromLink: true, note: d.problems.length ? d.problems.join("; ") : note };
   }
   // Any (Surprise me) is the default (D209), with Easy start as this browser last set it (D495)
-  const spec = makeSpec({ seed: randomSeed(), theme: "any" });
+  const spec = makeSpec({ seed: randomSeed(), theme: DEFAULT_THEME });
   return { spec: { ...spec, settings: withEasy(spec.settings, easyRemembered()) }, fromLink: false };
 }
 
@@ -393,6 +394,9 @@ export function App() {
       }),
     [],
   );
+
+  // (the end-to-end build: whether a save of Your maps is waiting or being written, hiddenSave.spec.ts)
+  if (import.meta.env.MODE === "e2e") (window as unknown as { __dgmSaving?: () => boolean }).__dgmSaving = () => saver.busy();
 
   // the editor's chunk loads with the page, beside the first map being made
   useEffect(() => {
@@ -667,7 +671,15 @@ export function App() {
         entry.current = rest;
       }
     }
-    saver.changed(entry.current.id, snapshot);
+    keepChange(entry.current.id);
+  }
+
+  /** Your maps takes a change once its edits settle; a hidden page saves it at once. A phone may discard a page it has
+   *  hidden before the quiet save's timer runs (#1074 slice 5), and a change can come after the hide's own save: an edit
+   *  made the moment before, answered once the page was hidden. */
+  function keepChange(id: string): void {
+    saver.changed(id, snapshot);
+    if (document.visibilityState === "hidden") void saver.flush(id);
   }
 
   /** Rename the map from the header's title (D443): the core stores the name (never an operation, never an undo
@@ -681,7 +693,7 @@ export function App() {
     setSession(info);
     // (a rename keeps the map in Your maps, as an edit does)
     keepNow();
-    if (entry.current) saver.changed(entry.current.id, snapshot);
+    if (entry.current) keepChange(entry.current.id);
     return null;
   }
 
@@ -897,14 +909,20 @@ export function App() {
   }
 
   // Leaving the page (investigation/saving-review): the browser asks first while an edit of a kept map isn't saved yet
-  // or its save failed (a write can't be waited for as the page closes); hidden, the page saves what is waiting.
+  // or its save failed (a write can't be waited for as the page closes); hidden, the page saves what is waiting. A phone
+  // may discard a page it has hidden (iOS does, #1074): an edit made the moment before the page was hidden, still on its
+  // way to the worker, is waited for and saved too, never left to the quiet save's timer.
   useEffect(() => {
     const leaving = (e: BeforeUnloadEvent) => {
       if (!kept.current || (!saver.busy() && keeping.current)) return;
       e.preventDefault();
       e.returnValue = "";
     };
-    const flush = () => void saver.flush();
+    const flush = () =>
+      void (async () => {
+        await pendingEdits.current?.().catch(() => undefined);
+        await saver.flush();
+      })();
     const hidden = () => {
       if (document.visibilityState === "hidden") flush();
     };

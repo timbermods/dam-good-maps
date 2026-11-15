@@ -2,6 +2,9 @@
 // `completeStroke`, from the land and terrain the session hands the page) is accepted as sent and logged as sent, the
 // session adding nothing, whatever the brush, beside water and away from it. (Found by the browser: a rule-6 stroke's
 // ring by the water, `rim`, which the session records itself, was refused when the page sent it.)
+//
+// The maps are fixtures (tests/fixtures/projects, `mapProject` in collabFixtures.ts: River Valley 96² seed 11): the subject is the stroke composer against the session, not the generator, so a land change
+// moves nothing here (D148).
 
 import { describe, expect, it } from "vitest";
 import { completeStroke } from "../../src/core/features/raster/strokeComposer";

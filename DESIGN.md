@@ -549,9 +549,7 @@ refinements and what the mockups left open:
 - **Real places** (Kyler, 2026-10-04): the header reads Map Generator, Real places, Your maps; Real places opens in
   the same box, three across and three down (rows of 220px, so exactly three show and a fourth never peeks; the
   scrollbar's room kept on both sides), each place's top-down picture, its whole name as the map carries it
-  ("Near Crater Lake"; two lines kept; the polish audit found "Crater Lake" here and "Near Crater Lake" on the map, in its
-  file and on the gallery page, and D136's plain titles never reached the data, so the panel follows the data until
-  the places are rebuilt) and its size;
+  ("Crater Lake", no "Near", D522; two lines kept) and its size;
   more scroll inside. A click opens the place in the editor, as the gallery's Refine does. The header has no tabs on the window's edge; the left side's controls stay on
   the 10px margin, and nothing hides while a panel is open.
 - **No Speed in the water row** (Kyler, 2026-10-04): beside Drought and Badtide it read as a weather control; the
@@ -606,7 +604,7 @@ refinements and what the mockups left open:
   (`docs/design/close-question-1920x1080`). Open… is "Open a map or a project". Your maps' three storage messages stay word for word.
 - **A map being made** (Generate, Surprise me, Another like this; Kyler, 2026-10-03): the page's dialog over the editor,
   400px, one line of the generator's own words ("Running the rivers…") and **Cancel** (Esc too); nothing else can be
-  clicked or started meanwhile. A real place opened over a map uses the same dialog ("Opening Near Crater Lake…", with
+  clicked or started meanwhile. A real place opened over a map uses the same dialog ("Opening Crater Lake…", with
   Cancel); before any map exists (a share link, a reload) the dialog stands over the editor's own frame, the header, bar
   and shelf held still (the header with its Look button in place, so nothing moves when the map arrives) and the land's
   first look in the map's place, never a blank page with one line (polish audit, `docs/design/polish-generator-*`).

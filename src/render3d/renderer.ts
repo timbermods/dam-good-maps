@@ -60,11 +60,13 @@ import {
 } from "three";
 import { BrushCursor, ForceRing, type BrushCursorState } from "./brushCursor";
 import { blockReach, hollowFootprint, HollowMarks, roofOf, type HollowReach } from "./hollow";
+import { CaveBook, CaveGhost, type Rect } from "./caveGhost";
 import { Effects, Surge, type SurgeHead, type SurgePoint } from "./effects";
 import { ForceEffects, type ForceMoment } from "./forces";
 import { GeothermalSteam, steamFields } from "./geothermalSteam";
 import { WALL_CLOCK, type Clock } from "./clock";
 import { Pops, type PopItem } from "./pops";
+import { BlockPops, popDustMaterial, type PopUniforms } from "./blockPop";
 import type { Voxels } from "./wear";
 import { BlockCells, BlockGhost, type BlockPreview, type GhostTile } from "./blockGhost";
 import { EditGlow, editedCells, editGlowMaterial, type EditCells } from "./editGlow";
@@ -73,25 +75,27 @@ import { fogOf } from "./high/seasons";
 import type { DroughtLine } from "../core/sim/droughtLine";
 import { dyingCause, waterAboveBase, WITHERING_SPECIES } from "../core/sim/withering";
 import { markSourceTiles, sourceMiddle } from "./sourceMarks";
-import { buildEntities, cutoutUnder, disposeBatch, disposeGroup, mineCutout, mineOutline, modelsAhead, ruinsOvergrown } from "./entities3d";
+import { buildEntities, cutoutUnder, disposeBatch, disposeGroup, mineCutout, mineOutline, modelsAhead, ruinsOvergrown, type Faction } from "./entities3d";
+import { fireDrawn, StartFire, startCentres } from "./startFire";
 import { whenIdle } from "./idle";
 import { casterLevelsOf, castersChangedRects, DEFAULT_SUN, objectCasters, withoutCasters, shadowMap, shadowPairArea, shadowPairRect, shadowRock, sunOfYaw, sunVector, TILE_REACH, tileData, tileDataChanges, tileDataRect, type ShadowRock, type Sun, type TileSpan } from "./light";
 import { CaveLight } from "./caveLight";
-import { casterPlaces, FADE_COVERAGE, FADE_DITHER, FADE_OFF, markEditingAid, OBJECT_FADE_EDGE, shadowDropped, validRegion, type FadeRegion } from "./objectFade";
-import { AID_TINT, caveTexture, contaminationEdges, contaminationEdgesRect, drawPatterns, fillAlbedoTexture, fillDetailTexture, fillWaterTexture, hatchMarks, lightTexture, overlayTexture, objectMaterial, redoContaminationEdges, runTexture, sceneUniforms, skyMaterial, terrainMaterial, tileTexture, waterMaterial, type SceneUniforms } from "./materials";
+import { casterPlaces, FADE_COVERAGE, FADE_DITHER, FADE_OFF, markEditingAid, OBJECT_FADE_EDGE, objectFadeAt, shadowDropped, validRegion, type FadeRegion } from "./objectFade";
+import { AID_TINT, caveTexture, contaminationEdges, contaminationEdgesRect, drawPatterns, fillAlbedoTexture, fillDetailTexture, fillObjectAtlas, fillWaterTexture, hatchMarks, lightTexture, overlayTexture, objectMaterial, redoContaminationEdges, runTexture, sceneUniforms, skyMaterial, terrainMaterial, tileTexture, waterMaterial, type SceneUniforms } from "./materials";
 import { objectSoilAt, RunSoil, runSoilOn } from "./runSoil";
 import { AID_LAYER, onAidLayer } from "./aidLayer";
 import { GameBloom, GAME_BLOOM_LOOKS, LAVA_BLOOM_ENDS } from "./bloom";
+import { BloomBox } from "./bloomBox";
 import { Refraction, WATER_REFRACTION } from "./refraction";
 import { armReach, CAMERA_CLEARANCE, nearFor, orbitEye } from "./cameraClamp";
-import { BROWSER_ZOOM_EVENTS, DOUBLE_TAP_MS, DOUBLE_TAP_PX, TAP_MS, TAP_SLOP, Touches, type Motion, type Point } from "./touch";
-import { DEFAULT_YAW, objectOutline, openingYaw, onMapPlane, ORTHO_HALF_PER_DISTANCE, PERSP_FOV_DEG, viewAfterModeSwitch, zoomLimits, zoomStep } from "./framing";
+import { BROWSER_ZOOM_EVENTS, DOUBLE_TAP_MS, DOUBLE_TAP_PX, FingerPress, HOLD_MS, showsAtOnce, TAP_MS, TAP_SLOP, Touches, type Motion, type Point, type PressHost, type PressMode } from "./touch";
+import { DEFAULT_YAW, distanceForMode, objectOutline, openingYaw, onMapPlane, ORTHO_HALF_PER_DISTANCE, PERSP_FOV_DEG, viewAfterModeSwitch, zoomLimits, zoomStep } from "./framing";
 import { changedRect, chunkCount, columnMask, dirtyChunks, meshChunk, CHUNK, type TerrainSource } from "./mesh";
 import { cutawayOn } from "./cutaway";
 import { ringLevelAt, waterLevelAt } from "./cutWater";
 import { OverlayRuns } from "./overlayRuns";
-import { columnMap, columnMasks, DEAD, DYING, entityView, NO_VARIANT, soilView, surfaceWater, waterFromDepth, type EntityView, type MapView, type RunSoilView, type SoilView, type SurfaceWater, type WaterView } from "./model";
-import { GAME_FINISH, GAME_SKY, gamePostRgb, type GroundMode, type Rgb } from "./palette";
+import { columnMap, columnMasks, DEAD, LAYERS, DYING, entityView, NO_VARIANT, soilView, surfaceWater, waterFromDepth, type EntityView, type MapView, type RunSoilView, type SoilView, type SurfaceWater, type WaterView } from "./model";
+import { GAME_FINISH, GAME_SKY, gamePostRgb, START_FIRE, type GroundMode, type Rgb } from "./palette";
 import { aimedHeights, cutKeep, hasTopAt, hitLevel, pickEditing, pickPlane, pickTerrain, type Ray, type TileHit } from "./pick";
 import { drawnWater, drewChunk, exactWaterChunks, heldSurfaceOf, holdLand, meshWaterChunk, MOVED_WATER, ownSurface, waterChangedRect, rideLand, waterMovedChunk, waterMovedChunks, type DrawnWater, type WaterMeshData } from "./waterMesh";
 import { changedColumnChunks, followLand, LAYER_REACH, needsLayers, plainLayers, rideLayers, waterLayers, type WaterLayer } from "./waterLayers";
@@ -150,6 +154,9 @@ function onIdle(fn: (deadline?: IdleDeadline) => void): void {
 }
 
 export type ViewMode = "orbit" | "top";
+
+/** The height the top-down view's camera looks down from (orthographic: it sets no scale, only what lies below it). */
+const TOP_EYE = 200;
 
 /** The look drawn: High, High's lower-cost tier, Standard, or the light look (software). */
 export type Look = Tier | "light";
@@ -243,6 +250,21 @@ export interface PointerTool {
   /** A finger with this tool in hand moves the camera instead, and a tap is its click (touch.ts: the resting Select
    *  with nothing selected, which is nothing in hand to the player). */
   touchPans?: boolean;
+  /** How a finger's press works it (touch.ts `PressMode`, #1074 slices 3 and 3b): "aim" shows its preview a little above
+   *  the finger and the lift is its click there; "line" shows it so and a drag draws its line from there; "draw" is its
+   *  own press, drag and release a little above the finger. Unset: the press is the mouse's, under the finger (a brush
+   *  paints there). On a tool that `touchPans`, the press a finger held still makes (`HOLD_MS`). */
+  finger?: PressMode;
+  /** A finger's tap on the view is this tool's click where the finger is (Select). */
+  tapClicks?: boolean;
+}
+
+/** A finger's press with something in hand, as the page shows it (`MapRenderer.onPress`): where it aims, where the finger
+ *  is (client coordinates), and whether the finger is over a Cancel control. */
+export interface FingerAim {
+  aim: Point;
+  finger: Point;
+  over: boolean;
 }
 
 interface MapState {
@@ -302,6 +324,13 @@ function sunApart(a: Sun, b: Sun): number {
   return Math.acos(Math.max(-1, Math.min(1, a.x * b.x + a.y * b.y)));
 }
 export const DEFAULT_PITCH = (70 * Math.PI) / 180;
+/** The start's flame's width (m, about a particle's at its brightest) and the fewest pixels across it must show for its
+ *  motion to ask for frames (`fireShows`). */
+const FIRE_WIDTH = 0.3;
+/** The box round a start that its fire's bloom is drawn from (`bloomRect`): its district center's half width with its
+ *  overhang (1.55) and its height with the light's reach above the lantern (4.5). */
+const BLOOM_START_BOX = [1.6, 4.5] as const;
+const FIRE_SHOWN_PX = 2;
 /** Frames a second of the water's movement when nothing else asks for a frame. */
 const WATER_FPS = 30;
 /** Frames this long, this many in a row, are slow (`requestRender`): a GPU's frame takes a few milliseconds of the main
@@ -339,6 +368,23 @@ function albedoTextureMade(): Promise<void> {
     },
     (e: unknown) => {
       albedoMade = null;
+      throw e;
+    },
+  ));
+}
+
+let objectPatternsMade: Promise<void> | null = null;
+/** The objects' patterns (objectPatterns.ts: the ruins' ivy and concrete, the district center's thatch and wood, the
+ *  blueberry bush), made once a page in the textures' own worker, its first job (about 0.4 s), and written into the
+ *  page's texture (materials.ts `fillObjectAtlas`); until then the ivy and the bush are cut away (none shows) and the
+ *  tiling layers' parts are drawn in their colours. */
+function objectPatternsBaked(): Promise<void> {
+  return (objectPatternsMade ??= textureBake({ kind: "objectPatterns" }).then(
+    (r) => {
+      if (r.kind === "objectPatterns") fillObjectAtlas(r.data);
+    },
+    (e: unknown) => {
+      objectPatternsMade = null;
       throw e;
     },
   ));
@@ -477,8 +523,11 @@ export class MapRenderer {
   private readonly still: boolean;
   /** Device pixels to a CSS pixel when the constructor sets them, else null (the display's). */
   private readonly pixels: number | null;
+  /** The display's device pixels to a CSS pixel, at most 2; a browser drawing in software (the light look) draws one
+   *  to a CSS pixel: its processor draws every pixel, and a tablet's dense screen had it drawing four times as many,
+   *  every frame of a gesture a few times slower than a phone's. */
   private pixelRatio(): number {
-    return this.pixels ?? Math.min(2, window.devicePixelRatio || 1);
+    return this.pixels ?? (this.software ? 1 : Math.min(2, window.devicePixelRatio || 1));
   }
   /** The last map's moving water, off the scene, its programs kept until the next map's first frame. */
   private retiredMotion: WaterMotion | null = null;
@@ -490,6 +539,8 @@ export class MapRenderer {
   private refraction!: Refraction;
   /** The game's bloom (bloom.ts), made with the first frame that draws it. */
   private bloom: GameBloom | null = null;
+  /** The objects in a start's box, for the bloom's source (bloomBox.ts). */
+  private readonly bloomBox = new BloomBox();
   /** The shader programs compiled before a frame needs them (programs.ts). */
   private programs: Programs;
   private warmTimer = 0;
@@ -504,7 +555,7 @@ export class MapRenderer {
   /** A copy of the drought line's materials. */
   private lineCopy: ShaderMaterial[] | null = null;
   /** Objects to compile a program with when nothing draws its material (`standIn`). */
-  private standIns: Record<"mesh" | "instanced" | "bare", Object3D> | null = null;
+  private standIns: Record<"mesh" | "instanced" | "instancedPlain" | "bare", Object3D> | null = null;
   /** The tier asked for while the High look's programs compile (the look drawn stays meanwhile), or null. */
   private lookWaiting: Tier | null = null;
   private lookWarming = false;
@@ -571,10 +622,18 @@ export class MapRenderer {
     fingers: (n) => this.onFingers?.(n),
     canTilt: () => this.view.mode === "orbit",
     still: () => this.reducedMotion,
+    later: (fn, ms) => window.setTimeout(fn, ms),
+    clear: (id) => clearTimeout(id),
   });
   /** The last tap of a finger (its place and time), for a double tap; whether the readout shows the tile it read. */
   private lastTap: { x: number; y: number; t: number } | null = null;
   private tapRead = false;
+  /** A finger's press with something in hand, seen before it applies (touch.ts `FingerPress`, #1074 slice 3), and the
+   *  finger's last event. */
+  private press: FingerPress | null = null;
+  private pressLast: PointerEvent | null = null;
+  /** An aim's tap left its preview where it showed: the finger's going does not clear it. */
+  private keepAim = false;
   private listeners: [EventTarget, string, EventListener, AddEventListenerOptions?][] = [];
   /** The camera keys held (Timberborn's: WASD and the arrows move, Q and E turn, Shift is faster),
    *  and the camera's speed now: it moves every frame while they are held, easing in and gliding to
@@ -596,6 +655,13 @@ export class MapRenderer {
   onClick: ((hit: TileHit | null, ev: PointerEvent) => void) | null = null;
   /** A two-finger tap (2: Undo) or a three-finger tap (3: Redo) on the view (touch.ts). */
   onFingers: ((n: 2 | 3) => void) | null = null;
+  /** A finger's press with something in hand (touch.ts `FingerPress`): where it aims now and where the finger is (client
+   *  coordinates), and whether the finger is over a Cancel control (`data-press-cancel`); null when the press is over. */
+  onPress: ((p: FingerAim | null) => void) | null = null;
+  /** Something picked on the map that a finger's press moves, wherever it lands (an object, a source; #1074 slice 3). */
+  holdsPicked: (() => boolean) | null = null;
+  /** That object or source taken up, as a press on it takes it, to move where a finger aims; null when none. */
+  grabHeld: (() => PointerTool | null) | null = null;
   /** Before the tool and the camera: something under the pointer that a left-drag moves (a water
    *  source, D184), as a pointer tool for that drag, or null. */
   grab: ((hit: TileHit | null, ev: PointerEvent) => PointerTool | null) | null = null;
@@ -653,7 +719,8 @@ export class MapRenderer {
     this.t0 = this.now();
     this.pixels = opts.pixels ?? null;
     if (opts.fov !== undefined) this.persp.fov = opts.fov;
-    // a browser that draws in software gets the light look, without multisampling (D110)
+    // a browser that draws in software gets the light look, without multisampling (D110), at one device pixel to a CSS
+    // pixel (`pixelRatio`)
     this.drawsInSoftware = softwareRendering();
     this.software = this.drawsInSoftware && !window.dgmLookTest?.gpu;
     this.gl = new WebGLRenderer({ canvas, antialias: !this.software, powerPreference: "high-performance" });
@@ -673,7 +740,7 @@ export class MapRenderer {
     this.ortho.layers.enable(AID_LAYER);
     // (the light look draws the water's surface flat: it reads only the still detail albedo, as the game's Low quality)
     void this.patternsMade().then(() => !this.disposed && this.requestRender(), () => undefined);
-    this.patterns = drawPatterns(this.gl);
+    this.patterns = drawPatterns(this.gl, !this.software);
     this.tileRows = new RowUploads(this.gl, () => this.tileTex);
     this.edgeRows = new RowUploads(this.gl, () => this.edges);
     this.lightRows = new RowUploads(this.gl, () => this.lightTex);
@@ -703,6 +770,9 @@ export class MapRenderer {
     // the geothermal fields' steam, on the objects' clock (never in software drawing: geothermalSteam.ts)
     this.steam = this.software ? null : new GeothermalSteam(this.uniforms);
     if (this.steam) this.scene.add(this.steam.mesh);
+    // the fire in the start's bowl, on the objects' clock (never in software drawing: startFire.ts)
+    this.fire = this.software ? null : new StartFire(this.uniforms);
+    if (this.fire) this.scene.add(this.fire.mesh);
     this.lookNow = this.software ? "light" : "standard";
     // the Flow view from the address (?flow=on) until the page has its switch (D353)
     try {
@@ -803,6 +873,7 @@ export class MapRenderer {
     if (this.map) this.cutTerrain(this.map.entities, level === null ? null : v);
     // (what an edit just changed was drawn under the cut it had)
     this.editGlow?.clear();
+    this.blockPops?.clear();
     this.hollowStale = true;
     this.requestRender();
     this.onSlice?.(level === null ? null : v);
@@ -871,6 +942,12 @@ export class MapRenderer {
       for (const m of this.lineCopy) list.push([m, { ...(m.defines as Defines) }]);
       // (the edit glow's, drawn when an edit first lands: one program in every look and state, editGlow.ts)
       list.push([this.glowMat, { ...(this.glowMat.defines as Defines) }]);
+      // (the Block tool's blocks' dust, blockPop.ts)
+      list.push([this.popDust, { ...((this.popDust.defines ?? {}) as Defines) }]);
+      // (the start's fire, drawn when a start is first placed: startFire.ts)
+      if (this.fire) list.push([this.fire.shader, { ...((this.fire.shader.defines ?? {}) as Defines) }]);
+      // (the game's bloom's passes, drawn when a start's fire first comes into view or lava first glows: bloom.ts)
+      for (const m of (this.bloom ??= new GameBloom()).materials()) list.push([m, { ...((m.defines ?? {}) as Defines) }]);
       // (the Flow view's foam and streaks, hidden until it is switched on: motion.ts)
       for (const m of this.waterMotion?.materials() ?? []) list.push([m, { ...((m.defines ?? {}) as Defines) }]);
       // (the forces' moments', drawn when a force first plays: Erode's dust and stones, Glaciate's ice, forces.ts)
@@ -940,9 +1017,11 @@ export class MapRenderer {
       };
       const instanced = new InstancedMeshObject(geometry(true), undefined, 1);
       instanced.instanceColor = new InstancedBufferAttribute(new Float32Array(3), 3);
-      this.standIns = { mesh: new Mesh(geometry(true)), instanced, bare: new Mesh(geometry(false)) };
+      this.standIns = { mesh: new Mesh(geometry(true)), instanced, instancedPlain: new InstancedMeshObject(geometry(true), undefined, 1), bare: new Mesh(geometry(false)) };
     }
-    if (this.lineCopy?.includes(mat) || mat === this.glowMat) return this.standIns.bare;
+    if (this.lineCopy?.includes(mat) || mat === this.glowMat || this.bloom?.materials().includes(mat)) return this.standIns.bare;
+    // (the blocks' dust: instanced, its colour its own attribute, not three.js's instance colour, which is another program)
+    if (mat === this.popDust) return this.standIns.instancedPlain;
     const plain = mat === this.depthCopy?.[0] || [this.std, this.high?.materials, this.highCopy].some((l) => l && [l.terrain, l.water, l.sky].includes(mat));
     return plain ? this.standIns.mesh : this.standIns.instanced;
   }
@@ -1099,7 +1178,8 @@ export class MapRenderer {
   }
 
   private showMarkerObjects(): void {
-    for (const c of this.objects?.children ?? []) if (c.name === "Slope.mark" || c.name === "Slope.mark.lite") c.visible = this.markersOn;
+    // (the slopes' arrows and the start's entrance, Markers' editing aids: the game draws neither, D497)
+    for (const c of this.objects?.children ?? []) if (c.name === "Slope.mark" || c.name === "Slope.mark.lite" || c.name === "start.entrance") c.visible = this.markersOn;
   }
 
   /** Hold the water's movement at a moment (seconds), or let it move again (null). */
@@ -1123,7 +1203,7 @@ export class MapRenderer {
   /** Whether the water moves on screen now (a recording's caller draws its own frames). */
   get animated(): boolean {
     const m = this.map;
-    return !!m && (m.water.count > 0 || !!this.high?.animates || (this.steam?.count ?? 0) > 0) && this.clock === null && !this.benching && !this.recording && !this.reducedMotion && !this.software && this.inView && !document.hidden;
+    return !!m && (m.water.count > 0 || !!this.high?.animates || (this.steam?.count ?? 0) > 0 || this.fireShows()) && this.clock === null && !this.benching && !this.recording && !this.reducedMotion && !this.software && this.inView && !document.hidden;
   }
 
   // -------------------------------------------------------------------------------------- the look
@@ -1701,6 +1781,7 @@ export class MapRenderer {
     this.applySeason();
     this.droughtLayer?.clear();
     this.editGlow?.clear();
+    this.blockPops?.clear();
     clearTimeout(this.casterTimer);
     clearTimeout(this.lifeTimer);
     this.casterTimer = this.lifeTimer = 0;
@@ -1712,6 +1793,7 @@ export class MapRenderer {
     this.water.clear();
     if (this.objects) {
       this.scene.remove(this.objects);
+      this.bloomBox.dispose();
       disposeGroup(this.objects);
       this.objects = null;
     }
@@ -2114,7 +2196,7 @@ export class MapRenderer {
     // (the plants a held day has withered drawn dead, in every look, as the game does: D242 as amended; High's own plants
     // follow in applyWithered)
     const drawn = this.witheredView(e).view;
-    const { group, instances } = buildEntities(drawn, this.objectMat, soil, this.map?.W ?? 0, this.software, this.entityModels, before && this.objectsFrom ? { group: before, entities: this.objectsFrom } : undefined);
+    const { group, instances } = buildEntities(drawn, this.objectMat, soil, this.map?.W ?? 0, this.software, this.entityModels, before && this.objectsFrom ? { group: before, entities: this.objectsFrom } : undefined, this.faction);
     this.objectsFrom = drawn;
     this.ruinsDrawn = ruinsOvergrown(e, soil, this.map?.W ?? 0);
     if (before) {
@@ -2133,8 +2215,8 @@ export class MapRenderer {
     this.litTiles = null;
     this.sourcesLit.clear();
     group.renderOrder = 1;
-    // (the slopes' arrows, Markers' editing aid, left out of the bloom's source: bloom.ts)
-    for (const c of group.children) if (c.name.startsWith("Slope.mark")) onAidLayer(c);
+    // (the slopes' arrows and the start's entrance, Markers' editing aids, left out of the bloom's source: bloom.ts)
+    for (const c of group.children) if (c.name.startsWith("Slope.mark") || c.name === "start.entrance") onAidLayer(c);
     this.objects = group;
     this.scene.add(group);
     this.showMarkerObjects();
@@ -2161,12 +2243,14 @@ export class MapRenderer {
     this.flushTerrain();
     const m = this.map;
     if (!m) return 0;
+    const was = m.source;
     let rect = changedRect(m.W, m.H, m.heights, heights);
     // (a roof the page's own stroke already drew the heights of: its columns changed all the same)
     if (columns) rect = grownRect(rect, columnsChanged(m.source.columns, columnMap(columns), m.W));
     // (what the edit changed in 3D, from the columns drawn before and the update's: editGlow.ts)
     const masks = columns ? columnMasks(m.W * m.H, columns) : m.source.masks;
-    const edited = rect && opts.glow !== false ? editedCells(m.W, m.H, { heights: m.heights, masks: m.source.masks }, { heights, masks }, this.blockEdit(), rect) : null;
+    const block = rect && opts.glow !== false ? this.blockEdit() : false;
+    const edited = rect && opts.glow !== false ? editedCells(m.W, m.H, { heights: m.heights, masks: m.source.masks }, { heights, masks }, block, rect) : null;
     if (rect) this.droughtLayer?.retire();
     // (the water on the land that changed rides it, whichever came first: `rideLand`)
     if (rect && this.drawnLand) {
@@ -2188,7 +2272,12 @@ export class MapRenderer {
     this.drawnLand = heights.slice();
     this.settleObjects();
     this.hollowStale = true;
+    this.caveEdited(was, rect);
     if (edited) this.glowEdits(edited);
+    // (the Block tool's blocks grow and crumble, on the land as it now is: blockPop.ts)
+    if (edited && block) this.popBlocks(edited);
+    // (any other land, an undo or a redo among it, stops the pops it contradicts)
+    else if (rect && this.blockPops?.playing) this.blockPops.reconcile(this.landSolid(m));
     // (the game's rule: a layer above everything the map could hide shows the whole world)
     if (this.slice !== null && this.slice > this.topHiding()) this.setSlice(null);
     if (!rect) return 0;
@@ -2684,6 +2773,7 @@ export class MapRenderer {
     if (!m) return;
     // (the geothermal fields' steam: over the fields no water stands on the middle of, as the game's stops while flooded)
     if (this.steam?.set(steamFields(m.entities, m.W, m.H, m.surface, m.surface?.lower.length ? lowerWater(m.water, m.W * m.H) : null))) this.requestRender();
+    this.lightStarts(m.entities);
     const w = this.witheredView(m.entities);
     const flags = w.view.flags;
     const count = w.count;
@@ -2764,9 +2854,11 @@ export class MapRenderer {
     if (!m) return 0;
     m.heights = heights;
     this.heightStats = null;
+    const was = m.source;
     m.source = { ...m.source, heights };
-    // (the hollow under the cursor follows the roof's new top)
+    // (the hollow under the cursor follows the roof's new top, the caves drawn through the rock round the rect)
     this.hollowStale = true;
+    this.caveEdited(was, rect);
     // (the Block tool's land, come with its answer through the page's edit queue: it glows when it is drawn, on plain
     // ground too; taken now, as its answer ends the edit before the next frame draws it)
     if (this.blockEdit()) this.blockLand = true;
@@ -2802,7 +2894,12 @@ export class MapRenderer {
     // tool's land, `updateTerrainRect`)
     const block = this.blockLand;
     this.blockLand = false;
-    if (this.eroding || block) this.glowEdits(editedCells(m.W, m.H, { heights: drawn, masks: m.source.masks }, { heights, masks: m.source.masks }, true, c.rect));
+    if (this.eroding || block) {
+      const cells = editedCells(m.W, m.H, { heights: drawn, masks: m.source.masks }, { heights, masks: m.source.masks }, true, c.rect);
+      this.glowEdits(cells);
+      if (block) this.popBlocks(cells);
+    }
+    if (!block && this.blockPops?.playing) this.blockPops.reconcile(this.landSolid(m));
     if (m.water.count && this.landUnder(drawn, heights, c.rect)) {
       this.rodeLand(c.rect);
       this.flowChanged(heights, m.surface);
@@ -3194,6 +3291,81 @@ export class MapRenderer {
   private forceFx: ForceEffects | null = null;
   /** The geothermal fields' steam (geothermalSteam.ts); none in software drawing. */
   private steam: GeothermalSteam | null = null;
+  /** The fire in the starts' bowls (startFire.ts); none in software drawing. */
+  private fire: StartFire | null = null;
+  /** How many starts' fires light the land and the objects (materials.ts `startLight`; none while the objects are
+   *  hidden, as the fire is). */
+  private startLightsOn = 0;
+  /** The faction whose district center stands at the start (`setFaction`). */
+  private faction: Faction = "Folktails";
+
+  /** Which faction's district center the start is drawn as: the Folktails' (the default) or the Iron Teeth's. The map
+   *  names none (the player picks one when starting it in the game); the fire and its light are the same for both. */
+  setFaction(faction: Faction): void {
+    if (faction === this.faction) return;
+    this.faction = faction;
+    if (this.map) this.updateEntities(this.map.entities);
+  }
+
+  /** The fire in each start's bowl and its light (startFire.ts; materials.ts `startLight`), where the starts are now. */
+  private lightStarts(e: EntityView): void {
+    const centres = this.software ? [] : startCentres(e);
+    this.fireCentres = centres;
+    if (this.fire?.set(centres)) this.requestRender();
+    const lights = this.uniforms.startLights.value;
+    const [lx, ly, lz] = START_FIRE.light.at;
+    const n = Math.min(centres.length, lights.length);
+    for (let k = 0; k < n; k++) lights[k].set(centres[k][0] + lx - 1.5, centres[k][1] + ly, centres[k][2] - (lz - 1.5), 1);
+    this.startLightsOn = n;
+  }
+
+  /** Where the starts' fires stand (`startCentres`), for `fireShows` and `dimStartLights`. */
+  private fireCentres: [number, number, number][] = [];
+  private readonly fireAt = new Vector3();
+
+  /** Whether a start's flame shows moving in the view: its fire drawn (`fireDrawn`: not hidden, not cut away), its bowl
+   *  inside the frame and its flame at least
+   *  `FIRE_SHOWN_PX` across. The fire asks for frames only then (`animated`), so a map at rest with its start out of
+   *  view or too far off to see the flame (a blank map, a dry one) draws nothing (D453); the water's and the steam's
+   *  own rules are unchanged. */
+  private fireShows(): boolean {
+    if (!this.fire?.count) return false;
+    const cam = this.camera();
+    const h = this.canvas.clientHeight;
+    const [, ey] = START_FIRE.emitter;
+    const slice = this.uniforms.slice.value;
+    const hide = this.uniforms.objectHide.value;
+    for (const c of this.fireCentres) {
+      // (a start hidden with the objects or cut away draws no fire: nothing moves)
+      if (!fireDrawn(c, slice, hide)) continue;
+      const p = this.fireAt.set(c[0], c[1] + ey, c[2]).project(cam);
+      if (p.z < -1 || p.z > 1 || Math.abs(p.x) > 1.05 || Math.abs(p.y) > 1.05) continue;
+      if (this.flameAcross(c, cam, h) >= FIRE_SHOWN_PX) return true;
+    }
+    return false;
+  }
+
+  /** The start's flame's width on screen (pixels): by its depth in the perspective view, by the frame's height from the
+   *  top. */
+  private flameAcross(c: readonly [number, number, number], cam: PerspectiveCamera | OrthographicCamera, h: number): number {
+    const [, ey] = START_FIRE.emitter;
+    return cam instanceof PerspectiveCamera
+      ? (FIRE_WIDTH * h) / (2 * Math.max(1e-3, -this.fireAt.set(c[0], c[1] + ey, c[2]).applyMatrix4(cam.matrixWorldInverse).z) * Math.tan((cam.fov * Math.PI) / 360))
+      : (FIRE_WIDTH * h * cam.zoom) / (cam.top - cam.bottom);
+  }
+
+  /** Each start's light as its fire shows (`startLight`'s fourth number): none where the layer cut takes the fire (its
+   *  emitter above the slice, as the fire's particles are cut), the objects' fade where the pointer fades the start. */
+  private dimStartLights(): void {
+    const lights = this.uniforms.startLights.value;
+    const slice = this.uniforms.slice.value;
+    const fading = this.uniforms.objectFade.value.w > 0.5;
+    const hide = this.uniforms.objectHide.value;
+    for (let k = 0; k < this.startLightsOn; k++) {
+      const c = this.fireCentres[k];
+      lights[k].w = !fireDrawn(c, slice, hide) ? 0 : fading ? objectFadeAt(this.fadeRegion, c[0], -c[2]) : 1;
+    }
+  }
 
   /** A force's moment (D202, D203, D206, D281): an impact, a fault's crack, an eruption's plume, rock wearing away; the
    *  effects play on their own clocks. A new force's first moment, a carve's included, skips the last
@@ -3365,6 +3537,7 @@ export class MapRenderer {
     this.surge?.advance();
     this.editGlow?.advance();
     this.pops?.advance();
+    this.blockPops?.advance();
   }
 
   /** Plants and ruins on the tiles of `rect` stand on the ground shown there: each moves by as
@@ -3522,6 +3695,45 @@ export class MapRenderer {
     (this.editGlow ??= new EditGlow(this.scene, () => this.requestRender(), this.glowMat, () => this.programs.ready([[this.glowMat, { ...(this.glowMat.defines as Defines) }]]), this.time)).show(cells, m.W, m.H, (x, y) => columnMask(src, y * m.W + x), this.slice, this.reducedMotion || this.software);
   }
 
+  private blockPops: BlockPops | null = null;
+  /** The blocks' dust's material, made with the renderer so its program is compiled ahead (`scheduleWarm`). */
+  private readonly popDust = popDustMaterial();
+
+  /** The Block tool's blocks grow and crumble (blockPop.ts; D240): a moment of the edit already drawn, off with reduced
+   *  motion and in the light look; blocks at or above the layer cut are not played. */
+  private popBlocks(cells: EditCells): void {
+    const m = this.map;
+    if (!m || !this.juicy || (!cells.added.length && !cells.removed.length)) return;
+    const cut = this.slice ?? LAYERS;
+    const below = (c: readonly number[]) => c[2] < cut;
+    (this.blockPops ??= new BlockPops(
+      this.scene,
+      () => this.terrainMat,
+      this.std.terrain.uniforms as unknown as PopUniforms,
+      this.popDust,
+      () => this.requestRender(),
+      this.time,
+      this.glowMat.uniforms.rise as { value: number },
+    )).add(cells.added.filter(below), cells.removed.filter(below), this.landSolid(m));
+  }
+
+  /** The land drawn now, a cell at a time, as the blocks' pops read it: rock below the floor, air off the map and at or
+   *  above the layer cut. */
+  private landSolid(m: MapState): (x: number, y: number, z: number) => boolean {
+    const src = m.source;
+    const cut = this.slice ?? LAYERS;
+    return (x, y, z) => {
+      if (z < 0) return true;
+      if (x < 0 || y < 0 || x >= m.W || y >= m.H || z >= cut) return false;
+      return ((columnMask(src, y * m.W + x) >>> z) & 1) === 1;
+    };
+  }
+
+  /** The Block tool's blocks playing now (tests): growing, sinking, the quads drawn and the dust's puffs. */
+  get blockPopsDrawn(): { grows: number; sinks: number; quads: number; puffs: number } {
+    return this.blockPops?.drawn ?? { grows: 0, sinks: 0, quads: 0, puffs: 0 };
+  }
+
   /** What the edit glow shows now (tests): its faces of each kind and its strength, 0 once faded. */
   get editGlowDrawn(): { added: number; removed: number; fade: number } {
     return this.editGlow?.drawn ?? { added: 0, removed: 0, fade: 0 };
@@ -3583,6 +3795,50 @@ export class MapRenderer {
     });
   }
 
+  private caveGhost: CaveGhost | null = null;
+  /** The Caves and overhangs layer is on (`showCaves`). */
+  private cavesShown = false;
+  /** What the caves drawn were built from and what edits changed since (caveGhost.ts `CaveBook`). */
+  private readonly caveBook = new CaveBook();
+
+  /** The Caves and overhangs layer turned on or off (D488): with it on, the air under every roof is drawn through the
+   *  rock (caveGhost.ts), its floor, its steps, its walls and its mouths, so a cave reads from the editing pitch. */
+  showCaves(on: boolean): void {
+    if (on === this.cavesShown) return;
+    this.cavesShown = on;
+    this.requestRender();
+  }
+
+  /** The ground changed from `was` to the map's source now over `rect` (an edit, a stroke's frame): with caves drawn,
+   *  only the chunks round `rect` are built again (`CaveBook`). */
+  private caveEdited(was: TerrainSource, rect: Rect | null): void {
+    this.caveBook.edited(was, this.map!.source, rect);
+  }
+
+  /** The caves through the rock, laid by renderNow before it draws: built when the layer turns on, the map opens or the
+   *  cut moves, and again after an edit only in the chunks it reached (a stroke's frame builds a chunk or two). */
+  private layCaveGhost(): void {
+    const m = this.map;
+    const src = m?.source;
+    if (!m || !src || !this.cavesShown || src.columns.size === 0) {
+      if (this.caveBook.drawn) this.caveGhost?.clear();
+      this.caveBook.clear();
+      return;
+    }
+    const rect = this.caveBook.due(m, src, this.slice);
+    if (rect === undefined) return;
+    const keep = cutKeep(this.slice);
+    const masks = src.masks;
+    const listed = masks ? (i: number) => masks[i] !== 0 : (i: number) => src.columns.has(i);
+    (this.caveGhost ??= new CaveGhost(this.scene)).update(m.W, m.H, listed, (i) => columnMask(src, i) & keep, rect);
+  }
+
+  /** The caves drawn through the rock now (tests): the cells of air under a roof, the mouths' and steps' faces, and the
+   *  chunks built at the last update. */
+  get caveGhostDrawn(): { cells: number; mouths: number; steps: number; built: number } {
+    return this.caveGhost?.drawn ?? { cells: 0, mouths: 0, steps: 0, built: 0 };
+  }
+
   /** The hollow drawn under the cursor now (tests): the tiles filled and the outline's pieces. */
   get hollowDrawn(): { tiles: number; edges: number } {
     return this.hollow?.drawn ?? { tiles: 0, edges: 0 };
@@ -3606,8 +3862,22 @@ export class MapRenderer {
     }
     // (the water as drawn: under a layer cut through it, at the cut; from the water view, cutWater.ts)
     const level = (tx: number, ty: number) => ringLevelAt(m.heights, m.surface, ty * m.W + tx, this.slice);
-    this.ring.set(s, level, m.W, m.H);
+    this.ring.set(s, level, m.W, m.H, this.ringFilled);
     this.requestRender();
+  }
+
+  /** A force's ring is filled faintly (its whole reach) while a finger's press aims it (#1074 slice 3b): a big force's
+   *  ring is often wider than a phone's view, and the fill still says what it reaches. */
+  private ringFilled = false;
+  private fillRing(on: boolean): void {
+    if (on === this.ringFilled) return;
+    this.ringFilled = on;
+    if (this.forceRingState) this.setForceRing(this.forceRingState);
+  }
+
+  /** Whether a force's ring is filled now (tests). */
+  get ringFill(): boolean {
+    return this.ringFilled && !!this.forceRingState && !this.forceRingState.marker;
   }
 
   /** Where the water is clear round the pointer (D212): the middle and radius, or null (tests). */
@@ -4065,7 +4335,7 @@ export class MapRenderer {
       this.ortho.right = half * aspect;
       this.ortho.top = half;
       this.ortho.bottom = -half;
-      this.ortho.position.set(tx, 200, tz);
+      this.ortho.position.set(tx, TOP_EYE, tz);
       // (the screen's up is the way the view faces along the ground: north at yaw 0)
       this.ortho.up.set(-Math.sin(v.yaw), 0, -Math.cos(v.yaw));
       this.ortho.lookAt(tx, 0, tz);
@@ -4089,13 +4359,19 @@ export class MapRenderer {
   }
 
   /** The game's fog (palette.ts GAME_FINISH), as the game draws it up to its farthest default zoom; from farther out,
-   *  an editing view the game doesn't have, held at what that zoom shows, so a whole map stays readable (D497). None
-   *  looking straight down, where the game never looks (the camera sits at 200), nor with High's Fog switched off. */
+   *  an editing view the game doesn't have, held at what that zoom shows, so a whole map stays readable (D497). Looking
+   *  straight down, where the game never looks, the fog the angled view has at the same zoom (`distanceForMode`): its
+   *  depth at the spot looked at, held as the angled view's is, in place of the top camera's own 200 units, so the two
+   *  views read alike (without it the deep sea, which the game's ramp and grade take to black, read pure black there,
+   *  #236 11-10). None with High's Fog switched off. */
   private applyFog(): void {
     const u = this.uniforms;
     const v = this.view;
-    u.fogDensity.value = v.mode === "top" || (this.high && !this.high.effects.fog) ? 0 : GAME_FINISH.fogParam;
-    u.fogShift.value = Math.max(0, v.distance - GAME_FINISH.fogFarthest);
+    u.fogDensity.value = this.high && !this.high.effects.fog ? 0 : GAME_FINISH.fogParam;
+    u.fogShift.value =
+      v.mode === "top"
+        ? TOP_EYE - v.target[1] - Math.min(distanceForMode(v.distance, "orbit"), GAME_FINISH.fogFarthest)
+        : Math.max(0, v.distance - GAME_FINISH.fogFarthest);
     u.fogNear.value = this.persp.near;
   }
 
@@ -4174,15 +4450,17 @@ export class MapRenderer {
     this.requestRender();
   }
 
-  /** Settles once the water's surface, badwater's pattern, contaminated ground's pattern and the still detail albedo
-   *  are made (they are flat at their means until then; the light look makes and reads only the still detail albedo
-   *  and the sources' pattern). For tests and pictures that read the patterns. */
+  /** Settles once the objects' patterns, the water's surface, badwater's pattern, contaminated ground's pattern and the
+   *  still detail albedo are made (they are flat at their means until then, the ivy cut away; the light look makes
+   *  and reads only the still detail albedo and the sources' pattern). For tests and pictures that read the patterns. */
   patternsMade(): Promise<void> {
     if (this.software) return detailTextureMade(true);
-    // (the surface's job first: the water's own patterns land as soon as before, the detail after them)
+    // (the objects' patterns first, the smallest; then the surface's job: the water's own patterns land as soon as
+    // before, the detail after them)
+    const objects = objectPatternsBaked();
     const surface = waterSurfaceMade();
     const detail = detailTextureMade(false);
-    return Promise.all([surface, detail, albedoTextureMade()]).then(() => undefined);
+    return Promise.all([objects, surface, detail, albedoTextureMade()]).then(() => undefined);
   }
 
   /** The sun for the camera as it stands, baked here at once (a picture, drawn in one frame). */
@@ -4239,6 +4517,7 @@ export class MapRenderer {
       this.cursor.set(this.brushCursorState, this.cursorHeights(), this.map.W, this.map.H);
     }
     if (this.hollowStale) this.layHollow();
+    if (this.cavesShown || this.caveGhost) this.layCaveGhost();
     // (the baked shadows round the fade, once a frame however often it moved)
     if (this.fadeShadowsStale) {
       this.fadeShadowsStale = false;
@@ -4256,6 +4535,9 @@ export class MapRenderer {
     if (this.recording) this.advance();
     this.followSun();
     this.uniforms.time.value = this.clock ?? (this.now() - this.t0) / 1000;
+    // (the starts' fires light nothing while the objects, the fire among them, are hidden)
+    this.uniforms.startLightCount.value = this.uniforms.objectHide.value > 0.5 ? 0 : this.startLightsOn;
+    this.dimStartLights();
     const t0 = performance.now();
     // a force's heat on the ground (the camera never shakes, D265)
     const fx = this.forceFx;
@@ -4279,7 +4561,16 @@ export class MapRenderer {
     this.motionRows.flush();
     // the game's bloom: the frame before the grade drawn for it first, then the view, then the bloom put on it (bloom.ts)
     const bloom = this.blooms() ? (this.bloom ??= new GameBloom()) : null;
-    bloom?.drawSource(this.gl, this.scene, cam);
+    const bloomRect = bloom ? this.bloomRect(cam) : null;
+    if (bloom) {
+      // (in a start's box, each batch of objects only its instances there: bloomBox.ts)
+      if (bloomRect) this.bloomBox.enter(this.objects, [this.terrain.values(), this.water.values()], cam, bloomRect, this.bloomSize.x, this.bloomSize.y);
+      try {
+        bloom.drawSource(this.gl, this.scene, cam, bloomRect);
+      } finally {
+        this.bloomBox.leave();
+      }
+    }
     // (the copies only where the view's frame draws to the screen: the terrain overlays the ground under water itself
     // otherwise, refraction.ts)
     this.refraction.begin(this.refracts() && this.gl.getRenderTarget() === null);
@@ -4289,7 +4580,7 @@ export class MapRenderer {
       this.bloomFrames++;
       // (the view's draw counts, not the bloom's passes': `stats`)
       const counts = { ...this.gl.info.render };
-      bloom.apply(this.gl);
+      bloom.apply(this.gl, bloomRect);
       Object.assign(this.gl.info.render, counts);
     }
     if (this.uniforms.objectFade.value.w === FADE_COVERAGE) this.opaqueCanvas();
@@ -4315,15 +4606,76 @@ export class MapRenderer {
   /** Whether this frame draws the game's bloom (bloom.ts): Standard and High, as the game's default preset; never the
    *  light look. And only while something in the frame can pass its knee (D453: by day nothing does, so its passes,
    *  about 1.4 ms of a GPU's in High, would change no pixel; `tests/unit/bloom.test.ts` holds the day's brightest under
-   *  it, `tests/e2e/look-high.spec.ts` the frame alike with it and without): today an eruption's lava, until its crust
-   *  has put out its light (`LAVA_BLOOM_ENDS`). */
+   *  it, `tests/e2e/look-high.spec.ts` the frame alike with it and without): an eruption's lava, until its crust has
+   *  put out its light (`LAVA_BLOOM_ENDS`), and a start's fire while its box is on screen and its flame large enough to
+   *  show (`fireBox`: its doubled colour passes the knee where its particles stack, bloom.ts `FIRE_SOURCE_MAX`), as the
+   *  game's HDR frame blooms both. */
   private blooms(): boolean {
     if (this.software || !this.map) return false;
     const look = this.lookNow;
     if (look === "light" || !GAME_BLOOM_LOOKS[look === "standard" ? "standard" : "high"]) return false;
+    return this.lavaBlooms() || this.fireBox(this.camera()) !== null;
+  }
+
+  /** An eruption's lava can pass the bloom's knee (`LAVA_BLOOM_ENDS`). */
+  private lavaBlooms(): boolean {
     const u = this.terrainMat.uniforms;
     return !!u.eruptionAge && u.eruptionAge.value >= 0 && u.coolingAge.value < LAVA_BLOOM_ENDS;
   }
+
+  /** Where the bloom need be drawn (bloom.ts `drawSource` and `apply`), in the drawing buffer's pixels from its lower
+   *  left: with no lava glowing, only the starts' fires and the lanterns their lights light can pass the knee (by day
+   *  nothing else does, tests/unit/bloom.test.ts), so the box on screen round each start whose fire shows (`fireBox`),
+   *  which spares the source, the pyramid and the canvas the rest of the frame (D453); the whole frame (null) while
+   *  lava glows or a start's box reaches behind the camera. */
+  private bloomRect(cam: PerspectiveCamera | OrthographicCamera): Vector4 | null {
+    if (this.lavaBlooms()) return null;
+    const box = this.fireBox(cam);
+    if (!box || box === "behind") return null;
+    const size = this.gl.getDrawingBufferSize(this.bloomSize);
+    const px = (v: number, n: number) => (Math.min(1, Math.max(-1, v)) + 1) * 0.5 * n;
+    const r = this.bloomRectOut;
+    r.set(Math.floor(px(box.x, size.x)), Math.floor(px(box.y, size.y)), 0, 0);
+    r.z = Math.ceil(px(box.z, size.x)) - r.x;
+    r.w = Math.ceil(px(box.w, size.y)) - r.y;
+    return r;
+  }
+
+  /** The box on screen (clip x and y: least x, least y, most x, most y) round each start whose fire is drawn and whose
+   *  flame shows at least `FIRE_SHOWN_PX` across (its district center, `BLOOM_START_BOX`), where it overlaps the frame:
+   *  its bloom's glow reaches over the frame while the bowl itself is past its edge. "behind": a box reaches behind the
+   *  camera (its corners project wrong). Null: none on screen. */
+  private fireBox(cam: PerspectiveCamera | OrthographicCamera): Vector4 | "behind" | null {
+    const slice = this.uniforms.slice.value;
+    const hide = this.uniforms.objectHide.value;
+    const h = this.canvas.clientHeight;
+    const [half, high] = BLOOM_START_BOX;
+    const out = this.fireBoxOut.set(Infinity, Infinity, -Infinity, -Infinity);
+    for (const c of this.fireCentres) {
+      if (!fireDrawn(c, slice, hide) || this.flameAcross(c, cam, h) < FIRE_SHOWN_PX) continue;
+      let x0 = Infinity;
+      let y0 = Infinity;
+      let x1 = -Infinity;
+      let y1 = -Infinity;
+      for (let k = 0; k < 8; k++) {
+        const p = this.fireAt.set(c[0] + (k & 1 ? half : -half), c[1] + (k & 2 ? high : 0), c[2] + (k & 4 ? half : -half));
+        // (a corner at or behind the camera's near plane projects wrong)
+        if (cam instanceof PerspectiveCamera && -this.bloomEye.copy(p).applyMatrix4(cam.matrixWorldInverse).z <= cam.near) return "behind";
+        p.project(cam);
+        x0 = Math.min(x0, p.x);
+        x1 = Math.max(x1, p.x);
+        y0 = Math.min(y0, p.y);
+        y1 = Math.max(y1, p.y);
+      }
+      if (x1 < -1 || x0 > 1 || y1 < -1 || y0 > 1) continue;
+      out.set(Math.min(out.x, x0), Math.min(out.y, y0), Math.max(out.z, x1), Math.max(out.w, y1));
+    }
+    return out.z > out.x ? out : null;
+  }
+  private readonly fireBoxOut = new Vector4();
+  private readonly bloomSize = new Vector2();
+  private readonly bloomRectOut = new Vector4();
+  private readonly bloomEye = new Vector3();
 
   /** Whether this frame wants the copies of the screen behind the water (refraction.ts): a look that draws the game's
    *  high-quality water, with water on the map. From any distance: the ground behind the game's water always shows
@@ -4571,9 +4923,19 @@ export class MapRenderer {
       // (a press stops a flick's glide; a finger, a double tap's too)
       this.touches.stop();
       if (finger) this.stopGlideTo();
+      this.keepAim = false;
       // a second finger: the press in progress is dropped and the fingers move the camera (touch.ts)
       if (finger && this.touches.down(ev)) return;
       c.focus({ preventScroll: true });
+      // one finger with something in hand that shows before it applies: seen a little above the finger, applied on the
+      // lift (touch.ts `FingerPress`); what is under the finger never changes what the press does (Kyler on #1074)
+      const mode = finger && ev.button === 0 ? this.pressModeFor(this.tool) : null;
+      if (mode) {
+        this.tapRead = false;
+        this.startPress(mode, ev);
+        capture(ev.pointerId);
+        return;
+      }
       if (finger) {
         // (no hover before a finger: the press is the hover, so a brush's ring and its level are under it, D322)
         this.tapRead = false;
@@ -4586,7 +4948,9 @@ export class MapRenderer {
         if (hit) this.pickSlice(hit);
         return;
       }
-      const grab = ev.button === 0 && this.grab ? this.grab(this.pick(ev.clientX, ev.clientY), ev) : null;
+      // (a finger never takes what is under it: with nothing in hand it pans, and an object or a source picked goes
+      // where a press aims, `pressModeFor`)
+      const grab = ev.button === 0 && this.grab && !finger ? this.grab(this.pick(ev.clientX, ev.clientY), ev) : null;
       if (grab) {
         this.grabbed = grab;
         this.drag = { kind: "tool", x: ev.clientX, y: ev.clientY, id: ev.pointerId, moved: 0, button: 0 };
@@ -4603,9 +4967,11 @@ export class MapRenderer {
         }
       }
       if (finger) {
-        // one finger with nothing in hand moves the map
-        this.drag = { kind: "pan", x: ev.clientX, y: ev.clientY, id: ev.pointerId, moved: 0, button: 0, touch: ev };
+        // one finger with nothing in hand moves the map; held still, it draws a selection (`holdToPress`)
+        const pan = { kind: "pan" as const, x: ev.clientX, y: ev.clientY, id: ev.pointerId, moved: 0, button: 0, touch: ev };
+        this.drag = pan;
         capture(ev.pointerId);
+        this.holdToPress(pan, ev);
         return;
       }
       const kind = ev.button === 2 || ev.button === 1 || ev.shiftKey || this.view.mode === "top" ? "pan" : "orbit";
@@ -4616,6 +4982,12 @@ export class MapRenderer {
       const ev = e as PointerEvent;
       const finger = ev.pointerType === "touch";
       if (finger && this.touches.move(ev)) return;
+      if (finger && this.press?.id === ev.pointerId) {
+        this.pressLast = ev;
+        this.press.move({ x: ev.clientX, y: ev.clientY }, ev.timeStamp);
+        // (a held press that was no hold by its events' times now pans: this move is the pan's first, `host.pan`)
+        if (this.press || this.drag?.id !== ev.pointerId) return;
+      }
       const d = this.drag;
       if (d && d.id === ev.pointerId) {
         const dx = ev.clientX - d.x;
@@ -4644,6 +5016,16 @@ export class MapRenderer {
     const end = (e: Event) => {
       const ev = e as PointerEvent;
       if (ev.pointerType === "touch" && this.touches.up(ev)) return;
+      const p = this.press;
+      if (p && p.id === ev.pointerId) {
+        this.press = null;
+        this.pressLast = ev;
+        if (c.hasPointerCapture(ev.pointerId)) c.releasePointerCapture(ev.pointerId);
+        // (the browser took the touch, as iOS Safari may: nothing is applied)
+        if (ev.type === "pointerup") p.up({ x: ev.clientX, y: ev.clientY }, ev.timeStamp);
+        else p.cancel();
+        return;
+      }
       const d = this.drag;
       if (!d || d.id !== ev.pointerId) return;
       this.drag = null;
@@ -4662,7 +5044,9 @@ export class MapRenderer {
     this.on(c, "pointerup", end);
     this.on(c, "pointercancel", end);
     this.on(c, "pointerleave", (e) => {
-      if (this.drag) return;
+      if (this.drag || this.press) return;
+      // (a tap with an object, a force or the Block tool in hand left its preview showing where it would go)
+      if ((e as PointerEvent).pointerType === "touch" && this.keepAim) return;
       // (a finger lifted: the ring under it goes; a tile a tap read stays read, its readout and its light)
       if ((e as PointerEvent).pointerType === "touch" && this.tapRead) {
         this.tool?.hover?.(null, e as PointerEvent);
@@ -4732,6 +5116,8 @@ export class MapRenderer {
     // in progress ends as a released button ends it (D361, item 5)
     this.on(window, "blur", () => {
       this.touches.reset();
+      // (a finger's press with something in hand is dropped, nothing applied: only its lift applies it)
+      this.cancelPress();
       focusLost(this.held, this.glide, this.drag, (d) => end({ type: d.kind === "tool" ? "pointerup" : "pointercancel", pointerId: d.id, clientX: d.x, clientY: d.y, button: 0, shiftKey: false, ctrlKey: false, altKey: false, metaKey: false } as unknown as Event));
     });
   }
@@ -4752,29 +5138,184 @@ export class MapRenderer {
   }
 
   /** A finger's tap (touch.ts): the readout reads the tile, and the tap is a click, the resting tool's own where it
-   *  has one; a second tap on the spot soon after zooms in on it instead. */
+   *  has one; a second tap on the spot soon after zooms in on it instead, whatever is under it (Kyler on #1074: a tap on
+   *  an object picks it, and that stands; the second still zooms). */
   private touchTap(down: PointerEvent, up: PointerEvent): void {
-    const last = this.lastTap;
-    if (last && up.timeStamp - last.t <= DOUBLE_TAP_MS && Math.hypot(up.clientX - last.x, up.clientY - last.y) <= DOUBLE_TAP_PX) {
-      this.lastTap = null;
-      this.zoomInAt(up.clientX, up.clientY);
-      return;
-    }
-    this.lastTap = { x: up.clientX, y: up.clientY, t: up.timeStamp };
+    if (this.doubleTapped(up)) return;
     this.hoverAt(up);
     this.tapRead = true;
     const t = this.tool;
-    if (t?.touchPans && t.down(this.pickFor(t, down.clientX, down.clientY), down)) {
+    if ((t?.touchPans || t?.tapClicks) && t.down(this.pickFor(t, down.clientX, down.clientY), down)) {
       t.up(this.pickFor(t, up.clientX, up.clientY), up);
       return;
     }
     this.onClick?.(this.pick(up.clientX, up.clientY), up);
   }
 
+  /** A finger's tap: when it is the second on the spot soon after one, the view glides in on it (true); else it is
+   *  noted, for the next. */
+  private doubleTapped(up: PointerEvent): boolean {
+    const last = this.lastTap;
+    if (last && up.timeStamp - last.t <= DOUBLE_TAP_MS && Math.hypot(up.clientX - last.x, up.clientY - last.y) <= DOUBLE_TAP_PX) {
+      this.lastTap = null;
+      this.zoomInAt(up.clientX, up.clientY);
+      return true;
+    }
+    this.lastTap = { x: up.clientX, y: up.clientY, t: up.timeStamp };
+    return false;
+  }
+
+  /** A finger with nothing in hand (the resting Select, which `touchPans`) held still `HOLD_MS` without moving past the
+   *  slop: its pan, not yet begun, becomes the tool's own press (Select's: a selection drawn a little above the finger,
+   *  #1074 slice 3b), so a selection starts without one open first. A move past the slop before then pans, as before. */
+  private holdToPress(pan: { moved: number }, ev: PointerEvent): void {
+    const t = this.tool;
+    const mode = t?.touchPans ? t.finger : undefined;
+    if (!mode) return;
+    window.setTimeout(() => {
+      // (lifted, panned, a second finger, or the tool changed meanwhile: nothing)
+      if (this.drag !== pan || pan.moved >= TAP_SLOP || this.tool !== t || this.press) return;
+      this.drag = null;
+      this.tapRead = false;
+      this.startPress(mode, ev, true);
+    }, HOLD_MS);
+  }
+
+  /** How a finger's press works what is in hand (touch.ts `PressMode`), or null for the view's own one-finger path (a
+   *  pan with nothing in hand, a brush's stroke under the finger). The resting Select with an object or a source picked
+   *  holds that: the press moves it. */
+  private pressModeFor(t: PointerTool | null): PressMode | null {
+    if (!t) return null;
+    if (t.touchPans) return this.holdsPicked?.() ? "move" : null;
+    return t.finger ?? null;
+  }
+
+  /** A finger's press with something in hand begins (touch.ts `FingerPress`): it aims `FINGER_LIFT` above the finger;
+   *  "aim" shows the tool's hover there, "draw" and "move" drive the tool's (or the picked object's grab's) own press
+   *  there once the press is no tap; the lift applies it, a tap or a drop applies nothing. */
+  private startPress(mode: PressMode, ev: PointerEvent, held = false): void {
+    this.cancelPress();
+    const t = this.tool!;
+    /** The tool or grab a draw or a move drives, once begun. */
+    let driven: PointerTool | null = null;
+    this.pressLast = ev;
+    const at = (type: string, p: Point) => this.aimEvent(type, p, ev);
+    /** An aim's preview goes, and the tile it lit. */
+    const unaim = () => {
+      this.hoverHit = null;
+      this.setHoverTile(null);
+      t.hover?.(null, at("pointermove", { x: ev.clientX, y: ev.clientY }));
+      this.onHover?.(null);
+    };
+    const host: PressHost = {
+      show: (p) => {
+        // (an aim, and a line not yet begun: the tool's hover there; a begun line, draw or move: its drag)
+        if (driven) return driven.move(this.pickFor(driven, p.x, p.y), at("pointermove", p));
+        if (showsAtOnce(mode)) this.hoverAt(at("pointermove", p));
+      },
+      begin: (p) => {
+        const g = mode === "move" ? (this.grabHeld?.() ?? null) : this.tool === t ? t : null;
+        if (!g) return false;
+        if (!g.down(this.pickFor(g, p.x, p.y), at("pointerdown", p))) {
+          if (mode === "move") g.cancel?.();
+          return false;
+        }
+        driven = g;
+        return true;
+      },
+      apply: (p) => {
+        const up = at("pointerup", p);
+        // (a begun line, draw or move: its release; a line held still and lifted is a click at the aim, as an aim's)
+        if (driven || !showsAtOnce(mode)) {
+          const g = driven;
+          driven = null;
+          return g?.up(this.pickFor(g, p.x, p.y), up);
+        }
+        // (the tool put away meanwhile: nothing to apply)
+        if (this.tool !== t) return;
+        const hit = this.pickFor(t, p.x, p.y);
+        if (t.down(hit, at("pointerdown", p))) t.up(hit, up);
+      },
+      drop: (begun) => {
+        const g = driven;
+        driven = null;
+        if (begun) g?.cancel?.();
+        if (showsAtOnce(mode) && this.tool === t) unaim();
+      },
+      tap: () => {
+        const up = this.pressLast ?? ev;
+        // (a picked object's press that was a tap, or a held one lifted before its hold by its events' times: a click, or
+        // half a double tap, where the finger is, as with nothing in hand)
+        if (mode === "move" || held) return this.touchTap(ev, up);
+        if (this.doubleTapped(up)) {
+          if (showsAtOnce(mode) && this.tool === t) t.hover?.(null, at("pointermove", { x: up.clientX, y: up.clientY }));
+          return;
+        }
+        if (mode === "draw" && t.tapClicks) {
+          this.lastTap = null;
+          return this.touchTap(ev, up);
+        }
+        // (an aim's or a line's tap applies nothing: its preview stays where it would go)
+        if (showsAtOnce(mode)) this.keepAim = true;
+      },
+      pan: () => {
+        // (only while this press is the finger's own, still down: a press already lifted or replaced leaves no pan)
+        if (this.press !== press) return;
+        // (the pan the hold took over, from the press: the move that ended the hold moves the map the whole way from there)
+        this.press = null;
+        this.drag = { kind: "pan", x: ev.clientX, y: ev.clientY, id: ev.pointerId, moved: 0, button: 0, touch: ev };
+      },
+      overCancel: (p) => !!document.elementFromPoint(p.x, p.y)?.closest("[data-press-cancel]"),
+      mark: (p, over) => {
+        // (over Cancel an aim's preview goes, and a line's not yet drawn: nothing would be applied there; off it again, it
+        // shows)
+        if (over && showsAtOnce(mode) && !this.press?.drawing && this.tool === t) unaim();
+        // (a force's ring is filled while a finger aims it, so its reach shows even where the ring is off the view)
+        this.fillRing(!!p && !over && showsAtOnce(mode));
+        const f = this.pressLast ?? ev;
+        this.onPress?.(p ? { aim: { x: p.x, y: p.y }, finger: { x: f.clientX, y: f.clientY }, over } : null);
+      },
+      later: (fn, ms) => window.setTimeout(fn, ms),
+      clear: (id) => clearTimeout(id),
+    };
+    const press = new FingerPress(mode, ev.pointerId, { x: ev.clientX, y: ev.clientY }, ev.timeStamp, this.canvas.getBoundingClientRect().top, host, held);
+    this.press = press;
+  }
+
+  /** Drop a finger's press with something in hand, nothing applied (a Cancel control, the window losing focus); the
+   *  finger, still down, then does nothing until it lifts. True when there was one. */
+  cancelPress(): boolean {
+    const p = this.press;
+    if (!p) return false;
+    this.press = null;
+    p.cancel();
+    return true;
+  }
+
+  /** Whether a finger's press with something in hand is on (tests). */
+  get pressing(): boolean {
+    return this.press !== null;
+  }
+
+  /** A finger's event moved to where its press aims (`at`): what the tools read of a press, a drag and a release. */
+  private aimEvent(type: string, at: Point, from: PointerEvent): PointerEvent {
+    return new PointerEvent(type, {
+      clientX: at.x,
+      clientY: at.y,
+      pointerId: from.pointerId,
+      pointerType: "touch",
+      isPrimary: from.isPrimary,
+      button: type === "pointermove" ? -1 : 0,
+      buttons: type === "pointerup" ? 0 : 1,
+      pressure: type === "pointerup" ? 0 : 0.5,
+    });
+  }
+
   /** A second finger came down during a one-finger press: the press is dropped, a stroke or a drag cancelled with
-   *  nothing applied (its tool's `cancel`, as Esc), a pan just stopped. The finger keeps its capture: the gesture
-   *  follows it. */
+   *  nothing applied (its tool's `cancel`, as Esc), a pan just stopped, a press with something in hand dropped. The
+   *  finger keeps its capture: the gesture follows it. */
   private dropPress(): void {
+    this.cancelPress();
     const d = this.drag;
     if (!d) return;
     this.drag = null;
@@ -5026,6 +5567,9 @@ export class MapRenderer {
 
   dispose(): void {
     this.disposed = true;
+    // (a finger's gesture or press waiting on a timer ends with the view)
+    this.touches.reset();
+    this.cancelPress();
     // (a wait on `whenDrawn` ends with the view)
     this.checkDrawn();
     if (this.frame) cancelAnimationFrame(this.frame);
@@ -5038,6 +5582,7 @@ export class MapRenderer {
     this.refraction.dispose();
     this.bloom?.dispose();
     this.bloom = null;
+    this.bloomBox.dispose();
     if (this.highCopy) for (const m of Object.values(this.highCopy)) m.dispose();
     for (const m of this.depthCopy ?? []) m.dispose();
     for (const m of this.lineCopy ?? []) m.dispose();
@@ -5053,15 +5598,19 @@ export class MapRenderer {
     this.cursor?.dispose();
     this.ring?.dispose();
     this.hollow?.dispose();
+    this.caveGhost?.dispose();
     this.effects?.dispose();
     this.blockGhost?.dispose();
     this.blockCells?.dispose();
     this.editGlow?.dispose();
     this.glowMat.dispose();
+    this.blockPops?.dispose();
+    this.popDust.dispose();
     this.droughtLayer?.dispose();
     this.surge?.dispose();
     this.forceFx?.dispose();
     this.steam?.dispose();
+    this.fire?.dispose();
     this.pops?.clear();
     this.high?.dispose();
     this.high = null;

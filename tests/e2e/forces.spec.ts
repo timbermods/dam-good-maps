@@ -127,7 +127,8 @@ test("Craterize: a click strikes, kept as one step as shown; Ctrl+Z takes it bac
   expect((await labels(page)).length).toBe(n0);
   // Esc as it strikes: straight to its end, kept as one step (D344, A4); undo takes it back
   await clickTile(page, far[0], far[1]);
-  await expect(page.getByRole("group", { name: "Craterize at work" }).getByRole("button", { name: "Revert" })).toHaveAttribute("data-keys", /Ctrl\+Z.*Esc skips to its end/);
+  await expect(page.getByRole("group", { name: "Craterize at work" }).getByRole("button", { name: "Revert" })).toHaveAttribute("data-keys", /Ctrl\+Z/);
+  await expect(page.getByRole("group", { name: "Craterize at work" }).getByRole("button", { name: "Skip" })).toHaveAttribute("data-keys", /Esc/);
   await page.keyboard.press("Escape");
   await settled(page);
   expect((await labels(page)).at(-1)).toBe("Craterize");

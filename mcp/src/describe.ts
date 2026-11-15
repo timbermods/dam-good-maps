@@ -5,10 +5,13 @@ import type { CheckGroups } from "../../src/core/doc/checkItems";
 import { describeTileOf } from "../../src/core/doc/describeTile";
 import type { MapSession } from "../../src/core/doc/session";
 import { components } from "../../src/core/analysis/regions";
+import { polygonMask } from "../../src/core/features/geometry";
+import { fallGroupsOf } from "../../src/core/land/intentions";
 import { waterStory } from "../../src/core/analysis/story";
-import { standingForms } from "../../src/core/analysis/vertical";
+import { fallsOf, standingForms } from "../../src/core/analysis/vertical";
 import { THEME_NAMES } from "../../src/core/spec/mapspec";
-import { rowOf } from "./maps";
+import { rowOf, shownWater, startTile } from "./maps";
+import { placeOf } from "./places";
 
 type Rect = { x0: number; y0: number; x1: number; y1: number };
 
@@ -42,22 +45,57 @@ function boundsOf(tiles: Iterable<number>, W: number): Rect {
   return { x0, y0, x1, y1 };
 }
 
+/** A waterfall: a drop of FALL_LEAST levels or more where water meets lower water, as the intentions group falls. */
+export const FALL_LEAST = 2;
+
+/** The map's waterfalls (core: `fallsOf` grouped by `fallGroupsOf`, on the water the map shows), tallest first. */
+export function waterfallsOf(s: MapSession): { x: number; y: number; drop: number; top: number; tiles: number[] }[] {
+  const b = s.built;
+  const { depth } = shownWater(s);
+  return fallGroupsOf(b.W, b.heights, depth, fallsOf(b.heights, depth, b.W, b.H, 1.5))
+    .filter((g) => g.drop >= FALL_LEAST)
+    .map((g) => ({ ...g, x: Math.round(g.x), y: Math.round(g.y), drop: Math.round(g.drop * 10) / 10 }))
+    .sort((a, c) => c.drop - a.drop);
+}
+
+/** The map's lakes (its lake features): each basin's tiles inside its outline, and the wet ones among them now. */
+export function lakesOf(s: MapSession): { id: string; params: Record<string, unknown>; basin: number[]; wet: number[] }[] {
+  const b = s.built;
+  const { depth } = shownWater(s);
+  const out: { id: string; params: Record<string, unknown>; basin: number[]; wet: number[] }[] = [];
+  for (const f of s.features) {
+    if (f.kind !== "lake") continue;
+    const p = f.params as unknown as Record<string, unknown>;
+    const outline = (p.outline as [number, number][] | undefined) ?? [];
+    const basin: number[] = [];
+    const wet: number[] = [];
+    if (outline.length >= 3) {
+      const mask = polygonMask(outline, b.W, b.H);
+      for (let i = 0; i < mask.length; i++) if (mask[i]) (depth[i] > 0.05 ? wet : basin).push(i);
+    }
+    out.push({ id: f.id, params: p, basin, wet });
+  }
+  return out;
+}
+
 /** The map in a few lines: its name, size, start, water and checks. */
 export function summaryOf(s: MapSession, checks: CheckGroups | null): string {
   const b = s.built;
   const spec = s.spec;
   const lines: string[] = [];
-  lines.push(`${s.meta.name}: ${b.W}×${b.H} tiles${spec ? `, ${THEME_NAMES[spec.theme]}, seed ${spec.seed}, designed for ${spec.designedFor}` : ", an opened map"}.`);
-  const st = b.start;
+  const place = s.meta.place ? placeOf(s.meta.place) : null;
+  lines.push(`${s.meta.name}: ${b.W}×${b.H} tiles${spec ? `, ${THEME_NAMES[spec.theme]}, seed ${spec.seed}, designed for ${spec.designedFor}` : place ? `, a real place (${place.familyName})` : ", an opened map"}.`);
+  const st = startTile(s);
+  const { depth, contamination } = shownWater(s);
   lines.push(st ? `Start: X ${st.x} · Y ${st.y}, level ${st.z}.` : "Start: none. Place one before saving.");
   let wet = 0;
   let bad = 0;
   let deepest = 0;
-  for (let i = 0; i < b.water.length; i++)
-    if (b.water[i] > 0.05) {
+  for (let i = 0; i < depth.length; i++)
+    if (depth[i] > 0.05) {
       wet++;
-      if (b.contamination[i] >= 0.05) bad++;
-      deepest = Math.max(deepest, b.water[i]);
+      if (contamination[i] >= 0.05) bad++;
+      deepest = Math.max(deepest, depth[i]);
     }
   const sources = b.entities.filter((e) => e.template === "WaterSource").length;
   const badSources = b.entities.filter((e) => e.template === "BadwaterSource").length;
@@ -107,7 +145,8 @@ export function describeMap(s: MapSession, opts: { tiles?: [number, number][]; c
   const { W, H } = b;
   const N = W * H;
   const wet = new Uint8Array(N);
-  for (let i = 0; i < N; i++) wet[i] = b.water[i] > 0.05 ? 1 : 0;
+  const { depth, contamination } = shownWater(s);
+  for (let i = 0; i < N; i++) wet[i] = depth[i] > 0.05 ? 1 : 0;
   const { labels, sizes } = components(wet, W, H);
   const bodies = sizes.map((size, k) => ({ k, size, tiles: [] as number[], bad: 0, deepest: 0, volume: 0 }));
   for (let i = 0; i < N; i++) {
@@ -115,9 +154,9 @@ export function describeMap(s: MapSession, opts: { tiles?: [number, number][]; c
     if (k < 0) continue;
     const body = bodies[k];
     body.tiles.push(i);
-    if (b.contamination[i] >= 0.05) body.bad++;
-    body.deepest = Math.max(body.deepest, b.water[i]);
-    body.volume += b.water[i];
+    if (contamination[i] >= 0.05) body.bad++;
+    body.deepest = Math.max(body.deepest, depth[i]);
+    body.volume += depth[i];
   }
   const sourceList = b.entities.filter((e) => e.template === "WaterSource" || e.template === "BadwaterSource");
   const water = bodies
@@ -154,10 +193,41 @@ export function describeMap(s: MapSession, opts: { tiles?: [number, number][]; c
       const place = (p.placement ?? p.plan ?? p.request) as { x?: number; y?: number; at?: [number, number]; area?: [number, number, number][] } | undefined;
       const at = place?.x !== undefined ? [place.x, place.y] : place?.at;
       features.push({ id: f.id, kind, ...(at ? { at } : {}), ...(place?.area?.length ? { area: boundsOf(place.area.flatMap(([y, x0, x1]) => Array.from({ length: x1 - x0 + 1 }, (_, k) => y * W + x0 + k)), W) } : {}) });
-    } else if (f.kind === "lake") {
-      features.push({ id: f.id, kind: "lake", ...(p.at ? { at: p.at } : {}) });
     }
   }
+  for (const l of lakesOf(s)) {
+    const p = l.params;
+    const outlet = p.outlet as { at?: [number, number]; sill?: number } | undefined;
+    const has = l.basin.length + l.wet.length > 0;
+    features.push({
+      id: l.id,
+      kind: "lake",
+      ...(p.at ? { at: p.at } : {}),
+      ...(has ? { basinTiles: l.basin.length + l.wet.length, wetTiles: l.wet.length, area: boundsOf(l.wet.length ? l.wet : l.basin, W) } : {}),
+      ...(outlet?.at ? { outlet: { at: [Math.round(outlet.at[0]), Math.round(outlet.at[1])], ...(outlet.sill !== undefined ? { level: outlet.sill } : {}) } } : {}),
+    });
+  }
+  // the waterfalls, read from the water the map shows (each a group of falling tiles; the tallest first)
+  for (const f of waterfallsOf(s).slice(0, 16))
+    features.push({ kind: "waterfall", at: [f.x, f.y], drop: f.drop, tiles: f.tiles.slice(0, 12).map((i) => [i % W, (i - (i % W)) / W]), ...(f.tiles.length > 12 ? { tilesTotal: f.tiles.length } : {}) });
+  // the rivers Carve cut on this map since it was made or last cropped (each a force kept in the history, not a feature)
+  let carved: Record<string, unknown>[] = [];
+  for (const o of s.logOps) {
+    if (o.op === "crop") carved = [];
+    if (o.op !== "forceResult") continue;
+    const p = o.params as unknown as { verb: string; where?: { origin?: [number, number]; end?: [number, number] }; settings?: { dry?: boolean }; tiles?: number[]; source?: { x: number; y: number; strength: number } };
+    if (p.verb !== "carve") continue;
+    const from = p.source ? [p.source.x, p.source.y] : p.where?.origin;
+    carved.push({
+      carved: true,
+      ...(p.settings?.dry ? { dry: true } : {}),
+      ...(from ? { from } : {}),
+      ...(p.where?.end ? { aimedAt: p.where.end } : {}),
+      ...(p.source ? { sourceStrength: p.source.strength } : {}),
+      ...(p.tiles?.length ? { changedTiles: p.tiles.length, area: boundsOf(p.tiles, W) } : {}),
+    });
+  }
+  rivers.push(...carved);
   // the counts of plants and ruins, and where each other object stands
   const counts: Record<string, number> = {};
   const objects: Record<string, unknown>[] = [];
@@ -166,6 +236,10 @@ export function describeMap(s: MapSession, opts: { tiles?: [number, number][]; c
     if (PLANTS.has(e.template) || e.template.startsWith("RuinColumn") || e.template === "Slope") {
       const k = e.template.startsWith("RuinColumn") ? "ruin column" : e.template;
       counts[k] = (counts[k] ?? 0) + 1;
+    } else if (e.template === "StartingLocation") {
+      // (the start by its middle tile, the x, y a move takes; the object stands at its 3×3's corner)
+      const st = startTile(s);
+      objects.push({ id: e.id, kind: e.template, x: st?.x ?? e.x, y: st?.y ?? e.y, z: e.z, orientation: e.orientation, footprint: "3×3 round x, y" });
     } else objects.push({ id: e.id, kind: OBJECT_NAMES[e.template] ?? e.template, x: e.x, y: e.y, z: e.z, orientation: e.orientation });
   }
   const landmarks = standingForms(b.heights, W, H, 12)
@@ -176,17 +250,18 @@ export function describeMap(s: MapSession, opts: { tiles?: [number, number][]; c
       const y = (f.peak - x) / W;
       return { peak: [x, y], level: b.heights[f.peak], rises: f.prominence, tiles: f.tiles.length, area: boundsOf(f.tiles, W) };
     });
-  const story = waterStory(W, H, b.water, s.features, b.contamination);
+  const story = waterStory(W, H, depth, s.features, contamination);
   const out: Record<string, unknown> = {
     name: s.meta.name,
     size: { x: W, y: H },
     coordinates: "Tiles: X 0 to width−1 from west to east, Y 0 to height−1 from south to north. A tile's index is y·width + x. Levels count up from 0.",
-    start: b.start ? { x: b.start.x, y: b.start.y, z: b.start.z } : null,
+    start: startTile(s),
     description: s.description().text,
     water: { bodies: water, story: { mainShare: story.mainShare, otherSystems: story.systems, ponds: story.ponds, readable: story.readable } },
     sources,
     rivers,
     features,
+    ...(s.mode === "import" ? { featuresNote: "An opened map or a real place has no generator's features: its lakes and rivers are not listed; its waterfalls are read from its water." } : {}),
     landmarks,
     objects,
     counts,

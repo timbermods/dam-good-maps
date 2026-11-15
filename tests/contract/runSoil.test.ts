@@ -159,13 +159,21 @@ describe("soil per run top (3D view, part 3)", () => {
     expect(runSoilAt(RunSoil.build(W, H, runs, view.water), x, y, z)!.soil).toBe(soilNibbles(runs.moisture[r], runs.contamination[r]));
     // a ruin two storeys high on the floor (under the roof) reads the floor's soil, the same ruin on the roof the roof's.
     // This floor's water is bad, and a ruin on contaminated soil shows its dry model, as the game's does (D178 as
-    // amended, #710): bare here; with the floor's run cleaned (its moisture kept), overgrown, and still bare on the roof
-    const ruin = (level: number, s = soil) => buildEntities(entityView([{ template: "RuinColumnH2", x, y, z: level, orientation: "Cw0", owner: "import" }]), new ShaderMaterial(), s, W).group.children.map((c) => c.name);
+    // amended, #710, `ruinOvergrown`): the dry model's ivy (`Ivy_Dry`: its foot alone, not dense), the same as on the
+    // dry roof; with the floor's run cleaned (its moisture kept), its wet model's (`Ivy_Wet`: the foot dense, the
+    // storey above it too). The batch names say the amount: `scaffold.ivy.[<variant>0.]<light|medium|dense>`
+    const ruin = (level: number, s = soil) =>
+      buildEntities(entityView([{ template: "RuinColumnH2", x, y, z: level, orientation: "Cw0", owner: "import" }]), new ShaderMaterial(), s, W)
+        .group.children.map((c) => c.name)
+        .filter((n) => /\.ivy\./.test(n))
+        .sort();
     expect(runs.contamination[r], "the floor's water is contaminated").toBeGreaterThan(0);
-    expect(ruin(z).filter((n) => /\.ivy/.test(n)), "the ruin on the moist, contaminated floor: none").toEqual([]);
     const clean = { ...soil, runs: { ...runs, contamination: runs.contamination.map((c, k) => (k === r ? 0 : c)) } };
-    expect(ruin(z, clean).filter((n) => /\.ivy$/.test(n)), "the ruin on the moist, clean floor: ivy at its foot").toHaveLength(1);
-    expect(ruin(8, clean).filter((n) => /\.ivy/.test(n)), "the ruin on the dry roof: none").toEqual([]);
+    expect(ruin(8, clean), "the ruin on the dry roof: the dry model's ivy, at its foot alone").toEqual(["scaffold.ivy.medium"]);
+    expect(ruin(z), "the ruin on the moist, contaminated floor: the dry model's, as on the dry roof").toEqual(ruin(8, clean));
+    const wet = ruin(z, clean);
+    expect(wet, "the ruin on the moist, clean floor: the wet model's, its foot dense and the storey above clad").toContain("scaffold.ivy.dense");
+    expect(wet).toHaveLength(2);
     // without the runs (every map without terrain above terrain): the tile's top, as before
     expect(objectSoilAt({ moisture: soil.moisture, contamination: soil.contamination }, W, x, y, z)).toEqual({ moisture: 0, contamination: soil.contamination[i] });
   });

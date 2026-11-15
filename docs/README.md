@@ -19,6 +19,7 @@ how things are and what is next, not how they got there.
 | [PERFECT.md](PERFECT.md) | What perfect means: Kyler's yardstick for every piece of work and every review (D225). |
 | [MAPCRAFT.md](MAPCRAFT.md) | What makes a map good, from first principles: the ten principles, the craft step by step, the budgets and measures, and what each step asks of the generator and the editor. |
 | [PREMISES.md](PREMISES.md) | A design, its first step built (the model and the lake stair's plan, `src/core/premise/`): how the generator makes a map from a premise (a one-line problem with its water story, skeleton, start, ladder of works and invariants), stage by stage, in seconds; the lake stair in full, two more premises sketched, how premise maps are judged, and the build order. Read it before building any of it. |
+| [design/poisoned-floodplain.md](design/poisoned-floodplain.md) | A design, not yet built: the premise after the wall with one gate. A river valley whose widest flat is dead along a red stream; the player turns the stream into a dry side valley and brings the river in behind it. The land as geology makes it, the three bands by the game's soil rules, the search, the ladder, the invariants and the build order. Read it before building the premise. |
 | [ROADMAP.md](../ROADMAP.md) | The order of work (the release gate, the post-release list), the Codex adoptions with Kyler's verdicts, then each open step with what it delivers and what blocks it. |
 | [PLAN.md](../PLAN.md) | The product: the generator, the checks, the interface. Its §20 points to the decisions in force. |
 | [decisions/](decisions/README.md) | The decisions in force, by topic, one file per topic, with an index. Read the index, then `how-we-work.md`, then only the topic files your task touches. |
@@ -33,7 +34,7 @@ how things are and what is next, not how they got there.
 | [GLOSSARY.md](GLOSSARY.md) | The shared terms (force, working area, candidate, the absolutes and the rest), each defined once with the decision that set it. |
 | [decisions-pending.md](decisions-pending.md) | The open pending defaults only: choices the session made while Kyler was away, with the next pending number. |
 | Folder READMEs | Each `src/core/` folder, `src/worker/`, `tools/` and `prototype/` has a short README: its purpose, rules, entry points and tests. Keep it current when the folder's rules or entry points change. |
-| `.claude/agents/` | The agent definitions (`build`, `build-light`, `build-light-medium`, `routine`, `m9b-build` and two kept, unused); HANDOFF's models table says which work goes to which. |
+| `.claude/agents/` | The agent definitions (`build`, `build-light`, `build-light-medium`, `routine`); HANDOFF's models table says which work goes to which. |
 
 ## Investigations
 

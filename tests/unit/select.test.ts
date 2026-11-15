@@ -140,6 +140,18 @@ describe("Select's Ctrl+click on land", () => {
     expect(t.sampled).toEqual([]);
     expect(t.sel.count).toBe(6);
   });
+
+  it("Select's Add / Take away toggle adds or takes away a plain drag, as Shift and Alt do (#1074 slice 6)", () => {
+    // (20 tiles open; the drag's 6 share one with them)
+    for (const [how, count] of [["add", 25], ["subtract", 19], ["set", 6]] as const) {
+      const t = setup("rect");
+      t.host.combine = () => how;
+      t.tool.down(hitAt(6, 5), press(false));
+      t.tool.move(hitAt(8, 6), press(false));
+      t.tool.up(hitAt(8, 6) as never, press(false));
+      expect(t.sel.count, how).toBe(count);
+    }
+  });
 });
 
 // A hit on a run under an overhang (3D view, part 5): the Level number and the Wand read the level of the

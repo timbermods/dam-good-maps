@@ -156,6 +156,9 @@ export interface PremiseLand {
   ramps?: [number, number][];
   /** The dry washes and the old bed cut into it once the start was put (`washes.ts`). */
   washes?: Wash[];
+  /** Where the life stage lays one ruin group, on the top of a rise the land made for it (the gate's basin,
+   *  `gateLand.ts` `BASIN_MARKS`): a map tile. */
+  ruinsAt?: [number, number];
 }
 
 export function premiseLand(plan: PremisePlan, water: StageWater = waterByNumber(plan), style?: PremiseStyle, bench = 0, reach = 0): PremiseLand {
@@ -223,7 +226,7 @@ export function premiseFinish(p: PremiseBase): PremiseMap {
   const { spec, plan, land, ladder, style, features, field, settleCache, base, notes } = p;
   const { water, heights } = land;
   const t6 = performance.now();
-  const life = premiseLife(spec, plan, water, ladder, base, features, spec.accepted?.attempt ?? 0, style?.woods ?? null, land.washes ? bedMask(land.washes, plan.W * plan.H) : null);
+  const life = premiseLife(spec, plan, water, ladder, base, features, spec.accepted?.attempt ?? 0, style?.woods ?? null, land.washes ? bedMask(land.washes, plan.W * plan.H) : null, land.ruinsAt ?? null);
   notes.push(...life.notes);
   features.push(...life.features);
   const built = buildMap({ W: plan.W, H: plan.H, seed: spec.seed, features, field }, { settleCache });

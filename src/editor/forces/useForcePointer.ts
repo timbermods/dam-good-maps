@@ -42,6 +42,9 @@ export function useForcePointer(ed: Ed): ForcePointerSlice {
     const g = new FreehandPath(infoRef.current.W, infoRef.current.H);
     const t: PointerTool = {
       surface: true,
+      // (a finger: the marker shows above it; a drag draws the line from there, the lift unleashes it, or held still the
+      // lift strikes there; render3d/touch.ts)
+      finger: "line",
       down: (hit, ev) => {
         if (ev.button !== 0 || !hit || forcer.current?.running) return false;
         g.down({ x: hit.x, y: hit.y }, ev.clientX, ev.clientY);
@@ -192,6 +195,9 @@ export function useForcePointer(ed: Ed): ForcePointerSlice {
     };
     const t: PointerTool = {
       surface: true,
+      // (a finger: the marker shows above it; Craterize's drag moves it and the lift strikes there (one impact, D368 (7));
+      // Erupt's and Quake's drag draws the fissure or the fault from there, the lift unleashes it; render3d/touch.ts)
+      finger: verb === "craterize" ? "aim" : "line",
       down: (hit, ev) => {
         if (ev.button !== 0 || !hit || forcer.current?.running) return false;
         cancelAnimationFrame(wordFrame);
@@ -331,6 +337,9 @@ export function useForcePointer(ed: Ed): ForcePointerSlice {
     };
     const t: PointerTool = {
       surface: true,
+      // (a finger: the marker shows above it; a drag draws the line from there, the lift unleashes it, or held still the
+      // lift strikes there; render3d/touch.ts)
+      finger: "line",
       down: (hit, ev) => {
         if (ev.button !== 0 || !hit || forcer.current?.running) return false;
         const at = point(hit);
@@ -404,6 +413,9 @@ export function useForcePointer(ed: Ed): ForcePointerSlice {
       startForce(verb === "rift" ? { verb, settings: riftSettingsOf(riftUiRef.current), path, cut: renderer.current?.slice ?? null } : verb === "erode" ? { verb, settings: erodeSettingsOf(erodeUiRef.current), path, cut: renderer.current?.slice ?? null } : { verb, settings: depositSettingsOf(depositUiRef.current), path, cut: renderer.current?.slice ?? null });
     const t: PointerTool = {
       surface: true,
+      // (a finger: the marker shows above it; a drag draws the line from there, the lift unleashes it, or held still the
+      // lift strikes there; render3d/touch.ts)
+      finger: "line",
       down: (hit, ev) => {
         if (ev.button !== 0 || !hit || forcer.current?.running) return false;
         g.down(point(hit), ev.clientX, ev.clientY);

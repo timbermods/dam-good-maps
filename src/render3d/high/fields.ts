@@ -101,10 +101,10 @@ export function pageBaker(): Baker {
 
 let textureShared: Baker | null = null;
 
-/** A texture made once a page (renderer.ts: the water's surface, badwater's and contaminated ground's patterns, or the
- *  light look's), in a worker of its own, so the first map's moving water never waits behind it in the page's bake
- *  worker; the worker is closed once it has nothing left to make. */
-export function textureBake(job: Extract<Job, { kind: "waterTexture" | "detailTexture" | "albedoTexture" }>): Promise<BakeResult> {
+/** A texture made once a page (renderer.ts: the water's surface, badwater's and contaminated ground's patterns, the
+ *  objects' patterns, or the light look's), in a worker of its own, so the first map's moving water never waits behind
+ *  it in the page's bake worker; the worker is closed once it has nothing left to make. */
+export function textureBake(job: Extract<Job, { kind: "waterTexture" | "detailTexture" | "albedoTexture" | "objectPatterns" }>): Promise<BakeResult> {
   const b = (textureShared ??= new Baker());
   const done = () => {
     if (textureShared === b && b.idle) {

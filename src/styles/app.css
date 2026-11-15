@@ -88,6 +88,18 @@ html {
   }
 }
 
+/* a long press is the page's own (a control's tooltip, a card's selection, #1074): never iOS's callout on a card, a button
+   or a picture, on a phone or a tablet, in the editor or a dialog over it; a link and a field keep theirs */
+@media (pointer: coarse) {
+  html {
+    -webkit-touch-callout: none;
+  }
+
+  :where(a[href], input, textarea, [contenteditable="true"]) {
+    -webkit-touch-callout: default;
+  }
+}
+
 /* but never over the editor: a drag on the map is the map's, never a pull to refresh (#1074) */
 html:has(.editor) {
   overscroll-behavior: none;

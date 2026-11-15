@@ -14,6 +14,7 @@ import { planEntity, planMoveEntity, withSpringPools } from "../../src/core/doc/
 import { MapSession } from "../../src/core/doc/session";
 import { newRampedStroke } from "../../src/core/doc/strokes";
 import { planStart } from "../../src/core/doc/tools";
+import { startMiddle } from "../../src/core/doc/start";
 import { planFill, unfedWater } from "../../src/core/doc/waterEdits";
 import { applyLakeLevel } from "../../src/core/doc/lakeLevel";
 import { applyCanal } from "../../src/core/doc/canal";
@@ -31,15 +32,21 @@ import { QUAKE_DEFAULTS } from "../../src/core/forces/quake";
 import { RIFT_DEFAULTS } from "../../src/core/forces/rift";
 import type { ForceRequest } from "../../src/core/forces/start";
 import { generate, type GenerateResult } from "../../src/core/gen/generate";
-import { INTENTIONS } from "../../src/core/land/intentions";
+import { intentionRefusal } from "../../src/core/land/intentionTable";
 import { canonicalRun, type CanonicalWater } from "../../src/core/sim/prefill";
 import { worldWaterModel } from "../../src/core/sim/stackWater";
 import type { WaterModel } from "../../src/core/sim/water";
 import { applyMergePatch } from "../../src/core/spec/mergepatch";
 import {
+  DEFAULT_THEME,
   generatorSizeRefusal,
   highestTerrainDefault,
   makeSpec,
+  MAX_SIDE,
+  MIN_SIDE,
+  PREMISE_CHOICES,
+  PREMISE_NAMES,
+  type PremiseChoice,
   seedFromText,
   SIZE_PRESETS,
   THEMES,
@@ -61,7 +68,7 @@ const refuse = (why: string): never => {
 // ------------------------------------------------------------------------------------------- the open maps
 
 /** The maps open in this server, by handle. Each holds a whole map and its history, so only the latest few stay. */
-const MOST_OPEN = 6;
+export const MOST_OPEN = 6;
 const open = new Map<string, MapSession>();
 /** Handles of maps the generator is still making (jobs.ts). */
 const making = new Set<string>();
@@ -92,7 +99,14 @@ export function mapOf(handle: string): MapSession {
   if (s) return s;
   if (making.has(handle)) refuse(`Map ${handle} is not ready yet: call wait with it`);
   const have = [...open.keys()];
-  return refuse(`There is no open map "${handle}"${have.length ? `: the open maps are ${have.join(", ")}` : ": generate or open a map first"}`);
+  return refuse(
+    `There is no open map "${handle}"${have.length ? `: the open maps are ${have.join(", ")}` : ""}. Only the newest ${MOST_OPEN} maps stay open: open its saved project, or generate it again with the same input and seed`,
+  );
+}
+
+/** Keep a map opened elsewhere (a real place, places.ts) under a new handle. */
+export function keepMap(s: MapSession): string {
+  return keep(s);
 }
 
 /** Forget every open map (the tests). */
@@ -111,6 +125,8 @@ export interface GenerateInput {
   designedFor?: string;
   settings?: Record<string, unknown>;
   intentions?: string[];
+  /** "none", "any", or a premise by its id or its name (the page's list, PREMISE_CHOICES). */
+  premise?: string;
 }
 
 export interface Generated {
@@ -119,13 +135,14 @@ export interface Generated {
   /** The intentions the map was steered toward, and whether each emerged (D138, D139: said honestly). */
   intentions: { id: string; ok: boolean; note: string }[];
   ms: number;
+  /** A map whose spec named a premise: the premise it was made from, or why the themes made it instead, in words. */
+  premise?: string;
 }
 
 /** What a finished job keeps of its map: the handle, the intentions and the time, never the session. The session
  *  lives in the open maps alone, so the bound on them (MOST_OPEN) is the bound on the maps held. */
 export type Made = Omit<Generated, "session">;
 
-const SIDE_MAX = 256;
 
 function sizeOf(v: GenerateInput["size"]): { x: number; y: number } {
   if (v === undefined) return { x: 128, y: 128 };
@@ -140,13 +157,33 @@ function sizeOf(v: GenerateInput["size"]): { x: number; y: number } {
   return { x: v.x, y: v.y };
 }
 
+/** A premise as generate takes it: none (undefined), Any, or one of the page's premises by its id or its name. */
+export function premiseOf(v: string | undefined): PremiseChoice | undefined {
+  if (v === undefined) return undefined;
+  const key = v.trim().toLowerCase();
+  if (key === "none") return undefined;
+  const found = PREMISE_CHOICES.find((p) => p.toLowerCase() === key || PREMISE_NAMES[p].toLowerCase() === key);
+  if (!found) refuse(`The premise is none, ${PREMISE_CHOICES.map((p) => PREMISE_NAMES[p]).join(", ")}`);
+  return found;
+}
+
+/** What a premise map was made from, in words: the card's (the page's map card), or why the themes made it. */
+function premiseWords(r: GenerateResult): string | undefined {
+  const p = r.info.premise;
+  if (!p) return undefined;
+  if (p.fellBack) return `${p.fellBack}.`;
+  const card = p.card;
+  if (!card) return `${PREMISE_NAMES[p.id as PremiseChoice] ?? p.id}.`;
+  return [`${card.name}, in the ${card.style} style. ${card.line}`, `Landmark: ${card.landmark}.`, ...(card.first ? [`First: ${card.first}`] : [])].join(" ");
+}
+
 /** The spec that a generate call asks for, as the page's Generate makes it (src/ui/App.tsx), or the refusal of its
  *  input. `seedWord`: a seed given in words, which names the file. */
 export function specOf(input: GenerateInput): { spec: MapSpec; seedWord?: string } {
-  const theme = (input.theme ?? "any") as ThemeId;
+  const theme = (input.theme ?? DEFAULT_THEME) as ThemeId;
   if (!THEMES.includes(theme)) refuse(`The theme is one of ${THEMES.join(", ")}`);
   const size = sizeOf(input.size);
-  if (!Number.isInteger(size.x) || !Number.isInteger(size.y) || size.x < 1 || size.y < 1 || size.x > SIDE_MAX || size.y > SIDE_MAX) refuse(`A side is a whole number of tiles up to ${SIDE_MAX}`);
+  if (!Number.isInteger(size.x) || !Number.isInteger(size.y) || size.x < MIN_SIDE || size.y < MIN_SIDE || size.x > MAX_SIDE || size.y > MAX_SIDE) refuse(`A side is a whole number of tiles from ${MIN_SIDE} to ${MAX_SIDE}`);
   const small = generatorSizeRefusal(size.x, size.y, theme);
   if (small) refuse(small);
   const designedFor = (input.designedFor ?? "normal") as Difficulty;
@@ -164,7 +201,8 @@ export function specOf(input: GenerateInput): { spec: MapSpec; seedWord?: string
     seed = seedFromText(word);
     if (!/^\d+$/.test(word)) seedWord = word;
   }
-  const spec = makeSpec({ seed, size, theme, designedFor });
+  const premise = premiseOf(input.premise);
+  const spec = makeSpec({ seed, size, theme, designedFor, ...(premise ? { premise } : {}) });
   if (input.settings) {
     const patched = applyMergePatch(spec.settings, input.settings);
     // (the highest the land may rise follows Verticality unless it is given, as the page's row keeps them together)
@@ -173,7 +211,11 @@ export function specOf(input: GenerateInput): { spec: MapSpec; seedWord?: string
     spec.settings = patched;
   }
   if (input.intentions?.length) {
-    for (const id of input.intentions) if (!(INTENTIONS as readonly string[]).includes(id)) refuse(`"${id}" is not an intention: they are ${INTENTIONS.join(", ")}`);
+    // (offered by theme, as the table every surface reads says: core/land/intentionTable.ts)
+    for (const id of input.intentions) {
+      const why = intentionRefusal(id, theme);
+      if (why) refuse(why);
+    }
     spec.intentions = [...input.intentions];
   }
   const errors = validateSpec(spec);
@@ -190,7 +232,8 @@ export function openGenerated(r: GenerateResult, ms: number, seedWord?: string, 
     refuse(`This map did not pass its checks${failed.length ? ` (${failed.slice(0, 3).join("; ")})` : ""}: try another seed or other settings`);
   }
   const session = MapSession.fromGenerated(r, r.file, seedWord);
-  return { handle: keep(session, handle), session, intentions: r.intentions.map((x) => ({ id: x.id, ok: x.ok, note: x.note })), ms };
+  const premise = premiseWords(r);
+  return { handle: keep(session, handle), session, intentions: r.intentions.map((x) => ({ id: x.id, ok: x.ok, note: x.note })), ms, ...(premise ? { premise } : {}) };
 }
 
 /** Generate a map on this thread and open it, as the page's Generate does (src/worker/api.ts `runGenerate`). The
@@ -230,29 +273,90 @@ export interface Change {
   steps: string[];
   ground: { tiles: number; raised: number; lowered: number; most: number; area: { x0: number; y0: number; x1: number; y1: number } | null };
   objects: { added: Record<string, number>; removed: Record<string, number> };
-  water: { wetBefore: number; wetAfter: number };
+  /** `area`: the tiles that turned wet or dry, when any did. */
+  water: { wetBefore: number; wetAfter: number; area?: { x0: number; y0: number; x1: number; y1: number } };
   /** Tiles a stroke kept from where it would have gone, to hold up rock or an object under a roof. */
   held: number;
   /** The map's new size, after a crop. */
   size?: { x: number; y: number };
+  /** Where the start was and is, when the operations moved it (a force that breaks the start's ground carries it, D257). */
+  start?: { from: [number, number, number] | null; to: [number, number, number] | null };
+  /** What the operations did that a caller would not expect, in words for the player. */
+  notes?: string[];
+  /** After the start moved: the start checks that now fail, each with what to do (first in the result). */
+  startChecks?: string[];
 }
 
 interface Before {
   size: { x: number; y: number };
   heights: Uint8Array;
   ents: Map<string, string>;
-  wet: number;
+  wet: Uint8Array;
+  start: [number, number, number] | null;
+  /** The map showed its file's own water (an unedited import, `showsStoredWater`). */
+  stored: boolean;
 }
 
-function wetTiles(s: MapSession): number {
-  const w = s.built.water;
-  let n = 0;
-  for (let i = 0; i < w.length; i++) if (w[i] > 0.05) n++;
-  return n;
+const startOf = (s: MapSession): [number, number, number] | null => {
+  const st = startTile(s);
+  return st ? [st.x, st.y, st.z] : null;
+};
+
+/** The water a map shows, one depth and one contamination a tile: an unedited import's own water (a .timber opened, a
+ *  real place) while it keeps it (`showsStoredWater`), else the build's. */
+export function shownWater(s: MapSession): { depth: ArrayLike<number>; contamination: ArrayLike<number> } {
+  if (!s.showsStoredWater) return { depth: s.built.water, contamination: s.built.contamination };
+  const w = s.waterShown();
+  return { depth: w.depth, contamination: w.contamination };
+}
+
+/** The soil a map shows, one moisture and one contamination a tile: an unedited import's own (the file's soil on each
+ *  tile's top) while it keeps its water, else the build's. */
+export function shownSoil(s: MapSession): { moisture: ArrayLike<number>; contamination: ArrayLike<number> } {
+  if (!s.showsStoredWater) return { moisture: s.built.moisture, contamination: s.built.soilContamination };
+  return s.storedSoil();
+}
+
+/** The start's tile: the middle of its 3×3 (core/doc/start.ts `startMiddle`, the tile a start move takes), at its level.
+ *  An opened map's StartingLocation object stands at its footprint's corner; this is its middle. */
+export function startTile(s: MapSession): { x: number; y: number; z: number } | null {
+  const b = s.built;
+  if (b.start) return { x: b.start.x, y: b.start.y, z: b.start.z };
+  const m = startMiddle(s);
+  const e = b.entities.find((x) => x.template === "StartingLocation");
+  return m && e ? { x: m[0], y: m[1], z: e.z } : null;
+}
+
+function wetMask(s: MapSession): Uint8Array {
+  const w = shownWater(s).depth;
+  const m = new Uint8Array(w.length);
+  for (let i = 0; i < w.length; i++) m[i] = w[i] > 0.05 ? 1 : 0;
+  return m;
+}
+
+const countOf = (m: Uint8Array) => m.reduce((n, v) => n + v, 0);
+
+/** The rectangle round the tiles that turned wet or dry (null when none did, or the map's size changed). */
+function wetChange(before: Uint8Array, now: Uint8Array, W: number): { x0: number; y0: number; x1: number; y1: number } | null {
+  if (before.length !== now.length) return null;
+  let x0 = Infinity;
+  let y0 = Infinity;
+  let x1 = -1;
+  let y1 = -1;
+  for (let i = 0; i < now.length; i++) {
+    if (now[i] === before[i]) continue;
+    const x = i % W;
+    const y = (i - x) / W;
+    x0 = Math.min(x0, x);
+    y0 = Math.min(y0, y);
+    x1 = Math.max(x1, x);
+    y1 = Math.max(y1, y);
+  }
+  return x1 < 0 ? null : { x0, y0, x1, y1 };
 }
 
 function snapshot(s: MapSession): Before {
-  return { size: { ...s.size }, heights: s.built.heights.slice(), ents: new Map(s.built.entities.map((e) => [e.id, e.template])), wet: wetTiles(s) };
+  return { size: { ...s.size }, heights: s.built.heights.slice(), ents: new Map(s.built.entities.map((e) => [e.id, e.template])), wet: wetMask(s), start: startOf(s), stored: s.showsStoredWater };
 }
 
 function changeSince(s: MapSession, b: Before, steps: string[], held: number): Change {
@@ -291,13 +395,53 @@ function changeSince(s: MapSession, b: Before, steps: string[], held: number): C
     steps,
     ground: { tiles, raised, lowered, most, area: tiles ? { x0, y0, x1, y1 } : null },
     objects: { added, removed },
-    water: { wetBefore: b.wet, wetAfter: wetTiles(s) },
+    water: (() => {
+      const now = wetMask(s);
+      const area = wetChange(b.wet, now, W);
+      return { wetBefore: countOf(b.wet), wetAfter: countOf(now), ...(area ? { area } : {}) };
+    })(),
     held,
     ...(s.size.x !== b.size.x || s.size.y !== b.size.y ? { size: { ...s.size } } : {}),
   };
 }
 
-const FORCE_DEFAULTS: Record<string, Record<string, unknown>> = {
+const xy = (p: [number, number, number] | null) => (p ? `X ${p[0]} · Y ${p[1]}, level ${p[2]}` : "nowhere");
+
+/** The notes a change gets: the start moved, sources a force cleared, a crater with no water. `verbs`: the forces among
+ *  the operations; `movedStart`: an operation that moved the start on purpose. */
+/** A drop in wet tiles worth a note: more than this share of them. */
+export const WATER_DROP_NOTE = 0.1;
+
+function notesOf(c: Change, b: Before, now: [number, number, number] | null, verbs: string[], movedStart: boolean, storedNow: boolean): Change {
+  const notes: string[] = [];
+  // the water of the whole map settles again after an edit: a file's own water gives way to what its sources keep
+  const { wetBefore, wetAfter } = c.water;
+  if (b.stored && !storedNow && wetAfter !== wetBefore)
+    notes.push(`This map showed its file's own water; after an edit it shows the water its sources keep once it settles: ${wetBefore} wet tiles before, ${wetAfter} after, across the whole map. Undo brings the file's water back.`);
+  else if (wetAfter < wetBefore * (1 - WATER_DROP_NOTE))
+    notes.push(`The water changed beyond the edit: the whole map's water settles again after each edit, ${wetBefore} wet tiles before, ${wetAfter} after.`);
+  const same = b.start && now && b.start[0] === now[0] && b.start[1] === now[1] && b.start[2] === now[2];
+  if (!same && (b.start || now)) {
+    c.start = { from: b.start, to: now };
+    if (!movedStart && verbs.length)
+      notes.push(`The force broke the ground under the start, so the start moved from ${xy(b.start)} to ${xy(now)}. Undo, or give the force a smaller size or another place, to keep the start where it was.`);
+  }
+  if (verbs.length) {
+    const water = c.objects.removed.WaterSource ?? 0;
+    const bad = c.objects.removed.BadwaterSource ?? 0;
+    if (water + bad)
+      notes.push(`The force cleared ${[water ? `${water} water source${water > 1 ? "s" : ""}` : "", bad ? `${bad} badwater source${bad > 1 ? "s" : ""}` : ""].filter(Boolean).join(" and ")} on the ground it changed. To keep sources, give settings.sources "ride".`);
+  }
+  if (verbs.includes("craterize")) {
+    if (c.ground.lowered === 0 && c.ground.tiles > 0)
+      notes.push("No bowl formed: the ground there is too low for the crater to dig (a force never cuts below its floor, level 1 unless settings.floor is given), so only its rim rose. Craterize higher ground for a bowl.");
+    notes.push("A crater is a dry bowl. For a crater lake, place a WaterSource in the bowl with placeEntity.");
+  }
+  if (notes.length) c.notes = notes;
+  return c;
+}
+
+export const FORCE_DEFAULTS: Record<string, Record<string, unknown>> = {
   carve: CARVE_DEFAULTS as unknown as Record<string, unknown>,
   craterize: CRATER_DEFAULTS as unknown as Record<string, unknown>,
   erupt: ERUPT_DEFAULTS as unknown as Record<string, unknown>,
@@ -308,6 +452,15 @@ const FORCE_DEFAULTS: Record<string, Record<string, unknown>> = {
   erode: ERODE_DEFAULTS as unknown as Record<string, unknown>,
 };
 
+/** Where the server's default differs from the page's row: a Craterize the page sizes by Power (54 across at its default
+ *  55: the trial's crater took 4,015 tiles of a 96 map and moved the start) is 20 across here unless size is given (its
+ *  rim stands 5 to 6 levels over its middle, about 900 tiles changed, on River Valley 128 seed 3); null still follows
+ *  Power. */
+export const MCP_DEFAULTS: Record<string, Record<string, unknown>> = { craterize: { size: 20 } };
+
+/** A force's defaults as this server applies them: the page's row's, with the server's own over them. */
+export const forceDefaults = (verb: string): Record<string, unknown> => ({ ...FORCE_DEFAULTS[verb], ...(MCP_DEFAULTS[verb] ?? {}) });
+
 type Pair = [number, number];
 
 /** A force as the editor's row starts it (src/editor/forces/useForceRun.tsx `startForce`): the verb, its settings over
@@ -317,11 +470,13 @@ function forceRequestOf(s: MapSession, p: Record<string, unknown>): ForceRequest
   if (!(verb in FORCE_DEFAULTS)) refuse(`A force's verb is one of ${Object.keys(FORCE_DEFAULTS).join(", ")}`);
   const where = (p.where ?? {}) as { origin?: Pair; end?: Pair; path?: Pair[]; side?: 1 | -1; source?: string };
   const given = (p.settings ?? {}) as Record<string, unknown>;
-  const seed = typeof given.seed === "number" ? given.seed : (Math.imul(s.nextSeq + 1, 0x9e3779b1) >>> 0);
+  // (a new force starts at its row's seed, as the page's worker starts one, `req.settings.seed ?? 0`: the same call makes
+  // the same land; another seed is the page's Try another)
+  const seed = typeof given.seed === "number" ? given.seed : ((FORCE_DEFAULTS[verb].seed as number | undefined) ?? 0);
   // a Carve or a Craterize given an end is aimed, as a drag aims the editor's (CarveRow.tsx, ForceRows.tsx): a carve
   // aimed cuts through rises to get there (D289)
   const aimed = where.end && (verb === "carve" || verb === "craterize") ? { mode: "aim", ...(verb === "carve" ? { defyGravity: true } : {}) } : {};
-  const settings = { ...FORCE_DEFAULTS[verb], ...aimed, ...given, seed };
+  const settings = { ...FORCE_DEFAULTS[verb], ...(MCP_DEFAULTS[verb] ?? {}), ...aimed, ...given, seed };
   const path = where.path?.map(([x, y]) => ({ x, y }));
   const point = (k: "origin" | "end"): Pair | undefined => (where[k] ? [where[k]![0], where[k]![1]] : undefined);
   const base = { settings, cut: null, natural: true } as const;
@@ -352,6 +507,30 @@ function runTiles(runs: readonly (readonly number[])[], W: number): number[] {
   const out: number[] = [];
   for (const [y, a, b] of runs) for (let x = a; x <= b; x++) out.push(y * W + x);
   return out;
+}
+
+/** How far round a refused placement the nearest tile it could take is looked for. */
+export const NEAREST_MOST = 10;
+
+/** A placement's refusal, with the nearest tile where the core's own planner (`fits`) would take it, nearest first
+ *  within NEAREST_MOST tiles, when there is one: the core's reason stands first, word for word. */
+function withNearest(why: string, x: unknown, y: unknown, fits: (x: number, y: number) => boolean): string {
+  if (typeof x !== "number" || typeof y !== "number") return why;
+  const near: [number, number, number][] = [];
+  for (let dy = -NEAREST_MOST; dy <= NEAREST_MOST; dy++)
+    for (let dx = -NEAREST_MOST; dx <= NEAREST_MOST; dx++) if (dx || dy) near.push([dx * dx + dy * dy, x + dx, y + dy]);
+  near.sort((a, b) => a[0] - b[0] || a[2] - b[2] || a[1] - b[1]);
+  for (const [d2, tx, ty] of near) {
+    if (d2 > NEAREST_MOST * NEAREST_MOST) break;
+    let ok = false;
+    try {
+      ok = fits(tx, ty);
+    } catch {
+      ok = false;
+    }
+    if (ok) return `${why}. The nearest tile where it can go is X ${tx} · Y ${ty}`;
+  }
+  return `${why}. No tile within ${NEAREST_MOST} of it can take it`;
 }
 
 /** One request, made into the step the page would take for it: its operations, or a force kept whole. */
@@ -437,12 +616,13 @@ function applyOne(s: MapSession, raw: unknown): { label: string; held: number } 
       // the start moves (or is placed) by its own rule (core/doc/tools.ts `planStart`)
       if (p.template === "StartingLocation") {
         const plan = planStart(s, p.x as number, p.y as number, p.orientation as never, () => id, p.z as number | undefined);
-        if (!plan.ok) refuse(plan.errors[0]);
+        if (!plan.ok) refuse(withNearest(plan.errors[0], p.x, p.y, (x, y) => planStart(s, x, y, p.orientation as never, () => id).ok));
         const ok = plan as { ops: EditOp[]; label: string };
         return done(s.applyAll(ok.ops, "user", label ?? ok.label), label ?? ok.label);
       }
       const plan = planEntity(s, { template: p.template as string, x: p.x as number, y: p.y as number, orientation: (p.orientation as never) ?? "Cw0", ...(p.flipped ? { flipped: true } : {}), ...(p.z !== undefined ? { z: p.z as number } : {}), ...(p.components ? { components: p.components as Record<string, unknown> } : {}) }, id);
-      if (!plan.ok) refuse(plan.errors[0]);
+      if (!plan.ok)
+        refuse(withNearest(plan.errors[0], p.x, p.y, (x, y) => planEntity(s, { template: p.template as string, x, y, orientation: (p.orientation as never) ?? "Cw0", ...(p.flipped ? { flipped: true } : {}), ...(p.components ? { components: p.components as Record<string, unknown> } : {}) }, id).ok));
       // (the planner levels the footprint itself, a badwater source's spring pool included: the shelf's `applyTool`)
       const ok = plan as { ops: EditOp[]; label: string };
       return done(s.applyAll(ok.ops, "user", label ?? ok.label), label ?? ok.label);
@@ -451,7 +631,7 @@ function applyOne(s: MapSession, raw: unknown): { label: string; held: number } 
       const e = s.built.entities.find((g) => g.id === p.id);
       if (e?.template === "StartingLocation") {
         const plan = planStart(s, p.x as number, p.y as number, p.orientation as never, () => randomUUID(), p.z as number | undefined);
-        if (!plan.ok) refuse(plan.errors[0]);
+        if (!plan.ok) refuse(withNearest(plan.errors[0], p.x, p.y, (x, y) => planStart(s, x, y, p.orientation as never, () => "probe").ok));
         const ok = plan as { ops: EditOp[]; label: string };
         return done(s.applyAll(ok.ops, "user", label ?? ok.label), label ?? ok.label);
       }
@@ -484,6 +664,15 @@ export function applyOps(s: MapSession, ops: unknown[]): Change {
   const at = depth();
   const steps: string[] = [];
   let held = 0;
+  // (the forces among the operations, and whether one moved the start on purpose: for the change's notes)
+  const verbs: string[] = [];
+  let movedStart = false;
+  const startId = s.built.entities.find((e) => e.template === "StartingLocation")?.id;
+  for (const op of ops) {
+    const { op: name, params } = (op ?? {}) as { op?: string; params?: Record<string, unknown> };
+    if (name === "forceResult" && typeof params?.verb === "string") verbs.push(params.verb);
+    if ((name === "placeEntity" && params?.template === "StartingLocation") || (name === "moveEntity" && startId !== undefined && params?.id === startId)) movedStart = true;
+  }
   try {
     for (const op of ops) {
       const r = applyOne(s, op);
@@ -491,13 +680,43 @@ export function applyOps(s: MapSession, ops: unknown[]): Change {
       held += r.held;
     }
   } catch (e) {
+    // (the steps this call made are taken back and never come back by redo; a refusal before any step leaves the
+    // history, its redo too, as it was, as the page's refused edit does)
+    const made = depth() > at;
     while (depth() > at && s.undo()) {
       // (taken back to where the call found the map)
     }
-    s.forgetRedo();
+    if (made) s.forgetRedo();
     throw e;
   }
-  return changeSince(s, before, steps, held);
+  const c = notesOf(changeSince(s, before, steps, held), before, startOf(s), verbs, movedStart, s.showsStoredWater);
+  // a start that moved is never silent (planning, 2026-11-14): the start checks that now fail come first
+  const failing = c.start ? startChecksFailing(s) : [];
+  return failing.length ? { startChecks: failing, ...c } : c;
+}
+
+/** What to do about a start check that fails, by its id: one short clause. */
+const START_MENDS: Record<string, string> = {
+  "start.water": "move the start to ground that walks to clean water, or lead water to it (canal, or a WaterSource with placeEntity)",
+  "start.reach": "move the start to ground that walks further without building, or add slopes",
+  "start.dry": "move the start off the water",
+  "start.badwater": "move the start away from badwater",
+  "start.flat": "move the start to flatter ground",
+  "start.level_land": "move the start to a wider level bench",
+  "start.farmland": "move the start nearer moist ground",
+  "start.forester": "move the start nearer moist ground",
+  "start.food": "use the check's fix, or move the start nearer berries",
+  "start.wood": "use the check's fix, or move the start nearer trees",
+  "start.wood_fast": "use the check's fix, or move the start nearer trees",
+  "start.wood_floor": "use the check's fix, or move the start nearer trees",
+};
+
+/** The start checks that fail now (the export's checks, as check runs them), one line each with what to do. */
+export function startChecksFailing(s: MapSession): string[] {
+  const c = checksOf(s);
+  return [...c.blocking, ...c.warnings]
+    .filter((x) => x.id.startsWith("start."))
+    .map((x) => `${rowOf(x).message}: ${START_MENDS[x.id] ?? "move the start, or change the land round it"}.`);
 }
 
 /** Undo the last step: its label, or the core's reason it can't (D455's save point). */
@@ -506,6 +725,14 @@ export function undoStep(s: MapSession): { undone: string } {
   if (!last) refuse("There is nothing to undo");
   if (!s.undo()) refuse(s.undoStopped ?? "There is nothing to undo");
   return { undone: last!.label };
+}
+
+/** Redo the step undo took back last: its label, or the refusal that there is nothing to redo. A new edit after an undo
+ *  clears what redo would bring back, in the core's history as on the page. */
+export function redoStep(s: MapSession): { redone: string } {
+  const next = s.history().find((h) => !h.applied);
+  if (!next || !s.canRedo || !s.redo()) refuse("There is nothing to redo");
+  return { redone: next!.label };
 }
 
 // --------------------------------------------------------------------------------------------------- checks
@@ -552,7 +779,33 @@ export function checksOf(s: MapSession): CheckGroups {
 /** A check's row in plain data: its words, where, and its one-click fix when it has one. */
 export function rowOf(c: CheckItem): { id: string; message: string; where?: unknown; fix?: unknown[] } {
   const fix = c.fix?.length && JSON.stringify(c.fix).length <= 4000 ? c.fix : undefined;
-  return { id: c.id, message: c.id === "start.count" && c.message === NO_START ? NO_START_REFUSAL : c.message, ...(c.where ? { where: c.where } : {}), ...(fix ? { fix } : {}) };
+  return {
+    id: c.id,
+    message: c.id === "start.count" && c.message === NO_START ? NO_START_REFUSAL : c.message,
+    ...(c.id === "start.water" ? { counts: START_WATER_COUNTS } : {}),
+    ...(c.where ? { where: whereOf(c.where) } : {}),
+    ...(fix ? { fix } : {}),
+  };
+}
+
+/** What the start's water check counts (rust/checks/src/water.rs: PUMP_DEPTH, PUMP_CLEAN, PUMP_REACH, WALK_LIMIT), in words:
+ *  the check's own line names no reason a near water does not count. */
+export const START_WATER_COUNTS =
+  "Water counts when it is at least 0.3 deep, under 5% badwater, a source feeds it or it lasts the drought, and its surface is at most 2 levels below a tile beside it that beavers walk to from the start without building (within 64 tiles' walk).";
+
+/** The most of each list a check's `where` gives (its objects' ids, its tiles): the rest are counted. */
+export const WHERE_MOST = 8;
+
+/** A check's `where` with each long list cut to its first WHERE_MOST, and `<list>Total` saying how many there are. */
+function whereOf(where: object): object {
+  const out: Record<string, unknown> = {};
+  for (const [k, v] of Object.entries(where)) {
+    if (Array.isArray(v) && v.length > WHERE_MOST) {
+      out[k] = v.slice(0, WHERE_MOST);
+      out[`${k}Total`] = v.length;
+    } else out[k] = v;
+  }
+  return out;
 }
 
 // ----------------------------------------------------------------------------------------------------- save

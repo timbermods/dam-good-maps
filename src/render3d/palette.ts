@@ -7,7 +7,7 @@
 // with no glow), clean water a deep teal body darkening with depth, clear in
 // the shallows (the water's own palette is waterPalette.ts, D177), and ground under water a dark
 // wet bed; a toggle switches the ground to height colours.
-// Walls are cobbled stone, lighter higher up as the game's cliffs. Colours are display values (the
+// Walls are the game's cliff rock, lighter higher up as its cliffs. Colours are display values (the
 // renderer outputs them without conversion).
 //
 // Readability follows the game's own (D334): its look and its cues, with no lightness gap or pattern
@@ -223,14 +223,14 @@ export const JUICE = {
 /** Height colours (the toggle): the low and high ends of the ramp, as before Map look. */
 export const HEIGHT_RAMP = { low: [0.478, 0.588, 0.329] as Rgb, high: [0.769, 0.698, 0.549] as Rgb } as const;
 
-/** The block walls: cobbled stone, as the game's cliffs (D497): the stone and mortar calibrated so their pattern's
- *  mean albedo (`tools/albedo-means.ts`) is the game's `CliffDetail` texture's mean, 68/62/52, and tinted by height as
- *  the game's Cliff, CliffEdge and SlopeCliff materials tint it: `_SplatGradientMin` at level 0 to `_SplatGradientMax`
- *  at `ALTITUDE_RAMP.ceiling` (22), unclamped. With **Markers** on, a pale ledge over a dark groove between levels, so
- *  levels can be counted (an editing aid, untinted). */
+/** The block walls, as the game's cliffs (D497): their rock is materials.ts `ROCK` (our texture at the game's
+ *  `CliffDetail` and `Cliff_N` statistics), tinted by height as the game's Cliff, CliffEdge and SlopeCliff materials
+ *  tint it: `_SplatGradientMin` at level 0 to `_SplatGradientMax` at `ALTITUDE_RAMP.ceiling` (22), unclamped. `stone`
+ *  is a loose stone's colour off a wall (a force's falling rock, a block's dust; `wallColor`), lighter than the rock's
+ *  mean. With **Markers** on, a pale ledge over a dark groove between levels, so levels can be counted (an editing
+ *  aid, untinted). */
 export const WALL = {
   stone: [0.347, 0.317, 0.267] as Rgb,
-  mortar: [0.112, 0.1, 0.088] as Rgb,
   ledge: [0.8, 0.78, 0.68] as Rgb,
   groove: [0.08, 0.08, 0.07] as Rgb,
   gradient: { min: [0.4157, 0.4314, 0.4745] as Rgb, max: [0.9412, 0.9255, 0.8941] as Rgb },
@@ -356,30 +356,24 @@ export const LANDMARK = {
   badSeepGap: [0.24, 0.13, 0.05] as Rgb,
 } as const;
 
-/** Ruins (Kyler's rounds, D178; D334: orange with cream, near and far, as Timberborn's references), in the game's own
- *  colours (D496): RuinColumnA..E's albedo (texture × vertex colour over their area, `tools/game-model-albedo.py`), which
- *  falls in five clusters: a pale cream (10 % of the area), a tan (11 %), a rust orange (20 %), a mid brown (37 %) and a
- *  dark brown (23 %). Ruined scaffold towers, one storey per level: thin posts, beams and braces in the rust, cream sacks
- *  and slab panels and, on moist ground, ivy (the game's: UndergroundRuins' Ivy_Wet) draped over about the lower half of
- *  the storeys, the sacks' middles showing through. From afar each storey is a block in the ruins' mean colour (what
- *  makes ruins read from afar), a cream panel set in where it has one. Until 2026-11-09 colours of our own at about
- *  twice the game's (#D4781F, #E3CF96, #405634; D334), drawn in a light of our own. Both stand apart from contaminated
- *  ground (`look-water-slopes.test.ts`). */
+/** Ruins as the game colours them (RuinColumnA..E.Model, D178 as amended 2026-11-10, D496): the means of the texels its
+ *  cut-out keeps (alpha over its `_Cutoff` 0.312) in each part of the atlas the columns use, straight in the game's light
+ *  (its material not metallic, no vertex colour): the rebar posts and rails a dark rust, the cracked concrete slabs and
+ *  floors a tan, the ivy (`Ivy_Wet`, `Ivy_Dry`) a dark olive. (Until 2026-11-10 the means of five clusters over the whole
+ *  texture, its cut-away texels too: a brighter rust #6c3519, a pale cream #816e45 for sacks and panels of our own, and
+ *  a far block in their mean; before 2026-11-09 colours of our own, D334.) Both stand apart from contaminated ground
+ *  (`look-water-slopes.test.ts`). */
 export const RUIN = {
-  /** The posts, beams and braces: the game's rust cluster. */
-  rust: [0.424, 0.209, 0.099] as Rgb,
-  /** The cream sacks and slab panels: the game's ruins' lightest colour (the brightest tenth of their area). Until
-   *  2026-11-08 #E3CF96, half again the game's, its lit faces over the bloom's knee. */
-  panel: [0.507, 0.43, 0.272] as Rgb,
-  /** The ivy: the game's (UndergroundRuins' Ivy_Wet). */
-  ivy: [0.157, 0.158, 0.087] as Rgb,
-  /** The ivy's brighter leaves, on its clusters' edges: the ivy as much lighter and yellower as ours was (#5C7F3D over
-   *  #405634). */
-  leaf: [0.225, 0.234, 0.103] as Rgb,
-  /** The far block's own colour (D305): the game's ruins' mean over their area, as they read from afar. Both the far
-   *  block's four faces and its top use it; the lattice pattern (materials.ts, `RUIN_LATTICE_SCALE`) is what tells it
-   *  apart from a solid box. */
-  far: [0.332, 0.225, 0.129] as Rgb,
+  /** The rebar posts and rails: the atlas's rebar strips. */
+  rust: [0.364, 0.185, 0.09] as Rgb,
+  /** The slabs and floors: the atlas's cracked concrete. */
+  slab: [0.425, 0.352, 0.222] as Rgb,
+  /** The ivy's leaves: the game's (the ruins' `Ivy_Wet` and `Ivy_Dry`, one atlas: the texels its leaves keep), the mean
+   *  of our pattern's (objectPatterns.ts). (Until 2026-11-14 the mean of all it keeps, its stems too, #2a2f1a, on flat
+   *  square leaves, a third of them a brighter green of Kyler's, #3c461f.) */
+  ivy: [0.148, 0.18, 0.095] as Rgb,
+  /** The ivy's stems: the texels its stems keep. */
+  ivyStem: [0.236, 0.203, 0.124] as Rgb,
 } as const;
 
 /** Slopes: a stone ramp; with **Markers** on, a pale arrow rimmed dark points uphill. */
@@ -732,18 +726,114 @@ export const LIGHT = {
   haze: [0.4470589, 0.7607844, 0.8235295] as Rgb,
 } as const;
 
-/** The start: the game's map-editor marker (StartingLocation.Model, D496), a lantern tower of pale grey stone. Its
- *  texture is a neutral grey that shades its parts, and its material (EnvironmentURP, `StartingLocationMaterial`)
- *  multiplies it by `_Color` 0.5, so the game's albedo is half the texture's grey: area-weighted means read from its model
- *  (`tools/game-model-albedo.py`: the texture walls and shaft 0.79, cornice, gallery and cap 0.84, the roof the lightest at
- *  0.96, the lantern's inside and the openings about 0.36; the whole model 0.265), straight (D178, D496), as the trees take
- *  the game's own colour in every look. (Until 2026-11-08 the texture's greys stood in for the
- *  albedo, twice the game's: a near-white tower that outshone everything round it.) */
+/** The start as the game draws it in play: the faction's district center, built where the map's StartingLocation stands
+ *  (DistrictCenter.Folktails.Model, D178 as amended 2026-11-10, D496; the Iron Teeth's is their own). Each part's
+ *  albedo, its texture's mean over the part (`tools/game-model-albedo.py`'s way), the metal's folded for our light: the
+ *  pale wood of its frame, posts, ribs and railings, the dark planks of its walls and tower, the brown of its tower's cap
+ *  and lantern's brackets, the thatch of its roofs, its round windows, the teal of the tower's emblems, the dark door and
+ *  the fire bowl's iron. (Until 2026-11-10 the game's map-editor marker, StartingLocation.Model, a lantern tower of pale
+ *  grey stone, the game's own in its editor only.) */
 export const START = {
-  stone: [0.395, 0.395, 0.395] as Rgb,
-  trim: [0.42, 0.42, 0.42] as Rgb,
-  roof: [0.4815, 0.4815, 0.4815] as Rgb,
-  dark: [0.18, 0.18, 0.18] as Rgb,
+  wood: [0.402, 0.32, 0.22] as Rgb,
+  planks: [0.191, 0.146, 0.102] as Rgb,
+  brown: [0.208, 0.162, 0.116] as Rgb,
+  thatch: [0.501, 0.405, 0.227] as Rgb,
+  window: [0.349, 0.283, 0.197] as Rgb,
+  emblem: [0.361, 0.416, 0.335] as Rgb,
+  door: [0.077, 0.058, 0.044] as Rgb,
+  iron: [0.08, 0.076, 0.062] as Rgb,
+  crown: [0.162, 0.16, 0.138] as Rgb,
+} as const;
+
+/** The Iron Teeth's start as the game draws it in play: their district center (DistrictCenter.IronTeeth.Model,
+ *  Timberborn 1.1.2.8, D178 as amended 2026-11-10, D496), drawn when the renderer is given that faction
+ *  (entities3d.ts `ironTeethCenter`; `START`, the Folktails', by default). Its measures, part by part, are in docs/progress/3d-view.md, "The Iron
+ *  Teeth's start and the fire, read". Each colour is a material's albedo read as `START`'s were
+ *  (`tools/game-model-albedo.py`: texture × vertex colour × `_Color`, the mean over the material's triangles weighted by
+ *  area, display values, as the game renders in Gamma colour space), × (1 − its metallic) sample by sample: URP's
+ *  diffuse share at its metallic folded in, as the objects' light has metallic 0 (`GAME_LIGHT.objectDiffuse`). The
+ *  environment's reflection, by the smoothness, is not folded in; `START`'s Folktails colours read 0–0.05 above this
+ *  measure on their smoother parts (pale wood, windows) and within 0.01 elsewhere. Each material, raw (albedo, metallic,
+ *  smoothness, its `_AmbientOcclusion` map's mean weighted by albedo; area in m²):
+ *  - `planks` IrregularPlanks_Grey.IronTeeth: 0.392/0.359/0.296, 0.118, 0.189, 0.938; 16.6 (the walls and the tower);
+ *  - `indigo` BaseWood_Indigo.IronTeeth: 0.160/0.188/0.161, 0.093, 0.329, 0.982; 13.1 (the floor, the corner posts, the
+ *    door's frame, the emblems' frames, the platform's rim, its spindles and rail, the bowl's stand and its blocks);
+ *  - `roof` RoofPlanks.IronTeeth: 0.150/0.155/0.119, 0.057, 0.359, 0.933; 13.6 (the roof, the band round the tower's foot
+ *    and the hood);
+ *  - `darkWood` BaseWood_DarkBrown.IronTeeth: 0.187/0.155/0.113, 0.093, 0.332, 0.988; 9.8 (the tower's corner posts, the
+ *    platform's deck, the lantern's eight beams, the hood's frame);
+ *  - `soffit` IrregularPlanks_DarkBrown.IronTeeth: 0.177/0.151/0.108, 0.118, 0.246, 0.896; 0.36 (under the hood);
+ *  - `collar` BaseWood_Grey.IronTeeth: 0.397/0.354/0.302, 0.098, 0.311, 0.985; 0.17 (round the flue's top);
+ *  - `window` and `door` WindowsAtlas.IronTeeth: 0.170/0.144/0.113, 0.101, 0.228, 0.710; 1.36, split by part: the four
+ *    round windows 0.196/0.174/0.137 (metallic 0.158), the door's leaf 0.124/0.091/0.070 (metallic 0);
+ *  - `emblem` Details.IronTeeth: 0.256/0.241/0.330, 0.086, 0.055, 0.948; 0.65 (the four emblems, blue-violet);
+ *  - `iron` BaseMetal.IronTeeth: 0.129/0.122/0.122, 0.502, 0.286, 0.979; 1.15 (the fire bowl, the same piece as the
+ *    Folktails', and the flue), its vertex colours 0.14–0.72, 0.38 over 72 % of it. */
+export const START_IRON_TEETH = {
+  planks: [0.346, 0.317, 0.261] as Rgb,
+  indigo: [0.141, 0.168, 0.145] as Rgb,
+  roof: [0.143, 0.149, 0.115] as Rgb,
+  darkWood: [0.168, 0.139, 0.101] as Rgb,
+  soffit: [0.156, 0.133, 0.095] as Rgb,
+  collar: [0.355, 0.316, 0.27] as Rgb,
+  window: [0.149, 0.127, 0.092] as Rgb,
+  door: [0.124, 0.091, 0.07] as Rgb,
+  emblem: [0.233, 0.22, 0.301] as Rgb,
+  iron: [0.064, 0.061, 0.061] as Rgb,
+} as const;
+
+/** The fire the game lights in the district center's bowl, the same for both factions (the prefab DistrictCenterFire,
+ *  Timberborn 1.1.2.8; D178 as amended 2026-11-10, D496), read with `tools/game-particles.py` and drawn by startFire.ts
+ *  (its light by materials.ts `START_LIGHT_GLSL`). Both DistrictCenter blueprints (`TemplateAttachmentsSpec`, attachment "Fire") put it under `#Finished`
+ *  at (1.5, 3.0, 1.5), unturned, scale 1. Lengths are metres (one tile), times seconds, in the model's own frame: y up,
+ *  the origin the footprint's corner, the door on the z = 0 face. Colours are display values (Gamma colour space).
+ *  Full figures and what they make: docs/progress/3d-view.md, "The Iron Teeth's start and the fire, read". */
+export const START_FIRE = {
+  /** The emitter: its child `Flames` 0.16 above the attachment, inside the iron bowl (3.08–3.23 high). */
+  emitter: [1.5, 3.16, 1.5] as const,
+  /** It emits from a disc this wide in radius (the cone shape's radius 0.03 × its scale 3), the whole disc, all round,
+   *  every particle straight up (the cone's angle 0, turned −90° about x). */
+  discRadius: 0.09,
+  /** Particles a second, steady (no bursts); the system's duration 1 s, looping, playing from the start, simulated in
+   *  world space; at most 200 alive (50 × 3 s is 150, so never reached). */
+  rate: 50,
+  /** Each particle's life, uniform between these (s). */
+  lifetime: [2, 3] as const,
+  /** Its speed up, uniform between these (m/s), kept all its life: no gravity, force, noise or velocity over lifetime;
+   *  its limit-velocity module is on but with dampen 0, which takes nothing off. So it dies 0.4 to 1.5 above the
+   *  emitter (speed × life). */
+  speed: [0.2, 0.5] as const,
+  /** Its start size, uniform between these (m), the billboard's side. */
+  size: [0.5, 1] as const,
+  /** × the start size over its life: Unity curve keys (time 0–1 of the life, value, slope in = out), Hermite between
+   *  them, the last key held to the end of the life: 0.36 at birth, 0.42 at 0.29 of its life, 0.03 at 0.98. */
+  sizeOverLife: [[0, 0.3602, 1.731], [0.2921, 0.4202, -0.8607], [0.9778, 0.03095, -0.3407]] as const,
+  /** Its start turn, uniform between these (rad), and its steady spin (rad/s, about the view axis). */
+  rotation: [-2 * Math.PI, 2 * Math.PI] as const,
+  spin: 0.7854,
+  /** Its colour over its life (the start colour is white): the gradient's colour keys (time, r, g, b) and alpha keys
+   *  (time, a), blended linearly between keys in Gamma colour space: dark grey, yellow, orange, red, then grey smoke. */
+  colourOverLife: [[0, 0.1415, 0.1369, 0.1302], [0.078, 1, 0.8021, 0], [0.1848, 0.996, 0.4378, 0.0048], [0.2628, 0.7358, 0, 0], [0.4004, 0.2358, 0.2358, 0.2358], [0.9882, 0.3585, 0.3585, 0.3585]] as const,
+  alphaOverLife: [[0, 0], [0.0353, 1], [0.271, 1], [0.6037, 0.3451], [1, 0]] as const,
+  /** How a particle is drawn: a camera-facing billboard, unlit, alpha-blended (src alpha, 1 − src alpha), no depth
+   *  write, no shadow, material `Fire` on "Shader Graphs/FireParticles" (its Unlit pass, disassembled): colour = 2 ×
+   *  texel × particle colour × `tint`, alpha = saturate(2 × texel alpha × particle alpha × `tint`'s alpha). Its texture
+   *  `Fire` (512²) is white with a soft round alpha: the mean alpha in rings out from its middle (texture widths 0–0.05,
+   *  …, 0.45–0.5) in `textureAlpha`, peak 0.678. So a particle in full colour is at most about 0.30 opaque over its
+   *  middle and its colour is doubled (the yellow key draws 2/1.6/0): the game's frame is HDR, so it keeps the excess,
+   *  which the bloom takes where particles stack (3d-view.md, "Bloom"). */
+  tint: [1, 1, 1, 0.349] as const,
+  textureAlpha: [0.43, 0.432, 0.433, 0.433, 0.427, 0.382, 0.228, 0.064, 0.005, 0] as const,
+  /** Its light (the child "Point Light", in fact a spot): 1.24 above the attachment (4.24), pointing straight down,
+   *  colour 0.991/0.789/0.453, intensity 5, range 8 m, spot angle 120°, inner 75°, no shadows; with only URP's own
+   *  light data on it (no script that flickers or dims it). */
+  light: { at: [1.5, 4.24, 1.5] as const, colour: [0.9906, 0.7894, 0.4532] as Rgb, intensity: 5, range: 8, spotAngle: 120, innerAngle: 75 },
+  /** The lantern's hood round the light, as the sun sees it: a cap this far (m) under the light and this wide in radius
+   *  over the light's axis (the Folktails' thatch at its widest, 0.61 at 3.84, its mouth closed by the crown's disc,
+   *  entities3d.ts `districtCenter`; inside the Iron Teeth's, 0.7 across its soffit at 3.8). The game's shadow map, and
+   *  High's, shade the lantern's inside under it; Standard, with no shadows of objects, takes it from this
+   *  (materials.ts `startHoodSun`), so the posts it shades pass no more of the bloom's knee than High's do. */
+  hood: { drop: 0.4, radius: 0.61 },
 } as const;
 
 /** The game's altitude colour ramps (D497; `tools/altitude-ramp.ts` reads them from the game's `resources.assets`,
@@ -998,8 +1088,8 @@ export function legendEntries(mode: GroundMode): LegendEntry[] {
           },
         ]
       : [{ swatch: `linear-gradient(90deg, ${c(HEIGHT_RAMP.low)}, ${c(HEIGHT_RAMP.high)})`, label: "Ground height" }];
-  // walls: two levels of cobbled stone, the upper lighter (the game's cliff gradient)
-  const cobbles = (y: number) => [2, 9, 16].map((x, k) => `<rect x="${x + (y % 2) * 3}" y="${y + 1 + (k % 2)}" width="5" height="3" rx="1" fill="${l(WALL.mortar)}" opacity="0.5"/>`).join("");
+  // walls: two levels of stone, the upper lighter (the game's cliff gradient)
+  const cobbles = (y: number) => [2, 9, 16].map((x, k) => `<rect x="${x + (y % 2) * 3}" y="${y + 1 + (k % 2)}" width="5" height="3" rx="1" fill="${l(wallColor(0))}" opacity="0.5"/>`).join("");
   const walls = icon(`<rect width="24" height="8" fill="${l(wallColor(14))}"/><rect y="8" width="24" height="8" fill="${l(wallColor(6))}"/>` + cobbles(0) + cobbles(9));
   return [
     ...ground,
@@ -1035,11 +1125,11 @@ export function objectLegend(): LegendEntry[] {
     },
     {
       swatch: icon(
-        // the lantern tower: its walled base, the roof, the shaft, the lantern and the cap
-        `<rect x="5" y="11" width="14" height="5" fill="${o(START.stone)}"/><rect x="4" y="10" width="16" height="1.3" fill="${o(START.trim)}"/>` +
-          `<path d="M4.5 10 L8.5 7.5 L15.5 7.5 L19.5 10Z" fill="${o(START.roof)}"/><path d="M9 7.5 L10 3.6 L14 3.6 L15 7.5Z" fill="${o(START.stone)}"/>` +
-          `<rect x="9" y="3" width="6" height="0.9" fill="${o(START.trim)}"/><rect x="10.6" y="1.4" width="2.8" height="1.6" fill="${o(START.dark)}"/><path d="M9.6 1.4 L12 0 L14.4 1.4Z" fill="${o(START.trim)}"/>` +
-          `<rect x="11" y="13" width="2" height="3" fill="${o(START.dark)}"/>`,
+        // the district center: its walls between pale posts, the thatched roof, the dark tower, its platform and lantern
+        `<rect x="4" y="11" width="16" height="5" fill="${o(START.planks)}"/><rect x="3.4" y="10.6" width="1.6" height="5.4" fill="${o(START.wood)}"/><rect x="19" y="10.6" width="1.6" height="5.4" fill="${o(START.wood)}"/>` +
+          `<path d="M3 11 L6.5 8 L17.5 8 L21 11Z" fill="${o(START.thatch)}"/><path d="M8 8 L10.3 3.6 L13.7 3.6 L16 8Z" fill="${o(START.planks)}"/>` +
+          `<rect x="9.6" y="3" width="4.8" height="0.8" fill="${o(START.brown)}"/><rect x="10.2" y="1.2" width="0.6" height="1.8" fill="${o(START.wood)}"/><rect x="13.2" y="1.2" width="0.6" height="1.8" fill="${o(START.wood)}"/><path d="M9.4 1.4 L12 0 L14.6 1.4Z" fill="${o(START.thatch)}"/>` +
+          `<rect x="11" y="13" width="2" height="3" fill="${o(START.door)}"/>`,
         dry,
       ),
       label: "Start",
@@ -1049,11 +1139,11 @@ export function objectLegend(): LegendEntry[] {
       label: "Slope",
     },
     {
-      // a rusty skeleton with beige panels, one askew, its top storey partly there
+      // rebar posts at its corners, bands of cracked slab across its storeys, its top storey's posts broken off
       swatch: icon(
-        `<rect x="8.3" y="9.6" width="7.4" height="5.6" fill="${o(RUIN.panel)}"/><rect x="9" y="4.4" width="5" height="4.2" fill="${o(RUIN.panel)}" transform="rotate(-9 11.5 6.5)"/>` +
-          `<rect x="7" y="3" width="1.3" height="13" fill="${o(RUIN.rust)}"/><rect x="15.7" y="0.5" width="1.3" height="15.5" fill="${o(RUIN.rust)}"/><rect x="7" y="8.6" width="10" height="1.1" fill="${o(RUIN.rust)}"/>` +
-          `<path d="M8 8.6 L16 1.5" stroke="${o(RUIN.rust)}" stroke-width="0.9"/>`,
+        `<rect x="7.5" y="10.5" width="9" height="2.6" fill="${o(RUIN.slab)}"/><rect x="7.5" y="5" width="5.5" height="2.6" fill="${o(RUIN.slab)}"/>` +
+          `<rect x="7" y="3" width="1.3" height="13" fill="${o(RUIN.rust)}"/><rect x="15.7" y="0.5" width="1.3" height="15.5" fill="${o(RUIN.rust)}"/><rect x="8.3" y="14.2" width="7.4" height="0.8" fill="${o(RUIN.rust)}"/>` +
+          `<path d="M16.4 0.8 L13.8 2.6" stroke="${o(RUIN.rust)}" stroke-width="0.9"/>`,
         dry,
       ),
       label: "Ruins",

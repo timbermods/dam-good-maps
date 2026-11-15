@@ -2,7 +2,7 @@
 // the pages load it lazily: the generator's 3D toggle and the editor import it on demand.
 
 export type { FadeRegion } from "./objectFade";
-export { MapRenderer, wheelDelta, type BuildStats, type FrameInsets, type FrameStats, type PointerTool, type ViewMode, type ViewState } from "./renderer";
+export { MapRenderer, wheelDelta, type BuildStats, type FingerAim, type FrameInsets, type FrameStats, type PointerTool, type ViewMode, type ViewState } from "./renderer";
 export type { BlockAim, BlockFace, TileHit } from "./pick";
 export { blockAim } from "./pick";
 export type { BlockPreview, Cell, GhostTile } from "./blockGhost";

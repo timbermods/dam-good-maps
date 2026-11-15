@@ -150,6 +150,44 @@ export function pointAt(path: readonly Point[], s: number): { p: Point; dir: Poi
   return { p: [last[0], last[1]], dir: [1, 0] };
 }
 
+/** `pointAt` for one path asked many times: its runs measured once, each point found by halving (the same point and
+ *  direction as `pointAt`'s, to the bit). */
+export function pointsAt(path: readonly Point[]): (s: number) => { p: Point; dir: Point } {
+  const last = path.length - 2;
+  const lens: number[] = [];
+  const runs: number[] = [];
+  const ends: number[] = [];
+  let run = 0;
+  for (let k = 0; k <= last; k++) {
+    const len = dist(path[k], path[k + 1]);
+    lens.push(len);
+    runs.push(run);
+    ends.push(run + len);
+    run += len;
+  }
+  return (s) => {
+    let lo = 0;
+    let hi = last + 1;
+    while (lo < hi) {
+      const mid = (lo + hi) >> 1;
+      if (s <= ends[mid]) hi = mid;
+      else lo = mid + 1;
+    }
+    let k = lo;
+    while (k <= last && !(lens[k] > 0)) k++;
+    if (k > last && last >= 0 && lens[last] > 0) k = last;
+    if (k > last) {
+      const end = path[path.length - 1];
+      return { p: [end[0], end[1]], dir: [1, 0] };
+    }
+    const a = path[k];
+    const b = path[k + 1];
+    const len = lens[k];
+    const t = Math.max(0, Math.min(1, (s - runs[k]) / len));
+    return { p: [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t], dir: [(b[0] - a[0]) / len, (b[1] - a[1]) / len] };
+  };
+}
+
 /** The part of a path from `s0` to `s1` tiles along it, its ends included. */
 export function subPath(path: readonly Point[], s0: number, s1: number): Point[] {
   const out: Point[] = [pointAt(path, s0).p];

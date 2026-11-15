@@ -1362,6 +1362,25 @@
   padding: 4px;
 }
 
+/* to a finger with this layout (a tablet, #1074): Put it down (×) on a plate of its own just above the panel's first
+   row, at its left end (the map's side groups take the room beside the panel, and the objects can reach over its right) */
+.tool-dock > .tool-settings:not(.sheet):has(> .put-down) {
+  position: relative;
+}
+
+.tool-dock > .tool-settings:not(.sheet) > .put-down {
+  position: absolute;
+  left: 0;
+  bottom: calc(100% + 6px);
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  border-radius: 8px;
+  font-size: 22px;
+  line-height: 1;
+  box-shadow: var(--edge-lit), var(--shadow-2);
+}
+
 .settings-grid {
   display: grid;
   grid-template-columns: var(--cells);
@@ -1664,11 +1683,13 @@ input.set-typed:disabled {
   white-space: nowrap;
 }
 
-/* Select's shapes: one cell each (the bar's cells 1-7), icon above its name, the group's full height; Whole map takes
-   the last two, its word being the longest */
+/* Select's shapes: one cell each (the bar's cells 1-7), icon above its name, the group's full height; Whole map and the
+   Add / Take away toggle (a finger's Shift and Alt, #1074 slice 6) the last two, their words on two lines where a cell is
+   too narrow for them; to a mouse, with no toggle, Whole map takes both (slice 7). A cell is never narrower than its
+   name's longest word, whatever font sets it: a wider word takes the spare room of the short ones */
 .set-group > .segmented.shapes {
   display: grid;
-  grid-template-columns: repeat(7, minmax(0, 1fr));
+  grid-template-columns: repeat(7, minmax(min-content, 1fr));
   gap: 2px;
   height: 100%;
 }
@@ -1676,7 +1697,6 @@ input.set-typed:disabled {
 .set-group > .segmented.shapes > button {
   display: flex;
   flex-direction: column;
-  /* (centred, not safe: at 1280 "Rectangle" is 4px wider than its cell, and safe would pin it to the cell's left edge) */
   align-items: center;
   justify-content: safe center;
   gap: 4px;
@@ -1686,8 +1706,14 @@ input.set-typed:disabled {
   border-radius: 6px;
 }
 
-.set-group > .segmented.shapes > button.whole-map {
+.set-group > .segmented.shapes > button.whole-map:last-child {
   grid-column: span 2;
+}
+
+.set-group > .segmented.shapes > button:is(.whole-map, .combine) .icon-word {
+  white-space: normal;
+  text-align: center;
+  line-height: 1.05;
 }
 
 .set-group > .segmented.shapes > button .icon-word {
@@ -3584,6 +3610,11 @@ input.set-typed:disabled {
   gap: 8px;
 }
 
+/* (a finger's selection, #1074: Done beside the actions) */
+.maps-panel .ym-head > .ym-done {
+  margin: 0 8px 0 auto;
+}
+
 .maps-panel .ym-act,
 .history-panel .ym-act {
   height: 26px;
@@ -3599,6 +3630,14 @@ input.set-typed:disabled {
 
 .your-maps li.selected .ym-tile {
   background: color-mix(in srgb, var(--accent) 16%, var(--panel));
+}
+
+/* (a finger's selection: the tint a little deeper than the mouse's, so a selected card never reads as the open map's
+   outline or as greyed; planning, #1101) */
+@media (pointer: coarse) {
+  .your-maps li.selected .ym-tile {
+    background: color-mix(in srgb, var(--accent) 26%, var(--panel));
+  }
 }
 
 .your-maps li.selected::after {

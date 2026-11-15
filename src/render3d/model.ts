@@ -18,6 +18,9 @@ export const YOUNG = 4;
 /** A living plant whose cause of death runs now (core/sim/withering.ts `dyingCause`): drawn in its dying form (dying.ts).
  *  Set by the view only, never by a file. */
 export const DYING = 8;
+/** A plant whose yield is not standing (a blueberry bush whose berries were picked and are growing again: its
+ *  `Yielder:Gatherable` holds none): drawn without it, as the game draws it (the bush's `_EnableDetail` 0). */
+export const BARE = 16;
 
 /** A ruin's variant (its `RuinModels.VariantId`, "A" to "E") as an index, and the value for none:
  *  a file without one, or another object (the game picks one at random; the view picks one from
@@ -268,6 +271,8 @@ export interface EntityInput {
   dead?: boolean;
   flipped?: boolean;
   young?: boolean;
+  /** Its yield is not standing (BARE). */
+  bare?: boolean;
   /** A ruin's `RuinModels.VariantId` ("A" to "E"). */
   variant?: string;
   /** A source's strength. */
@@ -320,7 +325,7 @@ export function entityView(list: readonly EntityInput[]): EntityView {
     v.z[k] = e.z;
     const oi = ORIENTATION_NAMES.indexOf(e.orientation as (typeof ORIENTATION_NAMES)[number]);
     v.orientation[k] = oi < 0 ? 0 : oi;
-    v.flags[k] = (e.dead ? DEAD : 0) | (e.flipped ? FLIPPED : 0) | (e.young ? YOUNG : 0);
+    v.flags[k] = (e.dead ? DEAD : 0) | (e.flipped ? FLIPPED : 0) | (e.young ? YOUNG : 0) | (e.bare ? BARE : 0);
     v.variant[k] = variantIndex(e.variant);
     v.strength[k] = e.strength ?? 0;
     if (e.stock) {

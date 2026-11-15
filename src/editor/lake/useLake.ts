@@ -92,6 +92,8 @@ export function useLake(ed: Ed): LakeSlice {
         .catch(() => undefined);
     };
     tool.current = {
+      // (a finger draws the outline a little above itself, where it is seen; render3d/touch.ts)
+      finger: "draw",
       down(hit: TileHit | null, ev: PointerEvent) {
         if (ev.button !== 0 || !hit) return false;
         points = [[hit.x, hit.y]];

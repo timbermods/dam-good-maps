@@ -3,6 +3,10 @@
 // (Kyler's brief): a carve is one operation, one undo step, stored literally, so it replays to the
 // same bytes; an incremental rebuild equals a full one; undo brings back exactly what was there;
 // Try another path replaces a carve, and undoing it brings the earlier one back.
+//
+// The generated maps are fixtures (tests/fixtures/projects: Highlands 64² seed 3, Highlands 96² seeds 3, 5, 21, 26 and 57, the 3 and 57 without
+// 3D forms, River Valley 96² seed 8; `fixtureSession`, `fixtureInEditor`): the subject is the force and the document, not the generator, so a
+// land change moves nothing here (D148).
 
 import Ajv2020 from "ajv/dist/2020";
 import { readFileSync } from "node:fs";
@@ -18,16 +22,15 @@ import { CarveRun, DEFAULTS, hardness, mapSeed, sourceStrength, type CarveIntent
 import { modelOf } from "../../src/core/forces/runs";
 import type { ForceResultParams } from "../../src/core/forces/op";
 import { protectedGround, STEPS_PER_SECOND, type ForceMap } from "../../src/core/forces/force";
-import { generate } from "../../src/core/gen/generate";
 import { readTimber } from "../../src/core/format/timber";
 import { storedWater } from "../../src/core/format/world";
 import { decodeHeights, decodePlaceFile, placeEntities } from "../../src/core/places/place";
 import { canonicalRun, canonicalSettle } from "../../src/core/sim/prefill";
 import { SETTLE_DAYS, TICKS_PER_DAY, WaterSim } from "../../src/core/sim/water";
 import { checkSchema } from "../../src/core/spec/schema";
-import { makeSpec } from "../../src/core/spec/mapspec";
-import { runGenerate } from "../../src/worker/api";
 import * as ed from "../../src/worker/session";
+import { fixtureInEditor } from "../fixtureEditor";
+import { fixtureSession } from "../fixtureProjects";
 import { study } from "./carveFixtures";
 
 function complete(m: ForceMap, s: Partial<CarveSettings> = {}, intent: CarveIntent = { origin: 54 * m.W + 32 }): CarveRun {
@@ -316,7 +319,7 @@ describe("the force: Aim, Defy gravity and Wander", () => {
   });
 
   it("a real place takes a carve at its source", () => {
-    const p = decodePlaceFile(gunzipSync(readFileSync("public/real-places/data/near-grand-canyon-colorado.json.gz")));
+    const p = decodePlaceFile(gunzipSync(readFileSync("public/real-places/data/grand-canyon-colorado.json.gz")));
     const h = decodeHeights(p.heights);
     const m: ForceMap = { W: p.W, H: p.H, heights: h, entities: placeEntities(p, h), water: { depth: new Float64Array(h.length), contamination: new Float64Array(h.length) }, maxHeight: 16 };
     const r = new CarveRun(m, DEFAULTS, { origin: Math.floor(m.H * 0.8) * m.W + Math.floor(m.W * 0.5) });
@@ -437,8 +440,7 @@ const ids = (s: MapSession) => s.built.entities.map((e) => e.id).sort();
 
 describe("a carve in the document (breakage rule)", () => {
   it("one operation, one undo step: it builds its levels exactly, keeps its source, clears its objects, and replays to the same file", () => {
-    const r = generate(makeSpec({ seed: 3, theme: "highlands", size: { x: 96, y: 96 } }));
-    const s = MapSession.fromGenerated(r, r.file);
+    const s = fixtureSession("highlands", 96, 3);
     s.setWaterMode("defer");
     const before = s.built.heights.slice();
     const beforeIds = ids(s);
@@ -473,8 +475,7 @@ describe("a carve in the document (breakage rule)", () => {
   });
 
   it("Try another path replaces the carve; undoing it brings the earlier carve back", () => {
-    const r = generate(makeSpec({ seed: 5, theme: "highlands", size: { x: 96, y: 96 } }));
-    const s = MapSession.fromGenerated(r, r.file);
+    const s = fixtureSession("highlands", 96, 5);
     s.setWaterMode("defer");
     const at = farFromStart(s);
     const original = s.built.heights.slice();
@@ -484,7 +485,7 @@ describe("a carve in the document (breakage rule)", () => {
     const withFirst = s.built.heights.slice();
     const firstIds = ids(s);
     // the next seed, on the land as it was before the first carve
-    const probe = MapSession.fromGenerated(r, r.file);
+    const probe = fixtureSession("highlands", 96, 5);
     probe.setWaterMode("defer");
     const second = carveOp(probe, { power: 70, wander: 60, seed: 1 }, at, 1200, { replaces: seq });
     expect(Array.from(second.params.heights)).not.toEqual(Array.from(first.params.heights));
@@ -511,8 +512,7 @@ describe("a carve in the document (breakage rule)", () => {
 
   it("a carve stopped early keeps what it cut, and a dry canyon keeps no source", () => {
     // (seed 8 for 0.8.3's maps, D148: on seed 7's the dry carve runs into a lake before it is stopped)
-    const r = generate(makeSpec({ seed: 8, theme: "riverValley", size: { x: 96, y: 96 } }));
-    const s = MapSession.fromGenerated(r, r.file);
+    const s = fixtureSession("riverValley", 96, 8);
     s.setWaterMode("defer");
     const op = carveOp(s, { power: 60, dry: true }, farFromStart(s), 25);
     expect(op.params.reason).toBe("stopped");
@@ -527,8 +527,7 @@ describe("a carve in the document (breakage rule)", () => {
   it("a carve's Fall is kept with it: the saved project records it and reopens byte for byte with the same ground (D455)", () => {
     // (Highlands seed 3 for 18 since generator 0.10.20's contour edges, D518, D148: on seed 18 the water standing below
     // lets the stroke fall 3 at most; of seeds 1–10 seeds 3 and 10 give the drop of 4)
-    const r = generate(makeSpec({ seed: 3, theme: "highlands", size: { x: 96, y: 96 } }), { forms: false });
-    const s = MapSession.fromGenerated(r, r.file);
+    const s = fixtureSession("highlands", 96, 3, "noforms");
     s.setWaterMode("defer");
     const op = carveOp(s, { mode: "aim", power: 65, fall: 4, seed: 1, defyGravity: true }, [48, 86], 1200, {}, [48, 10]);
     expect(op.params.settings).toMatchObject({ fall: 4 });
@@ -578,8 +577,7 @@ describe("a carve in the document (breakage rule)", () => {
     // 261 with seed 1 carves no lake over 70 tiles now; of Highlands seeds 1–110 and Canyon seeds 1–90 with the carve's seeds 1–6 only a few seal one
     // over 70 tiles, and of those Highlands 12 with seed 3, Highlands 30 with seeds 4 and 5, Highlands 57 with seed 6 and Canyon 24 with seed 1
     // settle whole; Highlands 57 with seed 2 seals 95 tiles that keep evaporating)
-    const r = generate(makeSpec({ seed: 57, theme: "highlands", size: { x: 96, y: 96 } }), { forms: false });
-    const s = MapSession.fromGenerated(r, r.file);
+    const s = fixtureSession("highlands", 96, 57, "noforms");
     const before = Array.from(s.built.water);
     const op = carveOp(s, { mode: "aim", power: 85, width: 6, wander: 100, seed: 2, defyGravity: true }, [48, 86], 1200, {}, [48, 10]);
     const lake = op.params.lake!;
@@ -608,7 +606,7 @@ describe("a carve in the document (breakage rule)", () => {
     expect(settles.ok, settles.message).toBe(true);
     expect(settles.message).toMatch(/a sealed lake keeps slowly evaporating/);
     // the same carve without its kept water: the game's settle from the land and the sources alone
-    const bare = MapSession.fromGenerated(r, r.file);
+    const bare = fixtureSession("highlands", 96, 57, "noforms");
     const { lake: _lake, ...params } = op.params;
     expect(bare.apply({ op: "forceResult", params }, "user").errors).toEqual([]);
     bare.settleCanonical();
@@ -629,8 +627,7 @@ describe("a carve in the document (breakage rule)", () => {
   });
 
   it("the engine refuses a carve that doesn't fit: off the map, out of order, past the levels, or with objects that aren't there", () => {
-    const r = generate(makeSpec({ seed: 3, theme: "highlands", size: { x: 64, y: 64 } }));
-    const s = MapSession.fromGenerated(r, r.file);
+    const s = fixtureSession("highlands", 64, 3);
     s.setWaterMode("defer");
     const base: ForceResultParams = { version: 1, verb: "carve", settings: { mode: "unleash", power: 50, wander: 35, width: null, seed: 0, walls: "steep", defyGravity: false, dry: true }, where: { origin: [30, 30] }, steps: 1, reason: "stopped", tiles: [30 * 64 + 30], heights: [2], removed: [] };
     const set = (x: object) => ({ settings: { ...base.settings, ...x } as ForceResultParams["settings"] });
@@ -687,8 +684,7 @@ describe("a carve at work in the editor's worker", () => {
     // carve runs 102 steps and its whole result differs from part way on 258 tiles)
     // (seed 26 since generator 0.10.21's look round, D518, D148: seeds 21 to 24 carve less than 3 s of work or finish within those four
     // seconds on the new land, and seed 25's carve plans 27 steps; seed 26's passes every rule below)
-    await runGenerate(makeSpec({ seed: 26, theme: "highlands", size: { x: W, y: W } }));
-    ed.refine();
+    fixtureInEditor("highlands", W, 26);
     const open = ed.sessionView();
     const ground = open.view.heights.slice();
     const steps = () => ed.sessionInfo().history.filter((h) => h.applied).length;
@@ -767,8 +763,7 @@ describe("a carve at work in the editor's worker", () => {
 
   it("carves only the land showing: under a cut, the ground above it stays as it is (D207)", async () => {
     const W = 96;
-    await runGenerate(makeSpec({ seed: 21, theme: "highlands", size: { x: W, y: W } }));
-    ed.refine();
+    fixtureInEditor("highlands", W, 21);
     const ground = ed.sessionView().view.heights.slice();
     const s = MapSession.open(decodeProject(ed.project().bytes));
     const origin = farFromStart(s);

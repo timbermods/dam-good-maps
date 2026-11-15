@@ -9,7 +9,7 @@
 // Time is a stepped clock (D341): every pace and moment here is exact, never the machine's.
 
 import { describe, expect, it } from "vitest";
-import { CARVE_PACE, dueMs, FAST_MS, FRAME_MS, ForceDriver, forcePowerWord, GLACIATE_ADVANCE_SHARE, GLACIATE_ADVANCE_STEPS, GLACIATE_SHOW_MS, GLACIATE_STEPS, showingAt, MIN_SHOW_MS, paceOf, powerWord, shownAt, showMs, WATCH_FACTOR, type ForceHost, type ForceSpeed } from "../../src/editor/forceDriver";
+import { CARVE_PACE, dueMs, FAST_MS, FRAME_MS, ForceDriver, forcePowerWord, GLACIATE_ADVANCE_SHARE, GLACIATE_ADVANCE_STEPS, GLACIATE_SHOW_MS, GLACIATE_STEPS, showingAt, MIN_SHOW_MS, paceOf, powerWord, shownAt, showMs, WATCH_FACTOR, WATCH_STRIDE_MS, type ForceHost, type ForceSpeed } from "../../src/editor/forceDriver";
 import { ADVANCE_STEPS, RETREAT_STEPS } from "../../src/core/forces/glaciate/run";
 import type { Verb } from "../../src/core/forces/op";
 import type { ForceFrame, ForceStarted } from "../../src/worker/session";
@@ -185,6 +185,26 @@ describe("the force driver", () => {
     expect(h.log).toContain("ended:kept");
     expect(h.log.some((l) => l.startsWith("keep@"))).toBe(true);
     expect(d.timing!.show).toBe(WATCH_FACTOR * FAST_MS);
+  });
+
+  it("Slow forces on a page held for seconds between frames moves on a stride a frame: none of it is skipped unseen", async () => {
+    // (CI's software drawing held the page a second and more a frame, and a Slow crater went from untouched to kept in
+    // one frame, its bowl never shown at work: dev's run 43660448151, force-save.spec.ts)
+    const clock = new StepClock();
+    const h = fakeHost(clock, { total: 11, verb: "craterize", speed: "watch", latency: 2500 });
+    const d = new ForceDriver(h.host, clock);
+    void d.start();
+    await clock.until(() => !d.running);
+    expect(h.log).toContain("keep@11");
+    const steps = h.shown.slice(1).map((s, i) => s - h.shown[i]);
+    expect(Math.max(...steps)).toBeLessThanOrEqual(Math.ceil((11 * WATCH_STRIDE_MS) / showMs("craterize", 11, "watch", 0)));
+    // (and a page that draws on time keeps the showing's own length)
+    const quick = new StepClock();
+    const q = fakeHost(quick, { total: 11, verb: "craterize", speed: "watch" });
+    const qd = new ForceDriver(q.host, quick);
+    void qd.start();
+    await quick.until(() => !qd.running);
+    expect(qd.timing!.final - qd.timing!.worked).toBeLessThanOrEqual(qd.timing!.show + 2 * FRAME_MS);
   });
 
   it("Pause holds it; Esc drops all of it", async () => {

@@ -26,6 +26,9 @@ export const OBSTRUCTIONS = [
   ".objects-dock",
   ".dock-notes > *",
   ".bottom-left-stack > *",
+  // (a finger's press: its own place, and its Cancel, view/fingerPress.tsx)
+  ".finger-reach",
+  ".press-cancel",
 ];
 
 /** The distance a note keeps from the pointer, and the least it keeps from a control. */

@@ -5,7 +5,7 @@ name: Nightly
 # vitest.config.ts, tests/contract/everySetting.ts), the full Python oracle, the full cross-engine
 # determinism list on each CPU and OS of the matrix, and the 100-seed pass-rate
 # batches (final ≥ 98%: a seed that makes no map is breakage, PLAN §20 D145; the first-attempt
-# rate is information, against its 60% target), Real places' data matching a fresh build, and the
+# rate is information, against its 60% target), the intention list (a theme a job), Real places' data matching a fresh build, and the
 # first-visit maps as the deploy builds them (tools/first-visit-maps.ts, which no other run builds:
 # the deploy of high-look-fix-done stopped there, #652). Runs
 # every night on dev's tip, by hand (gh workflow run nightly.yml --ref dev), and on a pull request
@@ -55,6 +55,29 @@ jobs:
       - run: pip install -r prototype/requirements.txt
       - name: Long property runs, the settings batch and every setting's extremes (D471)
         run: npm run test:heavy
+
+  # The intention list (src/core/land/intentionTable.ts) is the generator's: each intention asked of the theme on seeds
+  # 1-12 at 128², a theme a job (about 264 maps each). Here only, never on a pull request or in the release gate
+  # (planning). Red means the list moved: regenerate it (npm run intentions) in a pull request that says which intention
+  # moved and why.
+  intentions:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        theme: [riverValley, canyon, highlands, lakeBasin, delta, islands]
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ env.CHECK_REF }}
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: The intention list on ${{ matrix.theme }} is the generator's
+        run: npm run intentions -- --check --theme ${{ matrix.theme }}
 
   # Real places' data matches a fresh build. Its own job, beside the heavy tests: the build searches
   # each place's start spots and springs (D245, tools/real-places.ts), about 25 min on a runner.
@@ -184,7 +207,7 @@ jobs:
         run: npx tsx tools/determinism/compare.ts .scratch/hosts/determinism-*
 
   issue:
-    needs: [heavy-tests, places, oracle, batches, determinism, hosts]
+    needs: [heavy-tests, intentions, places, oracle, batches, determinism, hosts]
     if: failure() && github.event_name != 'pull_request'
     runs-on: ubuntu-latest
     permissions:

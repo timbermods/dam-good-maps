@@ -116,19 +116,20 @@ test("Carve: its row is Power, Size and its one choice; a click unleashes a rive
         if (!st || st.steps < 12) return false;
         const cut = window.dgm3d!.renderer.mapState()!.heights.some((h, i) => h !== was[i]);
         const row = document.querySelector('[aria-label="Carve at work"]');
-        // (the keys in Revert's tooltip: Ctrl+Z takes it back, Esc skips to its end; none written in the panel)
-        const revert = [...(row?.querySelectorAll("button") ?? [])].find((b) => b.textContent?.trim() === "Revert");
-        const hint = revert?.getAttribute("data-keys") ?? null;
+        // (the keys in the tooltips: Revert's Ctrl+Z takes it back, Skip's Esc goes to its end; none written in the panel)
+        const button = (name: string) => [...(row?.querySelectorAll("button") ?? [])].find((b) => b.textContent?.trim() === name);
+        const hint = button("Revert")?.getAttribute("data-keys") ?? null;
+        const skip = button("Skip")?.getAttribute("data-keys") ?? null;
         window.dispatchEvent(new KeyboardEvent("keydown", { ...k, bubbles: true, cancelable: true }));
-        return { cut, row: !!row, hint };
+        return { cut, row: !!row, hint, skip };
       },
       [before, key] as const,
       { timeout: 20_000 },
     );
-    const got = (await seen.jsonValue()) as { cut: boolean; row: boolean; hint: string | null };
+    const got = (await seen.jsonValue()) as { cut: boolean; row: boolean; hint: string | null; skip: string | null };
     expect({ cut: got.cut, row: got.row }).toEqual({ cut: true, row: true });
     expect(got.hint).toMatch(/Ctrl\+Z/);
-    expect(got.hint).toMatch(/Esc skips to its end/);
+    expect(got.skip).toMatch(/Esc/);
     await expect.poll(() => status(page)).toBeNull();
     await idle(page);
   };

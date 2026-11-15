@@ -6,7 +6,7 @@
 // sources, start and planted objects. `buildPlace` turns it into a .timber with the steps and code
 // the generator's own maps go through (`buildFileFromHeights`, which the probe's test maps share):
 // the objects as entities with ids hashed from the place, the canonical water settle, soil moisture
-// and contamination on it (build.ts step 10; the port's rules until Real places 2, D311), the world
+// and contamination on it (build.ts step 10; the game's rules since D311's conversion), the world
 // with its settled singletons, metadata and thumbnail (gen/pack.ts `worldOf` and `timberFileOf`,
 // the one path to file bytes), the validator (export profile), and writeTimber. It is a pure function of the
 // data, so the file is the same bytes in Node and in every browser.
@@ -21,22 +21,22 @@ import { moistureBarrier, waterModel, type MapObject } from "../sim/model";
 import { moisture } from "../sim/moisture";
 import { gameSoil } from "../sim/soil";
 import { canonicalSettle, type CanonicalWater } from "../sim/prefill";
+import type { SettleCache } from "../features/build";
 import type { WaterModel } from "../sim/water";
 import { validateMap, type Validation } from "../validate/checks";
 import { failing } from "../validate/report";
-import { CHANGES, ELEVATION_SOURCE, PROVIDER_NOTICES } from "./attribution";
+import { CHANGES, ELEVATION_SOURCE, PROVIDER_NOTICES, WATER_LICENCE, WATER_LICENCE_URL, WATER_NOTICE, WATER_SOURCE, WATER_SOURCE_URL } from "./attribution";
 
 export const PLACE_FORMAT = 1;
 
 /** One real place as the site stores it (public/real-places/data/<id>.json.gz). */
 export interface PlaceData {
   format: 1;
-  /** A slug of the name: "near-yosemite-valley". */
+  /** A slug of the name: "yosemite-valley" (the link's `#place=yosemite-valley`). */
   id: string;
-  /** "Near Yosemite Valley": the one name the map, its file, the gallery and the editor's Real places panel all carry. */
+  /** "Yosemite Valley": the one name the map, its file, the gallery and the editor's Real places panel all carry
+   *  (D522: no "Near"). */
   name: string;
-  /** The place it is named after: "Yosemite Valley". */
-  place: string;
   /** The landform family the survey sampled it for, and its name on the page. */
   family: string;
   familyName: string;
@@ -87,7 +87,7 @@ export interface PlaceIndexEntry {
 /** The checks tools/real-places.ts records per place in `faults`, as the generate profile gives them
  *  on the place's own build: information for a real place, its own land (D245). The conversion-wide
  *  ones every place has (the missing mine site and badwater source, D200) are not recorded. */
-export const PLACE_FAULT_CHECKS = ["water.source_in_flow", "water.outflow", "start.wood", "start.wood_floor", "start.water", "start.food", "plants.survive"] as const;
+export const PLACE_FAULT_CHECKS = ["water.source_in_flow", "water.outflow", "water.settles", "start.wood", "start.wood_floor", "start.water", "start.food", "plants.survive"] as const;
 
 /** What every place as converted has, and what Real places 2 removes: not a reason to leave one out. */
 export const CONVERSION_FAULT_CHECKS = ["resources.mine_site", "resources.badwater_source"] as const;
@@ -100,8 +100,19 @@ export const NO_WATER_FAULT = "start.water";
 /** The card note for a place with `NO_WATER_FAULT` (D445). No other fault gets a note. */
 export const NO_WATER_NOTE = "No reachable water";
 
-/** The card note a place carries, from its recorded faults, or null. */
-export const placeNote = (e: Pick<PlaceIndexEntry, "faults">): string | null => (e.faults.includes(NO_WATER_FAULT) ? NO_WATER_NOTE : null);
+/** The fault whose card note reads `MOVING_WATER_NOTE` (D245): the place's water has not settled within the settle's
+ *  days under the game's rules (`water.settles`); it keeps its own land and water. */
+export const MOVING_WATER_FAULT = "water.settles";
+
+/** The card note for a place with `MOVING_WATER_FAULT` (D245: "water that keeps moving"). */
+export const MOVING_WATER_NOTE = "Water keeps moving";
+
+/** The card note a place carries, from its recorded faults, or null: no reachable water (D445), water that keeps
+ *  moving (D245), or both. */
+export const placeNote = (e: Pick<PlaceIndexEntry, "faults">): string | null => {
+  const notes = [...(e.faults.includes(NO_WATER_FAULT) ? [NO_WATER_NOTE] : []), ...(e.faults.includes(MOVING_WATER_FAULT) ? [MOVING_WATER_NOTE] : [])];
+  return notes.length ? notes.join(" · ") : null;
+};
 
 /** The index as the gallery page shows it (D445): every place, including those whose start reaches no
  *  fed water, which carry a note (`placeNote`). */
@@ -152,9 +163,10 @@ export function placeFileName(p: Pick<PlaceData, "name">): string {
 export function placeDescription(p: PlaceData): string {
   return [
     `${p.familyName} · ${p.W}×${p.H} · ${p.metres} m per tile. ${p.plays}`,
-    `Inspired by the land near ${p.place}, at Timberborn's scale; not a replica.`,
+    `Inspired by the land near ${p.name}, at Timberborn's scale; not a replica.`,
     `Made with Dam Good Maps from public elevation data: ${ELEVATION_SOURCE}. ${CHANGES} The data providers do not endorse this map.`,
     `Elevation data: ${PROVIDER_NOTICES.join("; ")}.`,
+    `Water data: ${WATER_SOURCE} (${WATER_SOURCE_URL}), ${WATER_LICENCE} (${WATER_LICENCE_URL}): ${WATER_NOTICE}.`,
   ].join("\n\n");
 }
 
@@ -202,19 +214,25 @@ export type HeightsRules = "game" | "port";
  *  singletons and outflows (gen/pack.ts `worldOf`) and the file around it (`timberFileOf`). Real
  *  places (`buildPlace`) and the probe's test maps (tools/probe-maps/assemble.ts) are built with it;
  *  under the game's rules it writes what a generated map with the same ground and objects stores. */
-export function buildFileFromHeights(W: number, H: number, heights: Uint8Array, entities: readonly EntitySpec[], description: string, rules: HeightsRules = "game"): BuiltPlace {
+export function buildFileFromHeights(W: number, H: number, heights: Uint8Array, entities: readonly EntitySpec[], description: string, rules: HeightsRules = "game", settles?: SettleCache): BuiltPlace {
   const objects = entities.map(mapObject);
   const model = waterModel(W, H, heights, objects);
   let settle: CanonicalWater;
   let moist: Float64Array;
   let soil: Float64Array;
   if (rules === "port") {
-    settle = canonicalSettle(model, { rules: "port" });
+    // (a settle already made for the same water model, `settles`: the same water, as the build's own cache gives it)
+    const had = settles?.get(model);
+    settle = had ?? canonicalSettle(model, { rules: "port" });
+    if (!had) settles?.set(model, settle);
     const barrier = moistureBarrier(W, H, objects);
     moist = moisture(heights, settle.depth, settle.contamination, W, H, barrier);
     soil = soilContamination(heights, settle.depth, settle.contamination, W, H, barrier);
   } else {
-    settle = canonicalSettle(model);
+    // (the cache holds one rules' settles: a caller passes `settles` for builds under the same rules)
+    const had = settles?.get(model);
+    settle = had ?? canonicalSettle(model);
+    if (!had) settles?.set(model, settle);
     const s = gameSoil(W, H, heights, settle.depth, settle.contamination, objects, settle.sat);
     moist = s.moisture;
     soil = s.contamination;
@@ -224,15 +242,25 @@ export function buildFileFromHeights(W: number, H: number, heights: Uint8Array, 
   return { file, heights, model, settle };
 }
 
-/** Build the place's map: its terrain and objects, the canonical settle, soil, and the file. */
-export function buildPlace(p: PlaceData): BuiltPlace {
+/** Build the place's map: its terrain and objects, the canonical settle, soil, and the file. `settles` keeps the settles
+ *  of builds of the same place whose objects alone differ (a start moved, plants), which leave the water as it was. */
+export function buildPlace(p: PlaceData, settles?: SettleCache, rules: HeightsRules = placeRules): BuiltPlace {
   if (p.format !== PLACE_FORMAT) throw new Error(`real place format ${String(p.format)} is not ${PLACE_FORMAT}`);
   const { W, H } = p;
   const heights = decodeHeights(p.heights);
   if (heights.length !== W * H) throw new Error(`${p.id}: ${heights.length} heights for ${W}×${H}`);
-  // (the places were converted under the port's water rules and are settled with them, so the
-  // gallery's files stay as they were until Real places 2 converts them under the game's, D311)
-  return buildFileFromHeights(W, H, heights, placeEntities(p, heights), placeDescription(p), "port");
+  // (under the game's water rules, D311: what a place opens with is the water the game keeps, so the first edit, or the
+  // game's first days, takes nothing away; the port's rules remain for a tool's comparison)
+  return buildFileFromHeights(W, H, heights, placeEntities(p, heights), placeDescription(p), rules, settles);
+}
+
+/** The rules `buildPlace` settles with when its caller does not say: the game's (D311). */
+let placeRules: HeightsRules = "game";
+
+/** Sets the rules every `buildPlace` in this process settles with when its caller does not say (a Node tool's
+ *  comparison with the port's rules the places were built under before D311's conversion: `npm run places -- --rules port`). */
+export function setPlaceRules(rules: HeightsRules): void {
+  placeRules = rules;
 }
 
 /** Validate a built place as the editor validates a file it exports (the export profile), on its

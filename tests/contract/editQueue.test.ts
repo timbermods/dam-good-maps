@@ -9,6 +9,9 @@
 // Where today's page still behaves otherwise, its own tests (tests/unit/remoteStroke.test.ts) keep asserting today's
 // behaviour until that step changes it (D148): planning's three rulings on #922's behaviours are asserted here, on the
 // queue, already.
+//
+// The maps are fixtures (tests/fixtures/projects, `mapProject` in collabFixtures.ts: River Valley 48² seeds 11 and 12): the subject is the edit queue, not the generator, so a land change
+// moves nothing here (D148).
 
 import { beforeAll, describe, expect, it } from "vitest";
 import { decodeProject } from "../../src/core/doc/document";

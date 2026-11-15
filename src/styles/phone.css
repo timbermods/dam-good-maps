@@ -293,7 +293,8 @@
 }
 
 /* ---- Show: a button at the view's corner opens a sheet of what the map shows */
-.editor[data-phone] .phone-show-button {
+.editor:is([data-phone], [data-tablet]) .phone-show-button,
+.editor[data-tablet] .tablet-objects-button {
   position: absolute;
   z-index: 5;
   top: var(--phone-gap);
@@ -314,18 +315,18 @@
   font-size: 12px;
 }
 
-.editor[data-phone] .phone-show-button svg {
+.editor:is([data-phone], [data-tablet]) .phone-show-button svg {
   width: 22px;
   height: 22px;
 }
 
-.editor[data-phone] .phone-show-button[aria-expanded="true"] {
+.editor:is([data-phone], [data-tablet]) .phone-show-button[aria-expanded="true"] {
   background: var(--accent);
   border-color: var(--accent);
   color: var(--accent-ink);
 }
 
-.editor[data-phone] .phone-show {
+.editor:is([data-phone], [data-tablet]) .phone-show {
   position: absolute;
   z-index: 4;
   left: 0;
@@ -345,19 +346,19 @@
   box-shadow: var(--edge-lit), var(--shadow-3);
 }
 
-.editor[data-phone] .phone-show[hidden] {
+.editor:is([data-phone], [data-tablet]) .phone-show[hidden] {
   display: none;
 }
 
 /* its groups under small headings, as a tool's settings are: what to show, the camera, the weather, forces and sound;
    each group's chips in an even grid */
-.editor[data-phone] .ps-group {
+.editor:is([data-phone], [data-tablet]) .ps-group {
   display: flex;
   flex-direction: column;
   gap: 6px;
 }
 
-.editor[data-phone] .ps-head {
+.editor:is([data-phone], [data-tablet]) .ps-head {
   margin: 0;
   font-size: 13px;
   font-weight: 600;
@@ -365,27 +366,27 @@
   color: color-mix(in srgb, var(--ink) 72%, transparent);
 }
 
-.editor[data-phone] .ps-grid {
+.editor:is([data-phone], [data-tablet]) .ps-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(112px, 1fr));
   gap: 6px;
 }
 
-.editor[data-phone] .ps-grid > * {
+.editor:is([data-phone], [data-tablet]) .ps-grid > * {
   min-width: 0;
 }
 
-.editor[data-phone] .ps-grid :is(.show-item, .show-row, button, .menu-wrap, .reveal-group) {
+.editor:is([data-phone], [data-tablet]) .ps-grid :is(.show-item, .show-row, button, .menu-wrap, .reveal-group) {
   width: 100%;
   box-sizing: border-box;
 }
 
-.editor[data-phone] .ps-grid :is(.show-row, button) {
+.editor:is([data-phone], [data-tablet]) .ps-grid :is(.show-row, button) {
   min-height: 44px;
   justify-content: flex-start;
 }
 
-.editor[data-phone] .ps-grid .show-row {
+.editor:is([data-phone], [data-tablet]) .ps-grid .show-row {
   display: flex;
   align-items: center;
   gap: 8px;
@@ -395,68 +396,104 @@
   font-size: 14px;
 }
 
-.editor[data-phone] .ps-grid .show-row .cb {
+.editor:is([data-phone], [data-tablet]) .ps-grid .show-row .cb {
   width: 18px;
   height: 18px;
 }
 
-.editor[data-phone] .ps-grid button {
+.editor:is([data-phone], [data-tablet]) .ps-grid button {
   font-size: 14px;
 }
 
-.editor[data-phone] .ps-grid .compass {
+.editor:is([data-phone], [data-tablet]) .ps-grid .compass {
   position: static;
   width: 44px;
   height: 44px;
   justify-self: start;
 }
 
-.editor[data-phone] .ps-grid .sound-cell input[type="range"] {
+.editor:is([data-phone], [data-tablet]) .ps-grid .sound-cell input[type="range"] {
   accent-color: var(--accent);
 }
 
 /* (the sound: its speaker and, with no hover on a phone, its volume always there) */
-.editor[data-phone] .ps-grid .sound-cell {
+.editor:is([data-phone], [data-tablet]) .ps-grid .sound-cell {
   display: flex;
   grid-column: span 2;
   gap: 6px;
 }
 
-.editor[data-phone] .ps-grid .sound-cell .reveal {
+.editor:is([data-phone], [data-tablet]) .ps-grid .sound-cell .reveal {
   display: inline-flex;
   flex: 1 1 auto;
   order: 2;
 }
 
-.editor[data-phone] .ps-grid .sound-cell .reveal input {
+.editor:is([data-phone], [data-tablet]) .ps-grid .sound-cell .reveal input {
   width: 100%;
 }
 
-.editor[data-phone] .ps-grid .sound-cell .speaker {
+.editor:is([data-phone], [data-tablet]) .ps-grid .sound-cell .speaker {
   flex: none;
   width: 44px;
   order: 1;
 }
 
-.editor[data-phone] .ps-line {
+.editor:is([data-phone], [data-tablet]) .ps-line {
   display: flex;
   align-items: center;
   gap: 10px;
 }
 
-.editor[data-phone] .ps-label {
+.editor:is([data-phone], [data-tablet]) .ps-label {
   font-size: 14px;
 }
 
-.editor[data-phone] .ps-line .layer-widget {
+/* the saved views (the camera bookmarks, #1074 slice 7): the nine slots and Save, five to a row; a saved slot a solid
+   chip, an empty one dashed and dim; Save armed, every slot outlined in the accent, a tap keeping the view there */
+.editor:is([data-phone], [data-tablet]) .phone-show .ps-grid.ps-views {
+  grid-template-columns: repeat(5, minmax(44px, 1fr));
+}
+
+.editor:is([data-phone], [data-tablet]) .ps-views button {
+  justify-content: center;
+  padding: 0;
+  font-variant-numeric: tabular-nums;
+}
+
+.editor:is([data-phone], [data-tablet]) .ps-views .view-slot {
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.editor:is([data-phone], [data-tablet]) .ps-views .view-slot:not(.saved) {
+  border-style: dashed;
+  background: transparent;
+  box-shadow: none;
+  font-weight: 400;
+  color: color-mix(in srgb, var(--ink) 55%, transparent);
+}
+
+.editor:is([data-phone], [data-tablet]) .ps-views.arming .view-slot {
+  border: 2px solid var(--accent);
+  color: var(--ink);
+}
+
+.editor:is([data-phone], [data-tablet]) .ps-views .view-save[aria-pressed="true"] {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--accent-ink);
+}
+
+.editor:is([data-phone], [data-tablet]) .ps-line .layer-widget {
   flex: none;
 }
 
-.editor[data-phone] .ps-line .layer-widget button {
+.editor:is([data-phone], [data-tablet]) .ps-line .layer-widget button {
   width: 44px;
 }
 
-.editor[data-phone] .phone-show :is(.water-bar, .minimap, .legend-panel, .show-key) {
+.editor:is([data-phone], [data-tablet]) .phone-show :is(.water-bar, .minimap, .legend-panel, .show-key) {
   position: static;
   inset: auto;
   transform: none;
@@ -466,12 +503,12 @@
   margin: 0;
 }
 
-.editor[data-phone] .phone-show .legend-panel {
+.editor:is([data-phone], [data-tablet]) .phone-show .legend-panel {
   overflow: visible;
 }
 
 /* (the minimap's own size is written on it for the desktop's corner: a phone's sheet keeps it small) */
-.editor[data-phone] .phone-show .minimap {
+.editor:is([data-phone], [data-tablet]) .phone-show .minimap {
   width: 120px !important;
   height: auto !important;
 }
@@ -507,14 +544,14 @@
   overscroll-behavior: contain;
 }
 
-.editor[data-phone] .objects-menu .shelf-grid {
+.editor:is([data-phone], [data-tablet]) .objects-menu .shelf-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(84px, 1fr));
   gap: 6px;
   margin: 0;
 }
 
-.editor[data-phone] .objects-menu .shelf-item {
+.editor:is([data-phone], [data-tablet]) .objects-menu .shelf-item {
   flex-direction: column;
   justify-content: center;
   gap: 4px;
@@ -528,12 +565,12 @@
   text-align: center;
 }
 
-.editor[data-phone] .objects-menu .shelf-item :is(img, .shelf-blank) {
+.editor:is([data-phone], [data-tablet]) .objects-menu .shelf-item :is(img, .shelf-blank) {
   width: 40px;
   height: 40px;
 }
 
-.editor[data-phone] .objects-menu .shelf-word {
+.editor:is([data-phone], [data-tablet]) .objects-menu .shelf-word {
   white-space: normal;
   overflow-wrap: anywhere;
 }
@@ -660,7 +697,7 @@
 }
 
 /* (the desktop's narrow windows drop a button's word for its icon: a phone keeps both, the word under the icon) */
-.editor[data-phone] .icon-button .icon-word {
+.editor:is([data-phone], [data-tablet]) .icon-button .icon-word {
   display: block;
 }
 
@@ -669,7 +706,7 @@
 }
 
 /* the weather days in Show: its row as the other rows, the core's moments under it */
-.editor[data-phone] .phone-show .water-bar {
+.editor:is([data-phone], [data-tablet]) .phone-show .water-bar {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 6px;
@@ -677,22 +714,22 @@
   white-space: normal;
 }
 
-.editor[data-phone] .phone-show .water-bar > .day-stepper {
+.editor:is([data-phone], [data-tablet]) .phone-show .water-bar > .day-stepper {
   grid-column: 1 / -1;
   justify-content: space-between;
 }
 
-.editor[data-phone] .phone-show .water-bar > * {
+.editor:is([data-phone], [data-tablet]) .phone-show .water-bar > * {
   height: auto;
   min-height: 44px;
 }
 
-.editor[data-phone] .phone-show .water-bar > .core-moment {
+.editor:is([data-phone], [data-tablet]) .phone-show .water-bar > .core-moment {
   position: static;
   flex-basis: 100%;
 }
 
-.editor[data-phone] .day-stepper .day-step {
+.editor:is([data-phone], [data-tablet]) .day-stepper .day-step {
   width: 44px;
   height: 44px;
 }
@@ -716,7 +753,7 @@
 }
 
 /* (the tiles' group rules are the desktop list's: a sheet of tiles needs none) */
-.editor[data-phone] .objects-menu .shelf-item.shelf-first::before {
+.editor:is([data-phone], [data-tablet]) .objects-menu .shelf-item.shelf-first::before {
   display: none;
 }
 
@@ -737,34 +774,56 @@
 }
 
 /* ---- what is in hand from the objects: one row (its picture, its name, Put it down); its settings pulled up */
-.editor[data-phone] .phone-held {
+.editor:is([data-phone], [data-tablet]) .phone-held {
   display: flex;
   flex-direction: column;
   gap: 8px;
 }
 
-.editor[data-phone] .held-line {
+.editor:is([data-phone], [data-tablet]) .held-line {
   display: flex;
   align-items: center;
   gap: 10px;
   min-height: 44px;
 }
 
-.editor[data-phone] .held-line img {
+.editor:is([data-phone], [data-tablet]) .held-line img {
   flex: none;
   width: 36px;
   height: 36px;
 }
 
-.editor[data-phone] .held-name {
+.editor:is([data-phone], [data-tablet]) .held-name {
   flex: 1 1 auto;
   min-width: 0;
   font-size: 15px;
   font-weight: 600;
 }
 
-.editor[data-phone] .held-close {
+.editor:is([data-phone], [data-tablet]) .held-close {
   flex: none;
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  font-size: 22px;
+  line-height: 1;
+}
+
+/* ---- Put it down (×) on a tool's sheet: the object in hand's ×, at the right end of the sheet's first row (the grab
+   handle's) */
+.editor[data-phone] .tool-dock > .tool-settings.sheet:has(> .put-down) {
+  position: relative;
+}
+
+.editor[data-phone="side"] .tool-dock > .tool-settings.sheet:has(> .put-down) {
+  position: absolute;
+}
+
+.editor[data-phone] .tool-settings.sheet > .put-down {
+  position: absolute;
+  z-index: 1;
+  top: 0;
+  right: max(8px, var(--safe-r));
   width: 44px;
   height: 44px;
   padding: 0;
@@ -830,7 +889,7 @@ html[data-phone] :is(.dialog, .phone-page) :is(input, select, textarea) {
 
 /* ---- the menu's pages (Map Generator, Real places, Your maps, History): the whole screen under the bar, Map (back to
    the map) at their top, the page scrolling inside itself */
-.editor[data-phone] .phone-page {
+.editor:is([data-phone], [data-tablet]) .phone-page {
   position: absolute;
   z-index: 8;
   inset: 0;
@@ -839,7 +898,7 @@ html[data-phone] :is(.dialog, .phone-page) :is(input, select, textarea) {
   background: var(--panel);
 }
 
-.editor[data-phone] .phone-page-head {
+.editor:is([data-phone], [data-tablet]) .phone-page-head {
   flex: none;
   display: flex;
   align-items: center;
@@ -848,7 +907,7 @@ html[data-phone] :is(.dialog, .phone-page) :is(input, select, textarea) {
   border-bottom: 1px solid var(--rule);
 }
 
-.editor[data-phone] .phone-back {
+.editor:is([data-phone], [data-tablet]) .phone-back {
   display: inline-flex;
   align-items: center;
   gap: 4px;
@@ -857,17 +916,17 @@ html[data-phone] :is(.dialog, .phone-page) :is(input, select, textarea) {
   font-weight: 600;
 }
 
-.editor[data-phone] .phone-back svg {
+.editor:is([data-phone], [data-tablet]) .phone-back svg {
   width: 20px;
   height: 20px;
 }
 
-.editor[data-phone] .phone-page-title {
+.editor:is([data-phone], [data-tablet]) .phone-page-title {
   margin: 0;
   font-size: 17px;
 }
 
-.editor[data-phone] .phone-page-body {
+.editor:is([data-phone], [data-tablet]) .phone-page-body {
   flex: 1 1 auto;
   min-height: 0;
   overflow-y: auto;
@@ -876,7 +935,7 @@ html[data-phone] :is(.dialog, .phone-page) :is(input, select, textarea) {
   padding-bottom: var(--safe-b);
 }
 
-.editor[data-phone] .phone-page-body > .gen {
+.editor:is([data-phone], [data-tablet]) .phone-page-body > .gen {
   position: static;
   inset: auto;
   width: auto;
@@ -1188,4 +1247,309 @@ html[data-phone] .dialog:has(> footer) {
 
 html[data-phone] .dialog > footer {
   padding-bottom: 12px;
+}
+
+/* ================= the pages on a phone, second pass (#1074 slice 4): one green button, no word cut short ================= */
+
+/* ---- Map Generator: Generate is the page's one green button, fixed at its foot clear of the home bar; the settings
+   scroll above it, ending at the band it stands in. Keep sits quiet beside the seed, a check in it while it holds */
+.editor[data-phone] .phone-page:has(.gen-panel):not(:has(.sheet-cols.covered)) {
+  --gen-foot: calc(48px + 20px + var(--safe-b));
+  padding-bottom: var(--gen-foot);
+}
+
+.editor[data-phone] .phone-page:has(.gen-panel):not(:has(.sheet-cols.covered)) > .phone-page-body {
+  padding-bottom: 0;
+  border-bottom: 1px solid var(--rule);
+}
+
+.editor[data-phone] .phone-page .sheet-top > button[type="submit"] {
+  position: fixed;
+  z-index: 3;
+  left: max(10px, var(--safe-l));
+  right: max(10px, var(--safe-r));
+  bottom: calc(10px + var(--safe-b));
+  width: auto;
+  height: 48px;
+  font-size: 16px;
+}
+
+.editor[data-phone] .phone-page .sheet-top .set.plate.line.seed {
+  grid-template-columns: minmax(0, 1fr) auto;
+  column-gap: 8px;
+}
+
+.editor[data-phone] .phone-page .sheet-top .set.plate.line.seed.with-variation {
+  grid-template-columns: minmax(0, 1fr) auto auto;
+}
+
+.editor[data-phone] .phone-page .sheet-top .set.plate.line.seed > .set-label {
+  grid-column: 1 / -1;
+}
+
+.editor[data-phone] .phone-page .sheet-top .set.plate.line.seed > :is(.set-text, .seed-variation, .set-toggle) {
+  grid-row: 2;
+  grid-column: auto;
+}
+
+.editor[data-phone] .phone-page .sheet-top .set.plate.line.seed > .seed-variation {
+  align-self: center;
+  font-size: 14px;
+}
+
+.editor[data-phone] .phone-page .sheet-top .set.plate.line.seed > .set-toggle {
+  gap: 6px;
+  height: 44px;
+  min-width: 76px;
+  padding: 0 14px;
+  font-size: 15px;
+  background: var(--panel);
+  border-color: var(--rule);
+  color: var(--ink);
+}
+
+.editor[data-phone] .phone-page .sheet-top .set.plate.line.seed > .set-toggle[aria-pressed="true"] {
+  background: var(--code);
+  border-color: var(--ink);
+  font-weight: 600;
+}
+
+.editor[data-phone] .phone-page .sheet-top .set.plate.line.seed > .set-toggle[aria-pressed="true"]::before {
+  content: "✓";
+}
+
+/* ---- History: each step a row the page's width, its whole label on as many lines as it needs; Keep this version and
+   Branch from here under the step the map is at (a finger has no hover). The page's own head names it and goes back */
+.editor:is([data-phone], [data-tablet]) .history-panel > .ym-head {
+  display: none;
+}
+
+.editor:is([data-phone], [data-tablet]) .history-panel {
+  padding-top: 10px;
+  padding-bottom: 10px;
+}
+
+.editor:is([data-phone], [data-tablet]) .history-panel .hist-steps {
+  gap: 6px;
+}
+
+.editor:is([data-phone], [data-tablet]) .history-panel .hist-item {
+  flex-direction: column;
+  align-items: stretch;
+}
+
+.editor:is([data-phone], [data-tablet]) .history-panel .hist-row {
+  height: auto;
+  min-height: 44px;
+  padding: 11px 12px;
+  overflow: visible;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  font-size: 15px;
+  line-height: 20px;
+}
+
+.editor:is([data-phone], [data-tablet]) .history-panel .hist-item:not(:has(> .hist-row[aria-current="true"])) .hist-acts {
+  display: none;
+}
+
+.editor:is([data-phone], [data-tablet]) .history-panel .hist-acts {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.editor:is([data-phone], [data-tablet]) .history-panel .hist-act {
+  flex: 1 1 0;
+  height: auto;
+  min-height: 44px;
+  white-space: normal;
+  font-size: 14px;
+}
+
+.editor:is([data-phone], [data-tablet]) .history-panel .orphan {
+  margin-left: 12px;
+}
+
+/* ---- Real places and Your maps: two cards a row upright (four on its side), each picture square and whole, every name
+   in full on as many lines as it needs */
+.editor[data-phone] :is(.real-places, .maps-panel .your-maps) ul {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-auto-rows: auto;
+  gap: 10px;
+}
+
+.editor[data-phone="side"] :is(.real-places, .maps-panel .your-maps) ul {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.editor[data-phone] .phone-page-body > .places-panel {
+  padding-top: 10px;
+  padding-bottom: 10px;
+  scrollbar-gutter: auto;
+}
+
+.editor[data-phone] :is(.real-places, .your-maps) .ym-tile {
+  height: 100%;
+  gap: 6px;
+  padding: 6px;
+  font-size: 15px;
+  -webkit-touch-callout: none;
+  user-select: none;
+}
+
+.editor[data-phone] .real-places .ym-pic {
+  flex: none;
+  aspect-ratio: 1;
+  height: auto;
+}
+
+.editor[data-phone] .real-places .rp-name {
+  height: auto;
+  overflow: visible;
+  line-height: 20px;
+  overflow-wrap: anywhere;
+}
+
+.editor[data-phone] :is(.real-places, .your-maps) .ym-size {
+  font-size: 13px;
+  color: var(--muted);
+}
+
+/* (a place's size at its card's foot, level along the row whatever the names) */
+.editor[data-phone] .real-places .ym-size {
+  margin-top: auto;
+}
+
+.editor[data-phone] .your-maps .ym-line {
+  flex: 1;
+}
+
+.editor[data-phone] .your-maps .ym-name,
+.editor[data-phone] .your-maps .ym-name.split {
+  display: block;
+  height: auto;
+  -webkit-line-clamp: none;
+  overflow: visible;
+  line-height: 20px;
+}
+
+.editor[data-phone] .your-maps .ym-name.split > * {
+  display: inline;
+  overflow: visible;
+  white-space: normal;
+}
+
+.editor[data-phone] .your-maps .ym-from {
+  display: block;
+  overflow: visible;
+  white-space: normal;
+  font-size: 13px;
+  line-height: 18px;
+}
+
+.editor[data-phone] .your-maps .ym-from > * {
+  overflow: visible;
+  white-space: normal;
+}
+
+/* Your maps' heading row: the page's head names it, so the row holds the actions alone, the page's width; while a finger
+   selects, how many are selected and Done above them */
+.editor[data-phone] .maps-panel .ym-head {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 8px;
+  height: auto;
+  margin: 0 0 10px;
+  padding-top: 10px;
+}
+
+.editor[data-phone] .maps-panel:not([data-picking]) .ym-title {
+  display: none;
+}
+
+.editor[data-phone] .maps-panel .ym-title {
+  font-size: 16px;
+}
+
+.editor[data-phone] .maps-panel .ym-acts {
+  grid-column: 1 / -1;
+  display: flex;
+}
+
+.editor[data-phone] .maps-panel .ym-acts > .ym-act {
+  flex: 1 1 0;
+}
+
+.editor[data-phone] .maps-panel .ym-act {
+  height: 44px;
+  font-size: 15px;
+}
+
+/* (on its side, one row: how many are selected, the actions, Done) */
+.editor[data-phone="side"] .maps-panel .ym-head {
+  display: flex;
+}
+
+.editor[data-phone="side"] .maps-panel .ym-acts {
+  flex: 1;
+  order: 1;
+}
+
+.editor[data-phone="side"] .maps-panel .ym-head > .ym-done {
+  order: 2;
+  margin: 0;
+}
+
+/* (the ⋯ at the picture's corner, the selection's check at the other) */
+.editor[data-phone] .your-maps li.selected::after {
+  top: 14px;
+  left: 14px;
+  width: 26px;
+  height: 26px;
+  font-size: 15px;
+}
+
+/* ---- the map being made: centred on the screen upright and on its side, every word of its line kept */
+html[data-phone] .dialog-backdrop.making-backdrop {
+  place-items: center;
+  padding-top: max(8px, env(safe-area-inset-top, 0px));
+}
+
+html[data-phone] .making-dialog {
+  width: min(400px, 100%);
+}
+
+html[data-phone] .making-dialog p {
+  white-space: normal;
+  overflow: visible;
+}
+
+/* ---- Map Generator on its side: Name and Seed share one row, each name beside its box; the seed's box and Keep keep their
+   width and the name's box takes the rest, so the settings under them keep their room above Generate (planning, #1101) */
+.editor[data-phone="side"] .phone-page .sheet-row1 {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: stretch;
+  column-gap: 8px;
+}
+
+.editor[data-phone="side"] .phone-page .sheet-top .sheet-row1 .set.plate.line {
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  column-gap: 8px;
+}
+
+.editor[data-phone="side"] .phone-page .sheet-top .sheet-row1 .set.plate.line.seed {
+  grid-template-columns: auto 150px auto;
+}
+
+.editor[data-phone="side"] .phone-page .sheet-top .sheet-row1 .set.plate.line.seed.with-variation {
+  grid-template-columns: auto 150px auto auto;
+}
+
+.editor[data-phone="side"] .phone-page .sheet-top .sheet-row1 .set.plate.line > *,
+.editor[data-phone="side"] .phone-page .sheet-top .sheet-row1 .set.plate.line.seed > * {
+  grid-row: 1;
+  grid-column: auto;
 }

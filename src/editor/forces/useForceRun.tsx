@@ -372,17 +372,30 @@ export function useForceRun(ed: Ed): ForceRunSlice {
     return {
       label: "Unleash at work",
       groups: [
-        { key: "status", row: 1, at: 1, span: 9, rows: 2, centre: true, node: <Words status>{st.stopping ? "Keeping the river…" : st.paused ? "Paused" : "The source carves its way…"}</Words> },
+        { key: "status", row: 1, at: 1, span: 7, rows: 2, centre: true, node: <Words status>{st.stopping ? "Keeping the river…" : st.paused ? "Paused" : "The source carves its way…"}</Words> },
         {
           key: "pause",
           row: 1,
-          at: 10,
+          at: 8,
           span: 2,
           rows: 2,
           centre: true,
           node: (
             <button type="button" class="set-button" disabled={st.stopping} onClick={() => forcer.current?.pause(!forcer.current.status?.paused)} {...tip(st.paused ? "Carry on" : "Hold it here", "Space")}>
               {st.paused ? "Resume" : "Pause"}
+            </button>
+          ),
+        },
+        {
+          key: "skip",
+          row: 1,
+          at: 10,
+          span: 2,
+          rows: 2,
+          centre: true,
+          node: (
+            <button type="button" class="set-button" disabled={st.stopping} onClick={() => forcer.current?.escape()} {...tip("Finish it now", "Esc")}>
+              Skip
             </button>
           ),
         },
@@ -394,7 +407,7 @@ export function useForceRun(ed: Ed): ForceRunSlice {
           rows: 2,
           centre: true,
           node: (
-            <button type="button" class="set-button" onClick={() => forcer.current?.cancel()} {...tip("Take all of it back", "Ctrl+Z", "Esc skips to its end")}>
+            <button type="button" class="set-button" onClick={() => forcer.current?.cancel()} {...tip("Take all of it back", "Ctrl+Z")}>
               Revert
             </button>
           ),

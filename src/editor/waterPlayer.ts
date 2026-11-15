@@ -11,6 +11,7 @@
 // visibly) is the tests'; the page skips to the result when a held weather day needs the settled water in place.
 
 import type { WaterView } from "../render3d/model";
+import { WATCH_STRIDE_MS } from "./forceDriver";
 
 export interface WaterFrame {
   water: WaterView;
@@ -128,10 +129,15 @@ export class WaterPlayer {
   private at = -1;
   private timer = 0;
   private finished = true;
-  /** The playing clock: the frame it started from, and when (the journey keeps its pace in
-   *  time, skipping frames when showing them is slow, as in software rendering). */
+  /** The playing clock: the frame it started from, and when (the journey keeps its pace in time, skipping frames
+   *  when showing them is slower than its pace). A page held longer than `WATCH_STRIDE_MS` between two frames (a
+   *  slow machine's software drawing holds it for seconds) counts only that much of the wait, as Slow forces do
+   *  (forceDriver.ts): else one late frame would jump to the journey's end, and the water would never be seen to
+   *  travel there. */
   private clockAt = 0;
   private clockT = 0;
+  /** When the last frame was put on screen by the clock (0: none since it started). */
+  private tickT = 0;
   speedName: WaterSpeed = "normal";
   private get speed(): number {
     return RATE[this.speedName];
@@ -257,7 +263,10 @@ export class WaterPlayer {
       // the frame the clock is at (at least the next one), and, behind the worker by more than a
       // few seconds, a little faster
       const last = this.frames.length - 1;
-      const byClock = this.clockAt + Math.floor(((performance.now() - this.clockT) * FPS * this.speed) / 1000);
+      const t = performance.now();
+      if (this.tickT && t - this.tickT > WATCH_STRIDE_MS) this.clockT += t - this.tickT - WATCH_STRIDE_MS;
+      this.tickT = t;
+      const byClock = this.clockAt + Math.floor(((t - this.clockT) * FPS * this.speed) / 1000);
       const behind = last - this.at;
       const step = this.speedName === "instant" ? behind : Math.max(1, Math.floor(behind / (FPS * 6)), byClock - this.at);
       const next = Math.min(last, this.at + step);
@@ -273,6 +282,7 @@ export class WaterPlayer {
   private restartClock(): void {
     this.clockAt = Math.max(0, this.at);
     this.clockT = performance.now();
+    this.tickT = this.clockT;
   }
 
   private stopTimer(): void {

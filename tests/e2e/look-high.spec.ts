@@ -222,7 +222,7 @@ test("too slow frames fall back to High's lower-cost tier, then to Standard, rem
   expect(errors).toEqual([]);
 });
 
-test("the game's bloom is drawn only when something can pass its knee, and skipping it by day changes no pixel (D497 as amended 2026-11-08, D453)", async ({ page }) => {
+test("the game's bloom is drawn only when something can pass its knee, and skipping it by day changes no pixel; a start's fire blooms, its source drawn round the start alone (D497 as amended 2026-11-08, D453, D496)", async ({ page }) => {
   const errors: string[] = [];
   await open(page, errors);
   await opensHigh(page);
@@ -232,12 +232,18 @@ test("the game's bloom is drawn only when something can pass its knee, and skipp
       type Bloom = { up: { texture: unknown; width: number; height: number }[]; down: { width: number; height: number }[]; apply(gl: unknown): void };
       const r = window.dgm3d!.renderer as unknown as {
         blooms(): boolean;
+        fireShows(): boolean;
+        fireBox(cam: unknown): unknown;
+        bloomRect(cam: unknown): unknown;
+        camera(): { matrixWorld: { elements: number[] } };
+        startLightsOn: number;
         bloom: Bloom | null;
         gl: { getContext(): WebGL2RenderingContext; setRenderTarget(t: unknown): void };
         map: { entities: { count: number; templates: string[]; template: ArrayLike<number>; x: ArrayLike<number>; y: ArrayLike<number>; z: ArrayLike<number> } };
         setView(v: unknown): void;
         setClock(h: number): void;
         renderNow(): void;
+        placeCamera(): void;
       };
       const g = r.gl.getContext();
       const read = () => {
@@ -249,17 +255,35 @@ test("the game's bloom is drawn only when something can pass its knee, and skipp
         r.renderNow();
         return read();
       };
+      const differ = (a: Uint8Array, b: Uint8Array, by = 0) => {
+        let n = 0;
+        for (let i = 0; i < a.length; i++) if (Math.abs(a[i] - b[i]) > by) n++;
+        return n;
+      };
+      // (a method of the view's, put back as it was)
+      const swap = <K extends "blooms" | "fireBox" | "bloomRect">(k: K, f: (typeof r)[K]) => {
+        const own = Object.getOwnPropertyDescriptor(r, k);
+        r[k] = f;
+        return () => {
+          if (own) Object.defineProperty(r, k, own);
+          else delete (r as Partial<typeof r>)[k];
+        };
+      };
       const e = r.map.entities;
       let at: number[] = [48, 2, -48];
       for (let k = 0; k < e.count; k++) if (e.templates[e.template[k]] === "StartingLocation") at = [e.x[k] + 0.5, e.z[k], -(e.y[k] + 0.5)];
       // the start up close by day, its marker the brightest model there is
       r.setClock(12.5);
       r.setView({ mode: "orbit", yaw: -Math.PI / 6, pitch: 0.6, distance: 11, target: at });
+      // its fire and its light, which pass the knee, out: below
+      const lights = r.startLightsOn;
+      r.startLightsOn = 0;
+      const noFire = swap("fireBox", () => null);
       const skipped = r.blooms();
       // drawn anyway: what the game's passes make of it, and the canvas just before them and just after, in one frame
       // (two redraws of a still frame can differ by a level here and there, the bloom aside)
-      const own = Object.getOwnPropertyDescriptor(r, "blooms");
-      r.blooms = () => true;
+      const forced = swap("blooms", () => true);
+      (r as unknown as { fire: { mesh: { visible: boolean } } }).fire.mesh.visible = false;
       canvas();
       const b = r.bloom!;
       const apply = b.apply.bind(b);
@@ -277,20 +301,54 @@ test("the game's bloom is drawn only when something can pass its knee, and skipp
       const lift = new Float32Array(top.width * top.height * 4);
       g.readPixels(0, 0, top.width, top.height, g.RGBA, g.FLOAT, lift);
       r.gl.setRenderTarget(null);
-      if (own) Object.defineProperty(r, "blooms", own);
-      else delete (r as { blooms?: unknown }).blooms;
-      let differ = 0;
-      for (let i = 0; i < without.length; i++) if (without[i] !== withIt[i]) differ++;
+      forced();
+      noFire();
+      (r as unknown as { fire: { mesh: { visible: boolean } } }).fire.mesh.visible = true;
+      r.startLightsOn = lights;
       let most = 0;
       for (let i = 0; i < lift.length; i += 4) most = Math.max(most, lift[i], lift[i + 1], lift[i + 2]);
-      return { skipped, differ, most, read: without.length > 0 && withIt.length === without.length };
+      // with its fire burning and its light on, its lantern in view (the start's middle 1 tile in from the entrance
+      // corner, its bowl 3.2 up): the bloom is drawn, from a source drawn round the start alone, and the frame is what
+      // the whole frame's source makes of it
+      r.setView({ mode: "orbit", yaw: -Math.PI / 6, pitch: 0.5, distance: 11, target: [at[0] - 1, at[1] + 3.2, at[2] - 1] });
+      canvas();
+      const fireBlooms = r.blooms();
+      const boxed = canvas();
+      const whole = swap("bloomRect", () => null);
+      const full = canvas();
+      whole();
+      const off = swap("blooms", () => false);
+      const none = canvas();
+      off();
+      // panned sideways until the bowl has left the frame: its glow still reaches over the frame's edge, so the bloom
+      // is drawn while the start's box overlaps the frame, and not once it has gone. (The camera is placed at each step,
+      // never drawn: whether a frame blooms is the camera's alone, and a High frame drawn at each of the 100 and more
+      // steps took the test past 180 s on CI's software drawing, run 43676703173.)
+      const right = r.camera().matrixWorld.elements.slice(0, 3);
+      let edge: boolean | null = null;
+      let gone: boolean | null = null;
+      for (let s = 0; s < 30 && gone === null; s += 0.05) {
+        r.setView({ mode: "orbit", yaw: -Math.PI / 6, pitch: 0.5, distance: 11, target: [at[0] - 1 - right[0] * s, at[1] + 3.2 - right[1] * s, at[2] - 1 - right[2] * s] });
+        r.placeCamera();
+        if (edge === null && !r.fireShows()) edge = r.blooms();
+        if (edge !== null && !r.fireBox(r.camera())) gone = r.blooms();
+      }
+      return { skipped, differ: differ(without, withIt), most, read: without.length > 0 && withIt.length === without.length, fireBlooms, lifted: differ(none, boxed, 1), boxApart: differ(boxed, full, 1), edge, gone };
     });
-    // by day nothing passes the knee: the passes are skipped, they would have made nothing, and the frame is the same
-    // to the byte with them or without
+    // by day nothing passes the knee but a start's fire and its light: without them the passes are skipped, they would
+    // have made nothing, and the frame is the same to the byte with them or without
     expect(day.skipped, choice).toBe(false);
     expect(day.read, choice).toBe(true);
     expect(day.most, choice).toBe(0);
     expect(day.differ, JSON.stringify({ choice, ...day })).toBe(0);
+    // with them the bloom is drawn and lifts the lantern (some 530,000 bytes of the frame by 2 levels or more), its
+    // source drawn round the start alone as the whole frame's: they differ by no more than two redraws of the whole
+    // frame do in High (8 to 12 bytes by 2 levels; a box that missed part of the source would lose thousands)
+    expect(day.fireBlooms, choice).toBe(true);
+    expect(day.lifted, choice).toBeGreaterThan(100_000);
+    expect(day.boxApart, JSON.stringify({ choice, ...day })).toBeLessThan(64);
+    expect(day.edge, choice).toBe(true);
+    expect(day.gone, choice).toBe(false);
   }
   expect(errors).toEqual([]);
 });
@@ -423,6 +481,72 @@ test("High's water is darker deep than shallow, at one camera and light (D334: t
   expect(errors).toEqual([]);
 });
 
+test("deep water seen from the top-down view is not black and reads as the angled view draws it, in both looks (#236 11-10)", async ({ page }) => {
+  // (the game's ramp takes clean water to black at its max depth and its grade crushes the darkest values to 0, so deep
+  // water reads by the fog the camera's distance gives it: the top-down view, which the game doesn't have, takes the
+  // fog the angled view has at its zoom. Without it Islands 7's deep sea read pure black there, 6,611 of its 7,548
+  // tiles in view at 0, against (41, 78, 87) angled, RTX 2070 SUPER)
+  const errors: string[] = [];
+  page.on("pageerror", (e) => errors.push(String(e)));
+  page.on("console", (m) => m.type() === "error" && errors.push(m.text()));
+  await page.setViewportSize({ width: 1280, height: 900 });
+  await openEditor(page, "s=7&z=128&d=n&t=islands");
+  const seen = await page.evaluate(async () => {
+    const r = window.dgm3d!.renderer;
+    await r.patternsMade();
+    const g = (r as unknown as { gl: { getContext(): WebGL2RenderingContext } }).gl.getContext();
+    /** The median colour of the clean water three or more levels deep, at the middle of each tile in view, and how many
+     *  of those tiles are drawn black, in a view framed whole. */
+    const deep = (mode: "orbit" | "top") => {
+      r.setMode(mode);
+      r.resetView();
+      r.renderNow();
+      const W = g.drawingBufferWidth;
+      const H = g.drawingBufferHeight;
+      const px = new Uint8Array(W * H * 4);
+      g.readPixels(0, 0, W, H, g.RGBA, g.UNSIGNED_BYTE, px);
+      const k = W / r.canvas.clientWidth;
+      const s = r.mapState()!;
+      const seen: number[][] = [];
+      let black = 0;
+      for (let y = 1; y < s.H - 1; y++)
+        for (let x = 1; x < s.W - 1; x++) {
+          const i = y * s.W + x;
+          if (!(s.surface.depth[i] >= 3) || s.surface.contamination[i] > 0.02 || !Number.isFinite(s.surface.surface[i])) continue;
+          const p = r.project(x + 0.5, s.surface.surface[i], -(y + 0.5));
+          if (!p.visible) continue;
+          const cx = Math.round(p.x * k);
+          const cy = H - 1 - Math.round(p.y * k);
+          if (cx < 2 || cy < 2 || cx >= W - 2 || cy >= H - 2) continue;
+          const o = (cy * W + cx) * 4;
+          seen.push([px[o], px[o + 1], px[o + 2]]);
+          if (px[o] + px[o + 1] + px[o + 2] < 6) black++;
+        }
+      const median = (c: number) => seen.map((v) => v[c]).sort((a, b) => a - b)[Math.floor(seen.length / 2)];
+      return { n: seen.length, black, rgb: [median(0), median(1), median(2)] };
+    };
+    const out: Record<string, { top: ReturnType<typeof deep>; angled: ReturnType<typeof deep> }> = {};
+    for (const look of ["standard", "high"] as const) {
+      r.setLookChoice(look, false);
+      if (look === "high") for (let k = 0; k < 600 && !r.highSettled; k++) await new Promise((res) => setTimeout(res, 100));
+      r.setClock(12.5);
+      out[look] = { top: deep("top"), angled: deep("orbit") };
+    }
+    return out;
+  });
+  console.log(`deep water, top-down against angled: ${JSON.stringify(seen)}`);
+  for (const look of ["standard", "high"] as const) {
+    const { top, angled } = seen[look];
+    expect(top.n, look).toBeGreaterThan(1000);
+    // not black: next to none of its tiles, and its median well clear of it
+    expect(top.black / top.n, look).toBeLessThan(0.01);
+    expect(top.rgb[0] + top.rgb[1] + top.rgb[2], look).toBeGreaterThan(90);
+    // near the angled view's colour (within 4, 9 and 10 at the whole map's framing, RTX 2070 SUPER)
+    for (let c = 0; c < 3; c++) expect(Math.abs(top.rgb[c] - angled.rgb[c]), `${look} channel ${c}`).toBeLessThanOrEqual(16);
+  }
+  expect(errors).toEqual([]);
+});
+
 test("an eruption in High (D378): its plume rises, its lava glows on High's ground, and High stays drawn", async ({ page }) => {
   const errors: string[] = [];
   page.on("pageerror", (e) => errors.push(String(e)));
@@ -501,12 +625,20 @@ test("an eruption in High (D378): its plume rises, its lava glows on High's grou
       const gate = r as unknown as { blooms(): boolean };
       bloomed = gate.blooms();
       gate.blooms = () => false;
+      // (and before the fog: since the top-down view takes the angled view's haze at its zoom (#926), the haze lifts
+      // the lava's green and blue past the colour gate below (its hottest (255,98,45) → (248,135,103)) though the lava
+      // reads as plainly as before; the count is of the lava's own colour, as the bloom's is set aside above (D148),
+      // and the fog switched back as it was)
+      const fogWas = r.highEffectsNow?.fog ?? true;
+      r.setHighEffect("fog", false);
       const hot = lava();
       delete (gate as { blooms?: unknown }).blooms;
       fx.heat = heat;
       // against the same land with its moment gone
       r.clearForce();
-      w.glow = { cooling: s?.cooling ?? null, hot, cold: lava(), look: r.look, bloomed };
+      const cold = lava();
+      r.setHighEffect("fog", fogWas);
+      w.glow = { cooling: s?.cooling ?? null, hot, cold, look: r.look, bloomed };
     };
   });
   await page.mouse.click(at!.x, at!.y);

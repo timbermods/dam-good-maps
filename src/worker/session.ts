@@ -8,6 +8,7 @@
 // imported map's own problems (those it already had when it was opened) are listed but never
 // blamed on the player's edits, so an unedited import always exports unchanged (PLAN §20, D43).
 
+import { placeSession } from "../core/places/open";
 import { decodeProject, documentFileName, type MapDocument, type NameResult, type SavedView, type VersionParent } from "../core/doc/document";
 import { STALE, type Envelope } from "../core/doc/editQueue";
 import { MapSession, STEP_GONE, type BlockFalls, type DocOrphan, type HistoryItem, type HistoryMark } from "../core/doc/session";
@@ -23,7 +24,7 @@ export type { RemoveKind };
 import { paintDying, paintLevels, planPaintObjects } from "../core/doc/paint";
 import { planRuinLine, type RuinLineParams, type RuinPier } from "../core/doc/ruinLine";
 import type { PaintParams } from "../core/doc/paintParams";
-import { footprintCheck as checkFootprint, planEntity, planMoveEntity, planPlant, withSpringPools, type EntityRequest, type PlannedOps } from "../core/doc/placing";
+import { footprintCheck as checkFootprint, moveProblem, planEntity, planMoveEntity, planPlant, withSpringPools, type EntityRequest, type PlannedOps } from "../core/doc/placing";
 import { planStair, type StairStep } from "../core/doc/stair";
 import { newRampedStroke, planStrokeClearing } from "../core/doc/strokes";
 import { groupChecks, instantChecks, NO_START, NO_START_REFUSAL, type CheckGroups, type CheckItem, type TileRect } from "../core/doc/checkItems";
@@ -1972,6 +1973,14 @@ export function openTimber(bytes: Uint8Array, fileName: string, place?: string):
   return opened(MapSession.importMap(bytes, fileName, place));
 }
 
+/** A real place (its data file), opened as the core opens one (core/places/open.ts): its .timber built and imported,
+ *  marked as the place, so its checks follow the place's rules (D245, D331). */
+export function openPlace(data: Uint8Array): SessionOpen {
+  const blocked = gated(true);
+  if (blocked) throw new Error(blocked);
+  return opened(placeSession(data));
+}
+
 /** A new blank map (core/doc/blank.ts): flat, dry ground `size` tiles a side at `level`, the start at its middle. A
  *  size or a level it can't be made at throws its one-line reason. */
 export function newBlank(size: number, level: number): SessionOpen {
@@ -2803,6 +2812,12 @@ export function moveObjectBy(id: string, dx: number, dy: number, z?: number): Se
   if (!p.ok) return changed(s, false, p.errors, t0);
   const r = s.applyAll(p.ops, "user", p.label);
   return changed(s, r.ok, r.errors, t0);
+}
+
+/** Why moving the object or source `id` by (dx, dy) would be refused, or null: a drag's preview, before the drop
+ *  (core/doc/placing.ts `moveProblem`). */
+export function moveCheck(id: string, dx: number, dy: number, z?: number): string | null {
+  return moveProblem(need(), id, dx, dy, z);
 }
 
 /** Whether a stroke of trees, bushes or succulents would plant on soil that kills them (D235's amber ring, "dry ground:

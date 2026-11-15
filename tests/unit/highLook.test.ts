@@ -120,10 +120,10 @@ describe("the effects", () => {
   });
 
   it("lose only what the lower-cost tier drops, and keep the player's own switches", () => {
-    const chosen = { ...allEffects(), strata: false };
+    const chosen = { ...allEffects(), variation: false };
     const lower = effectiveEffects(chosen, true);
     for (const k of LOWER_COST_DROPS) expect(lower[k]).toBe(false);
-    expect(lower.strata).toBe(false);
+    expect(lower.variation).toBe(false);
     expect(lower.water).toBe(true);
     expect(effectiveEffects(chosen, false)).toEqual(chosen);
   });

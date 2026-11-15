@@ -233,6 +233,9 @@ export function useBlockTool(ed: Ed): BlockSlice {
     if (!r || !block) return;
     const t: PointerTool = {
       voxel: true,
+      // (a finger: the block shows above it; a drag sweeps the blocks from there, the lift adds or takes them, or held
+      // still the lift adds or takes the one; render3d/touch.ts)
+      finger: "line",
       down: (hit, ev) => {
         if (ev.button !== 0 || ev.ctrlKey || ev.metaKey || ed.forcer.current?.running || sizing.current) return false;
         const aim = aimOf(hit, ev.shiftKey);

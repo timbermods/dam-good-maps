@@ -855,6 +855,10 @@ a test on a small fixture (`premiseSeams.test.ts`).
 - **A width per channel point** (`Link.halves`, one half-width a path point): `raster/channels.ts` `halfAt` reads it
   straight between the points, so a brook narrows and widens along its course; a list that does not match the path is
   not read. The table's depth still reads the link's one `half`.
+- **A course laid where the plan drew it** (`Link.wander`, tiles): `raster/channels.ts` `wanderOf` reads it in place
+  of the kind's own wander (a brook's 1 to 4.2 tiles by noise 14 tiles across). A premise that lays a brook's meanders
+  itself gives 0 (the Gate's brooks): wandered again, a bend the plan drew was straightened here and there, and the
+  plan's own reading of its straight reaches no longer told the laid water's.
 - **A backwater** (`Body.backwater`): a body its feeder's water stands in and does not run through. `levels.ts`
   `route` gives its links no share of the feeder's flow (the inlet's water is the river's), keeps them wet when the
   feeder runs and stands the body at the feeder's level; `waterChecks.ts` `levelsOf` reads it at its sill, not its rim
@@ -1356,7 +1360,7 @@ playability floor of its own: the start's numbers are the shared gate's (`START_
 **The line:** "A mountain range runs across the map, a green valley on your side and a dry lake's basin beyond; the
 river rises in a cleft of the range, pours over the Veil and runs down to the lake at your door. Carry the water
 through the Gate or round by the Pass, and before the first badtide close the Still Pool's inlet." (Planning's wording
-of 2026-11-16; "your door" is said once, in the line, so the card's landmark is the fall into the plunge pool alone.)
+for the card; "your door" is said once, in the line, so the card's landmark is the fall into the plunge pool alone.)
 Closing the Gate is the premise's choice: hold the valley's water behind the wall, or send it through to the basin.
 
 **Land first, story second** (planning's ruling of 2026-11-11, after Kyler called the laid wall "an artificial wall
@@ -1400,9 +1404,11 @@ whole shares' floor is 0 (by number their bed is the same; their gain is the set
   range), `basin.bowl` (the pan past the range, the Gate Bed through it, both beds out by the outlet), `start.neck`,
   `leat.own`, `valley.enclosed`, `gate.ladder`, `gate.skeleton`; with §1.4's shared checks.
 - land (stage 1's water, `gateWater.ts`): the shared ones with `water.levels` read for a backwater, `gate.dry`,
-  `frame.water`.
+  `frame.water`; and `valley.lake` (no canal lake: at most a third of the lake's shore along the range, its width
+  varying two-fold or more along its length).
 - land (stage 2's ground, `GATE_LAND_CHECKS`): `range.crest` (the crest varies by 4 levels or more, no run of a quarter
-  of the side at one level), `gate.lowest`, `wall.camera` (the range's high ground spans 60 % of the vista's frame),
+  of the side at one level), `range.straight` (the range's foot toward the valley never straight for more than a
+  quarter of the side), `gate.lowest`, `wall.camera` (the range's high ground spans 60 % of the vista's frame),
   `basin.bowl`, `valley.enclosed`, `terrain.ruled_land` (the shared look check on stage 2's ground), `frame.lip`.
 - works (`GATE_WORKS_CHECKS`): `works.sites`, `works.paid`, `neck.shuts`, `gate.opens`, `basin.dry`.
 - settled (`gateMap.ts`): every blocking check of the shared gate, and `veil.settled`.
@@ -1491,7 +1497,8 @@ mended, on the map's whole levels: a tile of the frame's band is in it where its
 
 **The water wanders** (planning's ruling of 2026-11-15: no water reach over 40 tiles straight; brooks follow the
 valley's fall and wander). Read by `terrain.ruled_land`'s channels (a run of 12 rows or more whose width varies by two
-tiles at most and whose middle keeps to a straight line). What lay straight, and why: the plunge pool's lobe, its lip
+tiles at most and whose middle keeps to a straight line; since the reach rule, below, water under 5 wide only past
+five times its width). What lay straight, and why: the plunge pool's lobe, its lip
 and the brook's head lay on one line as wide as each other (118 to 142 tiles at every size); the lake's main arm between
 its broad lobes, whose shore is their union, so points between them changed little (250 to 373 tiles at 256²); and a
 southern brook's tarn and its first leg, the tarn hardly wider than the brook (46 to 62). Now: the plunge pool's lip
@@ -1511,6 +1518,282 @@ floor holding; no stray water; every map's card says what the megadam buys. Seed
 of 44 and 48 tiles at 192² (drawn less wandering to keep off a neighbour). **Short:** a 256² map takes about a tenth
 longer than before (side by side, seeds 1 to 12: median 4.9 s against 4.5 s): the settle runs 15 to 20 % more ticks.
 The heavy maps test holds the longest straight reach to 40 tiles.
+
+**The brooks meander** (planning's rulings of 2026-11-13). The course is a way the land finds (`gateBrooks.ts`
+`brookWay`: the cheapest way from the spring through places one to a three-tile cell, over noise ground, a way that
+comes nearer the lake by less than a quarter of its length costing more). It leaves its tarn square to the shore,
+`BROOK_OUT` (4) tiles clear of it before it bends: led off beside its tarn, its bed a level down touched the tarn's
+water, the raster parted the two (`partWaters`) and the tarn stood a level over its sill with no way out. The channel
+meanders about the course's softened axis (`meander`, the sine-generated curve of Langbein and Leopold), lobe by lobe
+from one crossing of the axis to the next: its heading against the axis runs from +ω at a crossing through 0 at the
+lobe's apex to −ω′ at the next, as a cosine of the way along the lobe with a fifth of its third harmonic (`round`):
+the curve turns through each crossing more than twice as fast, toward arcs joined end to end. As the plain cosine its
+heading hardly changes about a crossing, and the leg between two bends lay 17 rows straight, three wide, wherever it
+ran 3° to 17° past the grid's rows or columns (a course at 12° to 32° or 58° to 78°): a straight reach by the reach
+rule on most draws. Each bend is its own (planning's verdict of 2026-11-14: one wavelength, 8 to 10 widths, for every
+bend of every brook made the brooks of 256² stripes with one rhythm): its wavelength is drawn from 6 to 14 times the
+brook's width and its ω from 1.0 to 1.8 rad, each about a mean that drifts along the course (by up to 1.6 widths and
+0.14 rad a bend, the bend within 2.6 widths and 0.26 rad of it). A short bend swings less and a long one more: a
+short bend swung past a right angle touches the next, a long one that hardly swings is a straight leg. No curve comes
+within 6 tiles of itself 12 tiles further on (`BROOK_SELF`), and each lobe's length is unlike the last's by 13 % or
+more. Where its bed drops a level it steps aside, 0.8 to 1.3 widths over four tiles, left and right by turns; on a
+steep reach, two drops closer than half of half a wavelength, it does not swing at all (it swings whole from 0.8). Where a lobe would leave its room (the valley's floor, clear of its
+tarn, the lake and the brooks laid before it, `BROOK_EDGE` (7) tiles off the map's edge) it swings as far as the room lets it, the room's share softened over
+four tiles: a squeezed lobe is drawn smaller, never cut flat. A brook is 3 or 4 wide, its width drawn afresh every 3
+to 6 tiles (`BROOK`). The lake's coves and bays are laid before the brooks; a brook comes in at the nearest cove head
+it can reach (two may share one), else at the nearest shore off every cove, its mouth its own notch of a tile or two.
+The springs nearest the lake are laid first.
+
+A brook is mended where it fails, never the whole layout drawn again for it: each way's channel is drawn up to
+`BROOK_DRAWS` (6) times until it holds what a brook's must (no straight even reach, read three and four wide by the
+reach rule; no curve within 6 tiles of itself 12 tiles further on; its bends unlike, `brookLegsWrong`; its middle off
+its own spring and off every laid brook's), then the next way is tried (to a cove's head, to the shore; clear of the
+laid brooks by a meander's belt of 10 tiles, then by `BROOK_APART`). The checks that do not read the brooks run on the
+layout before its brooks are laid (`planFailure` on the plan without them), so a layout the range, the start or the
+plunge pool refuses costs a millisecond or two, not a brook stage. `valley.brooks` (the bend rule) is unchanged: no
+two neighbouring bends within a tenth of each other in both length and swing, no three in a row within a tenth in
+length; the hand-broken sawtooth fails it.
+
+**Confluences** (ruling 1: land drains as a tree, not a comb; `BROOK_JOIN`). A brook's way may end on a brook laid
+before it: at 30 to 60° to the trunk, pointing downstream, its last 7 tiles straight in; never within 6 tiles of a
+level the trunk's bed drops or of the lake, nor within 16 of the trunk's head, nor on the trunk's last reach. Below
+the join the trunk is a width wider (half a tile each side) and its bed a level lower. The two meet at one level: the
+trunk's bed steps down 10 tiles above the join, the tributary's before its last 6. Stepped down at the join itself
+(the round before), one stood a level over the other where their beds met, the raster parted them and one was dammed:
+a tarn a level over its sill (`water.levels`) or water out over its banks (`water.exits`), 15 of 16 plans at 192²
+seeds 1 and 2. A join stands only where the trunk below it, read five wide, lies as no straight even reach (five wide, a
+crossing between two bends along the grid is a reach at 12 rows).
+
+**The brooks, a tree** (planning's verdict of 2026-11-14: a bed gathered two springs at the most, so at 256² the rest
+ran side by side as stripes). The water table gives a bed its depth by reach (`levels.ts` `LinkFlow.reaches`: below
+each join, the flow it carries there over its width there; by one depth for its whole flow, three springs in one bed
+stood 1.03 deep from its head, 0.67 over a tributary's 0.36, and the raster parts waters half a level apart where
+they meet). So a trunk takes two tributaries, a tributary one, a tributary's tributary none (`BROOK_JOIN.most`,
+`valley.water`), each join below the trunk's last by its step and its clear run, and the trunk's bed steps down a
+level at each. With six brooks or more (256² and up, `BROOK_TREE`) four springs gather in three orders (Strahler's:
+springs, a branch, the trunk): the side valley's brook is the trunk, the long way along the valley to the lake's head;
+the far corner's joins it high (within 0.3 of its length); the next spring along the far edge joins it lower (within
+0.45) and takes the one past it. The four stand five over the lake's sill and are 0.72 of a spring's strength, so
+the trunk below its second join is a width wider than a brook, under a level deep; the trunk's and the branch's beds
+keep their first level over half their length, so no step of theirs lies where one joins. With five (192², round 3)
+three springs gather in a chain, `treeOf`: the twig joins the branch, the branch the trunk (three ranks; Strahler's
+order two, since a chain of single springs never meets an equal). A layout whose brooks do
+not make three orders (with five, two orders in that chain) is laid again, and so at every size is one where a brook runs beside another for more than 30
+tiles (`gateBrooks.ts` `besideRun`: within 12 tiles of it and heading within 25° of it, each heading read over 12
+tiles either way; a tributary coming in at 30 to 60° is near its trunk, not beside it). The raster keeps the piece of
+a trunk between two joins (`raster/guard.ts` `dropPockets`: a trunk two join is three pieces, and the middle one,
+touching neither end, was dropped as a pocket; the trunk's water ran out over the land there, 256² seeds 1 and 2).
+
+**The reach rule** (ruling 2 and planning's ruling of 2026-11-14; D520; `validate/ruledLand.ts` `ruledReach` and
+`bendsBoth`, the decision note in `docs/decisions/generator.md`). In `terrain.ruled_land`'s channels, water under 5
+wide whose straight stretch is a crossing between two bends is a ruled reach only when its chained straight rows are
+more than five times its width (3 wide: over 15 rows; 4 wide: over 20); every other stretch, water 5 wide and more,
+and lakes, at 12 rows. A stretch bends at an end when the water beyond it, followed out to 6 widths, lies 0.5 rad or
+more off its line 4 to 6 widths out; a dead end (a spring's head, a course's end) or water opening wide (a lake) is
+no bend. The widths are for a crossing because a meander's crossing leg between two bends is 3 to 4 widths long and
+is not a canal; a link straight from end to end, or bending at one end only (lake to lake, a spring straight into a
+lake), is one whatever its width. `gateMap` reads the plan's own
+water (`planWet`: a channel that runs off the map counts its first 6 tiles only; past its lip the Low River's gorge
+is laid five wide and straight, 60 to 86 tiles of it at 192² and 256², and the settled map shows no reach there) for a reach over `GATE_REACH` (40 tiles) before it shapes any land
+(stage 1's raster foretells the settled map's: the lake's end before the Low River's lip, as wide as the lip, lies as one straight block of 150 to 220 tiles
+on about one plan in four, and is refused there at no settle's cost), and the settled map's again. The plan's reading
+is the stricter by a little: at 192² seed 12 it refused a plan whose settled map showed no reach. The rule's first reading (five widths for all narrow water) let 15 straight links between the lake stair's lakes
+through (3 to 5 wide, 12 to 20 rows; seeds 1 to 12, 1, 7 and 7 by size); they read as ruled, so the ruling of
+2026-11-14 kept the widths for crossings, and the lake stair measures as before the rule: the mean share of water in
+straight even reaches 4.7 % at 128², 3.5 % at 192² and 3.7 % at 256², every reach the same. A brook's straight head
+or tail, ending dead, is a reach at 12 rows.
+
+**The look round** (planning's verdict of 2026-11-14 on the brooks' sheet: the wall a ruler line, the lake at its
+foot a canal lake, the brooks of 256² stripes, the dry side a blank plain). Four measures of a built map
+(`gateMeasures.ts`), held by the heavy maps test and, the first two, by invariants:
+- **A range, not a band.** Its line swings in one broad bend each side of the Veil (`RANGE_BEND`: back toward the basin
+  by 7 to 12 % of the side over 26 to 36 % of it, then forward again; within 60 tiles of the Veil by 10 tiles at the
+  most, so the opening camera keeps the range in its frame); its thickness toward the valley swells and thins by 55 %;
+  cols up to 3.5 levels deep along its crest; ribs and gullies down both flanks (`RANGE_RIB`, none on the crest); a
+  spur toward the valley is a ridge whose crest falls to the talus at its end; an apron of talus two levels high under
+  a scarp of six or more; and on each side of the Veil's face the foot falls back into a re-entrant 4.5 to 6 tiles
+  deep (`VEIL_SHOULDER`: the face stood on one line for the lip's width and 8 tiles each side). `wallFoot` reads the
+  foot line a column at a time (the first tile from the spine within a level of the valley's ground by the wall, the
+  plan's beds left out of that ground; the median of five columns) and its longest run within 2 tiles of a straight
+  line; `range.straight` refuses a land where it is over a quarter of the side.
+- **No canal lake.** From its head by the plunge pool's brook the lake falls across the valley to the Low River's end
+  (`LAKE_SHAPE`: 0.6 to 1 of its run along the range, where the valley has the room over the brooks' country), sags
+  toward the valley's far edge between its ends, narrows before a round end pool 1.25 times the lip's width, and has a
+  lump on the side of each broad lobe and narrows and pools along the Gate's bay. `lakeShape` reads the share of its
+  shore along the wall (its outward normal, over six tiles, within 30° of square to the range's line and toward it)
+  and its width's range along its long axis (its ends' tenths left out); `valley.lake` refuses stage 1's water where
+  over a third lies along the wall or the width varies under two-fold, and a layout is read a little tighter on its
+  own field before its brooks are laid, so it costs no attempt.
+- **The brooks, a tree with no rhythm**: above ("The brooks meander", "The brooks, a tree"). Stage 1 lays them where
+  the plan drew them (`Link.wander` 0): wandered again by the raster, bends were straightened, and reaches of 41 to 60
+  tiles the layout had not read cost 11 of 16 plans at 192² seed 4.
+- **The dry side has form** (`gateLand.ts` `BASIN_LAND`, `BASIN_MARKS`). It stays dry. Its floor stands at the lake's
+  sill with broad swells a level higher; the Gate Bed and the Pass Bed run through it in valleys of two benches that
+  step down to them (a level over the bed out to 4.5 tiles, two out to 12, wandering), so where a canal or an aqueduct
+  from the Gate would run is the land's own; the playa is a hollow at the pan's level where the beds meet; two mesas
+  and a rise in two broad steps stand on the floor, with the badwater's hollow; hills toward the edge. `drySide`
+  reads the share of the ground past the crest line at the lake's sill or up to three levels under it. Round 3 (below)
+  gave the rise its ruin group and the mesas their height.
+
+**Measured** (seeds 1 to 12 at 128², 192² and 256², 2026-11-14, the look round): 36 of 36 make a map, every start
+check passing. The start's numbers over the 36, mean and least: level land 934 and 653 tiles (192²), wood 416 and 247
+(256²), the wood floor 546 and 247, food 54 and 33; water 2.3 tiles off on the mean, 4.8 at the furthest. By seed:
+
+| | 128² | 192² | 256² | Asked |
+|---|---|---|---|---|
+| The foot's longest straight run, tiles (of the side) | 22 to 29 (0.17 to 0.23) | 25 to 41 (0.13 to 0.21) | 27 to 41 (0.11 to 0.16) | a quarter of the side at most |
+| The lake's shore along the wall | 14 to 30 % | 17 to 27 % | 11 to 24 % | a third at most |
+| The lake's width, narrowest to widest by seed | 7 to 14, 23 to 34 | 7 to 16, 30 to 50 | 8 to 13, 30 to 74 | two-fold or more: every seed |
+| The brooks' orders; joins | 1; 0 | 1 or 2; 0 to 2 | 3; 3 | three orders at 256² |
+| The longest stretch one brook runs beside another, tiles | 0 to 26 | 0 to 28 | 0 to 19 | 30 at most |
+| The dry side within three levels under the sill | 48 to 55 % | 46 to 51 % | 47 to 54 % | reported |
+
+The 36 maps took 110 plans: 23 refused for `range.flat`, 14 for a straight reach of the plan's
+water (the lake's, since the brooks are laid as drawn), 10 for `basin.playa`, 12 for the start's bench or its
+walkable ground, 4 for `range.straight`, 1 for `valley.lake`, 10 for others; the most a seed took is 13 (192² seed
+7). A map took 2 s at 128², 7 s at 192² and 14 s at 256² on the mean (6, 17 and 26 s at the most). **Short:** the
+range's flats and the playa's share are refused and drawn again, not shaped so they cannot fail (192² seeds 7 and
+10 took 13 and 11 plans of 16); at 192², five brooks gather in two orders or none (the tree is laid from six
+brooks); the dry side's landmarks are land only, its ruins the life stage's own.
+
+**The gate's third round** (planning's design of 2026-11-14 on PR #1110, after the look round's sheet: the range low
+at the gate, the lake's arm straight, the dry side one sheet, the trunks' bends alike, 192²'s brooks no tree):
+- **The range has height at the gate** (`gateLand.ts` `GATE_HEIGHT`). The crest within `near` 12 tiles of the gate
+  stands `over` 6 levels over the lake's sill (8 at 256²) and a level more as margin, falling to the rest of the range;
+  the gap is the crest's own notch, a fall's width plus a quarter of the crest's height over it. A ledge is 4 tiles
+  at the most (`LEDGE_MOST`), and where a flat on the range is still wider, its middle rises a level, again till none
+  is left (`FLAT_DOME`, alternating with the columns' check), so `range.flat` cannot fail.
+- **The lake bends** (`wallGate.ts` `LAKE_BEND`). The main arm's lobes lie on one arc, its middle off the arm's line
+  by a quarter of its length; a clamped lobe stands back from the lake's limit by up to 3 tiles, so no shore runs
+  along it; `armBend` refuses an arm with no 0.5 rad bend within 40 % of its length, and the lake's shore stays 6 tiles
+  off the map's edge.
+- **The dry side is country.** The Gate Bed's valley is 3 deep for the first 45 % of its way past the crest, cut into
+  the fan the old river laid (`DRY_VALLEY`), shallowing to the benches' two levels; the mesas stand 5 and 6 high, their
+  cliff stepping two levels to a shoulder (`BASIN_MARKS`); the playa is sized from the floor it leaves (`PLAYA_FIT`, so
+  `basin.playa` holds at 55 %), with beach ridges two levels over it (`PLAYA_RIDGE`); the rise is placed first, as
+  wide as the beds leave room for, and the life stage lays a ruin group along its top's rim (`life.ts` `RISE_RUINS`).
+- **The trunk's bends vary** (`gateBrooks.ts` `TRUNK_VARY`). A trunk of 60 tiles or more has one straight reach of
+  2.5 to 3.3 wavelengths, its lobes unrounded and alternating short and long, and right after it one loop 60 % tighter;
+  `brookLegsWrong` still refuses bends alike.
+- **192² gets its tree** (`BROOK_TREE.brooks` 5): above.
+
+**Measured, round 3** (seeds 1 to 12 at 128², 192² and 256², 2026-11-14): 36 of 36 make a map, every start check
+passing. The start's numbers, mean and least: level land 1056 and 807 (128²), 1010 and 735 (192²), 1007 and 782
+(256²); wood 373, 407 and 383, 265 the least (192²); the wood floor 507, 567 and 456, 279 the least (256²); food 48 the
+least; water 2.1, 2.6 and 2.8 tiles off on the mean, 3.8 at the furthest. Before is the look round, measured again on
+the same seeds with the round's measures:
+
+| | Before (128², 192², 256²) | After | Asked |
+|---|---|---|---|
+| The crest within 12 tiles of the gate, levels over the sill | 4 to 7, 4 to 8, 4 to 7 | 6 to 9, 7 to 8, 8 to 10 | 6; 8 at 256² |
+| The least crest along the rest of the range | 4 to 7 | 5 to 9, 6 to 8, 6 to 9 | 3 |
+| Plans refused for `range.flat`; for `basin.playa` | 23; 10 (of 110) | 0; 0 (of 59) | 0 |
+| The longest straight stretch of the lake's shore, of the arm: worst, mean | 0.69, 0.53; 0.42, 0.32; 0.31, 0.21 | 1.10, 0.59; 0.33, 0.27; 0.31, 0.23 | measured |
+| The flat sheet (the dry side at one level), mean | 30, 37, 45 % | 32, 38, 43 % | measured |
+| The Gate Bed's valley, levels deep at the gate, then along it | about 2 | 3 (4 on two seeds), then 1 to 3 | 3, shallowing |
+| Trunks with a straight reach of 2 waves or more; with a loop | 4 of 39; 24 of 39 | 14 of 43 (9 of 2 to 3 waves); 31 of 43 | every trunk of 60 tiles |
+| 192²'s brooks, ranks; orders | 0; 1 or 2 | 3; 2 | trunk, branch, twig |
+| Rises with their ruin group | none | 34 of 36 | one |
+
+A map took 1.5 s at 128², 4.2 s at 192² and 6.2 s at 256² on the mean (2.6, 9.2 and 10.8 at the most). **Short:** the
+gap read in columns under the crest beside it is 10 to 34 tiles, the notch's deepest 3 to 11, wider than the rule asks
+where the gorge winds through it; the shore at 128² is no less straight (its arm is about 30 tiles, and the measure reads
+shore past the arm's ends: seed 6, a stretch of 31 on an arm of 29); the sheet stands where it was, since the playa must hold 55 % of the floor;
+a trunk's straight reach shows as 2 waves or more on 14 of 43 (13 of the 23 trunks of 120 tiles or more): a shorter
+trunk's reach is cut by its tail and loop; at 192² the chain of three makes Strahler's order two; at 128² seed 6 and
+192² seed 11 the rise's ground ends level with a broad flat round it, so its top has no rim for its ruins.
+
+**The gate's fourth round, 192² and 256²** (planning's look verdict of 2026-11-14 on round 3: 128² passes; at 256²
+one long lake lay along the range and half the map past it was one sheet). 128² is as it was, but for the rise at seed 6:
+- **The lake leaves the wall** (`wallGate.ts` `LAKE_LEAVES`). Its main arm heads away from the range's line by 52 to
+  63° drawn, and its far end lies only as far along the range as that takes it (22 tiles at the least); the Low
+  River's gorge winds on from there along the valley to the spur and past it to the edge, a point every three tiles
+  side to side as the Gate's gorge, on a broad bow (a gorge runs true in the raster: drawn straight, it was refused as
+  a straight reach of 60 to 90 tiles of water). It is 7 wide over 128², not 5 (`LOW_WIDER`): 5 wide on its flat bed,
+  147 tiles of it backed its water a third of a level over its banks (256² seed 1, 204 tiles of stray water; the heavy
+  test's settle caught it), and 7 wide it stands half a level under them. Two or three side arms, each 0.3 to 0.42 of
+  the main arm's length, leave it square to it, leaning along it, bent twice. `lakeLeaves` (`gateMeasures.ts`) reads
+  the angle between the main arm and the foot's least-squares line over 48 tiles at the least (over the arm's own
+  stretch alone, the Gate's bay and bench turned it), the arms a quarter of the main arm long, and the share of the
+  lake's shore within 8 tiles of the foot.
+- **The dry side rolls round one clear playa** (`gateLand.ts` `BASIN_ROLL`, `playaShare`). `basin.playa` asks for 55 %
+  of the basin within two levels of its pan at 128², 45 % at 192² and 35 % at 256², straight between them by the side:
+  a design change, not eased to pass anything. Past the playa's benches (fading in over 6 tiles) the floor stands from
+  3 under the lake's sill to 4 over in swells some 20 to 25 tiles apart, over half of it at the sill or under; the
+  playa starts at 0.4 of its oval (0.7 at 128²) and grows only where the floor leaves too little; the hills toward the
+  edge are as wide as 128²'s grown with the map, not a tenth of the side; and the beds' first bench is 4.5 tiles at
+  every size (grown, it and the bed lay as one sheet 16 wide).
+- **The rise carries its ruins.** Where the rise's top, read as the life stage reads it (`riseRim`), has a rim under
+  5 tiles, its top stands a level over the ground 3 tiles round it and its first step a level under that
+  (`RISE_STANDS`).
+
+**Measured, round 4** (seeds 1 to 12 at 192² and 256², 2026-11-14): 24 of 24 hold, every start check passing; 128² is
+as round 3 on every seed but 6 (its wood floor 308 to 325, its sheet 34 to 29 %, the rise stood up). The start's
+numbers, mean and least: level land 862 and 651 (192²), 983 and 653 (256²); wood 389 and 273, 357 and 242; the wood
+floor 510 and 281, 522 and 258; food 48 and 40 the least; water 2.3 and 2.6 tiles off on the mean, 3 at the furthest.
+Before is round 3 on the same seeds:
+
+| | Before (192², 256²) | After | Asked |
+|---|---|---|---|
+| The main arm against the range's foot | 12 to 51°, 31 to 53° | 42 to 73°, 40 to 72° | 30° or more |
+| Side arms a quarter of the main arm or longer | 0 to 4, 0 to 1 | 5 to 11, 2 to 9 | 2 |
+| The lake's shore within 8 tiles of the foot | 0 %, 0 % | 0 %, 0 % | 20 % or less |
+| The flat sheet | 34 to 41 %, 41 to 48 % | 20 to 29 %, 23 to 30 % | 35 %; 30 % at 256² |
+| The dry side within 3 levels under the sill | 50 to 55 %, 51 to 55 % | 46 to 49 %, 47 to 55 % | 45 % |
+| The playa's share, asked; got | 55 %; 57 to 61 % | 45 %, 35 %; 49 to 58 % | by size |
+| Rises with their ruin group (all three sizes) | 34 of 36 | 36 of 36 | all |
+| Maps with stray water in the settle; tiles at the most | 7 of 24; 344 | 1 of 24; 8 | none |
+
+A map took 6.7 s at 192² and 20.8 s at 256² on the mean, measured with the tests running beside it (4.1 and 9.4 s
+alone, before the Low River was widened). **Short:** the lake's shore was already off the foot before (the round-3
+lake lay along the range, but more than 8 tiles out from its foot, so that measure did not see it; the angle did); the
+playa's share stays 49 to 58 % where 45 and 35 are asked, since `basin.playa` is a least and the playa grows where the
+rolling floor leaves too little land within two levels; 256² seeds 4 and 12 have a sheet of 30 %, at the limit; the
+longest straight stretch of the lake's shore, of its main arm, rose from 0.16 to 0.33 to 0.22 to 0.52 (the main arm is
+shorter, the side arms bend at their two points); 256² seed 9 keeps 8 tiles of a brook's film (0.07 deep) on its
+meadow, as round 3's brooks did on 7 maps of 24.
+
+**The gate's fifth round** (planning's look verdict of 2026-11-14 on round 4: the widest views pass at all three sizes;
+the edge hills read as long straight stairs of equal one-level steps):
+- **The rim's terraces wander** (`gateLand.ts` `RIM_TERRACE`). The hills toward the edge rise along contours warped 5
+  tiles off the edge's line, their rise a tile scaled by up to 2^±1.1 so their treads run 1 to 6 tiles, their steps'
+  edges wandering a tile, and where a noise of 13 tiles passes 0.18 two steps (0.36: three) rise as one riser.
+- **No straight stair longer than 8 tiles, anywhere** (`breakStairs`, `STAIR_JOG`). Most of the long ones were on the
+  range's flanks and top (the flat-dome pass drew some), not the rim: after the mends, and again with each dome pass, a
+  stair's riser steps back a tile (its lower tread's tiles rise onto it) for 2 or 3 tiles each 3 to 6 along it; by the
+  water, where the lower tread is its bank, its tread's first tiles rise a level instead. Only raised, never on stage
+  1's ground nor within 2.5 tiles of the water or a crest. `stairRun` (`gateMeasures.ts`) reads the longest: across a
+  row or column a tread between two one-level steps up, and how many neighbours along its contour have the same tread
+  at the same level.
+- **No hollow by the water fills** (`fillPits`, `PIT_FILL`). The ground's closed hollows, read by the least brim they
+  spill over to the edge or a water's bed, each reached by wet water over ground no higher than its planned surface +
+  0.5 (settled water stands up to a third of a level over its plan: 256² seed 9's brook, planned at 7.68, settled at
+  8.01 over its meadow at 8 and into a hollow a level under it), are raised to the brim.
+
+**Measured, round 5** (seeds 1 to 12 at each size, 2026-11-14): 36 of 36 hold, every start check passing. The start's
+numbers, mean and least: level land 1056 and 807 (128²), 884 and 651 (192²), 1001 and 653 (256²); wood 371, 380 and 388,
+225 the least (256²); the wood floor 500, 489 and 608, 283 the least; food 33 the least (192² seed 1, 256² seed 8; 40
+before, its floor 30); water 2.1, 2.3 and 2.6 tiles off on the mean, 3 at the furthest. The longest straight stair: 5 to
+8 tiles at every size (before, over 8 on 5 maps of 12 at 128², 9 at 192² and 11 at 256², up to 12, 14 and 15 tiles,
+most on the range); stray water in
+the settle on none of 36 (256² seed 9's 8 tiles gone); round 4's measures hold (angle 40 to 73° and 2 to 11 side arms
+over 128², sheet 20 to 30 %, the dry side 45 to 55 %, ruins on 36 of 36). 256² seeds 1 to 3, measured alone: 19.6, 8.4
+and 4.5 s, 10.8 on the mean (16.5, 7.7 and 4.4 at round 4; seed 1 holds on its sixth plan, and the stairs and hollows
+cost 0.4 s of its 17), under the 12 s asked, so the wider Low River stays as it is. **Short:** food's
+least fell from 40 to 33; a 2 × 2 knob two levels over the ground stands on 128² seed 5's far edge, as it did before
+this round.
+
+**Measured, the brooks' round** (seeds 1 to 12 at 128², 192² and 256², 2026-11-14, before the look round): 36 of 36 make a map, every start check passing.
+The start's numbers over the 36, mean and least: level land 989 and 667 tiles (192² seed 5), wood 398 and 253 (192²
+seed 7), the wood floor 553 and 301 (256² seed 10), food 52 and 48; water 2.4 tiles off on the mean, 3.8 at the
+furthest (256² seed 9). The share of the valley within 3 tiles of water (`gateMap.ts` `valleyByWater`), by seed: 19 to
+22 % at 128² (its floor 25 to 35 %), 17 to 23 % at 192² (26 to 38 %), 14 to 19 % at 256² (25 to 37 %): most of the
+valley is dry ground a brook can be led to. The 36 maps took 74 plans: 18 refused for a straight reach of the plan's
+water (16 the lake's end, 152 to 267 tiles; two a trunk, 60 and 61), 11 for the start's bench or its walkable ground,
+9 for others; no settled map held a straight reach. A map took 3 s at 128², 9 s at 192² and 16 s at 256² on the median
+(6, 27 and 32 s at the most, other work running beside it). **Short:** the lake's end before the Low River's lip is
+refused and drawn again, not shaped so it cannot lie straight; a bed gathers two springs, not a deeper tree (above);
+at 256² the lobes of one brook are near enough alike in size to read as a rhythm from far off.
 
 **As built (land, stage 2).** `gateLand.ts` `gateRelief`: the shared relief for the valley, the range and the basin
 shaped from the plan as the table says, the valley's land coming in over the range's lowest flank (never under it),
@@ -1734,6 +2017,7 @@ Each step is one PR that leaves dev green and is useful by itself.
 | 11 | **Plan, water, land, works and bench built; the land rebuilt land first** (stages 0 to 4 and the map, not offered: §5.1; planning's ruling of 2026-11-11: a range, a gap, a dry lake, checked and mended, nothing laid). **The wall with one gate** (§5.1, built by hand as The Gate); next: its seeps (the shared-stage edit for a wet link into a dry bed), the capture judged in the game, then offered | A second idea; Generate can surprise | 9 |
 | 12 | **The sketch start** (section 8) | The editor's missing steps 1 and 2 | 2, 3 |
 | 13 | **The island sea** | A third idea; the first with a real delay | 11, 8 |
+| 14 | **Plan built** (the poisoned floodplain, design/poisoned-floodplain.md): stage 0, not offered (`premises/poisonedPlain.ts`, its §9 row 1: the valley off the grid with its bends, each wall its own wandering line and the walls not parallel, the plain by the map (P 0.28 to 0.36 of the side, the floor 20 to 30 % of the map) at its level with its risers, the river in its near third between noisy levees with their low places, the backswamp and sloughs, the far wall's search window from the badwater distance with the gulch, col and old valley as targets, the Red Spring's stream to its join or own exit, the start's terrace, the Red Fall in the first frame, the ladder's rungs at their sites; `plain.levels`, `plain.width`, `wall.wanders`, `stream.join`, `start.badwater`, `frame.fall`, `poisoned.ladder`); next: its water by number (row 2) | A fourth idea, the first whose water harms; its plan as a diagram for any seed | 11 |
 
 **If it had to ship in half the steps** (1 to 6, then 9 in a small form): cut the cave and every set piece but the
 ruined weir's piers and breach (folded into 5); cut the background proof rows and keep tier 2 as an offline tool; map

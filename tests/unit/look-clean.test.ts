@@ -137,7 +137,7 @@ describe("the clean view", () => {
 
   it("keeps ruins as open scaffold, a storey per level", () => {
     const m = meshesOf([{ template: "RuinColumnH4", x: 1, y: 1, z: 2, orientation: "Cw0", owner: "f" }]);
-    const storeys = [...m.entries()].filter(([k]) => k.startsWith("scaffold")).reduce((s, [, x]) => s + x.count, 0);
+    const storeys = [...m.entries()].filter(([k]) => k.startsWith("scaffold") && !k.startsWith("scaffold.ivy")).reduce((s, [, x]) => s + x.count, 0);
     expect(storeys).toBe(4);
   });
 
