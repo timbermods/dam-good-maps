@@ -20,6 +20,13 @@
 // in an even 45° stair of 6, 9 straight at any angle nor in a regular wave (D209, analysis/straight.ts);
 // its bed widens to 2 or 3 tiles where a noise along it says, and its banks step down to it a level a
 // tile, a gully's sides, never a one-tile slot. A pit whose ditch can't be drawn so goes elsewhere.
+// Planning's rulings of 2026-11-15 make the gully a tributary: (1) it ends in the nearest water its own
+// fall line reaches, water D476 and D498 let it join (a fall line that runs first into other water is no
+// site); (2) gullies join, never run abreast: a later gully may end in an earlier one's bed, which goes on a
+// tile wider below the join, and none stays within 6 tiles of a river, a stream or another gully for 20
+// tiles or more but its last 6; (3) its bed stays a level over the water it joins until its last 6 tiles,
+// else the site is no site; (4) it is at most `DITCH_CAP` tiles long; (5) the sites are found from the water
+// outward (the fall lines that reach such water), and the pits are drawn from them.
 // Islands' ditches are drawn as before (`windDitch`), its own ruling to come (D498 (3)).
 //
 // Ported from the design version 2 prototype (investigation/generative/v2/hazards.ts).
@@ -509,7 +516,7 @@ const DITCH_LONG = 8;
  *  (4): a pit whose gully would run longer is no site. `ABREAST_NEAR` and `ABREAST_RUN` (2): no gully stays within 6
  *  tiles of a river, a stream or another gully for 20 tiles or more, but for its last `MOUTH` before it joins. `MOUTH`
  *  (3): the bed stays above the water it joins until its last 6 tiles. */
-export const DITCH_CAP = 60;
+export const DITCH_CAP = 40;
 const ABREAST_NEAR = 6;
 const ABREAST_RUN = 20;
 const MOUTH = 6;
