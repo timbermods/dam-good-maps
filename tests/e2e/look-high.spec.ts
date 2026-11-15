@@ -222,7 +222,7 @@ test("too slow frames fall back to High's lower-cost tier, then to Standard, rem
   expect(errors).toEqual([]);
 });
 
-test("the game's bloom is drawn only when something can pass its knee, and skipping it by day changes no pixel (D497 as amended 2026-11-08, D453)", async ({ page }) => {
+test("the game's bloom is drawn only when something can pass its knee, and skipping it by day changes no pixel; a start's fire blooms, its source drawn round the start alone (D497 as amended 2026-11-08, D453, D496)", async ({ page }) => {
   const errors: string[] = [];
   await open(page, errors);
   await opensHigh(page);
@@ -232,6 +232,11 @@ test("the game's bloom is drawn only when something can pass its knee, and skipp
       type Bloom = { up: { texture: unknown; width: number; height: number }[]; down: { width: number; height: number }[]; apply(gl: unknown): void };
       const r = window.dgm3d!.renderer as unknown as {
         blooms(): boolean;
+        fireShows(): boolean;
+        fireBox(cam: unknown): unknown;
+        bloomRect(cam: unknown): unknown;
+        camera(): { matrixWorld: { elements: number[] } };
+        startLightsOn: number;
         bloom: Bloom | null;
         gl: { getContext(): WebGL2RenderingContext; setRenderTarget(t: unknown): void };
         map: { entities: { count: number; templates: string[]; template: ArrayLike<number>; x: ArrayLike<number>; y: ArrayLike<number>; z: ArrayLike<number> } };
@@ -249,17 +254,35 @@ test("the game's bloom is drawn only when something can pass its knee, and skipp
         r.renderNow();
         return read();
       };
+      const differ = (a: Uint8Array, b: Uint8Array, by = 0) => {
+        let n = 0;
+        for (let i = 0; i < a.length; i++) if (Math.abs(a[i] - b[i]) > by) n++;
+        return n;
+      };
+      // (a method of the view's, put back as it was)
+      const swap = <K extends "blooms" | "fireBox" | "bloomRect">(k: K, f: (typeof r)[K]) => {
+        const own = Object.getOwnPropertyDescriptor(r, k);
+        r[k] = f;
+        return () => {
+          if (own) Object.defineProperty(r, k, own);
+          else delete (r as Partial<typeof r>)[k];
+        };
+      };
       const e = r.map.entities;
       let at: number[] = [48, 2, -48];
       for (let k = 0; k < e.count; k++) if (e.templates[e.template[k]] === "StartingLocation") at = [e.x[k] + 0.5, e.z[k], -(e.y[k] + 0.5)];
       // the start up close by day, its marker the brightest model there is
       r.setClock(12.5);
       r.setView({ mode: "orbit", yaw: -Math.PI / 6, pitch: 0.6, distance: 11, target: at });
+      // its fire and its light, which pass the knee, out: below
+      const lights = r.startLightsOn;
+      r.startLightsOn = 0;
+      const noFire = swap("fireBox", () => null);
       const skipped = r.blooms();
       // drawn anyway: what the game's passes make of it, and the canvas just before them and just after, in one frame
       // (two redraws of a still frame can differ by a level here and there, the bloom aside)
-      const own = Object.getOwnPropertyDescriptor(r, "blooms");
-      r.blooms = () => true;
+      const forced = swap("blooms", () => true);
+      (r as unknown as { fire: { mesh: { visible: boolean } } }).fire.mesh.visible = false;
       canvas();
       const b = r.bloom!;
       const apply = b.apply.bind(b);
@@ -277,20 +300,52 @@ test("the game's bloom is drawn only when something can pass its knee, and skipp
       const lift = new Float32Array(top.width * top.height * 4);
       g.readPixels(0, 0, top.width, top.height, g.RGBA, g.FLOAT, lift);
       r.gl.setRenderTarget(null);
-      if (own) Object.defineProperty(r, "blooms", own);
-      else delete (r as { blooms?: unknown }).blooms;
-      let differ = 0;
-      for (let i = 0; i < without.length; i++) if (without[i] !== withIt[i]) differ++;
+      forced();
+      noFire();
+      (r as unknown as { fire: { mesh: { visible: boolean } } }).fire.mesh.visible = true;
+      r.startLightsOn = lights;
       let most = 0;
       for (let i = 0; i < lift.length; i += 4) most = Math.max(most, lift[i], lift[i + 1], lift[i + 2]);
-      return { skipped, differ, most, read: without.length > 0 && withIt.length === without.length };
+      // with its fire burning and its light on, its lantern in view (the start's middle 1 tile in from the entrance
+      // corner, its bowl 3.2 up): the bloom is drawn, from a source drawn round the start alone, and the frame is what
+      // the whole frame's source makes of it
+      r.setView({ mode: "orbit", yaw: -Math.PI / 6, pitch: 0.5, distance: 11, target: [at[0] - 1, at[1] + 3.2, at[2] - 1] });
+      canvas();
+      const fireBlooms = r.blooms();
+      const boxed = canvas();
+      const whole = swap("bloomRect", () => null);
+      const full = canvas();
+      whole();
+      const off = swap("blooms", () => false);
+      const none = canvas();
+      off();
+      // panned sideways until the bowl has left the frame: its glow still reaches over the frame's edge, so the bloom
+      // is drawn while the start's box overlaps the frame, and not once it has gone
+      const right = r.camera().matrixWorld.elements.slice(0, 3);
+      let edge: boolean | null = null;
+      let gone: boolean | null = null;
+      for (let s = 0; s < 30 && gone === null; s += 0.05) {
+        r.setView({ mode: "orbit", yaw: -Math.PI / 6, pitch: 0.5, distance: 11, target: [at[0] - 1 - right[0] * s, at[1] + 3.2 - right[1] * s, at[2] - 1 - right[2] * s] });
+        r.renderNow();
+        if (edge === null && !r.fireShows()) edge = r.blooms();
+        if (edge !== null && !r.fireBox(r.camera())) gone = r.blooms();
+      }
+      return { skipped, differ: differ(without, withIt), most, read: without.length > 0 && withIt.length === without.length, fireBlooms, lifted: differ(none, boxed, 1), boxApart: differ(boxed, full, 1), edge, gone };
     });
-    // by day nothing passes the knee: the passes are skipped, they would have made nothing, and the frame is the same
-    // to the byte with them or without
+    // by day nothing passes the knee but a start's fire and its light: without them the passes are skipped, they would
+    // have made nothing, and the frame is the same to the byte with them or without
     expect(day.skipped, choice).toBe(false);
     expect(day.read, choice).toBe(true);
     expect(day.most, choice).toBe(0);
     expect(day.differ, JSON.stringify({ choice, ...day })).toBe(0);
+    // with them the bloom is drawn and lifts the lantern (some 530,000 bytes of the frame by 2 levels or more), its
+    // source drawn round the start alone as the whole frame's: they differ by no more than two redraws of the whole
+    // frame do in High (8 to 12 bytes by 2 levels; a box that missed part of the source would lose thousands)
+    expect(day.fireBlooms, choice).toBe(true);
+    expect(day.lifted, choice).toBeGreaterThan(100_000);
+    expect(day.boxApart, JSON.stringify({ choice, ...day })).toBeLessThan(64);
+    expect(day.edge, choice).toBe(true);
+    expect(day.gone, choice).toBe(false);
   }
   expect(errors).toEqual([]);
 });

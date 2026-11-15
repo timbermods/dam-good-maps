@@ -549,7 +549,7 @@ refinements and what the mockups left open:
 - **Real places** (Kyler, 2026-10-04): the header reads Map Generator, Real places, Your maps; Real places opens in
   the same box, three across and three down (rows of 220px, so exactly three show and a fourth never peeks; the
   scrollbar's room kept on both sides), each place's top-down picture, its whole name as the map carries it
-  ("Crater Lake", no "Near", D(new-names); two lines kept) and its size;
+  ("Crater Lake", no "Near", D522; two lines kept) and its size;
   more scroll inside. A click opens the place in the editor, as the gallery's Refine does. The header has no tabs on the window's edge; the left side's controls stay on
   the 10px margin, and nothing hides while a panel is open.
 - **No Speed in the water row** (Kyler, 2026-10-04): beside Drought and Badtide it read as a weather control; the

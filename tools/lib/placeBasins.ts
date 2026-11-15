@@ -1,4 +1,4 @@
-// Basins where the real water lies (planning's ruling on #236, D(new), with D271 and D311): under the game's water
+// Basins where the real water lies (planning's ruling on #236, D521, with D271 and D311): under the game's water
 // rules a place's water spreads as thin films over the flat terraces of its 16 levels, and the films dry where the
 // port's rules kept them. Every body of `BASIN_TILES` tiles or more that the port's build showed and the game's rules
 // lose, and every film above floor 0 the game's build shows (placeWater.ts `films`), is cut where the place's real
