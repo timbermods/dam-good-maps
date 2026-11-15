@@ -577,11 +577,12 @@ describe("a carve in the document (breakage rule)", () => {
     // (Highlands 96² seed 57 with the carve's seed 2 since generator 0.10.21's look round (D518: the land's long straight steps jog), D148: seed
     // 261 with seed 1 carves no lake over 70 tiles now; of Highlands seeds 1–110 and Canyon seeds 1–90 with the carve's seeds 1–6 only a few seal one
     // over 70 tiles, and of those Highlands 12 with seed 3, Highlands 30 with seeds 4 and 5, Highlands 57 with seed 6 and Canyon 24 with seed 1
-    // settle whole; Highlands 57 with seed 2 seals 95 tiles that keep evaporating)
-    const r = generate(makeSpec({ seed: 57, theme: "highlands", size: { x: 96, y: 96 } }), { forms: false });
+    // settle whole; Highlands 57 with seed 2 seals 95 tiles that keep evaporating
+    // Highlands 96² seed 27 with the carve's seed 3 since generator 0.10.23's ruled water, D(ruled-water), D148: Highlands 57 with seed 2 seals no lake over 70 tiles now; of Highlands seeds 1–30 with the carve's seeds 1–6 the first found is Highlands 27 with seed 3, 86 tiles that keep evaporating)
+    const r = generate(makeSpec({ seed: 27, theme: "highlands", size: { x: 96, y: 96 } }), { forms: false });
     const s = MapSession.fromGenerated(r, r.file);
     const before = Array.from(s.built.water);
-    const op = carveOp(s, { mode: "aim", power: 85, width: 6, wander: 100, seed: 2, defyGravity: true }, [48, 86], 1200, {}, [48, 10]);
+    const op = carveOp(s, { mode: "aim", power: 85, width: 6, wander: 100, seed: 3, defyGravity: true }, [48, 86], 1200, {}, [48, 10]);
     const lake = op.params.lake!;
     expect(lake.tiles.length).toBeGreaterThan(70);
     expect(checkSchema(opsSchema as Record<string, unknown>, op)).toEqual([]);

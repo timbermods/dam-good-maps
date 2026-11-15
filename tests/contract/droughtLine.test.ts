@@ -94,12 +94,15 @@ describe("the drought line (D133, D269)", () => {
   // shore); River Valley 2's river keeps 23 tiles of water on the last day now; of River Valley seeds 1–30 the river dries out
   // entirely in 3, 7, 16, 17 and 20, and seed 7 is the first after seed 3, which stays in the list;
   // Lake Basin 3 for 1 since generator 0.10.21's look round (D518: the land's long straight steps jog), D148: no pool of Lake Basin 1
-  // dries out now; of Lake Basin seeds 1–15 the pools dry out in 3, 7 and 8, and seed 3 is the first)
+  // dries out now; of Lake Basin seeds 1–15 the pools dry out in 3, 7 and 8, and seed 3 is the first;
+  // River Valley 7 for 4 since generator 0.10.23's ruled water (spring courses join the course beside them, Delta's arms step,
+  // lakes' straight shores notch), D148: seed 7's river keeps 22 tiles of water on the last day now; of River Valley seeds 1–30
+  // the river dries out entirely in 3, 4, 16, 17, 20 and 23, and seed 4 is the first after seed 3, which stays in the list)
   for (const [theme, seed] of [
     ["lakeBasin", 3],
     ["riverValley", 3],
     ["delta", 1],
-    ["riverValley", 7],
+    ["riverValley", 4],
   ] as const)
     it(`matches the Drought view's last day tile for tile (${theme} ${seed})`, async () => {
       const { day0, last, news, seen } = await drought(seed, theme);
@@ -145,7 +148,7 @@ describe("the drought line (D133, D269)", () => {
           "a pool dries out",
         ).toBe(true);
       }
-      if (theme === "riverValley" && seed === 7) expect(L.line.count, "the river dries out").toBe(0);
+      if (theme === "riverValley" && seed === 4) expect(L.line.count, "the river dries out").toBe(0);
     });
 
   it("marks the start's water: the bodies the start's pumps draw from, and their water on the last day", async () => {

@@ -256,7 +256,8 @@ describe("a map object measured where it stands, by the checks and the start's p
   // from the relic has only the relic out of its band; of Highlands seeds 1–13, 2, 6, 7 and 11 serve all four tests, and 2 is the first)
   // (seed 7 since generator 0.10.21's look round (D518: the land's long straight steps jog, the dead stands read the dry land as the checks do), D148: seed 2's relic, once
   // flagged, finds no spot that the move allows and its band clears; of Highlands seeds 6, 7 and 11 only 7 serves all four tests here)
-  const r = generate(makeSpec({ seed: 7, theme: "highlands", size: { x: 128, y: 128 } }));
+  // (seed 14 since generator 0.10.23's ruled water, D(ruled-water), D148: seed 7 has no thorn belt now; of Highlands seeds 6–14 only 14 serves all four tests here, the others failing the relic's or the thorn belt's)
+  const r = generate(makeSpec({ seed: 14, theme: "highlands", size: { x: 128, y: 128 } }));
   const fresh = () => MapSession.fromGenerated(r, r.file);
   const W = 128;
   const startOf = (s: MapSession) => s.features.find((g): g is StartFeature => g.kind === "start")!;

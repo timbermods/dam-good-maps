@@ -34,6 +34,7 @@ import { existsSync, mkdirSync, readdirSync, readFileSync, statSync, writeFileSy
 import { basename, dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { readTimber } from "../src/core/format/timber";
+import * as portable from "../src/core/math/portable";
 import { generate } from "../src/core/gen/generate";
 import { START_CHECKS } from "../src/core/premise/gateMap";
 import { makeSpec, THEMES, type ThemeId } from "../src/core/spec/mapspec";
@@ -86,7 +87,7 @@ const N8: readonly [number, number][] = [
 /** The wide water: tiles in a disc of radius √WIDE_R2 that is all water. */
 export function wideWater(wet: Uint8Array, W: number, H: number): Uint8Array {
   const N = W * H;
-  const R = Math.floor(Math.sqrt(WIDE_R2));
+  const R = Math.floor(portable.sqrt(WIDE_R2));
   const disc: [number, number][] = [];
   for (let dy = -R; dy <= R; dy++)
     for (let dx = -R; dx <= R; dx++) if (dx * dx + dy * dy <= WIDE_R2) disc.push([dx, dy]);
@@ -205,7 +206,7 @@ export function stripWidth(pts: readonly [number, number][]): number {
   for (let i = 0; i < hull.length; i++) {
     const a = hull[i],
       b = hull[(i + 1) % hull.length];
-    const len = Math.hypot(b[0] - a[0], b[1] - a[1]);
+    const len = portable.hypot(b[0] - a[0], b[1] - a[1]);
     if (len === 0) continue;
     let far = 0;
     for (const q of hull) far = Math.max(far, Math.abs(cross(a, b, q)) / len);
@@ -379,9 +380,9 @@ export function ruledWater(depth: ArrayLike<number>, W: number, H: number): Rule
         sxy += dx * dy;
         syy += dy * dy;
       }
-    const a = 0.5 * Math.atan2(2 * sxy, sxx - syy);
-    hx[p] = Math.cos(a);
-    hy[p] = Math.sin(a);
+    const a = 0.5 * portable.atan2(2 * sxy, sxx - syy);
+    hx[p] = portable.cos(a);
+    hy[p] = portable.sin(a);
   }
   const besideWithin = (reach: number, mark: boolean): number => {
     const flagged = new Uint8Array(N);
@@ -399,7 +400,7 @@ export function ruledWater(depth: ArrayLike<number>, W: number, H: number): Rule
             yy = py + dy;
           if (xx < 0 || yy < 0 || xx >= W || yy >= H) continue;
           const q = yy * W + xx;
-          if (!line[q] || !(cost[q] > Math.sqrt(d2) + DETOUR)) continue;
+          if (!line[q] || !(cost[q] > portable.sqrt(d2) + DETOUR)) continue;
           // (running alongside: its heading within about 25° of this one's)
           if (Math.abs(hx[p] * hx[q] + hy[p] * hy[q]) < PARALLEL) continue;
           other = true;
