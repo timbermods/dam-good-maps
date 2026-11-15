@@ -1546,7 +1546,7 @@ Two looks (Map look 2, D147, D242, D250, D284):
   albedo and ripples carried by each column's outflow in two phases, as in every look; D334's light network, ribbons,
   swells and rolling light gone by D496 and D497) and crimson matte badwater over its poisoned bed (#38); soft shadows, warm sunlight, sky, rock
   strata and soil edges (#65; its ambient occlusion, tone curve and haze gave way to the game's light, fog and post
-  chain in every look, D497); trees and bushes
+  chain in every look, D497, and its strata to the game's cliff rock in every look, 2026-11-14); trees and bushes
   swaying in the wind, also on the shelf's icons and the placement ghost (#66, D241); and the map's edge cut through
   rock with a soil cap and the water's section (#67; its crowns, landings, froth, mist and splash rings removed with
   D201's amendment, 2026-10-29; its rough water below falls with D334's water terms, 2026-11-07). Visible seasons (D250, D286 (4)): on a held Drought or Badtide day, in every look (D242 as amended 2026-10-29), the

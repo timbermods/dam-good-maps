@@ -81,7 +81,7 @@ import { whenIdle } from "./idle";
 import { casterLevelsOf, castersChangedRects, DEFAULT_SUN, objectCasters, withoutCasters, shadowMap, shadowPairArea, shadowPairRect, shadowRock, sunOfYaw, sunVector, TILE_REACH, tileData, tileDataChanges, tileDataRect, type ShadowRock, type Sun, type TileSpan } from "./light";
 import { CaveLight } from "./caveLight";
 import { casterPlaces, FADE_COVERAGE, FADE_DITHER, FADE_OFF, markEditingAid, OBJECT_FADE_EDGE, objectFadeAt, shadowDropped, validRegion, type FadeRegion } from "./objectFade";
-import { AID_TINT, caveTexture, contaminationEdges, contaminationEdgesRect, drawPatterns, fillAlbedoTexture, fillDetailTexture, fillWaterTexture, hatchMarks, lightTexture, overlayTexture, objectMaterial, redoContaminationEdges, runTexture, sceneUniforms, skyMaterial, terrainMaterial, tileTexture, waterMaterial, type SceneUniforms } from "./materials";
+import { AID_TINT, caveTexture, contaminationEdges, contaminationEdgesRect, drawPatterns, fillAlbedoTexture, fillDetailTexture, fillObjectAtlas, fillWaterTexture, hatchMarks, lightTexture, overlayTexture, objectMaterial, redoContaminationEdges, runTexture, sceneUniforms, skyMaterial, terrainMaterial, tileTexture, waterMaterial, type SceneUniforms } from "./materials";
 import { objectSoilAt, RunSoil, runSoilOn } from "./runSoil";
 import { AID_LAYER, onAidLayer } from "./aidLayer";
 import { GameBloom, GAME_BLOOM_LOOKS, LAVA_BLOOM_ENDS } from "./bloom";
@@ -364,6 +364,23 @@ function albedoTextureMade(): Promise<void> {
     },
     (e: unknown) => {
       albedoMade = null;
+      throw e;
+    },
+  ));
+}
+
+let objectPatternsMade: Promise<void> | null = null;
+/** The objects' patterns (objectPatterns.ts: the ruins' ivy and concrete, the district center's thatch and wood, the
+ *  blueberry bush), made once a page in the textures' own worker, its first job (about 0.4 s), and written into the
+ *  page's texture (materials.ts `fillObjectAtlas`); until then the ivy and the bush are cut away (none shows) and the
+ *  tiling layers' parts are drawn in their colours. */
+function objectPatternsBaked(): Promise<void> {
+  return (objectPatternsMade ??= textureBake({ kind: "objectPatterns" }).then(
+    (r) => {
+      if (r.kind === "objectPatterns") fillObjectAtlas(r.data);
+    },
+    (e: unknown) => {
+      objectPatternsMade = null;
       throw e;
     },
   ));
@@ -4420,15 +4437,17 @@ export class MapRenderer {
     this.requestRender();
   }
 
-  /** Settles once the water's surface, badwater's pattern, contaminated ground's pattern and the still detail albedo
-   *  are made (they are flat at their means until then; the light look makes and reads only the still detail albedo
-   *  and the sources' pattern). For tests and pictures that read the patterns. */
+  /** Settles once the objects' patterns, the water's surface, badwater's pattern, contaminated ground's pattern and the
+   *  still detail albedo are made (they are flat at their means until then, the ivy cut away; the light look makes
+   *  and reads only the still detail albedo and the sources' pattern). For tests and pictures that read the patterns. */
   patternsMade(): Promise<void> {
     if (this.software) return detailTextureMade(true);
-    // (the surface's job first: the water's own patterns land as soon as before, the detail after them)
+    // (the objects' patterns first, the smallest; then the surface's job: the water's own patterns land as soon as
+    // before, the detail after them)
+    const objects = objectPatternsBaked();
     const surface = waterSurfaceMade();
     const detail = detailTextureMade(false);
-    return Promise.all([surface, detail, albedoTextureMade()]).then(() => undefined);
+    return Promise.all([objects, surface, detail, albedoTextureMade()]).then(() => undefined);
   }
 
   /** The sun for the camera as it stands, baked here at once (a picture, drawn in one frame). */
