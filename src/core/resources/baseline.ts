@@ -518,7 +518,9 @@ export function planRuinFields(g: BaselineGround, scrap: number, o: RuinFieldOpt
     if (pass === 2 && eligible) {
       const owner = new Uint8Array(N);
       markRing(owner, fields.flatMap((f) => f.tiles), W, H, 1);
-      for (let i = 0; i < N; i++) if (!owner[i] && freeAt(g, i) && !nearWater[i] && far(i)) ruinFree[i] = eligible[i] = 1;
+      // (the start's own moist ground, its forester's plot and first farms, D515, stays clear: twice the ruins' distance)
+      const startSide = (i: number) => !!o.startDist && o.startDist[i] < 2 * o.minStart;
+      for (let i = 0; i < N; i++) if (!owner[i] && freeAt(g, i) && !nearWater[i] && far(i) && !(g.moisture[i] > 0 && startSide(i))) ruinFree[i] = eligible[i] = 1;
     }
     for (let tries = 0; left > 0 && tries < 200 && fields.length < (o.maxFields ?? 64); tries++) {
       // (to a thousandth: the feature stores it, and its build draws the same heights)
@@ -628,7 +630,7 @@ export function planRuinFields(g: BaselineGround, scrap: number, o: RuinFieldOpt
       }
       centres.push(centreOf(tiles, W));
     }
-    if (eligible && left > 0 && fields.length) left = topUpFields(g, fields, left, eligible, rim, o);
+    if (eligible && left > 0 && fields.length) left = topUpFields(g, fields, left, eligible, ruinFree, rim, o);
   }
   // (`topUp`: the last field placed gives back the columns it grew past the scrap asked, its last-grown first, while one
   // goes whole and it keeps 10, so the ruins hold the scrap to within a column either way)
@@ -654,7 +656,7 @@ export function planRuinFields(g: BaselineGround, scrap: number, o: RuinFieldOpt
 /** The scrap left once the fields are placed, onto them (`topUp`): in turn, each field takes one tile beside it on its
  *  own level (in its rim band first when fields follow the land), keeping its one-tile moat from the others and passing
  *  over some as gaps, until the scrap is placed or no field has room. Returns the scrap still left. */
-function topUpFields(g: BaselineGround, fields: RuinField[], scrap: number, eligible: Uint8Array, rim: Uint8Array | null, o: RuinFieldOptions): number {
+function topUpFields(g: BaselineGround, fields: RuinField[], scrap: number, eligible: Uint8Array, ruinFree: Uint8Array, rim: Uint8Array | null, o: RuinFieldOptions): number {
   const { W, H } = g;
   const N = W * H;
   let left = scrap;
@@ -663,6 +665,7 @@ function topUpFields(g: BaselineGround, fields: RuinField[], scrap: number, elig
     for (const i of f.tiles) owner[i] = k;
   });
   const passed = new Uint8Array(N);
+  const closed = new Uint8Array(N);
   const scrapOf = (f: RuinField) => (o.scrapOf ? o.scrapOf(f.tiles, f.tallness) : Math.round(f.tiles.length * 15 * meanStoreys(f.tallness)));
   const got = fields.map(scrapOf);
   const open = fields.map(() => true);
@@ -715,11 +718,14 @@ function topUpFields(g: BaselineGround, fields: RuinField[], scrap: number, elig
       f.tiles.push(t);
       owner[t] = k;
       g.taken[t] = 1;
+      // (the tile and its moat are closed to the fields a later pass places, as a whole field's are)
+      markRing(closed, [t], W, H, 1);
       const now = scrapOf(f);
       left -= now - got[k];
       got[k] = now;
     }
   }
+  for (let i = 0; i < N; i++) if (closed[i]) ruinFree[i] = 0;
   return left;
 }
 
