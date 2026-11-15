@@ -62,8 +62,8 @@ import {
   type PlaceIndexEntry,
 } from "../src/core/places/place";
 import { encodeHeights, encodeTiles } from "./lib/placeData";
-import { BODY, FILM_DEPTH, FILM_TILES, WET, compareWater, films, settleFile, startFails } from "./lib/placeWater";
-import { cutBasins, cutBed, floor0Sheet, realFilms, realMask } from "./lib/placeBasins";
+import { BODY, FILM_DEPTH, FILM_THIN_SHARE, FILM_TILES, WET, compareWater, films, settleFile, startFails } from "./lib/placeWater";
+import { cutBasins, cutBed, filmBasin, floor0Sheet, realFilms, realMask } from "./lib/placeBasins";
 import { decodeTiles as decodeGaps } from "../src/core/places/place";
 import { keepNearest, settlePlants, startWood, startWoodSpecies } from "./lib/placePlants";
 import { flaggedSources, mendSources } from "./lib/placeSources";
@@ -421,7 +421,7 @@ function basinsFor(libraryId: string, place: PlaceData): { place: PlaceData; not
   const real = realOf(libraryId, place.W, place.H);
   const port = buildPlace(place, undefined, "port").settle.depth;
   let game = buildPlace(place, undefined, "game");
-  const r = cutBasins(decodeHeights(place.heights), place.W, place.H, port, game.settle.depth, game.model.floor, real);
+  const r = cutBasins(decodeHeights(place.heights), place.W, place.H, port, game.settle.depth, game.model.floor, real, filmBefore);
   const notes: string[] = [];
   for (const b of r.basins) notes.push(`${b.kind} ${b.size} at ${b.at.join(",")} over ${b.real} real-water tiles ${b.cut ? `cut ${b.cut} tiles` : b.kind === "lost" ? "goes" : "not cut"}`);
   let heights = r.heights;
@@ -445,7 +445,7 @@ function basinsFor(libraryId: string, place: PlaceData): { place: PlaceData; not
   // (a bed after which the water no longer settles is not cut: `water.settles`, whose list never grows)
   const settled = game.settle.settled;
   for (let round = 0; round < BED_ROUNDS; round++) {
-    const left = films(game.settle.depth, game.model.floor, place.W, place.H).filter((f) => f.floor0 * 2 <= f.tiles.length);
+    const left = films(game.settle.depth, game.model.floor, place.W, place.H, filmBefore).filter((f) => f.floor0 * 2 <= f.tiles.length);
     if (!left.length) break;
     let any = false;
     for (const f of left) {
@@ -506,6 +506,59 @@ function unneededBeds(libraryId: string, place: PlaceData, beds: number[][], had
   return { place: cur, r, note: back ? `  land back under ${back} of ${beds.length} beds the searched springs leave dry` : "" };
 }
 
+/** The films the land is mended for before the springs' search: thin on every tile, as before D(new-films). The films the
+ *  check's share finds besides (`FILM_THIN_SHARE`) are left to the springs' search, and those it leaves get their mend
+ *  after it (`filmsAfter`), so a film the springs take away costs the land nothing. */
+const FILM_BEFORE = 1;
+/** The share `basinsFor` mends the films of in the place being run: `FILM_BEFORE`, or the check's own where the films the
+ *  springs leave cannot be mended after the search without a check failing (`runPlace`'s second build). */
+let filmBefore: number = FILM_BEFORE;
+
+/** The films above floor 0 the searched springs leave (D(new-films): thin on 90 % of their tiles) mended as `basinsFor`
+ *  mends a film: a basin where real water lies under it, else a bed to where its water leaves its flat; each kept only
+ *  where the water still settles, nothing the place passed then fails and no source lands in another's flow. */
+function filmsAfter(libraryId: string, place: PlaceData, had: Checked): { place: PlaceData; r: Checked; note: string } {
+  const real = realOf(libraryId, place.W, place.H);
+  const flow = flaggedSources(place).flagged.length;
+  const { W, H } = place;
+  let cur = place;
+  let r = had;
+  const notes: string[] = [];
+  for (let round = 0; round < BED_ROUNDS; round++) {
+    const left = films(r.built.settle.depth, r.built.model.floor, W, H).filter((f) => f.floor0 * 2 <= f.tiles.length);
+    if (!left.length) break;
+    let any = false;
+    for (const f of left) {
+      const h = decodeHeights(cur.heights);
+      const fb = filmBasin(h, W, H, f.tiles, real);
+      let tried = fb.heights;
+      let what = `basin of ${fb.basin.cut} tiles`;
+      if (!fb.basin.cut) {
+        tried = Uint8Array.from(h);
+        const bed = cutBed(tried, W, H, f.tiles, r.built.settle.depth, cur.sources, hashString(`${seedKey(cur)}:after:${round}`));
+        what = `bed of ${bed.length} tiles`;
+        if (!bed.length) {
+          notes.push(`film ${f.tiles.length} at ${f.at.join(",")} has no bed`);
+          continue;
+        }
+      }
+      const cand = { ...cur, heights: encodeHeights(tried) };
+      const c = buildChecked(cand);
+      const worse = c.strictFails.filter((id) => !r.strictFails.includes(id));
+      if ((r.built.settle.settled && !c.built.settle.settled) || worse.length || flaggedSources(cand).flagged.length > flow) {
+        notes.push(`film ${f.tiles.length} at ${f.at.join(",")}: its ${what} refused (${[...worse, ...(c.built.settle.settled ? [] : ["the water would not settle"]), ...(flaggedSources(cand).flagged.length > flow ? ["a source in another's flow"] : [])].join(", ")})`);
+        continue;
+      }
+      cur = cand;
+      r = c;
+      any = true;
+      notes.push(`film ${f.tiles.length} at ${f.at.join(",")} ${what}`);
+    }
+    if (!any) break;
+  }
+  return { place: cur, r, note: notes.length ? `  films after the springs: ${notes.join("; ")}` : "" };
+}
+
 /** The rounds of beds a place gets: a bed can carry its water on to a flat below, where the next round's bed runs on. */
 const BED_ROUNDS = 8;
 
@@ -535,7 +588,9 @@ function feedsFor(libraryId: string, place: PlaceData): { place: PlaceData; note
     const worse = r.strictFails.filter((id) => !base.strictFails.includes(id)).sort((x, y) => Number(y === "start.water") - Number(x === "start.water"));
     const filmed = filmTiles(r.built, p) > baseFilm;
     const flow = flaggedSources(p).flagged.length;
-    const why = [...worse, ...(flow > baseFlow ? [`sources in a flow ${baseFlow} → ${flow}`] : []), ...(filmed ? ["film above floor 0"] : [])];
+    // (a start that had water in reach, even past the check's walk, and has none is not a mend either)
+    const lost = waterIn(base.strict) !== null && waterIn(r.strict) === null ? ["the start's water lost"] : [];
+    const why = [...lost, ...worse, ...(flow > baseFlow ? [`sources in a flow ${baseFlow} → ${flow}`] : []), ...(filmed ? ["film above floor 0"] : [])];
     return why.length ? why.join(", ") : null;
   };
   const settle = (p: PlaceData) => buildPlace(p, settles).settle.depth;
@@ -584,6 +639,12 @@ function feedsFor(libraryId: string, place: PlaceData): { place: PlaceData; note
     again +
     (flowOnly.length ? `; better by the measure but for a source in another's flow: ${flowOnly.map((x) => `${at(x.from)} → ${at(x.to)} (real water ${x.real}, real dry land ${x.dry}; ${x.why})`).join("; ")}` : "");
   return { place: r.place, note };
+}
+
+/** The walk to the start's water (`start.water`'s value), or null when it has none in reach. */
+function waterIn(s: Checked["strict"]): number | null {
+  const v = s.report.checks.find((c) => c.id === "start.water")?.value;
+  return typeof v === "number" ? v : null;
 }
 
 /** The start's numbers (D(new-films)): its water in reach first (the walk to it, of the check's limit), then its logs,
@@ -645,7 +706,8 @@ interface Outcome {
 type Measure = ReturnType<typeof realParts>;
 
 /** One place, built, mended and checked (null: not among `--only`'s). */
-function runPlace(item: LibraryItem): Outcome | null {
+function runPlace(item: LibraryItem, mendFirst = false): Outcome | null {
+  filmBefore = mendFirst ? FILM_THIN_SHARE : FILM_BEFORE;
   const fx = JSON.parse(new TextDecoder().decode(gunzipSync(new Uint8Array(readFileSync(join(LIBRARY, item.fixture)))))) as Fixture;
   const out: Outcome = { id: "", lines: [], withheld: [], entries: [], files: [], failed: false };
   settles = new SettleCache();
@@ -823,7 +885,21 @@ function runPlace(item: LibraryItem): Outcome | null {
     place = unbed.place;
     ({ built, v, strict, blocking, strictFails } = unbed.r);
   }
-  const feedNote = feeds.note + (unbed?.note ?? "");
+  // the films the searched springs leave get their mend (D(new-films))
+  const after = mendFirst ? { place, r: { built, v, strict, blocking, strictFails }, note: "" } : filmsAfter(item.id, place, { built, v, strict, blocking, strictFails });
+  // a film the springs leave whose mend fails a check: the place is built again with every film the check finds mended
+  // before the search, as its start, springs and plants then take it (the film check is never weakened)
+  if (!mendFirst && films(after.r.built.settle.depth, after.r.built.model.floor, place.W, place.H).some((f) => f.floor0 * 2 <= f.tiles.length)) {
+    const again = runPlace(item, true);
+    const at = again ? again.lines.findIndex((l) => /^(ok  |FAIL) /.test(l)) : -1;
+    if (again && at >= 0) again.lines[at] += `  built with its films mended before the search (after it:${after.note.replace(/^ +films after the springs:/, "")})`;
+    return again;
+  }
+  if (after.place !== place) {
+    place = after.place;
+    ({ built, v, strict, blocking, strictFails } = after.r);
+  }
+  const feedNote = feeds.note + (unbed?.note ?? "") + after.note;
   // A start short of berries (after a move or a spring, or on its own land) gets the bushes the
   // `start.food` check's own fix plants (the editor's one-click fix: moist tiles within 20 tiles'
   // walk of the start, nearest first; objects only, never land, D331). Where the fix finds too few

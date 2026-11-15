@@ -120,7 +120,18 @@ export function searchFeeds(
   settle: (p: PlaceData) => ArrayLike<number>,
   keep: (p: PlaceData) => string | null,
   opts: { dryNotUp?: boolean; springs?: () => Src[][] } = {},
-): { place: PlaceData; before: { real: number; dry: number }; after: { real: number; dry: number }; steps: FeedStep[]; refused: FeedRefusal[] } {
+): FeedSearch {
+  // a place with no real water is searched both ways, the one spring first and without it, and keeps the better (the one
+  // spring taken first can end above the turns alone)
+  const turnsOnly = search(place, real, settle, keep, opts, false);
+  if (realHead(place.W, place.H, real) !== null || place.sources.length < 2) return turnsOnly;
+  const one = search(place, real, settle, keep, opts, true);
+  return one.steps[0]?.kind === "one spring" && one.after.real - one.after.dry > turnsOnly.after.real - turnsOnly.after.dry ? one : turnsOnly;
+}
+
+type FeedSearch = { place: PlaceData; before: { real: number; dry: number }; after: { real: number; dry: number }; steps: FeedStep[]; refused: FeedRefusal[] };
+
+function search(place: PlaceData, real: Uint8Array, settle: (p: PlaceData) => ArrayLike<number>, keep: (p: PlaceData) => string | null, opts: { dryNotUp?: boolean; springs?: () => Src[][] }, oneSpring: boolean): FeedSearch {
   const { W, H } = place;
   const head = realHead(W, H, real);
   let cur = place;
@@ -151,7 +162,7 @@ export function searchFeeds(
   };
   // D245's water floor for a place with no real water: one spring for all (each of its own alone, at the strengths it may
   // run at, or a spring by the start)
-  if (head === null && place.sources.length > 1) {
+  if (oneSpring) {
     const lists: Src[][] = [];
     for (const s of place.sources) for (const st of strengthsOf(s[2])) lists.push([[s[0], s[1], st]]);
     for (const g of opts.springs?.() ?? []) lists.push(g.map((x) => [...x] as Src));

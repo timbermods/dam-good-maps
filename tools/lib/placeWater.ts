@@ -98,8 +98,9 @@ export interface Film {
   floor0: number;
 }
 
-/** The films of a settled water (`FILM_*`), each as its tiles. */
-export function films(depth: ArrayLike<number>, floor: ArrayLike<number>, W: number, H: number): Film[] {
+/** The films of a settled water (`FILM_*`), each as its tiles. `share`: the share of its tiles a film is thin on (the
+ *  check's `FILM_THIN_SHARE`; 1, every tile, for the beds cut before the springs' search, as before D(new-films)). */
+export function films(depth: ArrayLike<number>, floor: ArrayLike<number>, W: number, H: number, share = FILM_THIN_SHARE): Film[] {
   const out: Film[] = [];
   for (const b of bodies(depth, W, H)) {
     if (b.length < FILM_TILES) continue;
@@ -111,7 +112,7 @@ export function films(depth: ArrayLike<number>, floor: ArrayLike<number>, W: num
       if (inBed(floor, W, H, i)) bed++;
       if (floor[i] === 0) floor0++;
     }
-    if (thin >= FILM_THIN_SHARE * b.length && bed < FILM_BED_SHARE * b.length) out.push({ tiles: b, at: [b[0] % W, Math.floor(b[0] / W)], floor0 });
+    if (thin >= share * b.length && bed < FILM_BED_SHARE * b.length) out.push({ tiles: b, at: [b[0] % W, Math.floor(b[0] / W)], floor0 });
   }
   return out;
 }

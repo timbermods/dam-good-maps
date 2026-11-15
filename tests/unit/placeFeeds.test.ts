@@ -87,12 +87,19 @@ describe("the springs' search (D(new-films))", () => {
     expect(r.refused.some((x) => x.why === "start.water")).toBe(true);
   });
 
-  it("a place with no real water takes one spring for all where that is best (D245's water floor)", () => {
-    const { real, settle } = settleOf({ "2,2": { real: 0, dry: 50 }, "4,4": { real: 0, dry: 50 }, "8,8": { real: 0, dry: 5 }, "12,12": { real: 0, dry: 20 } });
-    real.fill(0);
-    const r = searchFeeds(place([[2, 2, 1], [4, 4, 1], [8, 8, 1]]), real, settle, () => null, { springs: () => [[[12, 12, 1]]] });
-    expect(r.steps[0].kind).toBe("one spring");
-    expect(r.place.sources.map(([x, y]) => `${x},${y}`)).toEqual(["8,8"]);
+  it("a place with no real water takes one spring for all where the turns alone gain nothing (D245's water floor)", () => {
+    // its two springs wet the same 50 dry tiles (neither alone, nor a weaker one, gains); the spring by the start wets 5
+    const real = new Uint8Array(W * H);
+    const settle = (p: PlaceData) => {
+      const depth = new Float64Array(W * H);
+      const at = new Set(p.sources.map(([x, y]) => `${x},${y}`));
+      if (at.has("2,2") || at.has("4,4")) for (let i = 100; i < 150; i++) depth[i] = 0.5;
+      if (at.has("12,12")) for (let i = 200; i < 205; i++) depth[i] = 0.5;
+      return depth;
+    };
+    const r = searchFeeds(place([[2, 2, 1], [4, 4, 1]]), real, settle, () => null, { springs: () => [[[12, 12, 1]]] });
+    expect(r.steps.map((s) => s.kind)).toEqual(["one spring"]);
+    expect(r.place.sources).toEqual([[12, 12, 1]]);
     expect(r.after.dry).toBe(5);
   });
 
