@@ -51,7 +51,11 @@ test("a force that removed sources says how many, with Undo; with Ride it says n
   await expect(row.getByRole("group", { name: "Sources" }).getByRole("button", { name: "Clear" })).toHaveAttribute("aria-pressed", "true");
   const sources = await sourcesOnMap(page);
   expect(sources.length).toBeGreaterThan(0);
-  const spot = sources.at(-1)!;
+  // (the spring at (12, 79) since generator 0.10.23, D(new-leaks): a course's water leaves only by its own way, so the land
+  // moved, D148: the map's last source, at (23, 69), was the spot, and a fault through it along its row clears none of the
+  // map's sources now; through (12, 79) it clears its two, as through dev's last, (12, 13), it did)
+  const spot = sources.find(([x, y]) => x === 12 && y === 79)!;
+  expect(spot).toBeDefined();
   const n0 = (await labels(page)).length;
 
   await fault(page, spot, 12);

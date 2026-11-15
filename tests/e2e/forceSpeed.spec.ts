@@ -57,7 +57,10 @@ async function spots(page: Page): Promise<{ high: [number, number]; low: [number
           low = [x, y];
         }
       }
-    return { high, low, mid: [Math.round(m.W / 2), Math.round(m.H / 2)] as [number, number] };
+    // (the middle's tile two south since generator 0.10.23, D(new-leaks): a course's water leaves only by its own way, so
+    // the land moved, D148: at 96² the middle, (48, 48), holds up an overhang now, and a Craterize or an Eruption there is
+    // refused (a force leaves it as it is); (48, 50) takes both at their largest)
+    return { high, low, mid: [Math.round(m.W / 2), Math.round(m.H / 2) + 2] as [number, number] };
   });
 }
 
