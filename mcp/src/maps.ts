@@ -213,7 +213,7 @@ export function specOf(input: GenerateInput): { spec: MapSpec; seedWord?: string
   if (input.intentions?.length) {
     // (offered by theme, as the table every surface reads says: core/land/intentionTable.ts)
     for (const id of input.intentions) {
-      const why = intentionRefusal(id, theme);
+      const why = intentionRefusal(id, theme, { W: size.x, H: size.y });
       if (why) refuse(why);
     }
     spec.intentions = [...input.intentions];

@@ -57,9 +57,9 @@ jobs:
         run: npm run test:heavy
 
   # The intention list (src/core/land/intentionTable.ts) is the generator's: each intention asked of the theme on seeds
-  # 1-12 at 128², a theme a job (about 264 maps each). Here only, never on a pull request or in the release gate
-  # (planning). Red means the list moved: regenerate it (npm run intentions) in a pull request that says which intention
-  # moved and why.
+  # 1-12 at 128² and at 256², a theme and a side a job, the 256² side in four parts of the intentions (about 252 maps at
+  # 128², 63 at 256², each job). Here only, never on a pull request or in the release gate (planning). Red means the
+  # list moved: regenerate it (npm run intentions) in a pull request that says which intention moved and why.
   intentions:
     runs-on: ubuntu-latest
     timeout-minutes: 60
@@ -67,6 +67,7 @@ jobs:
       fail-fast: false
       matrix:
         theme: [riverValley, canyon, highlands, lakeBasin, delta, islands]
+        slice: ["--side 128", "--side 256 --part 1/4", "--side 256 --part 2/4", "--side 256 --part 3/4", "--side 256 --part 4/4"]
     steps:
       - uses: actions/checkout@v7
         with:
@@ -76,8 +77,8 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
-      - name: The intention list on ${{ matrix.theme }} is the generator's
-        run: npm run intentions -- --check --theme ${{ matrix.theme }}
+      - name: The intention list on ${{ matrix.theme }} (${{ matrix.slice }}) is the generator's
+        run: npm run intentions -- --check --theme ${{ matrix.theme }} ${{ matrix.slice }}
 
   # Real places' data matches a fresh build. Its own job, beside the heavy tests: the build searches
   # each place's start spots and springs (D245, tools/real-places.ts), about 25 min on a runner.

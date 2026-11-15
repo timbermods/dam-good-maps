@@ -1953,6 +1953,57 @@ and grey; the start's budget fragile (the oak stand fell to 168 logs when the te
 start is an island and its berries drown); the ladder thin (17 % green on day 1 to 28.8 % after every work, and the
 catch's +1,356 upland costs the lowland's 2,398).
 
+### 5.4 The poisoned floodplain (a candidate, next after the wall with one gate)
+
+Designed in full in [design/poisoned-floodplain.md](design/poisoned-floodplain.md) (2026-11-15), which a builder
+builds from; this section is the sketch it grew from. A candidate by planning's ruling of 2026-11-14, with Kyler's agreement, when the intention
+badwater-rich was removed from the themes ([design/intentions-by-design.md](design/intentions-by-design.md) §5: a
+nudge cannot make it; a premise can). It is built after §5.1 and before §5.2. The verb is *turn*.
+
+**The line:** "The widest flat on the map is dead along a red stream. Turn the stream into the old dry valley and
+bring the river in behind it: the best land is yours."
+
+- **Real land.** A yazoo stream. A river builds its own banks a level over its floodplain (natural levees), so a
+  side stream that reaches the plain cannot join it: it runs along the plain's far edge, under the valley wall, and
+  joins far downstream. Here the side stream is tainted: it comes out of a stained side gulch, from a mineral spring.
+- **Water story.** A clean river with the map's strong springs crosses a broad floodplain between its own levees and
+  leaves by an edge. A badwater source in a side gulch; its stream falls from the gulch's mouth, runs the length of
+  the plain's far edge and joins the river in its lower reach, or leaves by the edge on its own. Beside it the soil
+  is contaminated and the wood is dead; between the dead band and the river's green the plain is dry. A badtide
+  turns the river red inside its levees, and the levees keep it off the plain.
+- **What it keeps of the decisions in force.** The join is in the river's last 30 % or the stream drains on its own
+  (D476, D498): the river is never red above it, and no standing water is reached. The start keeps its badwater
+  distance and its clean water (D469, D85). What the premise changes is only where the bad stream's course lies:
+  along the best land, where the themes' hazard planner never puts it.
+- **Skeleton.** Regions: the start's terrace (a fan or bench at the plain's near side, upstream of the gulch), the
+  river and its levees, the plain (the largest level land on the map, three bands on day 1: green by the river, dry,
+  dead), the gulch (narrow, stained, the source at its head), the old valley (a dry valley beside the gulch, joined
+  to it by a low col, leaving by an edge of its own), the far wall. Landmark: the red fall at the gulch's mouth,
+  seen across the whole plain. Found, not laid: the gulch, the col and the old valley are searched for in the
+  land's own side valleys and finished by taking ground away; a land without them is refused in one line.
+- **Start and first frame.** On the terrace, looking across the plain: meadow and the river's shine near, the grey
+  band of dead trees and the red thread beyond, the red fall under the far wall.
+- **Ladder.** Small: the start's own brook and its notches; a levee along a stretch of the red stream wins a field
+  back. Medium, the turn: a dam of 6 or fewer at the gulch's narrows lifts the red water two levels, over the col
+  and down the old valley; the stream's bed on the plain goes dry and the dead band recovers. Large, the river in:
+  a weir on the river below a low place in its levee lifts it a level, through the levee and into the stream's dry
+  bed, which waters the plain's whole far side; a gate there shuts it for a badtide. The gulch behind its dam is the
+  one place that stays red.
+- **Invariants.** The river clean above the join, by the settled water; the start's badwater distance and clean
+  water; the dead band's share of the plain 10 to 25 % on day 1 and the dry band's 30 % or more (the spectrum: never
+  a watered map handed over); the turn proved by settling it: with the dam in, no red water on the plain, the old
+  valley carrying the whole of the source to the edge, nothing else flooded; the river-in proved the same way, the
+  plain's green at 70 % or more with both works; the levees hold the river off the plain through a badtide.
+- **New beyond the wall with one gate:** contaminated soil counted in the spectrum and in a work's gain (`estimateGain`
+  reads moisture today); a natural levee as a form (a low bank the river builds, wandering, never a ruled dyke); the
+  sited search for a gulch with a col (the Gate's range and gap, turned to a side valley); a work that moves water
+  from one way out to another, proved by two settles. Its hazard is planned by the premise, so `land/hazards.ts`
+  places no other badwater on the map.
+- **To settle in the full design:** how far the game's contaminated soil reaches from the red stream and how fast it
+  clears once the stream is turned (read from the core's own soil rules, then one probe batch); the plain's width
+  against the river's reach, so that a dry band is left at each size; which themes the premise pairs with (River
+  Valley and Delta first).
+
 ## 6. Judging
 
 A premise ships only after its maps pass, in this order. Each tier is run when the premise or a stage it uses

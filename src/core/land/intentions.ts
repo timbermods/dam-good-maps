@@ -5,6 +5,12 @@
 // dropped and recorded, never forced (the second principle). The no-clone and no-archetype measures
 // run within each intention (the third principle; M9b's measures).
 //
+// Amended 2026-11-15 (D138; docs/design/intentions-by-design.md §0, §7): where a nudge cannot make an
+// intention (a relation between two things), it is made by design: its site is found on the land as it
+// is, after the courses are traced, the form finished there by taking ground away, and refused in one
+// line where the land has no site; the check stays the judge. A map draws an intention only on the
+// themes the committed table offers it for (intentionTable.json: 8 of seeds 1–12 at 128² and at 256²).
+//
 // Kyler's own intentions, in his words: "I love when the start sits under a cliff with water
 // below" (`under-cliff`); "I want a snaking river going down a hill" (`snaking-river`); "I want a
 // large crater where multiple rivers converge" (`crater-rivers`); "I want a cliffside with a
@@ -12,16 +18,18 @@
 //
 // M9b (PLAN §20 D274, settling #66): Kyler's pick of design version 2's candidates joins the set:
 // the oxbow lake, lakes stepping down the valley, the river splitting round a big island, two falls
-// side by side, a long cliff splitting the map, hanging side valleys, two ways to grow, badwater
-// through the richest land, a relic on a pinnacle, and a plug holding back a lake. Every map draws
+// side by side, a long cliff splitting the map, hanging side valleys, two ways to grow, a relic on
+// a pinnacle, and a plug holding back a lake (and a tenth, badwater through the richest land, removed
+// 2026-11-15: a premise, not a nudge, docs/PREMISES.md §5.4). Every map draws
 // one or two (D273 (3): at least one standout on every map; none is no longer drawn). The recipes
 // fold in (D275 (1)): the great scarp, the island in a river and the chain of lakes are three of
 // these, the mesa field a landmark.
 //
 // Ported from the design version 2 prototype (investigation/generative/v2/intentions.ts). "Any"
-// weighs each intention by its mean over the six themes (D209). The set and its rates are
-// decisions-pending #61's default (D209).
+// weighs each intention by its mean over the six themes (D209), a theme it is not offered for
+// counting 0. The set and its rates are decisions-pending #61's default (D209).
 
+import TABLE from "./intentionTable.json" with { type: "json" };
 import { fallInView, LANDMARK_FALL, LANDMARK_LEAST, landmarkInView, levelDoorTurns, prepareOpening, type OpeningLand } from "../analysis/opening";
 import { standingForms } from "../analysis/vertical";
 import type { Orientation } from "../format/footprints";
@@ -51,7 +59,6 @@ export const INTENTIONS = [
   "upper-lower",
   "hanging-valleys",
   "two-ways",
-  "badwater-rich",
   "relic-pinnacle",
   "plug-lake",
   "district-behind",
@@ -62,7 +69,7 @@ export const ACTIVE: readonly IntentionId[] = INTENTIONS;
 /** Kyler's own, in his words. */
 export const KYLERS = new Set<IntentionId>(["under-cliff", "snaking-river", "crater-rivers", "cliff-falls-lake"]);
 /** Intentions the settler steers: the start's place decides them, so they are re-steered once. */
-export const START_SIDE = new Set<IntentionId>(["under-cliff", "long-view", "meeting-waters", "falls-shield", "two-ways", "badwater-rich", "landmark"]);
+export const START_SIDE = new Set<IntentionId>(["under-cliff", "long-view", "meeting-waters", "falls-shield", "two-ways", "landmark"]);
 
 /** The outcome in a player's words. */
 export const INTENTION_TEXT: Record<IntentionId, string> = {
@@ -84,7 +91,6 @@ export const INTENTION_TEXT: Record<IntentionId, string> = {
   "upper-lower": "A long cliff splits the map into an upper and a lower world.",
   "hanging-valleys": "Side valleys hang above a wide valley floor, their streams falling in.",
   "two-ways": "Two ways to grow: open farmland one way, wood and ruins up the cliffs the other.",
-  "badwater-rich": "Badwater spills through the richest land: tame it and the land is yours.",
   "relic-pinnacle": "A relic waits on a pinnacle, reached only by building up to it.",
   "plug-lake": "A plug holds back a lake: open it when you are ready.",
   "district-behind": "A good second district site close to the start waits behind debris you clear early.",
@@ -114,7 +120,6 @@ const WEIGHT6: Record<IntentionId, ThemeWeights> = {
   "upper-lower": { riverValley: 0.8, canyon: 1.2, highlands: 1.3, lakeBasin: 0.6, delta: 0.4, islands: 0.3 },
   "hanging-valleys": { riverValley: 1.2, canyon: 1.2, highlands: 1, lakeBasin: 0.6, delta: 0.3, islands: 0.3 },
   "two-ways": { riverValley: 1, canyon: 1, highlands: 1, lakeBasin: 0.8, delta: 0.8, islands: 0.6 },
-  "badwater-rich": { riverValley: 1, canyon: 0.7, highlands: 0.7, lakeBasin: 0.9, delta: 1.1, islands: 0.6 },
   "relic-pinnacle": { riverValley: 0.6, canyon: 1.3, highlands: 1.2, lakeBasin: 0.6, delta: 0.3, islands: 0.8 },
   "plug-lake": { riverValley: 0.9, canyon: 0.8, highlands: 1, lakeBasin: 1.3, delta: 0.5, islands: 0.4 },
   // (item 47: a second district close to the start behind a small early obstacle; benched land
@@ -122,11 +127,26 @@ const WEIGHT6: Record<IntentionId, ThemeWeights> = {
   "district-behind": { riverValley: 1, canyon: 0.8, highlands: 1.1, lakeBasin: 0.9, delta: 0.8, islands: 0.6 },
 };
 
-/** "Any" weighs each intention by its mean over the six themes. */
-function weightOf(id: IntentionId, theme: ThemeId): number {
+/** The themes the committed table offers an intention for, by counted side (land/intentionTable.ts reads the same
+ *  file and holds the rule, `countedSide`; read here from the file itself, so this module does not import the one that
+ *  imports it). */
+const TABLED = TABLE as { sides: number[]; offered: Record<string, Partial<Record<IntentionId, readonly string[]>>> };
+
+/** The offered list a W×H map takes: the smallest counted side whose square holds its area, else the largest (128²
+ *  when no size is given). */
+function offeredAt(size: { W: number; H: number } | null): Partial<Record<IntentionId, readonly string[]>> {
+  const side = size ? (TABLED.sides.find((s) => s * s >= size.W * size.H) ?? TABLED.sides[TABLED.sides.length - 1]) : TABLED.sides[0];
+  return TABLED.offered[String(side)] ?? {};
+}
+
+/** How often a map of the theme draws the intention: its `WEIGHT6` entry on a theme the table offers it for at the
+ *  map's side, 0 elsewhere (D138 as amended 2026-11-15). "Any" weighs each intention by its mean over the six themes,
+ *  so read. */
+function weightOf(id: IntentionId, theme: ThemeId, offered: Partial<Record<IntentionId, readonly string[]>>): number {
   const w = WEIGHT6[id];
-  if (theme !== "any") return w[theme];
-  const vs = Object.values(w);
+  const on = offered[id] ?? [];
+  if (theme !== "any") return on.includes(theme) ? w[theme] : 0;
+  const vs = (Object.keys(w) as (keyof ThemeWeights)[]).map((t) => (on.includes(t) ? w[t] : 0));
   return vs.reduce((a, b) => a + b, 0) / vs.length;
 }
 
@@ -153,12 +173,13 @@ export function drawIntentions(theme: ThemeId, vt: number, rng: Rng, size: { W: 
   const r = rng.float();
   const n = r < 0.6 ? 1 : 2;
   const out: IntentionId[] = [];
+  const offered = offeredAt(size);
   for (let k = 0; k < n; k++) {
     const w = ACTIVE.map((id) => {
       if (out.includes(id) || out.some((o) => clashes(o, id))) return 0;
       if (size && tooSmallFor(id, size.W, size.H)) return 0;
       if (sea && DRAINS_A_SEA.has(id)) return 0;
-      return weightOf(id, theme) * (VERTICAL.has(id) ? 1 + vt / 100 : 1);
+      return weightOf(id, theme, offered) * (VERTICAL.has(id) ? 1 + vt / 100 : 1);
     });
     if (w.every((x) => x === 0)) break;
     out.push(ACTIVE[rng.weighted(w)]);
@@ -303,13 +324,6 @@ export function nudgeFor(id: IntentionId): (g: Genome, rng: Rng, W: number, H: n
         g.resources.ruins = Math.min(300, g.resources.ruins + 60);
         g.terrace.share = Math.min(1, g.terrace.share + 0.1);
       };
-    case "badwater-rich":
-      // a stronger badwater stream, and a broad floor along the rivers
-      return (g) => {
-        if (g.hazards.badwater === "none") g.hazards.badwater = "stream";
-        g.hazards.ratio = Math.min(1.8, g.hazards.ratio * 1.3);
-        g.hydro.floor += 3;
-      };
     case "relic-pinnacle":
       // stacks from hard rock, a tall mesa, and the relic put where no one walks
       return (g, rng) => {
@@ -372,11 +386,9 @@ export interface SettlerView {
   farms: { size: number; cx: number; cy: number }[];
   gorge: Uint8Array;
   p75: number;
-  /** Distance to badwater (contaminated water), for badwater through the richest land. */
-  dBad: Float64Array;
   /** The land in blocks of `B`×`B` tiles (dry tiles, their farmland and summed height), for two
    *  ways to grow. */
-  blocks: { B: number; bw: number; bh: number; n: Float32Array; farm: Float32Array; hs: Float32Array; lowBad: Float32Array };
+  blocks: { B: number; bw: number; bh: number; n: Float32Array; farm: Float32Array; hs: Float32Array };
   /** The standing forms and falls the opening camera may show (D493), for the landmark in view. */
   opening?: OpeningLand;
 }
@@ -433,26 +445,12 @@ export function startPreference(id: IntentionId, s: SettlerView, x: number, y: n
       return s.dJoin[y * W + x] <= 18 ? 1 : 0;
     case "falls-shield":
       return s.dFall[y * W + x] <= 18 ? 1 : 0;
-    case "badwater-rich": {
-      // the low land beside badwater within 60 tiles, against the check's 400 (at 128²)
-      if (!(s.dBad[y * W + x] <= 60)) return 0;
-      const b = s.blocks;
-      let low = 0;
-      for (let by = Math.max(0, Math.floor((y - 61) / b.B)); by < Math.min(b.bh, Math.ceil((y + 62) / b.B)); by++)
-        for (let bx = Math.max(0, Math.floor((x - 61) / b.B)); bx < Math.min(b.bw, Math.ceil((x + 62) / b.B)); bx++) {
-          const k = by * b.bw + bx;
-          if (!b.lowBad[k]) continue;
-          const cx = (bx + 0.5) * b.B - 0.5 - x;
-          const cy = (by + 0.5) * b.B - 0.5 - y;
-          if (cx * cx + cy * cy <= 3600) low += b.lowBad[k];
-        }
-      return Math.min(1, low / ((400 * W * H) / 16384));
-    }
     case "two-ways": {
       // from the start (12–60 tiles out), one side's open farmland twice the other's and the
       // other side higher (its wood and ruins are placed later; the check reads them)
       const b = s.blocks;
-      const want = (200 * W * H) / 16384;
+      // (in tiles on every map: the start's ring of 12–60 tiles is the same ground at every size, planning 2026-11-15)
+      const want = 200;
       for (const [ux, uy] of [[1, 0], [0.707, 0.707], [0, 1], [-0.707, 0.707]] as const) {
         const side = [
           { farm: 0, h: 0, n: 0 },
@@ -1047,14 +1045,15 @@ export function checkIntention(id: IntentionId, c: FinalCtx): CheckResult {
       let said = "";
       for (let id = 0; id < b.tiles.length && !found; id++) {
         const t = b.tiles[id];
-        if (t.length < 60) continue;
+        // (a lake of 60+ tiles, 10 of them a level deep, at 128²: the map's own proportions, scaled by its area)
+        if (t.length < (60 * N) / 16384) continue;
         let surf = 0;
         let deep = 0;
         for (const i of t) {
           surf = Math.max(surf, h[i] + D[i]);
           if (D[i] >= 1) deep++;
         }
-        if (surf < med + 5 || deep < 10) continue;
+        if (surf < med + 5 || deep < (10 * N) / 16384) continue;
         const inBody = new Set(t);
         const spill = c.falls.some((f) => {
           const fx = f.i % W;
@@ -1526,33 +1525,10 @@ export function checkIntention(id: IntentionId, c: FinalCtx): CheckResult {
         const [a, b] = side;
         if (!a.n || !b.n) continue;
         const richer = b.wood >= 2 * a.wood && b.wood >= 60 ? "wood" : b.ruins >= 2 * a.ruins && b.ruins >= 10 ? "ruins" : null;
-        if (a.farm >= 2 * b.farm && a.farm >= (200 * N) / 16384 && richer && b.h / b.n >= a.h / a.n + 1.5)
+        if (a.farm >= 2 * b.farm && a.farm >= 200 && richer && b.h / b.n >= a.h / a.n + 1.5)
           return { ok: true, note: `${a.farm} tiles of farmland one way; ${richer === "wood" ? `${Math.round(b.wood)} logs` : `${b.ruins} ruins`} up high the other`, say: `Two ways to grow: open farmland one way, ${richer === "wood" ? "wood" : "ruins"} up high the other.` };
       }
       return { ok: false, note: "no two directions that offer different riches" };
-    }
-    case "badwater-rich": {
-      // 400+ tiles (at 128²) of low, moist land beside badwater within 60 tiles of the start, the
-      // start's own water clean
-      const bad = new Uint8Array(N);
-      for (let i = 0; i < N; i++) if (D[i] >= 0.05 && C[i] >= 0.05 && eu(i) <= 60) bad[i] = 1;
-      const dist = distanceFrom(bad, W, H);
-      let surf = 0;
-      let n = 0;
-      for (let i = 0; i < N; i++)
-        if (bad[i]) {
-          surf += h[i] + D[i];
-          n++;
-        }
-      if (!n) return { ok: false, note: "no badwater within 60 tiles" };
-      const level = surf / n;
-      let land = 0;
-      // (the richest: moist land, which the badwater's soil stains until it is tamed)
-      for (let i = 0; i < N; i++) if (!(D[i] >= 0.05) && dist[i] <= 5 && eu(i) <= 60 && h[i] <= level + 1.5 && c.moist[i] > 0) land++;
-      let clean = false;
-      for (let i = 0; i < N && !clean; i++) if (D[i] >= 0.3 && C[i] < 0.05 && c.walk[i] <= 22) clean = true;
-      const want = (400 * N) / 16384;
-      return { ok: land >= want && clean, note: `${land} tiles of low land beside badwater within 60 tiles${clean ? "; the start's water clean" : "; no clean water by the start"}`, ...(land >= want && clean ? { say: "Badwater runs through moist low land near the start: tame it and the land is yours." } : {}) };
     }
     case "relic-pinnacle": {
       // a medium or large relic within 60 tiles on dry land no one walks to from the start
@@ -1590,11 +1566,12 @@ export function checkIntention(id: IntentionId, c: FinalCtx): CheckResult {
       return { ok: false, note: "no plug holding back a lake" };
     }
     case "district-behind": {
-      // a site's level ground, 300+ tiles (at 128²) and 35–70 tiles out, that the colony reaches only
-      // once the debris on its ramps is cleared
+      // a site's level ground, 300+ tiles and 35–70 tiles out, that the colony reaches only once the
+      // debris on its ramps is cleared (in tiles on every map: a second district at the start's scale,
+      // planning 2026-11-15)
       const open = c.walkCleared;
       if (!open) return { ok: false, note: "no debris" };
-      const want = (300 * N) / 16384;
+      const want = 300;
       const regions = new Map<number, { n: number; near: number }>();
       const lab = levelRegions(h, W, H).labels;
       for (let i = 0; i < N; i++) {
