@@ -27,18 +27,41 @@
 // - the pale wood (`BaseWood_LightBrown`, the posts, frames, floor and railings, and the brown of the platform, which
 //   draws the same picture darker: 1.45 m a unit): boards 0.09 m wide along v, near white between them (0.83 of
 //   white), their body (0.617, 0.569, 0.504) streaked with darker grain (0.52, 0.47, 0.41), a fifth of it each.
+//
+// Layer 5, the blueberry bush's (`BlueberryBushMature`, VegetationURP, cut at alpha 0.312; numbers read from its texture
+// over its cut, 2.26 m of bush a unit of UV): rosettes of pointed grey leaves about 0.2 m long that its vertex colours
+// tint (the bush's colour, palette.ts `TREE_COLOURS.bush`), their lightness 0.67 to 1.38 times their mean (the 5th to
+// the 95th percentile), heaped as a mound over a low dome and as rosettes on cards round its shoulders and top; and its
+// yield, clusters of round berries about 0.06 m across (palette.ts `TREE_COLOURS.berry`), 0.54 to 1.39 of their mean.
 
 import { RUIN } from "./palette";
 
 /** A layer's side in texels. */
 export const PATTERN_SIZE = 256;
 /** The layers, by the number a model's part gives (0 none). */
-export const PATTERN = { ivy: 1, thatch: 2, planks: 3, wood: 4 } as const;
-export const PATTERN_LAYERS = 4;
-/** Where a pattern's alpha cuts the part away: the game's ivy's `_Cutoff` (the other layers are never cut). */
+export const PATTERN = { ivy: 1, thatch: 2, planks: 3, wood: 4, bush: 5 } as const;
+export const PATTERN_LAYERS = 5;
+/** Where a pattern's alpha cuts the part away: the game's ivy's and bush's `_Cutoff` (the tiling layers are never cut). */
 export const PATTERN_CUT = 0.312;
 /** A texel is the part's albedo over its colour divided by this. */
 export const PATTERN_GAIN = 3;
+/** The coarsest mip a cut layer's alpha is read at (8 texels to one). Coarser, a card's whole region averages past the
+ *  cut (a bush's rosette's from its 5th, a cluster of berries' from its 4th), so a card seen edge-on, whose texels the
+ *  sampler averages along it, would be drawn whole: a line in the air. */
+export const PATTERN_ALPHA_MIP = 3;
+/** GLSL: whether a pattern keeps the texel at `at` (u, v, layer less one), `dx` and `dy` its UV's change across a pixel
+ *  (taken where every pixel takes them): a cut layer's alpha read no coarser than `PATTERN_ALPHA_MIP`, the tiling
+ *  layers' always kept. */
+export const PATTERN_KEPT_GLSL = /* glsl */ `
+  bool patternKept(sampler2DArray atlas, vec3 at, vec2 dx, vec2 dy) {
+    float layer = at.z + 1.0;
+    if (abs(layer - ${PATTERN.ivy}.0) > 0.5 && abs(layer - ${PATTERN.bush}.0) > 0.5) return true;
+    float most = ${((1 << PATTERN_ALPHA_MIP) / PATTERN_SIZE).toFixed(6)};
+    vec2 gx = dx * min(1.0, most / max(length(dx), 1e-8));
+    vec2 gy = dy * min(1.0, most / max(length(dy), 1e-8));
+    return textureGrad(atlas, at, gx, gy).a >= ${PATTERN_CUT};
+  }
+`;
 /** Metres of a part a unit of each tiling layer's UV, as the game's model maps its textures. */
 export const PATTERN_TILE = { thatch: 2.49, planks: 1.61, wood: 1.45 } as const;
 
@@ -544,6 +567,114 @@ function drawWood(): Tile {
   return tl;
 }
 
+/** The bush's layer's parts (UV, v up): its mound of rosettes, laid over the bush's dome from above (1.1 m across);
+ *  four rosettes, one a card (0.33 m); four clusters of berries, one a card (0.16 m). */
+export const BUSH_MOUND: Region = [0, 0, 128 / S, 128 / S];
+export const BUSH_ROSETTES: readonly Region[] = [0, 1, 2, 3].map((k) => [(128 + (k % 2) * 64) / S, ((k >> 1) * 64) / S, 64 / S, 64 / S] as const);
+export const BUSH_BERRIES: readonly Region[] = [0, 1, 2, 3].map((k) => [(k * 32) / S, 128 / S, 32 / S, 32 / S] as const);
+
+/** A rosette's leaf: pointed, from (cx, cy) out `length` texels at `angle`, `width` across at its widest, darker at
+ *  its foot, its edge and its midrib, lighter toward its tip, grey (its part's colour tints it, as the game's vertex
+ *  colours do), within `clip`. */
+function bushLeaf(cv: Canvas, cx: number, cy: number, angle: number, length: number, width: number, tone: number, clip: readonly number[]): void {
+  const ca = Math.cos(angle);
+  const sa = Math.sin(angle);
+  const x0 = Math.max(clip[0], Math.floor(Math.min(cx, cx + ca * length) - width));
+  const x1 = Math.min(clip[2], Math.ceil(Math.max(cx, cx + ca * length) + width));
+  const y0 = Math.max(clip[1], Math.floor(Math.min(cy, cy + sa * length) - width));
+  const y1 = Math.min(clip[3], Math.ceil(Math.max(cy, cy + sa * length) + width));
+  for (let y = y0; y < y1; y++)
+    for (let x = x0; x < x1; x++) {
+      const dx = x + 0.5 - cx;
+      const dy = y + 0.5 - cy;
+      const s = (dx * ca + dy * sa) / length;
+      if (s <= 0 || s >= 1) continue;
+      const t = -dx * sa + dy * ca;
+      const hw = (width / 2) * Math.pow(4 * s * (1 - s), 0.6) * (s < 0.7 ? 1 : 1 - (s - 0.7) * 0.6);
+      const c = Math.min(1, Math.max(0, hw + 0.5 - Math.abs(t)));
+      if (c <= 0) continue;
+      const across = Math.abs(t) / Math.max(hw, 0.5);
+      const shade = tone * (0.6 + 0.75 * s) * (1 - 0.38 * across * across) * (Math.abs(t) < 0.6 ? 0.84 : 1);
+      cv.over(x, y, c, shade, shade, shade);
+    }
+}
+
+/** A rosette: two rings of leaves round (cx, cy), the inner over the outer, `r` texels out. */
+function rosette(cv: Canvas, cx: number, cy: number, r: number, seed: number, clip: readonly number[]): void {
+  const turn = hash(seed, 1, 50) * 6.28;
+  const outer = 7 + Math.floor(hash(seed, 2, 50) * 2);
+  for (let k = 0; k < outer; k++) {
+    const a = turn + (k / outer) * 2 * Math.PI + (hash(seed, k, 51) - 0.5) * 0.4;
+    bushLeaf(cv, cx, cy, a, r * (0.85 + 0.15 * hash(seed, k, 52)), r * 0.42, 0.8 + 0.25 * hash(seed, k, 53), clip);
+  }
+  for (let k = 0; k < 5; k++) {
+    const a = turn + ((k + 0.5) / 5) * 2 * Math.PI;
+    bushLeaf(cv, cx, cy, a, r * 0.6, r * 0.32, 1.0 + 0.2 * hash(seed, k, 54), clip);
+  }
+}
+
+/** The bush's layer (`BUSH_MOUND`, `BUSH_ROSETTES`, `BUSH_BERRIES`). */
+function drawBush(): Canvas {
+  const cv = new Canvas();
+  // the mound: rosettes over a disc, the outer first, kept 2 texels in from the part's sides
+  const mound = [2, 2, 126, 126];
+  const spots: [number, number, number][] = [];
+  for (let k = 0; k < 8; k++) {
+    const a = (k / 8) * 2 * Math.PI + 0.3;
+    spots.push([64 + Math.cos(a) * 38, 64 + Math.sin(a) * 38, 23]);
+  }
+  for (let k = 0; k < 4; k++) {
+    const a = (k / 4) * 2 * Math.PI + 1.1;
+    spots.push([64 + Math.cos(a) * 18, 64 + Math.sin(a) * 18, 24]);
+  }
+  spots.push([64, 64, 22]);
+  spots.forEach(([x, y, r], k) => rosette(cv, x, y, r, 100 + k, mound));
+  // the rosettes, one to a card
+  BUSH_ROSETTES.forEach((r, k) => {
+    const [x, y] = [r[0] * S, r[1] * S];
+    rosette(cv, x + 32, y + 32, 29, 200 + k, [x + 2, y + 2, x + 62, y + 62]);
+  });
+  // the berries: four to six to a cluster, round, lit from above, a dark crown at each one's end
+  BUSH_BERRIES.forEach((r, k) => {
+    const [x, y] = [r[0] * S, r[1] * S];
+    const n = 4 + (k % 3);
+    for (let b = 0; b < n; b++) {
+      const a = (b / n) * 2 * Math.PI + k;
+      const d = b === n - 1 && n > 4 ? 0 : 6.5;
+      const [bx, by] = [x + 16 + Math.cos(a) * d, y + 16 + Math.sin(a) * d];
+      const rr = 5.2 + 1.2 * hash(k, b, 55);
+      for (let py = Math.floor(by - rr - 1); py <= Math.ceil(by + rr + 1); py++)
+        for (let px = Math.floor(bx - rr - 1); px <= Math.ceil(bx + rr + 1); px++) {
+          const dx = px + 0.5 - bx;
+          const dy = py + 0.5 - by;
+          const dist = Math.hypot(dx, dy);
+          const c = Math.min(1, Math.max(0, rr + 0.5 - dist));
+          if (c <= 0 || px < x + 1 || py < y + 1 || px >= x + 31 || py >= y + 31) continue;
+          const lit = 0.75 + 0.45 * Math.max(0, (-dx * 0.5 + dy * 0.7) / rr + 0.3) - (dist < 1.3 ? 0.45 : 0);
+          cv.over(px, py, c, lit, lit, lit * 1.04);
+        }
+    }
+  });
+  // each part's mean over the cut its colour's (the leaves' the bush's, the berries' the berries'), and the cut-away
+  // texels the mean (no darker fringe in the mips)
+  for (const parts of [[BUSH_MOUND, ...BUSH_ROSETTES], BUSH_BERRIES]) {
+    const sum = [0, 0, 0];
+    let n = 0;
+    const each = (f: (k: number) => void) => {
+      for (const r of parts) for (let y = r[1] * S; y < (r[1] + r[3]) * S; y++) for (let x = r[0] * S; x < (r[0] + r[2]) * S; x++) f(y * S + x);
+    };
+    each((k) => {
+      if (cv.a[k] < PATTERN_CUT) return;
+      for (let c = 0; c < 3; c++) sum[c] += cv.rgb[k * 3 + c] / cv.a[k];
+      n++;
+    });
+    each((k) => {
+      for (let c = 0; c < 3; c++) cv.rgb[k * 3 + c] = cv.a[k] > 0.004 ? cv.rgb[k * 3 + c] / cv.a[k] / (sum[c] / n) : 1;
+    });
+  }
+  return cv;
+}
+
 let made: Uint8Array | null = null;
 /** Every layer's texels, RGBA, layer by layer (made once). */
 export function patternTexels(): Uint8Array {
@@ -565,6 +696,13 @@ export function patternTexels(): Uint8Array {
       out[o + k * 4 + 3] = 255;
     }
   });
+  // the bush, already over its parts' colours, cut by its alpha
+  const bush = drawBush();
+  const o = (PATTERN.bush - 1) * S * S * 4;
+  for (let k = 0; k < S * S; k++) {
+    for (let c = 0; c < 3; c++) out[o + k * 4 + c] = byte(bush.rgb[k * 3 + c]);
+    out[o + k * 4 + 3] = Math.round(Math.min(1, bush.a[k]) * 255);
+  }
   return (made = out);
 }
 
