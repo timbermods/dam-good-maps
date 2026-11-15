@@ -4,7 +4,8 @@
 // carries the start to level ground in the same step (D257), clearing the generation's objects under
 // its new place (`startClears`). The release gate's bug hunt (D385) found that carry ignoring the
 // working area: the start landed on the locked land outside it, and the trees standing there were
-// removed. The same with the layer showing (D207, "the ground above it was left as it was"): the
+// removed. (The maps are fixtures, tests/fixtures/projects: Highlands 64² seeds 1 and 6, `fixtureInEditor`; the subject is the force
+// and the working area, not the generator, so a land change moves nothing here, D148.) The same with the layer showing (D207, "the ground above it was left as it was"): the
 // start was carried onto ground above the layer, which the player cannot see.
 
 import { describe, expect, it } from "vitest";
@@ -13,9 +14,8 @@ import { MapSession } from "../../src/core/doc/session";
 import { areaDepth } from "../../src/core/features/raster/brush";
 import { CRATER_DEFAULTS } from "../../src/core/forces/craterize";
 import { ERUPT_DEFAULTS } from "../../src/core/forces/erupt";
-import { makeSpec } from "../../src/core/spec/mapspec";
-import { runGenerate } from "../../src/worker/api";
 import * as ed from "../../src/worker/session";
+import { fixtureInEditor } from "../fixtureEditor";
 
 const open = () => MapSession.open(decodeProject(ed.project().bytes));
 
@@ -43,8 +43,7 @@ describe("a force leaves the locked land, and the ground above the layer showing
   // (14, 36), 5 tiles east and 3 south of the start, which carries it to (20, 33); seed 1 since generator 0.10.20's contour edges, D518, D148: seed 9's start stands at (35, 22) now, and seed 1 is the first seed whose start an Erupt 5 to 9 tiles east or west of it, 3 north or south, carries inside a 29-wide area on its edge; seed 1's start stands at (40, 38), across the area's east edge: the area from (12, 32), 29 wide, and the Erupt at (32, 41), 8 tiles west and 3 south of the start, which carries it to (37, 41); the Erupt 5 to 7 or 9 tiles west of it, 3 south, leaves the start where it stands; seed 1 again since D518's later mends moved the land again, D148: seed 1's start stands at (50, 41), level 16, across the area's east edge: the area from (22, 35), 29 wide, and the Erupt at (44, 44), 6 tiles west and 3 south of it, which carries it to (32, 44); the Erupt 7 or 8 tiles west of it no longer gives this scenario)
   it("Highlands 64², seed 1: an Erupt (Power 69) at (44, 44) inside a 29 × 12 area from (22, 35) breaks the start's ground; the objects outside the area all stay where they stood", async () => {
     const W = 64;
-    await runGenerate(makeSpec({ seed: 1, theme: "highlands", size: { x: W, y: W } }));
-    ed.refine();
+    fixtureInEditor("highlands", W, 1);
     const area: [number, number, number][] = [];
     for (let y = 35; y < 47; y++) area.push([y, 22, 50]);
     const inside = areaDepth(area, W, W);
@@ -85,8 +84,7 @@ describe("a force leaves the locked land, and the ground above the layer showing
   // 4, below the layer, and leaves the ground above alone; seed 6 since D518's later mends moved the land again, D148: seed 8 has only 40 objects above the layer now, and its start stands at (30, 12); seed 6's start stands at (24, 43), level 13, with 228 above it, and the Craterize 11 tiles south of it, at (24, 54), carries it to (27, 48), level 3, below the layer, and leaves the ground above alone)
   it("Highlands 64², seed 6: a Craterize (Power 44) at (24, 54) with the layer cut at level 13 breaks the start's ground; the ground above the layer and every object on it stay as they were", async () => {
     const W = 64;
-    await runGenerate(makeSpec({ seed: 6, theme: "highlands", size: { x: W, y: W } }));
-    ed.refine();
+    fixtureInEditor("highlands", W, 6);
     const cut = 13;
     const before = open().built;
     const hidden = (i: number) => before.heights[i] > cut;

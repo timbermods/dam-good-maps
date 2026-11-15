@@ -14,6 +14,7 @@ import { captureState, cloneState, difference } from "../../src/core/collab/mapS
 import { Mask } from "../../src/core/collab/mask";
 import { describeWaterNote, waterNote, waterNotes } from "../../src/core/collab/waterNotes";
 import { decodeProject } from "../../src/core/doc/document";
+import { GENERATOR_VERSION } from "../../src/core/spec/mapspec";
 import type { EditOp } from "../../src/core/doc/ops";
 import { planEntity, planMoveEntity } from "../../src/core/doc/placing";
 import { planRemove } from "../../src/core/doc/remove";
@@ -50,7 +51,9 @@ const square = (x0: number, y0: number, x1: number, y1: number): [number, number
  *  generator). Every test opens its own session from it. */
 const bytes = new Uint8Array(readFileSync("tests/fixtures/projects/collab-highlands-48-58.damgoodmaps"));
 function session(water: "defer" | "canonical" = "defer"): MapSession {
-  const s = MapSession.open(decodeProject(bytes));
+  // (its version relabelled as the current generator's own, as tests/fixtureProjects.ts does: a project of an older generator opens frozen, and a land change then
+  // would change how the session edits it; the map, its water and its objects are the file's either way)
+  const s = MapSession.open({ ...decodeProject(bytes), generatorVersion: GENERATOR_VERSION });
   s.setWaterMode(water);
   return s;
 }

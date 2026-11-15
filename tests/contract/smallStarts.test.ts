@@ -1,3 +1,4 @@
+// Generates live, not from a fixture: its subject is what the generator makes (a small start prepared before the land is shown), D148.
 import { describe, expect, it } from "vitest";
 import { generate } from "../../src/core/gen/generate";
 import { makeSpec, type ThemeId } from "../../src/core/spec/mapspec";
