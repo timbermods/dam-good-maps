@@ -15,9 +15,11 @@ A river valley with one broad floor. Everything below is a landform a river make
 (PREMISES §5.1, "Land first, story second"). The plan says where; stage 2 shapes it by noise and distance.
 
 The valley is not a corridor. Its axis is a wandering line, off the grid by 10° to 35° with one or two gentle bends,
-and its walls are not parallel: the floor's width varies along its length between 0.8 and 1.3 of its mean `P`.
+and its walls are not parallel: the floor's width, taken as its mean over any stretch one `P` long, varies along its length between 0.8 and 1.3
+of its mean `P` (a spur or a re-entrant may pinch or widen it more for a few tiles).
 Each wall wanders by its own line, as the river does and not as an offset of the axis: spurs that step out onto the
-floor and re-entrants that step back, 0.15 to 0.3 of `P` either way over a length of 1.5 to 3 `P`. No wall's foot stays
+floor and re-entrants that step back, 0.15 to 0.3 of `P` either way, a spur and its re-entrant together 1.5 to 3 `P` long (a spur that long by itself
+has a flank straight for more than the rule below allows). No wall's foot stays
 within 2 tiles of one straight line for longer than 1.2 `P` (`wall.wanders`, a plan invariant; stage 2 holds the same
 of the ground). The backswamp and the red stream follow the far wall's foot, so they wander as it does.
 
@@ -30,7 +32,7 @@ Across the valley, from the near wall to the far wall:
 | The levees | The banks a river builds from its own floods: highest at the channel, uneven, with low places where old floods broke out | A bank along both sides of the river whose height is noise along the course: one level over the plain for most of its length, level with the plain at 2 to 4 low places (each 4 to 8 tiles long). Its width is noise too, 3 to 6 tiles. It follows the meanders, so it is never straight | No stretch of crest at one height longer than a fifth of the river's length on the plain |
 | The plain | The floodplain: the largest level land on the map | One level, `L`, falling one level down the valley every 40 to 60 tiles as the river's own profile falls (a riser that wanders across the floor, never a straight step) | Mean width `P` across the valley (§2); its length 0.7 to 0.85 of the side along the axis; the floor (plain and backswamp) 20 to 30 % of the map at every size |
 | The backswamp | The floor's lowest strip, under the far wall, where the plain's water gathers | A strip one level under the plain, `L − 1`, 7 to 10 tiles wide at 128² and up to 0.06 of the side on larger maps, its edge with the plain a wandering riser | It carries the red stream, which wanders within it |
-| The slough | An old channel a flood cut from a low place in the levee across the plain to the backswamp | A dry bed one level under the plain, 2 or 3 wide, winding (a bend every 6 to 10 widths), from the lowest low place on the plain's side to the backswamp. One at 128², two at 192² and 256² | Dry on day 1; it is the river-in's way, already in the land |
+| The slough | An old channel a flood cut from a low place in the levee across the plain to the backswamp | A dry bed one level under the plain, 2 or 3 wide, winding (a bend every 6 to 10 widths), from a low place in the levee's middle third (the upper half of it where the red stream joins the river) to the backswamp. One at 128², two at 192² and 256² | Dry on day 1; it is the river-in's way, already in the land |
 | The far wall | The valley's other side | The shared relief, higher than the near wall; hard rock at the gulch's mouth | Sheer only at the Red Fall |
 | The gulch (the Stain) | A hanging side valley: its stream never cut down to the main floor | A side valley of the far wall found by search (§3), its floor 3 to 5 levels over the backswamp at its mouth, narrow (4 to 7 wide), with a narrows 3 or fewer wide within its lower half | The red source at its head |
 | The col | A low saddle between the gulch and the next side valley | Found with the gulch: the lowest point of the ridge between them, 2 levels over the gulch's floor at the narrows | Never under 2 |
