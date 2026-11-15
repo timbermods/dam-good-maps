@@ -4,10 +4,12 @@
 // the canonical settle (prefill.ts), which the preview only approximates while it runs.
 //
 // The warm start keeps the previous settled water (depth, badwater share and outflow momentum) on
-// every tile whose ground, water objects and neighbourhood the edit left alone, and takes the
-// canonical pre-fill on the rest: the ground an edit changed, the tiles near it, and the tiles of
-// emitters that are new or changed. Then the exact simulation runs until the edit's water has
-// found its level: checked every 64 ticks, the volume changes by under 0.2% and at most 0.05% of
+// every tile whose ground and water objects the edit left alone and that was wet or lies away from
+// the edit, and takes the canonical pre-fill on the rest: the ground an edit changed, the tiles of
+// emitters that are new or changed, and the dry tiles near them (WARM_MARGIN). A wet tile beside the
+// edit keeps its water and momentum (D(new-preview)): restarting a stretch of flowing river left a
+// step in its surface with no momentum, which sloshed on past the cap. Then the exact simulation
+// runs until the edit's water has found its level: checked every 64 ticks, the volume changes by under 0.2% and at most 0.05% of
 // the map moves by more than 0.05 (a local change reaches a whole lake or sea, whose level then
 // drifts by thousandths for a long time), with a cap of one game day. A sealed oxbow lake only
 // evaporating is not the water still moving (D222): the preview stops once everything else has. The
@@ -33,7 +35,7 @@ import { drainUnfed, fedTiles, keptSeeds, withoutUnfed } from "./fed";
 import { flowThrough, prefill, type CanonicalWater } from "./prefill";
 import { sealedTiles, SettleRun, TICKS_PER_DAY, WaterSim, type WaterModel, type WaterState } from "./water";
 
-/** How far (tiles, Chebyshev) around a changed tile the warm start takes the pre-fill. */
+/** How far (tiles, Chebyshev) around a changed tile the warm start takes the pre-fill on dry tiles. */
 export const WARM_MARGIN = 2;
 /** The preview's settle: checks every 64 ticks, at most 0.05% of tiles moving by more than 0.05,
  *  one day at most. */
@@ -59,9 +61,9 @@ export function warmState(model: WaterModel, sim: WaterSim): WarmState {
   return { model, water: { settled: false, ticks: sim.ticks, depth: sim.D.slice(), contamination: sim.C.slice(), sat: new Uint8Array(sim.N), out: sim.out.slice(), preview: true } };
 }
 
-/** The tiles whose water the edit may have changed: their floor or dam, their emitters, and
- *  WARM_MARGIN tiles round them (a mask), or null when the models differ in size. */
-export function changedTiles(prev: WaterModel, next: WaterModel): Uint8Array | null {
+/** The tiles the edit itself changed: their floor or dam, or an emitter that is new, gone or changed
+ *  emits into them (a mask), or null when the models differ in size. */
+export function editedTiles(prev: WaterModel, next: WaterModel): Uint8Array | null {
   if (prev.W !== next.W || prev.H !== next.H) return null;
   const { W, H } = next;
   const N = W * H;
@@ -80,6 +82,12 @@ export function changedTiles(prev: WaterModel, next: WaterModel): Uint8Array | n
   for (const e of next.emitters) after.set(key(e), (after.get(key(e)) ?? 0) + 1);
   for (const e of prev.emitters) if ((after.get(key(e)) ?? 0) < (before.get(key(e)) ?? 0)) for (const c of e.cells) hit[c] = 1;
   for (const e of next.emitters) if ((before.get(key(e)) ?? 0) < (after.get(key(e)) ?? 0)) for (const c of e.cells) hit[c] = 1;
+  return hit;
+}
+
+/** `hit` and WARM_MARGIN tiles round each of its tiles (Chebyshev), as a new mask. */
+function widened(hit: Uint8Array, W: number, H: number): Uint8Array {
+  const N = W * H;
   const out = new Uint8Array(N);
   for (let i = 0; i < N; i++) {
     if (!hit[i]) continue;
@@ -180,8 +188,14 @@ function reachOf(m: WaterModel): Float64Array {
  *  lakes; null when nothing is kept. */
 export function warmStart(from: WarmState, next: WaterModel): { state: WaterState; out: Float64Array | null; seeds: Uint8Array | null } {
   const init = prefill(next);
-  const changed = changedTiles(from.model, next);
-  if (!changed) return { state: init, out: null, seeds: null };
+  const edited = editedTiles(from.model, next);
+  if (!edited) return { state: init, out: null, seeds: null };
+  // (the tiles that start again: those the edit changed, and the dry tiles round them; a wet tile round
+  // them whose floor, dam and emitters the edit left alone keeps its water and its momentum, D(new-preview):
+  // restarting a stretch of flowing river with the pre-fill's depth and no momentum left a step in its
+  // surface that sloshed on past the preview's cap)
+  const changed = widened(edited, next.W, next.H);
+  for (let i = 0; i < changed.length; i++) if (changed[i] && !edited[i] && from.water.depth[i] > 0) changed[i] = 0;
   // (water no source feeds any more starts as the canonical start has it: dry, D260)
   const unfed = unfedTiles(from, next, init);
   // (a lake the edit stored, a Fill: its tiles start from it, as the canonical start has them)
