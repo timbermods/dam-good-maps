@@ -18,7 +18,8 @@ async function open(page: Page, hash = "s=9&z=96&d=n&t=riverValley") {
   await page.waitForTimeout(600);
 }
 
-/** Flat, dry, empty ground `r` tiles round, away from the start and from `not`. */
+/** Flat, dry, clean (no contaminated soil), empty ground `r` tiles round, away from the start and from `not`.
+ *  (Clean since generator 0.10.26, D148: on seed 1's new land the first flat dry 9 × 9 has contaminated soil, which B11's "dry|moist soil" readout rightly does not say.) */
 async function flatDry(page: Page, r: number, not: [number, number][] = []) {
   return page.evaluate(
     ([rr, avoid]) => {
@@ -29,7 +30,7 @@ async function flatDry(page: Page, r: number, not: [number, number][] = []) {
           if (Math.hypot(x - st[0], y - st[1]) < 16 || avoid.some(([ax, ay]) => Math.hypot(x - ax, y - ay) < 10)) continue;
           const h0 = m.heights[y * m.W + x];
           let ok = true;
-          for (let dy = -rr; dy <= rr && ok; dy++) for (let dx = -rr; dx <= rr && ok; dx++) if (m.heights[(y + dy) * m.W + x + dx] !== h0 || m.surface.depth[(y + dy) * m.W + x + dx] > 0) ok = false;
+          for (let dy = -rr; dy <= rr && ok; dy++) for (let dx = -rr; dx <= rr && ok; dx++) if (m.heights[(y + dy) * m.W + x + dx] !== h0 || m.surface.depth[(y + dy) * m.W + x + dx] > 0 || (m.soil?.contamination[(y + dy) * m.W + x + dx] ?? 0) > 0) ok = false;
           for (let k = 0; k < m.entities.count && ok; k++) if (Math.abs(m.entities.x[k] - x) <= rr + 2 && Math.abs(m.entities.y[k] - y) <= rr + 2) ok = false;
           if (ok) return [x, y] as [number, number];
         }
@@ -111,7 +112,8 @@ test("B1 and B3: the map is centred in every view, in what the controls leave of
 
 test("B4: Ctrl+scroll near a source's marker changes its strength at once; a click on it never places a second", async ({ page }) => {
   test.setTimeout(240_000);
-  await open(page);
+  // (ROOMY's map since generator 0.10.26, D148: seed 9's land has no flat, dry, clean, empty 7 × 7 now)
+  await open(page, ROOMY);
   const spot = await flatDry(page, 3);
   expect(spot).not.toBeNull();
   const [sx, sy] = spot!;
@@ -141,8 +143,8 @@ test("B4: Ctrl+scroll near a source's marker changes its strength at once; a cli
 
 /** A map with flat, dry, empty ground for B7's and B11's objects (seed 8 for #265's maps, D148: seed 9's
  *  land has none since the start's badwater distance became a rule and River Valley's main river stays
- *  clean; seed 7 for 0.8.3's maps, D476, D148: seed 8's has none, and seed 6's B11 hover lands on another thing, once the badwater courses follow the land; seed 4 for 0.8.5's maps, D148: seed 7's has no room for B7's 9 × 9; seed 1 since generator 0.10.16's ground with grade, D148: seed 4's land now rolls and has no level, dry 9 × 9 clear of objects). */
-const ROOMY = "s=1&z=96&d=n&t=riverValley";
+ *  clean; seed 7 for 0.8.3's maps, D476, D148: seed 8's has none, and seed 6's B11 hover lands on another thing, once the badwater courses follow the land; seed 4 for 0.8.5's maps, D148: seed 7's has no room for B7's 9 × 9; seed 1 since generator 0.10.16's ground with grade, D148: seed 4's land now rolls and has no level, dry 9 × 9 clear of objects; seed 3 since generator 0.10.26, D148: seed 1's first dry 9 × 9 has contaminated soil and no clean one is left, seed 3 has clean flat dry ground, 9 × 9 at 23,23). */
+const ROOMY = "s=3&z=96&d=n&t=riverValley";
 
 test("B7: X puts down what is held and Select stays in hand; a press picks an object and drags it", async ({ page }) => {
   test.setTimeout(240_000);
@@ -307,7 +309,8 @@ test("B13: the forces in the bar in their clusters' order of prominence (D352), 
 
 test("B14: after an undo, a redo and an edit the water's state is the worker's real state, never stuck flowing", async ({ page }) => {
   test.setTimeout(240_000);
-  await open(page);
+  // (ROOMY's map since generator 0.10.26, D148: seed 9's land has no flat, dry, clean, empty 7 × 7 now)
+  await open(page, ROOMY);
   await expect.poll(() => page.evaluate(() => window.dgmEditor!.waterSettled()), { timeout: 60_000 }).toBe(true);
   const spot = await flatDry(page, 3);
   expect(spot).not.toBeNull();
