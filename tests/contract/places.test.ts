@@ -32,7 +32,7 @@ describe("the gallery's data", () => {
     expect(INDEX.families.map((f) => f.id).sort()).toEqual([...new Set(INDEX.places.map((p) => p.family))].sort());
     for (const p of INDEX.places) {
       expect(p.id, p.name).toMatch(/^[a-z0-9]+(-[a-z0-9]+)*$/);
-      // the place's own name, no "Near", and its id the name's slug (D(new-names); D148: this held "Near <place>")
+      // the place's own name, no "Near", and its id the name's slug (D522; D148: this held "Near <place>")
       expect(p.name, p.id).toMatch(/^[A-Z]/);
       expect(p.name, p.id).not.toMatch(/^Near /i);
       expect(p.id, p.name).toBe(p.name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, ""));
@@ -53,7 +53,7 @@ describe("the gallery's data", () => {
       const p = placeData(entry);
       expect([p.id, p.name, p.family, p.familyName, p.plays, p.W, p.H, p.metres], entry.id).toEqual([entry.id, entry.name, entry.family, entry.familyName, entry.plays, entry.size, entry.size, entry.metres]);
       expect(p.heights.length).toBe(p.W * p.H);
-      // one name: D(new-names) retired the `place` field that held the name without its "Near" (D148)
+      // one name: D522 retired the `place` field that held the name without its "Near" (D148)
       expect(p).not.toHaveProperty("place");
     }
   });
@@ -185,7 +185,7 @@ describe.skipIf(!PY)("both validators agree on the sample (prototype/validate.py
       writeFileSync(join(dir, `${e.id}.damgoodmaps.json`), gzipSync(strToU8(JSON.stringify({ spec: null, features: [] })), { mtime: 0 }));
       paths.push(p);
     }
-    // (the places are settled under the game's water rules since D311's conversion, D(new): the Python's default)
+    // (the places are settled under the game's water rules since D311's conversion, D521: the Python's default)
     const r = spawnSync(PY!, ["-B", "prototype/validate.py", "--json", ...paths], { encoding: "utf8", maxBuffer: 256 << 20 });
     expect(r.error).toBeUndefined();
     const reports = new Map<string, { passed: boolean; checks: { id: string; ok: boolean; na: boolean; approx?: string; information?: boolean }[] }>();

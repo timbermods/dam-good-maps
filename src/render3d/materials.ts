@@ -677,8 +677,9 @@ const ROCK_TUNE: Record<string, string> = {
  *  - layer 0, A: each crack plate's own shade;
  *  - layer 1, the cliffs' rock (`ROCK`), `ROCK.tiles` across: R its albedo's lightness over its mean, halved (0.5 the
  *    mean); G its hue along `ROCK.hue`, 0.5 + 4 × its share; B and A its stones' normal across and up, 0.5 + half
- *    of each. */
-export function drawPatterns(gl: WebGLRenderer): WebGLArrayRenderTarget {
+ *    of each. Not where the browser draws in software (`rock` false): the light look it draws never reads it (the
+ *    rock's mean, its face flat, D135), and its five layers of stones are most of the patterns' drawing there. */
+export function drawPatterns(gl: WebGLRenderer, rock = true): WebGLArrayRenderTarget {
   // anisotropic filtering at the renderer's maximum (at most 16×, at least 8× where it has that): ground and
   // rock seen at a slant stay detailed instead of settling on a blurrier mip level
   const rt = new WebGLArrayRenderTarget(PATTERN_SIZE, PATTERN_SIZE, 2, { wrapS: RepeatWrapping, wrapT: RepeatWrapping, magFilter: LinearFilter, minFilter: LinearMipmapLinearFilter, generateMipmaps: true, depthBuffer: false, anisotropy: Math.min(16, gl.capabilities.getMaxAnisotropy()) });
@@ -816,7 +817,7 @@ export function drawPatterns(gl: WebGLRenderer): WebGLArrayRenderTarget {
   scene.add(quad);
   const before = gl.getRenderTarget();
   const camera = new OrthographicCamera(-1, 1, 1, -1, 0, 1);
-  for (let layer = 0; layer < 2; layer++) {
+  for (let layer = 0; layer < (rock ? 2 : 1); layer++) {
     mat.uniforms.layer.value = layer;
     gl.setRenderTarget(rt, layer);
     gl.render(scene, camera);
@@ -1017,6 +1018,7 @@ const hook = (h: ShaderHooks | undefined, k: keyof ShaderHooks, standard = ""): 
  *  hood, the platform and the roofs below it as the game's does. Uses `vWorld`. */
 const START_LIGHT_GLSL = (() => {
   const L = START_FIRE.light;
+  const H = START_FIRE.hood;
   const cosOuter = Math.cos(((L.spotAngle / 2) * Math.PI) / 180);
   const cosInner = Math.cos(((L.innerAngle / 2) * Math.PI) / 180);
   const inv = 1 / (cosInner - cosOuter);
@@ -1035,6 +1037,22 @@ const START_LIGHT_GLSL = (() => {
           sum += startLights[i].w * fall * fall / d2 * spot * spot * max(dot(n, l), 0.0);
         }
         return ${glColor(L.colour)} * ${f(L.intensity)} * sum;
+      }
+      /** The sun a point keeps under a start's lantern hood (palette.ts \`START_FIRE.hood\`): 0 where the ray to the sun
+       *  meets the hood's cap, softened over a few centimetres; only on the start's platform and lantern (within 1 of
+       *  the light's axis, down to its deck), the one place its shade is the game's and Standard draws none. */
+      float startHoodSun(vec3 p) {
+        float s = 1.0;
+        for (int i = 0; i < ${START_LIGHTS}; i++) {
+          if (float(i) >= startLightCount) break;
+          vec3 c = startLights[i].xyz;
+          float y = c.y - ${f(H.drop)};
+          vec2 off = p.xz - c.xz;
+          if (p.y >= y || p.y < c.y - 1.45 || dot(off, off) > 1.0 || sunDir.y < 0.01) continue;
+          vec2 hit = off + sunDir.xz * ((y - p.y) / sunDir.y);
+          s = min(s, smoothstep(${f(H.radius - 0.03)}, ${f(H.radius + 0.03)}, length(hit)));
+        }
+        return s;
       }`;
 })();
 
@@ -2926,7 +2944,9 @@ ${hook(h, "objectVertex")}        vNormal = normalize(mat3(m) * ${hook(h, "objec
         if (bloomSource > 0.5 && vFade < 1.0 && vFade <= ditherAt(gl_FragCoord.xy)) discard;
         float coverage = 1.0;
         vec3 n = normalize(vNormal);
-        float lit = sunLit(vec2(vWorld.x, -vWorld.z), vWorld.y);
+        // (under a start's lantern hood, its shade: startHoodSun)
+        float hood = startHoodSun(vWorld);
+        float lit = sunLit(vec2(vWorld.x, -vWorld.z), vWorld.y) * hood;
         // the game's light, as the terrain's (D135 as amended 2026-11-09): the ambient probe by the normal, unoccluded,
         // and the sun by n·L and its shadow; the game's plants and landmarks have no wrapped light and no darkening
         // toward their foot
@@ -2935,7 +2955,7 @@ ${hook(h, "objectVertex")}        vNormal = normalize(mat3(m) * ${hook(h, "objec
           // under a roof (a tree, a ruin, a source, a slope in a cave or under an overhang): the open air's ambient (D497),
           // and the sun only where it reaches
           vec3 cave = caveAirAt(vWorld + n * 0.05);
-          if (cave.z > 0.5) light = gameObjectLight(n, ${hook(h, "roofedSun", "sunMarchAt(vWorld)")});
+          if (cave.z > 0.5) light = gameObjectLight(n, ${hook(h, "roofedSun", "sunMarchAt(vWorld)")} * hood);
         #endif
         // (faded round the pointer, as coverage: that share of the pixel's samples)
         if (objectFade.w > 0.5 && objectFade.w < 1.5) coverage *= vFade;
