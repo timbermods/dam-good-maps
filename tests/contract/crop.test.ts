@@ -3,6 +3,9 @@
 // relative to the new origin, everything outside is gone, and an object the edge cuts is removed (counted). It is
 // one undo step that brings the full map back exactly, it is recorded in the log and the project, and a saved
 // project opens and saves again byte for byte.
+//
+// The generated maps are fixtures (tests/fixtures/projects: River Valley 64² seeds 1, 2, 4 and 5, 128² seed 14; `fixtureSession`): the subject is the crop,
+// not the generator, so a land change moves nothing here (D148).
 import { describe, expect, it } from "vitest";
 import { cropObjects, planCrop } from "../../src/core/doc/crop";
 import { decodeProject } from "../../src/core/doc/document";
@@ -12,11 +15,12 @@ import { footprintTiles, slopeHighSide } from "../../src/core/format/footprints"
 import { readTimber, writeTimber } from "../../src/core/format/timber";
 import { LAYERS } from "../../src/core/format/world";
 import { validateMap } from "../../src/core/validate/checks";
-import { generate } from "../../src/core/gen/generate";
-import { makeSpec } from "../../src/core/spec/mapspec";
-import { map, sha, session, timber } from "./gateHelpers";
+import { sha, timber } from "./gateHelpers";
+import { fixtureSession } from "../fixtureProjects";
 
 const W = 64;
+/** The River Valley 64² fixture of `seed` (tests/fixtures/projects), settling its water as the generator's map does (`fromGenerated`). */
+const session = (seed = 1) => fixtureSession("riverValley", W, seed);
 const crop = (x: number, y: number, w: number, h: number) => ({ op: "crop" as const, params: { x, y, w, h } });
 
 /** A rectangle of the 64² map that holds its start and a water source whole (so water stands in it after the crop),
@@ -174,7 +178,8 @@ describe("Crop map to selection: refusals, one line each, and nothing changes", 
     expect(s.logOps).toHaveLength(0);
     expect(s.history()).toEqual([]);
     expect(s.size).toEqual({ x: W, y: W });
-    expect(timber(s)).toBe(sha(map().bytes));
+    // (the map as the generation made it: an unedited session of the same fixture exports the same file)
+    expect(timber(s)).toBe(timber(session()));
   });
 
   it("is answered as plain data before it is applied (planCrop)", () => {
@@ -246,7 +251,7 @@ describe("Crop map to selection: an imported map keeps its caves and overhangs",
   /** A generated map's file with a cave under one tile and a ledge, imported. */
   function withCaves(): { s: MapSession; at: { x: number; y: number }[] } {
     // (the map of seed 2 since generator 0.10.21's look round (D518: the land's long straight steps jog, the dead stands read the dry land as the checks do), D148: seed 1's holds fewer than three columns tall enough to hollow away from its objects; seeds 2 to 9 each hold them, seed 2 the first)
-    const file = readTimber(map(2).bytes);
+    const file = readTimber(session(2).exportTimber().bytes);
     const w = file.world;
     const plane = w.sizeX * w.sizeY;
     const at: { x: number; y: number }[] = [];
@@ -479,10 +484,10 @@ describe("Crop map to selection: the lip stays at the new edges and is no wall",
   // seed 14 at 128²: sources at (40..44, 127) on the old north edge, cropped to {27, 44, 60, 84} (it holds the
   // start at (82, 60)): their river mouth stands on a side the crop did not cut
   it("changes no tile on a side the crop did not cut, and little beside the new ones", () => {
-    const original = MapSession.fromGenerated(generate(makeSpec({ seed: 14, size: { x: 128, y: 128 } })));
+    const original = fixtureSession("riverValley", 128, 14);
     original.settleCanonical();
     const r = { x: 27, y: 44, w: 60, h: 84 };
-    const s = MapSession.fromGenerated(generate(makeSpec({ seed: 14, size: { x: 128, y: 128 } })));
+    const s = fixtureSession("riverValley", 128, 14);
     s.settleCanonical();
     expect(s.apply(crop(r.x, r.y, r.w, r.h)).errors).toEqual([]);
     let raised = 0;

@@ -1,13 +1,14 @@
 // A premise's plan for a seed (docs/PREMISES.md §2.2, stage 0): prints the plan and which `plan` invariants hold, and
 // draws its water-story diagram (sources, bodies, links, exits, regions, ridges, works, the start and its look).
 //
-//   npx tsx tools/premise-plan.ts [--premise lakeStair | wallGate] [--seed 1 | --seeds 1-12] [--size 192] [--out .scratch/premise]
+//   npx tsx tools/premise-plan.ts [--premise lakeStair | wallGate | poisonedPlain] [--seed 1 | --seeds 1-12] [--size 192] [--out .scratch/premise]
 //                                 [--png] [--json] [--try t] [--plan file.json]
 //
 // `--seeds` draws several and prints one line each (structure, attempt, time). `--try t` draws one layout try of
 // attempt 0 and draws it as far as it got, with the step that stopped it (for tuning). `--plan` reads a plan from a
 // file instead (tests/fixtures/four-lakes.plan.json) and checks it with the size's default settings and its `top`. Diagrams go to
-// `<out>/<premise>-<size>-<seed>.svg` (and `.png`, a pixel a tile, with `--png`); `--json` writes the plan too.
+// `<out>/<premise>-<size>-<seed>.svg` (and `.png`, a pixel a tile, with `--png`); `--json` writes the plan too. The
+// poisoned floodplain's lines also give its layout tries, the plain's width and share and day 1's bands by number.
 
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { basename, join } from "node:path";
@@ -18,6 +19,7 @@ import { layoutTry } from "../src/core/premise/premises/lakeStair";
 import { PREMISES } from "../src/core/premise/premises";
 import { DEV_PREMISES } from "../src/core/premise/premises/dev";
 import { GATE_ID, gateLayoutTry } from "../src/core/premise/premises/wallGate";
+import { PLAIN_ID, plainLayoutTry, plainOf, plainOverlays, plainShares, plainTries } from "../src/core/premise/premises/poisonedPlain";
 import type { PremiseId, PremisePlan } from "../src/core/premise/types";
 import { makeSpec, type MapSpec } from "../src/core/spec/mapspec";
 import { encodePng } from "./png";
@@ -47,7 +49,7 @@ function specFor(seed: number): MapSpec {
 function write(plan: PremisePlan, name: string): string {
   mkdirSync(out, { recursive: true });
   const svg = join(out, `${name}.svg`);
-  writeFileSync(svg, planSvg(plan));
+  writeFileSync(svg, planSvg(plan, 4, plainOf(plan) ? plainOverlays(plan) : []));
   if (has("png")) {
     const r = planRaster(plan);
     writeFileSync(join(out, `${name}.png`), encodePng(r.rgb, r.width, r.height));
@@ -61,6 +63,11 @@ function describe(plan: PremisePlan): string[] {
   const lines: string[] = [];
   lines.push(`  ${plan.line}`);
   if (st) lines.push(`  stair: ${st.n} lakes, f ${st.f}, ${st.shape} turned ${st.turn}, start's lake ${plan.names[st.startLake]}, landmark ${st.H} from ${plan.names[st.landmarkSource] ?? st.landmarkSource}, flow ${st.flow}`);
+  const pl = plainOf(plan);
+  if (pl) {
+    lines.push(`  plain: L ${pl.L}, P ${pl.P}, M ${pl.M}, terrace ${pl.terrace.map((u) => u.toFixed(0)).join("–")} on ${pl.terraceLevel}, ${pl.risers.length} risers, ${pl.levee.low.length} low places, ${pl.sloughs.length} sloughs; turned ${pl.turn}${pl.mirror ? " mirrored" : ""}`);
+    lines.push(`  window ${pl.window.from.toFixed(0)}–${pl.window.to.toFixed(0)} (framed ${pl.window.framed.map((r) => r.join("–")).join(", ")}), the valley ${pl.angle}° off the grid, bends ${pl.bends.map((b) => b.turn).join(", ")}°, the gulch's mouth at ${pl.gulch.mouth.toFixed(0)}: fall ${pl.gulch.h} over the backswamp, crest ${pl.gulch.crest}, narrows ${pl.gulch.narrows.width} on ${pl.gulch.narrows.floor}, col ${pl.col.level} (${pl.col.side}), the red stream ${pl.red.end}`);
+  }
   for (const b of plan.bodies) lines.push(`  body ${b.id.padEnd(8)} ${b.kind.padEnd(5)} sill ${String(b.sill).padStart(2)} deep ${b.deep} arms ${b.arms.length}${b.dry ? " dry" : ""}  ${plan.names[b.id] ?? ""}`);
   for (const l of plan.links) {
     const what = l.fall ? `fall ${l.fall.height} lip ${l.fall.width} facing ${l.fall.face}${l.fall.breach ? `, breach ${l.fall.breach}` : ""}` : `${l.wet ? "wet" : "dry"}${l.path ? ` ${Math.round(pathLength(l.path))} tiles` : ""}`;
@@ -85,7 +92,7 @@ if (file) {
   console.log(write(plan, basename(file).replace(/\.json$/, "")));
 } else if (t !== undefined) {
   const spec = specFor(seeds[0]);
-  const r = (premise as string) === GATE_ID ? gateLayoutTry(spec, 0, Number(t)) : layoutTry(spec, 0, Number(t));
+  const r = (premise as string) === GATE_ID ? gateLayoutTry(spec, 0, Number(t)) : (premise as string) === PLAIN_ID ? plainLayoutTry(spec, 0, Number(t)) : layoutTry(spec, 0, Number(t));
   console.log(`${premise} seed ${seeds[0]} at ${side}², try ${t}: ${r.failed ?? "holds"}`);
   if (r.plan) console.log(write(r.plan, `${premise}-${side}-${seeds[0]}-try${t}`));
 } else {
@@ -101,7 +108,11 @@ if (file) {
     const plan = r.plan;
     const st = plan.stair;
     const held = failing(def.invariants, "plan", { spec, plan });
-    console.log(`seed ${seed}: attempt ${r.attempt}, ${ms.toFixed(0)} ms${st ? `; ${st.n} lakes, f ${st.f}, ${st.shape}, start on lake ${st.startLake.replace("lake", "")}, landmark ${st.H} from ${st.landmarkSource}` : ""}; ${held.length ? `FAILS ${held.map((f) => f.id).join(", ")}` : "every plan invariant holds"}`);
+    const pl = plainOf(plan);
+    const sh = pl ? plainShares(plan) : null;
+    const pct = (v: number) => `${(100 * v).toFixed(0)} %`;
+    const own = pl && sh ? `; tries ${plainTries(spec, r.attempt)}, P ${pl.P}, floor ${pct(sh.floor)} of the map (plain ${pct(sh.plain)}), dead ${pct(sh.dead)} dry ${pct(sh.dry)} green ${pct(sh.green)}, red ${pl.red.end}` : "";
+    console.log(`seed ${seed}: attempt ${r.attempt}, ${ms.toFixed(ms < 10 ? 2 : 0)} ms${st ? `; ${st.n} lakes, f ${st.f}, ${st.shape}, start on lake ${st.startLake.replace("lake", "")}, landmark ${st.H} from ${st.landmarkSource}` : ""}${own}; ${held.length ? `FAILS ${held.map((f) => f.id).join(", ")}` : "every plan invariant holds"}`);
     const svg = write(plan, `${premise}-${side}-${seed}`);
     if (seeds.length === 1) {
       for (const line of describe(plan)) console.log(line);

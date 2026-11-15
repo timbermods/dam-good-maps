@@ -828,6 +828,12 @@ export const START_FIRE = {
    *  colour 0.991/0.789/0.453, intensity 5, range 8 m, spot angle 120°, inner 75°, no shadows; with only URP's own
    *  light data on it (no script that flickers or dims it). */
   light: { at: [1.5, 4.24, 1.5] as const, colour: [0.9906, 0.7894, 0.4532] as Rgb, intensity: 5, range: 8, spotAngle: 120, innerAngle: 75 },
+  /** The lantern's hood round the light, as the sun sees it: a cap this far (m) under the light and this wide in radius
+   *  over the light's axis (the Folktails' thatch at its widest, 0.61 at 3.84, its mouth closed by the crown's disc,
+   *  entities3d.ts `districtCenter`; inside the Iron Teeth's, 0.7 across its soffit at 3.8). The game's shadow map, and
+   *  High's, shade the lantern's inside under it; Standard, with no shadows of objects, takes it from this
+   *  (materials.ts `startHoodSun`), so the posts it shades pass no more of the bloom's knee than High's do. */
+  hood: { drop: 0.4, radius: 0.61 },
 } as const;
 
 /** The game's altitude colour ramps (D497; `tools/altitude-ramp.ts` reads them from the game's `resources.assets`,

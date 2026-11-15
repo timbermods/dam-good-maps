@@ -4,19 +4,21 @@
 // unfed water takes it, leaving fed water and other pools as they are. Each result is water the stacked
 // engine (the game's rules) keeps as it is: run on, nothing flows in or out, and the lakes only evaporate.
 // Undo, redo and reopening give the same bytes, and the export passes both validators.
+//
+// The generated map is a fixture (tests/fixtures/projects/scenario-riverValley-64-29; `fixtureSession`): the subject is the water edits, not
+// the generator, so a land change moves nothing here (D148).
 
 import { describe, expect, it } from "vitest";
 import { decodeProject } from "../../src/core/doc/document";
 import { MapSession } from "../../src/core/doc/session";
 import { planFill, unfedWater } from "../../src/core/doc/waterEdits";
 import { writeTimber } from "../../src/core/format/timber";
-import { generate } from "../../src/core/gen/generate";
-import { makeSpec } from "../../src/core/spec/mapspec";
 import { PRESSURE } from "../../src/core/sim/stackFed";
 import { canonicalSettle } from "../../src/core/sim/prefill";
 import { settledAgain, StackRun, stackGraph, type StackSettle } from "../../src/core/sim/stackWater";
 import { CAVE, CAVE_H, CAVE_W, caveFile, caveSession, caveVoxels, dig, levelPatch } from "./caveMap";
 import { exportProblems } from "./caveChecks";
+import { fixtureSession } from "../fixtureProjects";
 
 const same = (a: Uint8Array, b: Uint8Array) => Buffer.from(a).equals(Buffer.from(b));
 /** A second sealed cave under the plateau, beside the first: air at z 3–5 under a roof at 6–7. */
@@ -215,10 +217,10 @@ describe("Fill water and Remove unfed water on a generated map with a Block dig"
   // seed 8 since the D518 mends' compact hills and wash flats (D148): seed 18 has none now, and of seeds 1–150 only 8, 11, 15, 22, 24, 29, 30, 36, 43, 85, 96, 129, 139, 146, 148 and 150 keep one; seed 8 is the first at level 14 or more, its patch at (25, 52), level 16;
   // seed 29 since generator 0.10.21's look round (D518: the land's long straight steps jog), D148: seed 8 keeps none now, and of seeds 1–76
   // only 22, 29, 51, 73 and 76 keep one (levels 8, 15, 14, 7 and 11); seed 29 is the first at level 14 or more, its patch at (48, 33), level 15)
-  const r = generate(makeSpec({ seed: 29, theme: "riverValley", size: { x: 64, y: 64 } }));
+  const fresh = () => fixtureSession("riverValley", 64, 29);
 
   it("a pit and the hollow under its edge fill to the pit's rim, the hollow full under pressure; removed, both are dry; undo, redo and reopen are byte-exact", () => {
-    const s = MapSession.fromGenerated(r, r.file);
+    const s = fresh();
     s.settleCanonical();
     const W = s.built.W;
     const M = W * s.built.H;

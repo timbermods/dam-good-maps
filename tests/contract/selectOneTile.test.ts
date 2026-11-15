@@ -5,15 +5,17 @@
 // (step 7: "remove single-tile pits and spikes") took back what they did to a lone tile (the release
 // gate's bug hunt, D385): a one-tile selection raised, lowered, cut down or filled up was an undo step
 // that changed nothing. The worker's applySelection now makes Select's sculpts exact.
+//
+// The map is a fixture (tests/fixtures/projects/highlands-64-3; `fixtureInEditor`): the subject is Select's action on a tile, not the
+// generator, so a land change moves nothing here (D148).
 
 import { describe, expect, it } from "vitest";
 import { decodeProject } from "../../src/core/doc/document";
 import type { EditOp } from "../../src/core/doc/ops";
 import { MapSession } from "../../src/core/doc/session";
 import { tilesToRuns } from "../../src/core/math/grid";
-import { makeSpec } from "../../src/core/spec/mapspec";
-import { runGenerate } from "../../src/worker/api";
 import * as ed from "../../src/worker/session";
+import { fixtureInEditor } from "../fixtureEditor";
 
 const W = 64;
 const open = () => MapSession.open(decodeProject(ed.project().bytes));
@@ -30,8 +32,7 @@ describe("Select's actions on a one-tile selection change that tile (D259, D264)
   // such tile at level 8 now, and of its 74 tiles at level 7, dry, unbuilt, with level ground on four sides, (35, 17) is the first
   // off the map's edge row, so Raise and Lower want 8 and 6 where they wanted 9 and 7; Cut down to 4 and Fill up to 10 are as they were)
   it("Highlands 64², seed 3: the dry level tile (35, 17), at level 7, selected alone: Raise, Lower, Cut down to 4 and Fill up to 10 each leave it where they said", async () => {
-    await runGenerate(makeSpec({ seed: 3, theme: "highlands", size: { x: W, y: W } }));
-    ed.refine();
+    fixtureInEditor("highlands", W, 3);
     const t = 17 * W + 35;
     const b = open().built;
     expect(b.heights[t]).toBe(7);
