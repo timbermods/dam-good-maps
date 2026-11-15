@@ -85,6 +85,7 @@ import { AID_TINT, caveTexture, contaminationEdges, contaminationEdgesRect, draw
 import { objectSoilAt, RunSoil, runSoilOn } from "./runSoil";
 import { AID_LAYER, onAidLayer } from "./aidLayer";
 import { GameBloom, GAME_BLOOM_LOOKS, LAVA_BLOOM_ENDS } from "./bloom";
+import { BloomBox } from "./bloomBox";
 import { Refraction, WATER_REFRACTION } from "./refraction";
 import { armReach, CAMERA_CLEARANCE, nearFor, orbitEye } from "./cameraClamp";
 import { BROWSER_ZOOM_EVENTS, DOUBLE_TAP_MS, DOUBLE_TAP_PX, FingerPress, HOLD_MS, showsAtOnce, TAP_MS, TAP_SLOP, Touches, type Motion, type Point, type PressHost, type PressMode } from "./touch";
@@ -537,6 +538,8 @@ export class MapRenderer {
   private refraction!: Refraction;
   /** The game's bloom (bloom.ts), made with the first frame that draws it. */
   private bloom: GameBloom | null = null;
+  /** The objects in a start's box, for the bloom's source (bloomBox.ts). */
+  private readonly bloomBox = new BloomBox();
   /** The shader programs compiled before a frame needs them (programs.ts). */
   private programs: Programs;
   private warmTimer = 0;
@@ -736,7 +739,7 @@ export class MapRenderer {
     this.ortho.layers.enable(AID_LAYER);
     // (the light look draws the water's surface flat: it reads only the still detail albedo, as the game's Low quality)
     void this.patternsMade().then(() => !this.disposed && this.requestRender(), () => undefined);
-    this.patterns = drawPatterns(this.gl);
+    this.patterns = drawPatterns(this.gl, !this.software);
     this.tileRows = new RowUploads(this.gl, () => this.tileTex);
     this.edgeRows = new RowUploads(this.gl, () => this.edges);
     this.lightRows = new RowUploads(this.gl, () => this.lightTex);
@@ -942,6 +945,8 @@ export class MapRenderer {
       list.push([this.popDust, { ...((this.popDust.defines ?? {}) as Defines) }]);
       // (the start's fire, drawn when a start is first placed: startFire.ts)
       if (this.fire) list.push([this.fire.shader, { ...((this.fire.shader.defines ?? {}) as Defines) }]);
+      // (the game's bloom's passes, drawn when a start's fire first comes into view or lava first glows: bloom.ts)
+      for (const m of (this.bloom ??= new GameBloom()).materials()) list.push([m, { ...((m.defines ?? {}) as Defines) }]);
       // (the Flow view's foam and streaks, hidden until it is switched on: motion.ts)
       for (const m of this.waterMotion?.materials() ?? []) list.push([m, { ...((m.defines ?? {}) as Defines) }]);
       // (the forces' moments', drawn when a force first plays: Erode's dust and stones, Glaciate's ice, forces.ts)
@@ -1013,7 +1018,7 @@ export class MapRenderer {
       instanced.instanceColor = new InstancedBufferAttribute(new Float32Array(3), 3);
       this.standIns = { mesh: new Mesh(geometry(true)), instanced, instancedPlain: new InstancedMeshObject(geometry(true), undefined, 1), bare: new Mesh(geometry(false)) };
     }
-    if (this.lineCopy?.includes(mat) || mat === this.glowMat) return this.standIns.bare;
+    if (this.lineCopy?.includes(mat) || mat === this.glowMat || this.bloom?.materials().includes(mat)) return this.standIns.bare;
     // (the blocks' dust: instanced, its colour its own attribute, not three.js's instance colour, which is another program)
     if (mat === this.popDust) return this.standIns.instancedPlain;
     const plain = mat === this.depthCopy?.[0] || [this.std, this.high?.materials, this.highCopy].some((l) => l && [l.terrain, l.water, l.sky].includes(mat));
@@ -1787,6 +1792,7 @@ export class MapRenderer {
     this.water.clear();
     if (this.objects) {
       this.scene.remove(this.objects);
+      this.bloomBox.dispose();
       disposeGroup(this.objects);
       this.objects = null;
     }
@@ -3333,14 +3339,18 @@ export class MapRenderer {
       if (!fireDrawn(c, slice, hide)) continue;
       const p = this.fireAt.set(c[0], c[1] + ey, c[2]).project(cam);
       if (p.z < -1 || p.z > 1 || Math.abs(p.x) > 1.05 || Math.abs(p.y) > 1.05) continue;
-      // (the flame's width on screen: by its depth in the perspective view, by the frame's height from the top)
-      const across =
-        cam instanceof PerspectiveCamera
-          ? (FIRE_WIDTH * h) / (2 * Math.max(1e-3, -this.fireAt.set(c[0], c[1] + ey, c[2]).applyMatrix4(cam.matrixWorldInverse).z) * Math.tan((cam.fov * Math.PI) / 360))
-          : (FIRE_WIDTH * h * cam.zoom) / (cam.top - cam.bottom);
-      if (across >= FIRE_SHOWN_PX) return true;
+      if (this.flameAcross(c, cam, h) >= FIRE_SHOWN_PX) return true;
     }
     return false;
+  }
+
+  /** The start's flame's width on screen (pixels): by its depth in the perspective view, by the frame's height from the
+   *  top. */
+  private flameAcross(c: readonly [number, number, number], cam: PerspectiveCamera | OrthographicCamera, h: number): number {
+    const [, ey] = START_FIRE.emitter;
+    return cam instanceof PerspectiveCamera
+      ? (FIRE_WIDTH * h) / (2 * Math.max(1e-3, -this.fireAt.set(c[0], c[1] + ey, c[2]).applyMatrix4(cam.matrixWorldInverse).z) * Math.tan((cam.fov * Math.PI) / 360))
+      : (FIRE_WIDTH * h * cam.zoom) / (cam.top - cam.bottom);
   }
 
   /** Each start's light as its fire shows (`startLight`'s fourth number): none where the layer cut takes the fire (its
@@ -4550,7 +4560,16 @@ export class MapRenderer {
     this.motionRows.flush();
     // the game's bloom: the frame before the grade drawn for it first, then the view, then the bloom put on it (bloom.ts)
     const bloom = this.blooms() ? (this.bloom ??= new GameBloom()) : null;
-    bloom?.drawSource(this.gl, this.scene, cam, this.bloomRect(cam));
+    const bloomRect = bloom ? this.bloomRect(cam) : null;
+    if (bloom) {
+      // (in a start's box, each batch of objects only its instances there: bloomBox.ts)
+      if (bloomRect) this.bloomBox.enter(this.objects, [this.terrain.values(), this.water.values()], cam, bloomRect, this.bloomSize.x, this.bloomSize.y);
+      try {
+        bloom.drawSource(this.gl, this.scene, cam, bloomRect);
+      } finally {
+        this.bloomBox.leave();
+      }
+    }
     // (the copies only where the view's frame draws to the screen: the terrain overlays the ground under water itself
     // otherwise, refraction.ts)
     this.refraction.begin(this.refracts() && this.gl.getRenderTarget() === null);
@@ -4560,7 +4579,7 @@ export class MapRenderer {
       this.bloomFrames++;
       // (the view's draw counts, not the bloom's passes': `stats`)
       const counts = { ...this.gl.info.render };
-      bloom.apply(this.gl);
+      bloom.apply(this.gl, bloomRect);
       Object.assign(this.gl.info.render, counts);
     }
     if (this.uniforms.objectFade.value.w === FADE_COVERAGE) this.opaqueCanvas();
@@ -4587,13 +4606,14 @@ export class MapRenderer {
    *  light look. And only while something in the frame can pass its knee (D453: by day nothing does, so its passes,
    *  about 1.4 ms of a GPU's in High, would change no pixel; `tests/unit/bloom.test.ts` holds the day's brightest under
    *  it, `tests/e2e/look-high.spec.ts` the frame alike with it and without): an eruption's lava, until its crust has
-   *  put out its light (`LAVA_BLOOM_ENDS`), and a start's fire while its flame shows (`fireShows`: its doubled colour
-   *  passes the knee where its particles stack, bloom.ts `FIRE_SOURCE_MAX`), as the game's HDR frame blooms both. */
+   *  put out its light (`LAVA_BLOOM_ENDS`), and a start's fire while its box is on screen and its flame large enough to
+   *  show (`fireBox`: its doubled colour passes the knee where its particles stack, bloom.ts `FIRE_SOURCE_MAX`), as the
+   *  game's HDR frame blooms both. */
   private blooms(): boolean {
     if (this.software || !this.map) return false;
     const look = this.lookNow;
     if (look === "light" || !GAME_BLOOM_LOOKS[look === "standard" ? "standard" : "high"]) return false;
-    return this.lavaBlooms() || this.fireShows();
+    return this.lavaBlooms() || this.fireBox(this.camera()) !== null;
   }
 
   /** An eruption's lava can pass the bloom's knee (`LAVA_BLOOM_ENDS`). */
@@ -4602,42 +4622,56 @@ export class MapRenderer {
     return !!u.eruptionAge && u.eruptionAge.value >= 0 && u.coolingAge.value < LAVA_BLOOM_ENDS;
   }
 
-  /** Where the bloom's source need be drawn (bloom.ts `drawSource`), in the drawing buffer's pixels from its lower left:
-   *  with no lava glowing, only the starts' fires and the lanterns their lights light can pass the knee (by day nothing
-   *  else does, tests/unit/bloom.test.ts), so the box on screen round each start whose fire is drawn (its district
-   *  center, `BLOOM_START_BOX`), which spares the source the rest of the frame (D453); the whole frame (null) while
+  /** Where the bloom need be drawn (bloom.ts `drawSource` and `apply`), in the drawing buffer's pixels from its lower
+   *  left: with no lava glowing, only the starts' fires and the lanterns their lights light can pass the knee (by day
+   *  nothing else does, tests/unit/bloom.test.ts), so the box on screen round each start whose fire shows (`fireBox`),
+   *  which spares the source, the pyramid and the canvas the rest of the frame (D453); the whole frame (null) while
    *  lava glows or a start's box reaches behind the camera. */
   private bloomRect(cam: PerspectiveCamera | OrthographicCamera): Vector4 | null {
     if (this.lavaBlooms()) return null;
+    const box = this.fireBox(cam);
+    if (!box || box === "behind") return null;
     const size = this.gl.getDrawingBufferSize(this.bloomSize);
+    const px = (v: number, n: number) => (Math.min(1, Math.max(-1, v)) + 1) * 0.5 * n;
+    const r = this.bloomRectOut;
+    r.set(Math.floor(px(box.x, size.x)), Math.floor(px(box.y, size.y)), 0, 0);
+    r.z = Math.ceil(px(box.z, size.x)) - r.x;
+    r.w = Math.ceil(px(box.w, size.y)) - r.y;
+    return r;
+  }
+
+  /** The box on screen (clip x and y: least x, least y, most x, most y) round each start whose fire is drawn and whose
+   *  flame shows at least `FIRE_SHOWN_PX` across (its district center, `BLOOM_START_BOX`), where it overlaps the frame:
+   *  its bloom's glow reaches over the frame while the bowl itself is past its edge. "behind": a box reaches behind the
+   *  camera (its corners project wrong). Null: none on screen. */
+  private fireBox(cam: PerspectiveCamera | OrthographicCamera): Vector4 | "behind" | null {
     const slice = this.uniforms.slice.value;
     const hide = this.uniforms.objectHide.value;
+    const h = this.canvas.clientHeight;
     const [half, high] = BLOOM_START_BOX;
-    let x0 = Infinity;
-    let y0 = Infinity;
-    let x1 = -Infinity;
-    let y1 = -Infinity;
+    const out = this.fireBoxOut.set(Infinity, Infinity, -Infinity, -Infinity);
     for (const c of this.fireCentres) {
-      if (!fireDrawn(c, slice, hide)) continue;
+      if (!fireDrawn(c, slice, hide) || this.flameAcross(c, cam, h) < FIRE_SHOWN_PX) continue;
+      let x0 = Infinity;
+      let y0 = Infinity;
+      let x1 = -Infinity;
+      let y1 = -Infinity;
       for (let k = 0; k < 8; k++) {
         const p = this.fireAt.set(c[0] + (k & 1 ? half : -half), c[1] + (k & 2 ? high : 0), c[2] + (k & 4 ? half : -half));
-        // (a corner at or behind the camera's near plane projects wrong: the whole frame then)
-        if (cam instanceof PerspectiveCamera && -this.bloomEye.copy(p).applyMatrix4(cam.matrixWorldInverse).z <= cam.near) return null;
+        // (a corner at or behind the camera's near plane projects wrong)
+        if (cam instanceof PerspectiveCamera && -this.bloomEye.copy(p).applyMatrix4(cam.matrixWorldInverse).z <= cam.near) return "behind";
         p.project(cam);
         x0 = Math.min(x0, p.x);
         x1 = Math.max(x1, p.x);
         y0 = Math.min(y0, p.y);
         y1 = Math.max(y1, p.y);
       }
+      if (x1 < -1 || x0 > 1 || y1 < -1 || y0 > 1) continue;
+      out.set(Math.min(out.x, x0), Math.min(out.y, y0), Math.max(out.z, x1), Math.max(out.w, y1));
     }
-    if (!(x1 > x0)) return null;
-    const px = (v: number, n: number) => (Math.min(1, Math.max(-1, v)) + 1) * 0.5 * n;
-    const r = this.bloomRectOut;
-    r.set(Math.floor(px(x0, size.x)), Math.floor(px(y0, size.y)), 0, 0);
-    r.z = Math.ceil(px(x1, size.x)) - r.x;
-    r.w = Math.ceil(px(y1, size.y)) - r.y;
-    return r;
+    return out.z > out.x ? out : null;
   }
+  private readonly fireBoxOut = new Vector4();
   private readonly bloomSize = new Vector2();
   private readonly bloomRectOut = new Vector4();
   private readonly bloomEye = new Vector3();
@@ -5547,6 +5581,7 @@ export class MapRenderer {
     this.refraction.dispose();
     this.bloom?.dispose();
     this.bloom = null;
+    this.bloomBox.dispose();
     if (this.highCopy) for (const m of Object.values(this.highCopy)) m.dispose();
     for (const m of this.depthCopy ?? []) m.dispose();
     for (const m of this.lineCopy ?? []) m.dispose();

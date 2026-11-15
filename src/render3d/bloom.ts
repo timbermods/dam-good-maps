@@ -68,6 +68,11 @@ export const GAME_BLOOM = {
   maxIterations: 6,
 } as const;
 
+/** How far past the source's box (drawSource's `rect`) the bloom is drawn, in the drawing buffer's pixels: past it, its
+ *  tail is under half a code on the canvas (at the start's closest, round its fire's box: 70 pixels a code apart, all
+ *  within 32 pixels of it), so the passes there would change no pixel (`apply`). */
+export const BLOOM_REACH = 64;
+
 /** Which looks draw it: Standard and High, as the game's default preset (High) and Medium and Ultra do; never the
  *  light look (the game's Low preset turns it off). */
 export const GAME_BLOOM_LOOKS = { standard: true, high: true } as const;
@@ -245,6 +250,7 @@ const COMPOSITE = /* glsl */ `
   uniform sampler2D bloom;
   uniform sampler2D inverse;
   uniform vec4 bloomSize;
+  uniform vec2 frameAt;
   varying vec2 vUv;${BICUBIC}${GAME_POST_GLSL}
   float back(float v) { return texelFetch(inverse, ivec2(int(v * 255.0 + 0.5), 0), 0).r; }
   vec3 toDisplay(vec3 c) { return mix(c * 12.92, 1.055 * pow(c, vec3(1.0 / 2.4)) - 0.055, step(vec3(0.0031308), c)); }
@@ -252,7 +258,8 @@ const COMPOSITE = /* glsl */ `
     vec3 b = bicubic(bloom, vUv, bloomSize);
     b *= b * ${f(GAME_BLOOM.intensity)};
     if (max(b.r, max(b.g, b.b)) < 1e-5) discard;
-    vec3 c = texelFetch(frame, ivec2(gl_FragCoord.xy), 0).rgb;
+    // (its copy of the canvas, from \`frameAt\`; a pixel the scissor's rounding takes past it reads its edge)
+    vec3 c = texelFetch(frame, clamp(ivec2(gl_FragCoord.xy - frameAt), ivec2(0), textureSize(frame, 0) - 1), 0).rgb;
     vec3 lin = vec3(back(c.r), back(c.g), back(c.b));
     gl_FragColor = vec4(gamePost(toDisplay(lin + b)) - gamePost(toDisplay(lin)), 0.0);
   }
@@ -286,6 +293,7 @@ export class GameBloom {
   private readonly camera = new OrthographicCamera(-1, 1, 1, -1, 0, 1);
   private readonly quad: Mesh;
   private readonly size = new Vector2();
+  private readonly frameAt = new Vector2();
   private readonly prefilter = pass(PREFILTER, { src: { value: null }, texel: { value: new Vector2() } });
   private readonly across = pass(BLUR_ACROSS, { src: { value: null }, texel: { value: new Vector2() } });
   private readonly downward = pass(BLUR_DOWN, { src: { value: null }, texel: { value: new Vector2() } });
@@ -296,7 +304,7 @@ export class GameBloom {
     this.inverse = new DataTexture(inverseTable(), 256, 1, RedFormat, FloatType);
     this.inverse.minFilter = this.inverse.magFilter = NearestFilter;
     this.inverse.needsUpdate = true;
-    this.composite = pass(COMPOSITE, { frame: { value: null }, bloom: { value: null }, inverse: { value: this.inverse }, bloomSize: { value: new Vector4() } }, true);
+    this.composite = pass(COMPOSITE, { frame: { value: null }, bloom: { value: null }, inverse: { value: this.inverse }, bloomSize: { value: new Vector4() }, frameAt: { value: this.frameAt } }, true);
     const g = new BufferGeometry();
     g.setAttribute("position", new BufferAttribute(new Float32Array([-1, -1, 0, 3, -1, 0, -1, 3, 0]), 3));
     this.quad = new Mesh(g, this.prefilter);
@@ -350,25 +358,59 @@ export class GameBloom {
   }
   private readonly clearWas = new Color();
 
-  /** Build the pyramid from the source and put the bloom on the canvas (the view's frame, drawn). */
-  apply(gl: WebGLRenderer): void {
+  /** Build the pyramid from the source and put the bloom on the canvas (the view's frame, drawn). With the source's
+   *  `rect` (drawSource's; null: the whole frame), every pass is drawn only round it (`BLOOM_REACH`, in each level's
+   *  texels), the canvas copied and the bloom put on only there (D453): its tail past that changes no pixel's code, and
+   *  the rest of each level is cleared to nothing. */
+  apply(gl: WebGLRenderer, rect: Vector4 | null = null): void {
     const src = this.source;
     if (!src) return;
     const fw = Math.max(1, Math.floor(this.size.x));
     const fh = Math.max(1, Math.floor(this.size.y));
-    if (!this.frame || this.frame.image.width !== fw || this.frame.image.height !== fh) {
+    // where the bloom is put on the canvas: the source's box and its reach, in the drawing buffer's pixels
+    const r = BLOOM_REACH;
+    const x0 = rect ? Math.max(0, rect.x - r) : 0;
+    const y0 = rect ? Math.max(0, rect.y - r) : 0;
+    const x1 = rect ? Math.min(fw, rect.x + rect.z + r) : fw;
+    const y1 = rect ? Math.min(fh, rect.y + rect.w + r) : fh;
+    if (x1 <= x0 || y1 <= y0) return;
+    // (the canvas's copy: a whole number of 64-pixel steps round it, so it is made again only when the box grows past one)
+    const tw = Math.min(fw, Math.ceil((x1 - x0) / 64) * 64);
+    const th = Math.min(fh, Math.ceil((y1 - y0) / 64) * 64);
+    if (!this.frame || this.frame.image.width !== tw || this.frame.image.height !== th) {
       this.frame?.dispose();
-      this.frame = new FramebufferTexture(fw, fh);
+      this.frame = new FramebufferTexture(tw, th);
       this.frame.minFilter = this.frame.magFilter = NearestFilter;
     }
+    this.frameAt.set(Math.min(x0, fw - tw), Math.min(y0, fh - th));
     const before = gl.getRenderTarget();
     const auto = gl.autoClear;
+    const scissor = gl.getScissor(this.scissorWas);
+    const scissorTest = gl.getScissorTest();
+    const clear = gl.getClearAlpha();
+    const was = gl.getClearColor(this.clearWas);
     gl.autoClear = false;
     try {
       // the canvas's colour, read back where the bloom lands
       gl.setRenderTarget(null);
-      gl.copyFramebufferToTexture(this.frame);
+      gl.copyFramebufferToTexture(this.frame, this.frameAt);
       const levels = this.down.length;
+      gl.setClearColor(0x000000, 0);
+      // (each level only round the box, by the reach in its own texels; cleared first, so a pass reading past its
+      // neighbour's box reads nothing, never an earlier frame's)
+      for (let i = 0; i < levels; i++) {
+        for (const t of [this.down[i], this.up[i]]) {
+          t.scissorTest = false;
+          if (!rect) continue;
+          gl.setRenderTarget(t);
+          gl.clear(true, false, false);
+          const k = 2 ** (i + 1);
+          const ax = Math.max(0, Math.floor(x0 / k) - 2);
+          const ay = Math.max(0, Math.floor(y0 / k) - 2);
+          t.scissor.set(ax, ay, Math.min(t.width, Math.ceil(x1 / k) + 2) - ax, Math.min(t.height, Math.ceil(y1 / k) + 2) - ay);
+          t.scissorTest = true;
+        }
+      }
       this.draw(gl, this.prefilter, this.down[0], { src: src.texture, texel: this.texelOf(src) });
       for (let i = 1; i < levels; i++) {
         this.draw(gl, this.across, this.up[i], { src: this.down[i - 1].texture, texel: this.texelOf(this.down[i - 1]) });
@@ -379,11 +421,27 @@ export class GameBloom {
         this.draw(gl, this.upsample[i], this.up[i], { src: this.down[i].texture, low: low.texture, lowSize: this.sizeOf(low) });
       }
       const result = levels === 1 ? this.down[0] : this.up[0];
+      // (the canvas's scissor is set in its CSS pixels: out to whole ones)
+      const pr = gl.getPixelRatio();
+      gl.setScissor(Math.floor(x0 / pr), Math.floor(y0 / pr), Math.ceil((x1 - x0) / pr) + 1, Math.ceil((y1 - y0) / pr) + 1);
+      gl.setScissorTest(!!rect);
       this.draw(gl, this.composite, null, { frame: this.frame, bloom: result.texture, bloomSize: this.sizeOf(result) });
     } finally {
+      for (const t of [...this.down, ...this.up]) t.scissorTest = false;
+      gl.setScissor(scissor);
+      gl.setScissorTest(scissorTest);
+      gl.setClearColor(was, clear);
       gl.autoClear = auto;
       gl.setRenderTarget(before);
     }
+  }
+  private readonly scissorWas = new Vector4();
+
+  /** Its passes' materials, for compiling their programs before its first frame (renderer.ts `scheduleWarm`): each
+   *  drawn on a bare triangle (a position, no normal). */
+  materials(): ShaderMaterial[] {
+    if (!this.upsample.length) this.upsample.push(pass(UPSAMPLE, { src: { value: null }, low: { value: null }, lowSize: { value: new Vector4() } }));
+    return [this.prefilter, this.across, this.downward, this.upsample[0], this.composite];
   }
 
   dispose(): void {

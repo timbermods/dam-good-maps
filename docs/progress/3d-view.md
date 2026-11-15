@@ -4123,8 +4123,9 @@ each), ours over 40 moments of the fire's clock, in the flame's column between t
   much as that.
 - **(3) The bloom:** the game's HDR frame keeps the flame's doubled colour where its particles stack, and the bloom's
   prefilter takes it (2 / 1.6 / 0: `bloom.ts` `FIRE_SOURCE_MAX`, `bloomLift` 5.3, at the clamp as lava's hottest),
-  as it takes lava. So `renderer.ts` `blooms` draws the bloom while a start's flame shows (`fireShows`, the rule its motion
-  asks for frames by), in Standard and High, never the light look. Our bloom's source already held the fire's colour
+  as it takes lava. So `renderer.ts` `blooms` draws the bloom while a start's box overlaps the frame and its flame
+  shows at least 2 pixels across (`fireBox`: its glow reaches over the frame's edge after the bowl has left it), in
+  Standard and High, never the light look. Our bloom's source already held the fire's colour
   before the post chain (startFire.ts writes `gpSource`), blended as the game's frame blends it, so the glow is the
   game's pass for pass. The lantern's posts and bowl, which the fire's spot light lights over the knee, glow with it.
 - **Its source drawn round the start alone** (`bloomRect`, D453): with no lava glowing nothing else in a frame passes
@@ -4133,16 +4134,41 @@ each), ours over 40 moments of the fire's clock, in the flame's column between t
   while lava glows or the box reaches behind the camera. The frame is the whole source's: they differ by no more than
   two redraws of the same frame do (High: 1 to 33 bytes of 4.3 million by 2 levels or more; the bloom lifts some
   530,000). `tests/e2e/look-high.spec.ts` holds both: by day without the fire and its light nothing blooms and the
-  frame is the same to the byte; with them the bloom is drawn, from the box, as from the whole frame.
+  frame is the same to the byte; with them the bloom is drawn, from the box, as from the whole frame; and it is drawn
+  while the box overlaps the frame with the bowl past its edge, not once the box has gone.
+- **Only what stands in the box, and only round it** (round 3, D453): the scissor spared the source the pixels outside
+  the box, not the vertices: it drew every plant on the map a second time (0.75 ms of the frame at the opening camera,
+  timed by the GPU per pass), and the composite and the canvas's copy ran over the whole screen. Now, while the source
+  is drawn, each instanced batch draws only its instances whose bounds meet the box's frustum, copies made again only
+  when the camera, the box or the batch changes and sent to the GPU only when the instances in it change
+  (`bloomBox.ts`); the land's and the water's chunks wholly outside it are left out; and the pyramid, the canvas's copy
+  and the composite are drawn only round the box (`bloom.ts` `BLOOM_REACH`, 64 pixels: past the box the bloom changed
+  70 pixels by 1 level, all within 32 of it). The frame is the whole frame's bloom to a level (at both cameras, in both
+  looks, 5 to 65 pixels of 1.44 million differ by 1, the flame's own redraws aside). `tests/unit/bloomBox.test.ts`
+  holds the instances and chunks chosen and the batch put back.
+- **Standard bloomed harder than High** (round 3): the same flame, but Standard's lantern posts passed the knee wider
+  (its source 528 texels over it against High's 464, 207 against 169 summed over it; the bloom it added 444,856 levels
+  against 312,854). Cause: Standard draws no object's shadow on another, so the midday sun lit the posts' inner faces under
+  the hood (their colour before the grade 0.65 with the fire's light off, High's 0.36, its shadow map shading them as
+  the game's does), and the fire's light took them over the knee. The hood now shades the lantern's inside from the sun
+  in every look (materials.ts `startHoodSun`: the cap 0.4 under the light and 0.61 across, palette.ts
+  `START_FIRE.hood`, inside the Iron Teeth's hood too; within 1 of the light's axis, down to the platform's deck); in
+  High it shades what the shadow map already did. Standard's source now 462 texels over the knee, 177 summed, High's
+  462 and 168; the bloom adds 337,465 levels against High's 312,338.
+- **Its programs ahead** (round 3): the bloom's five passes are compiled with the programs an edit could need, a moment
+  after a map is drawn (`scheduleWarm`), so the first frame a fire comes into view compiles nothing (none new at it,
+  measured).
 - **The hood's mouth** (entities3d.ts `districtCenter`): the dark disc standing for the Folktails' open hood seen from
   above sat at 4.18, 0.06 under the fire's light (4.24), which lit it white (255 / 255 / 255 at the opening camera, and
   the bloom would have haloed it); the game's top is open, where its shot shows the lantern's warm inside (182 / 154 /
   95). It now stands in the ring's throat at 4.26, above the light, as the Iron Teeth's cap at 4.3 does, so the light
   never lights a face the game has not there.
-- **Cost:** `benchOrbit(6000)` round the start at the game's close camera, Four Lakes r14, 1600 × 900, headed Chrome,
-  RTX 2070 SUPER, seven runs each, interleaved (the GPU's median a frame): Standard 3.30 ms without the bloom, 4.11
-  with it (4.46 with the whole frame's source); High 4.10, 4.21 (4.68). Only while a flame shows; a map at rest with no
-  flame in view draws nothing, as before. Nothing allocated a frame.
+- **Cost:** the game's opening camera (`first`), Four Lakes r14, 1600 × 900, headed Chrome, RTX 2070 SUPER, the camera
+  held, five `benchOrbit(5000)` runs each, interleaved (the median of their GPU medians a frame): Standard 3.57 ms
+  without the bloom, 3.73 with it (round 2: 3.57, 4.60); High 5.05, 5.29 (round 2: 5.02, 6.50). Timed by the GPU per
+  pass: the source 0.13 ms (was 0.84–1.17), the pyramid and the composite 0.09. Turning, the boxes made again each
+  frame take 0.25 to 1.2 ms of the page's thread (`enter`, over Four Lakes' 6,000 plants). Only while a start's box is in the frame with its flame showing; a
+  map at rest with none draws nothing, as before.
 - **Sheet** (local only, `C:/dgm-showcase/start/fire-2/sheet.png`): the game's close and opening frames beside dev's
   (Standard) and ours (Standard and High) at the same cameras and the same moment of the fire.
 - **Falls short:** (1) Our flame is graded particle by particle and blended on the graded canvas, where the game blends

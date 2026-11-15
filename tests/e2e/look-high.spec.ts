@@ -233,7 +233,9 @@ test("the game's bloom is drawn only when something can pass its knee, and skipp
       const r = window.dgm3d!.renderer as unknown as {
         blooms(): boolean;
         fireShows(): boolean;
+        fireBox(cam: unknown): unknown;
         bloomRect(cam: unknown): unknown;
+        camera(): { matrixWorld: { elements: number[] } };
         startLightsOn: number;
         bloom: Bloom | null;
         gl: { getContext(): WebGL2RenderingContext; setRenderTarget(t: unknown): void };
@@ -258,7 +260,7 @@ test("the game's bloom is drawn only when something can pass its knee, and skipp
         return n;
       };
       // (a method of the view's, put back as it was)
-      const swap = <K extends "blooms" | "fireShows" | "bloomRect">(k: K, f: (typeof r)[K]) => {
+      const swap = <K extends "blooms" | "fireBox" | "bloomRect">(k: K, f: (typeof r)[K]) => {
         const own = Object.getOwnPropertyDescriptor(r, k);
         r[k] = f;
         return () => {
@@ -275,7 +277,7 @@ test("the game's bloom is drawn only when something can pass its knee, and skipp
       // its fire and its light, which pass the knee, out: below
       const lights = r.startLightsOn;
       r.startLightsOn = 0;
-      const noFire = swap("fireShows", () => false);
+      const noFire = swap("fireBox", () => null);
       const skipped = r.blooms();
       // drawn anyway: what the game's passes make of it, and the canvas just before them and just after, in one frame
       // (two redraws of a still frame can differ by a level here and there, the bloom aside)
@@ -317,7 +319,18 @@ test("the game's bloom is drawn only when something can pass its knee, and skipp
       const off = swap("blooms", () => false);
       const none = canvas();
       off();
-      return { skipped, differ: differ(without, withIt), most, read: without.length > 0 && withIt.length === without.length, fireBlooms, lifted: differ(none, boxed, 1), boxApart: differ(boxed, full, 1) };
+      // panned sideways until the bowl has left the frame: its glow still reaches over the frame's edge, so the bloom
+      // is drawn while the start's box overlaps the frame, and not once it has gone
+      const right = r.camera().matrixWorld.elements.slice(0, 3);
+      let edge: boolean | null = null;
+      let gone: boolean | null = null;
+      for (let s = 0; s < 30 && gone === null; s += 0.05) {
+        r.setView({ mode: "orbit", yaw: -Math.PI / 6, pitch: 0.5, distance: 11, target: [at[0] - 1 - right[0] * s, at[1] + 3.2 - right[1] * s, at[2] - 1 - right[2] * s] });
+        r.renderNow();
+        if (edge === null && !r.fireShows()) edge = r.blooms();
+        if (edge !== null && !r.fireBox(r.camera())) gone = r.blooms();
+      }
+      return { skipped, differ: differ(without, withIt), most, read: without.length > 0 && withIt.length === without.length, fireBlooms, lifted: differ(none, boxed, 1), boxApart: differ(boxed, full, 1), edge, gone };
     });
     // by day nothing passes the knee but a start's fire and its light: without them the passes are skipped, they would
     // have made nothing, and the frame is the same to the byte with them or without
@@ -331,6 +344,8 @@ test("the game's bloom is drawn only when something can pass its knee, and skipp
     expect(day.fireBlooms, choice).toBe(true);
     expect(day.lifted, choice).toBeGreaterThan(100_000);
     expect(day.boxApart, JSON.stringify({ choice, ...day })).toBeLessThan(64);
+    expect(day.edge, choice).toBe(true);
+    expect(day.gone, choice).toBe(false);
   }
   expect(errors).toEqual([]);
 });
