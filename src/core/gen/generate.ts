@@ -93,7 +93,7 @@ import { caveStream, checkForm, formsWanted, growOn } from "./forms3d";
 import { description, toTimberFile } from "./pack";
 import { outcomesOf, PROMISES, promiseSides, type Outcomes } from "./outcomes";
 import { mapSays, mapWords, type PlayFacts } from "./names";
-import { NEAR_BERRIES_MARGIN, nearStartTargets, planResources } from "./resources";
+import { nearStartTargets, planResources } from "./resources";
 import { planRuinStories } from "./ruinStories";
 import { DROUGHT, REACH_MIN, RESERVE, reservoirNeeded, RUIN_HEIGHT_SHARES } from "./calibrated";
 import { gameSoil } from "../sim/soil";
@@ -1762,9 +1762,10 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
     r.woodWithin20 = Math.max(r.woodWithin20, easyT.wood);
     r.ruinsWithin = Math.min(r.ruinsWithin, 10);
     spec.settings.hazards.badwaterDistance = Math.max(spec.settings.hazards.badwaterDistance, EASY_BADWATER);
-    // (Berries near start is the start's least, D527, and the generator places a margin over it: about 1.5 × Easy
-    // start's berries placed, as ever)
-    spec.settings.resources.berriesNearStart = Math.max(spec.settings.resources.berriesNearStart, Math.ceil((1.5 * easyT.bushes) / NEAR_BERRIES_MARGIN));
+    // (Berries near start is the start's least, D527, and the generator places a tenth more: the least at 1.5 × Easy
+    // start's berries over 1.1, rounded up in whole numbers (D366), so about 1.5 × them are placed, as ever: 40 gives
+    // 55, which places 61)
+    spec.settings.resources.berriesNearStart = Math.max(spec.settings.resources.berriesNearStart, Math.floor((15 * easyT.bushes + 10) / 11));
   }
   // (a long Islands map's sea is proved settled before its land is shown, DRAINED_SEA)
   const seaProved = specIn.theme === "islands" && !!g.seaLayout && mapShape(W, H).long;

@@ -73,16 +73,20 @@ export interface ResourceConstraints {
   lockedMask?: null;
 }
 
-/** The berry bushes placed within the start's walk, as a share of Berries near start, the least the start is checked
- *  against (D527): a tenth more, so a start the player moves a tile still holds its berries (placed at the least
- *  itself, a start moved a tile lost two of 48). Each step of the setting moves the planting by a bush or two. */
-export const NEAR_BERRIES_MARGIN = 1.1;
+/** The berry bushes placed within the start's walk for Berries near start, the least the start is checked against
+ *  (D527): a tenth more, rounded up, so a start the player moves a tile still holds its berries (placed at the least
+ *  itself, a start moved a tile lost two of 48). Whole numbers throughout (D366: `Math.ceil(1.1 * 40)` is 45, the
+ *  product a hair over 44): 40 places 44, 48 places 53, 60 places 66. Each step of the setting moves the planting by a
+ *  bush or two. */
+export function nearBerries(least: number): number {
+  return Math.floor((11 * least + 9) / 10);
+}
 
 /** The start rules' targets for what the generator places near the start (PLAN §5.6): a little above each minimum
  *  the validator enforces, so a map meets its requirements on the first attempt and keeps them when the start moves a
  *  tile. The generator never aims below a minimum (D85): starting wood aims at 1.35 × Minimum starting wood in grown
  *  logs (D164), and never below 40 trees' worth (`trees` is the trees that takes with the species mix); the berries
- *  at `NEAR_BERRIES_MARGIN` × Berries near start (D527). */
+ *  at `nearBerries` of Berries near start, a tenth more (D527). */
 export function nearStartTargets(spec: MapSpec): { wood: number; trees: number; bushes: number; ruinsClear: number } {
   const r = spec.settings.start.rules;
   const perTree = woodPerTree(spec.settings.resources.speciesMix);
@@ -90,7 +94,7 @@ export function nearStartTargets(spec: MapSpec): { wood: number; trees: number; 
   return {
     wood,
     trees: Math.ceil(wood / perTree),
-    bushes: Math.ceil(NEAR_BERRIES_MARGIN * spec.settings.resources.berriesNearStart),
+    bushes: nearBerries(spec.settings.resources.berriesNearStart),
     // official nearest ruin to the start: p10 22; Normal's rule is 15
     ruinsClear: r.ruinsWithin + 7,
   };

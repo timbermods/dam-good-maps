@@ -109,7 +109,7 @@ export interface Settings {
     speciesMix: { pine: number; birch: number; oak: number; succulent: number }; // weights 0–100
     /** Berries near start (D527): the least living berry bushes within 20 tiles' walk of the start, which the start is
      *  checked against (`start.food`) and the generator places with a tenth more (gen/resources.ts
-     *  `NEAR_BERRIES_MARGIN`), 20–200. Starting berries, the minimum alone, folded into it: a minimum the placing
+     *  `nearBerries`), 20–200. Starting berries, the minimum alone, folded into it: a minimum the placing
      *  already beat changed nothing. */
     berriesNearStart: number;
     berryBushes: number; // 50–300 (%)

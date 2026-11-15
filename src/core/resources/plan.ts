@@ -45,7 +45,7 @@ export interface MapResourcesInput {
   seed: number;
   /** What to grow within 20 tiles' walk of the start first: starting wood in logs of grown trees
    *  (D164) and living berry bushes, the start requirements' minimums with a margin (the generator aims
-   *  at 1.35× Minimum starting wood and 1.1× Berries near start, the start's least berries, D527). */
+   *  at 1.35× Minimum starting wood and a tenth over Berries near start, the start's least berries, D527). */
   nearStart: { wood: number; bushes: number };
   /** Ruins keep this far from the start, in straight tiles (the generator: the difficulty's
    *  "no ruins within" + 7). */
