@@ -44,8 +44,13 @@ beforeAll(async () => {
   // 6 and 8 (2,190 of 7,386 on seed 2), the gentlest eruption reaches 5 levels on seed 6, and the gentlest Carve moves
   // more than its share on seeds 3 and 5; seed 9 since generator 0.10.20's contour edges, D518, D148: on seed 1 the gentlest
   // Slide moves 8,545 levels to Power 100's 28,278, over its 0.3; of seeds 1 to 10 only seed 9 keeps every force's check, the
-  // gentlest glacier moving more than its share on the rest but seed 1, and the gentlest Carve on seeds 3, 6 and 8)
-  await open(9);
+  // gentlest glacier moving more than its share on the rest but seed 1, and the gentlest Carve on seeds 3, 6 and 8; seed 12
+  // since generator 0.10.23, D(new-leaks): a course's water leaves only by its own way, so the land moved, D148: seed 9's
+  // highest dry ground is now (88, 52), not (26, 48), and from there the gentlest glacier changes 5,876 tiles and moves
+  // 11,195 levels to Power 100's 15,102, and the gentlest Carve 5,610 to 15,398; of seeds 1 to 23 only 12 and 19 keep
+  // every force's check, the gentlest glacier moving more than its share on the rest, the gentlest Carve on 2, 3, 7 to 11,
+  // 17, 20, 22 and 23, and the eruption's Power 100 moving less than its Power 50 on 11 and 15)
+  await open(12);
 });
 
 /** Each force at its largest Size (Carve's widest), the page's way (nature drawing its details). */

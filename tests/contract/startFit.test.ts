@@ -256,7 +256,10 @@ describe("a map object measured where it stands, by the checks and the start's p
   // from the relic has only the relic out of its band; of Highlands seeds 1–13, 2, 6, 7 and 11 serve all four tests, and 2 is the first)
   // (seed 7 since generator 0.10.21's look round (D518: the land's long straight steps jog, the dead stands read the dry land as the checks do), D148: seed 2's relic, once
   // flagged, finds no spot that the move allows and its band clears; of Highlands seeds 6, 7 and 11 only 7 serves all four tests here)
-  const r = generate(makeSpec({ seed: 7, theme: "highlands", size: { x: 128, y: 128 } }));
+  // (seed 5 since generator 0.10.23, D(new-leaks): a course's water leaves only by its own way, so the land moved, D148: on
+  // seed 7 no spot 5 to 12 tiles from the relic takes a start with only the relic out of its band; of Highlands seeds 1–7,
+  // 5 is the first that serves all four tests here)
+  const r = generate(makeSpec({ seed: 5, theme: "highlands", size: { x: 128, y: 128 } }));
   const fresh = () => MapSession.fromGenerated(r, r.file);
   const W = 128;
   const startOf = (s: MapSession) => s.features.find((g): g is StartFeature => g.kind === "start")!;
