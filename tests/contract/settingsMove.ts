@@ -1,7 +1,7 @@
 // Every move of a generator control changes the next map, or the panel greys the control (D527). For each theme, at
 // 96², each control of the generator panel is moved from the theme's preset: its smallest move both ways (the
 // slider's step, the next choice, one on a count) and its largest (to each end of its range), and each move must
-// change the world (land, water, objects: the map's world entry) on at least one of seeds 1–4. The controls, their
+// change the world (land, water, objects: the map's world entry) on at least one of seeds 1–5. The controls, their
 // ranges, their steps and their greying are the panel's own (`genFields`, src/editor/generator/fields.tsx): each move
 // is made through the control's own handler, so a coupling the panel makes (Verticality carrying Highest terrain) is
 // made here too, and a control the panel greys there is not moved. There is no list of exceptions: a control is live
@@ -19,10 +19,11 @@ import { genFields, GROUPS, MixSetting, type FieldKey, type GroupName } from "..
 import type { SettingsProps } from "../../src/editor/generator/hints";
 import { ChoiceSetting, NumberSetting } from "../../src/editor/settings";
 
-/** The size and seeds of the sample (D527; seeds 1–4 rather than 1–2: Lake Basin's Waterfalls Off has no fall to take
- *  away at Few on seeds 1–2, #1174). */
+/** The size and seeds of the sample (D527; seeds 1–5 rather than 1–2: Lake Basin's Waterfalls Off has no fall to take
+ *  away at Few on seeds 1–2, #1174, and Islands' Max walk to water from 20 to 21 changes seeds 5, 7 and 9 but none of
+ *  1–4, a bound those maps already meet; planning, #236 comments 6893749012 and 6895084088). */
 export const MOVE_SIZE = 96;
-export const MOVE_SEEDS = [1, 2, 3, 4] as const;
+export const MOVE_SEEDS = [1, 2, 3, 4, 5] as const;
 
 /** One move of one control: what the panel would hand the generator after it. */
 export interface Move {
