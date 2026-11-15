@@ -763,8 +763,9 @@ where the land's own processes make them. The builder's limits still fix what a 
   the size (`src/core/resources/baseline.ts`); at most 5% of columns stand outside fields. **To within a column**
   (D527): the scrap no new field takes, less than a field's least size of 10 or no room left for one, grows the fields
   already placed a column at a time in turn, on their own level and band with a band's gaps; where they have no room,
-  new fields come at half the spacing, then on moist ground too, until the land holds no more (a 96² Islands map holds
-  85–90% of what is asked above about 200%, still more at every step); the last field placed gives back the columns
+  new fields come at half the spacing, then on moist ground too, until the land holds no more (every theme at 96²
+  holds all of 300%, seeds 1–2); moist ground within twice the ruins' distance of the start stays clear (D515); fields
+  grown keep their moat from later fields; the last field placed gives back the columns
   it grew past the scrap asked. **Shape:** fields of about
   19 / 32 / 39 / 42 columns by size, grown in an ellipse of aspect 1–2 with 4–10% holes, one tile of moat between
   fields. **Heights:** each field has its own tallness (the official storey shares tilted so a field averages 2.4 to
