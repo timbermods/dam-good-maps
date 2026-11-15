@@ -57,7 +57,7 @@
 import { EntityGeometryCache } from "./entityGeometry";
 import { BoxGeometry, BufferGeometry, CircleGeometry, ConeGeometry, CylinderGeometry, Float32BufferAttribute, Group, IcosahedronGeometry, InstancedBufferAttribute, InstancedMesh, OctahedronGeometry, PlaneGeometry, Quaternion, Vector3, type ShaderMaterial } from "three";
 import { FOOTPRINTS, rotate, startEntranceTile, worldBlocks, type Orientation } from "../core/format/footprints";
-import { DEAD, DYING, FLIPPED, NO_VARIANT, ORIENTATION_NAMES, RUIN_VARIANT_IDS, YOUNG, type EntityView, type SoilView } from "./model";
+import { BARE, DEAD, DYING, FLIPPED, NO_VARIANT, ORIENTATION_NAMES, RUIN_VARIANT_IDS, YOUNG, type EntityView, type SoilView } from "./model";
 import { plantScale, RANDOMIZER } from "./plantSize";
 import { DEAD_FORM, DEAD_LIMBS, type DeadPart, deadLeaves, deadRatio, deadWood, DRYING, dryColour, isFoliage } from "./dying";
 import { crownShade, LANDMARK, MINE, OWN_LIGHTNESS, ownAlbedo, RUIN, SLOPE, START, START_IRON_TEETH, TREE_COLOURS, WATER } from "./palette";
@@ -425,6 +425,8 @@ const MODELS: Record<string, () => Model> = {
   BlueberryBush: () => bush(BUSH_LEAVES, true),
   // the game's dead bush keeps its leaves, gone brown, and loses its berries (dying.ts `DEAD_FORM`)
   "BlueberryBush.dead": () => bush(deadLeaves("BlueberryBush", BUSH_LEAVES), false),
+  // (its berries picked, growing again: its leaves alone, model.ts BARE)
+  "BlueberryBush.bare": () => bush(BUSH_LEAVES, false),
   Slope: () => {
     // a ramp over the tile, low on the north (−Z) edge and high on the south (+Z), as a Cw0
     // slope's high side is south (its arrows are "Slope.mark")
@@ -1007,6 +1009,13 @@ const LITE_MODELS: Record<string, () => Model> = {
   BlueberryBush: () => new Model().add(new OctahedronGeometry(0.47, 0), BUSH_LEAVES, { y: 0.13, sy: 0.57 }),
 };
 for (const species of Object.keys(DRYING)) if (LITE_MODELS[species]) LITE_MODELS[`${species}.dying`] = () => dyingOf(species, LITE_MODELS[species]());
+/** The light look's models that stand for another key's: its bush draws no berries, so a bare one is the same bush,
+ *  in the same batch. */
+const LITE_SAME: Record<string, string> = { "BlueberryBush.bare": "BlueberryBush" };
+/** The light look's model key for a model key (`modelKeyOf`'s). */
+export function liteKeyOf(key: string): string {
+  return LITE_SAME[key] ?? key;
+}
 for (const species of Object.keys(DEAD_FORM)) {
   const dead = LITE_MODELS[`${species}.dead`];
   if (dead && LITE_MODELS[species]) LITE_MODELS[`${species}.dead`] = () => heightTo(dead(), DEAD_FORM[species].height * heightOf(LITE_MODELS[species]()));
@@ -1535,7 +1544,9 @@ export function modelKeyOf(template: string, flags: number): string {
   if (flags & DEAD) return `${template}.dead` in MODELS ? `${template}.dead` : template;
   // (a reserve flipped as the game flips it: its own model, mirrored)
   if (flags & FLIPPED && `${template}.flipped` in MODELS) return `${template}.flipped`;
-  return flags & DYING && `${template}.dying` in MODELS ? `${template}.dying` : template;
+  if (flags & DYING && `${template}.dying` in MODELS) return `${template}.dying`;
+  // (a plant without its yield standing: its model without it)
+  return flags & BARE && `${template}.bare` in MODELS ? `${template}.bare` : template;
 }
 
 /** Triangles of a model (tests and the benchmark's budget). */
@@ -1699,7 +1710,8 @@ export function buildEntities(v: EntityView, material: ShaderMaterial, soil: Soi
       else put(b, x + 0.5, z, -(y + 0.5), 0, 1, color);
       continue;
     }
-    const b = lite && LITE_MODELS[key] ? batch(`${key}.lite`, LITE_MODELS[key]) : batch(key, MODELS[key]);
+    const liteKey = liteKeyOf(key);
+    const b = lite && LITE_MODELS[liteKey] ? batch(`${liteKey}.lite`, LITE_MODELS[liteKey]) : batch(key, MODELS[key]);
     const centre = CENTRED[template];
     if (centre) {
       const o = ORIENTATION_NAMES[v.orientation[k]] as Orientation;
