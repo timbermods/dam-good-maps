@@ -3,7 +3,7 @@
 // pad, and the ground under water sources and objects. A force's result, a Raise stroke (exact since
 // item 37), a river and a set piece are all fair game.
 //
-// The map is a fixture (tests/fixtures/projects/scenario-riverValley-96-9; `fixtureSession`): the subject is what Naturalize weathers, not the generator, so a land
+// The map is a fixture (tests/fixtures/projects/scenario-riverValley-96-21; `fixtureSession`): the subject is what Naturalize weathers, not the generator, so a land
 // change moves nothing here (D148).
 
 import { describe, expect, it } from "vitest";
@@ -30,7 +30,11 @@ const PLANT = /^(Pine|Birch|Oak|Maple|ChestnutTree|Mangrove|Succulent|BlueberryB
 // seed 3 for generator 0.10.16's ground with grade, D148: seed 9's best spot has 5 bad tiles; seeds 3, 6, 7 and 10 have an open spot, seeds 7 and 10 fail two
 // of the six, seeds 3 and 6 pass all six)
 // (seed 9 since generator 0.10.21's look round (D518: the land's long straight steps jog, the dead stands read the dry land as the checks do), D148: of seeds 1–11 only seed 9 passes all six)
-function session(seed = 9): MapSession {
+// (fixture seed 21 since rule 6's whole pull-back (#1102, D479, D514 amended), D148: on seed 9 the Quake Lift's open spot (50,12)
+// has its north foot on the way the hill's water runs (draining 380–550 tiles, a stream to the weathering), a foot that may not
+// rise, so the cliff pulls back whole with its height kept and its tallest step stays 6; of the River Valley 96 fixtures only 21
+// passes all six)
+function session(seed = 21): MapSession {
   const s = fixtureSession("riverValley", W, seed);
   s.setWaterMode("defer");
   return s;
