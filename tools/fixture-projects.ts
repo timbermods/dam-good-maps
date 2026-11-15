@@ -20,7 +20,7 @@ const LIST: Entry[] = [
   // Highlands
   ...[1, 3, 5, 7, 10, 23].map((seed): Entry => ["highlands", 48, seed]), // the collaboration tests, objectsRide
   ...[1, 3, 6, 12, 14].map((seed): Entry => ["highlands", 64, seed]),
-  ...[2, 3, 5, 21, 26, 4242].map((seed): Entry => ["highlands", 96, seed]),
+  ...[2, 3, 5, 21, 25, 26, 4242].map((seed): Entry => ["highlands", 96, seed]),
   ["highlands", 96, 3, "noforms"],
   ["highlands", 96, 57, "noforms"],
   ["highlands", 96, 4],
