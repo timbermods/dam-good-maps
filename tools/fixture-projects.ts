@@ -56,6 +56,7 @@ const LIST: Entry[] = [
   ["riverValley", 64, 6],
   ["riverValley", 96, 5],
   ["canyon", 128, 2],
+  ["highlands", 96, 22, "vert70"],
 ];
 
 const args = process.argv.slice(2);
@@ -78,6 +79,8 @@ for (const [theme, size, seed, variant] of LIST) {
   const spec = makeSpec({ seed, theme, size: { x: size, y: size } });
   const terracing = /terr(\d+)/.exec(variant ?? "")?.[1];
   if (terracing !== undefined) spec.settings.terrain.terracing = Number(terracing);
+  const verticality = /vert(\d+)/.exec(variant ?? "")?.[1];
+  if (verticality !== undefined) spec.settings.terrain.verticality = Number(verticality);
   const r = generate(spec, variant?.startsWith("noforms") ? { forms: false } : {});
   // (no stored map: it belongs to one generator version and doubles the file, so the file holds the map's base and its features, as the project of an older generator does)
   const { stored: _stored, ...doc } = decodeProject(MapSession.fromGenerated(r, r.file).project());
