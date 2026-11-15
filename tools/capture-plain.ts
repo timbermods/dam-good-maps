@@ -3,9 +3,12 @@
 // on the page), built dry with its start only (the land's stage has no water beyond its measures and no works), opened
 // as a file through the page's "Open a map or a project", the 3D view at the High look, only the 3D canvas captured.
 // Two frames a map: `whole`, the whole map from near overhead with north up (pitch 62°, as the Gate's widest frame),
-// the plan's courses drawn over it as thin lines; and `vista`, the first frame from the start (the opening camera at the
-// vista's zoom, §5). The sheet sets the maps out two to a row, the start's numbers first under each, then the floor's
-// share, day 1's bands and the tiles the mend changed; the single frames are written beside it. Real Chrome, the site
+// the plan's courses drawn over it as thin lines; and `vista`, the first frame from the start's terrace (planning's
+// verdict on round 1): the eye over the start's terrace, at a low pitch (`VISTA_PITCH`) looking at the Red Fall's lip,
+// `VISTA_OVER` levels over the plain (over the far wall's crest, so the horizon shows over it) and at least `VISTA_BACK`
+// tiles behind the start: the plain lies below, the far wall and the fall stand behind it, the horizon in the frame. The sheet sets the maps out two to a row, the start's numbers first under each,
+// then the walls' heights where the first frame sees them, the Red Fall's drop, the floor's share, day 1's bands and
+// the tiles the mend changed; the single frames are written beside it. Real Chrome, the site
 // built from this checkout into its own folder with its own Vite cache, served on its own port.
 //
 //   npx tsx tools/capture-plain.ts [--seeds 1,2] [--sizes 128,192,256] [--out C:/dgm-showcase/poisoned-plain/land]
@@ -15,14 +18,13 @@ import { mkdirSync, writeFileSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { chromium, type Browser } from "@playwright/test";
 import { build, preview } from "vite";
-import { openingCamera, VISTA_ZOOM } from "../src/core/analysis/opening";
 import { buildMap } from "../src/core/features/build";
 import { featureId } from "../src/core/features/ids";
 import type { StartFeature } from "../src/core/features/schema";
-import { ORIENTATIONS, startMiddleTile } from "../src/core/format/footprints";
+import { startMiddleTile } from "../src/core/format/footprints";
 import { writeTimber } from "../src/core/format/timber";
 import { toTimberFile } from "../src/core/gen/pack";
-import { plainBands, plainLand, plainStart, type PlainLand } from "../src/core/premise/plainLand";
+import { fallDrop, plainBands, plainLand, plainStart, wallHeights, type PlainLand } from "../src/core/premise/plainLand";
 import { PLAIN_IDS, plainOf } from "../src/core/premise/premises/poisonedPlain";
 import type { Point } from "../src/core/premise/types";
 import { makeSpec } from "../src/core/spec/mapspec";
@@ -43,6 +45,11 @@ const VIEWPORT = { width: 1280, height: 720 };
 /** The whole-map frame: pitch from the horizontal, the camera's distance per tile of the map's side, and how far south
  *  of the map's middle it looks (a share of the side), so the near edge is in the frame. */
 const WHOLE = { pitch: 62, distance: 1.5, south: 0.06 } as const;
+/** The first frame's pitch (degrees under the horizontal: the top of a 35° frame stands just over the horizon), its eye's
+ *  height over the plain's head (levels) and the least it stands behind the start (tiles). */
+const VISTA_PITCH = 15;
+const VISTA_OVER = 16;
+const VISTA_BACK = 2;
 /** The courses drawn on the whole-map frame: the plan's links and the sloughs, by colour. */
 const COURSE = { water: "#4aa3ff", red: "#ff3b30", dry: "#f4d35e" } as const;
 
@@ -76,10 +83,13 @@ async function shoot(browser: Browser, seed: number, size: number): Promise<{ sh
   const st = land.frame.start;
   const b = plainBands(land.plan, land.water, land.heights, land.relief.floor);
   const n = plainStart(land.plan, land.water, land.heights, land.relief.floor, land.frame);
+  const wh = wallHeights(land.plan, land.heights, land.relief.floor);
+  const fd = fallDrop(land.plan, land.heights, land.relief.floor, land.relief.valleys);
   const pct = (v: number) => `${Math.round(100 * v)} %`;
   const caption = [
     `seed ${seed} at ${size}²${land.held ? "" : " (did not hold: " + [...land.landFails.map((f) => f.id), ...(land.frame.reason ? ["frame.start"] : [])].join(", ") + ")"}`,
-    `start: level land ${n.bench}, reach ${n.reach}, to the plain ${n.plain}, to the river ${n.river}, to red water ${n.red}`,
+    `start: level land ${n.bench}, reach ${n.reach}, to its own water ${n.own}, to the plain ${n.plain}, to the river ${n.river}, to red water ${n.red}`,
+    `in the frame: far wall ${wh.far.least} to ${wh.far.most} over the plain, near wall ${wh.near.least} to ${wh.near.most}; the Red Fall drops ${fd ? fd.drop : "?"}`,
     `floor ${pct(b.floor)} of the map; dead ${pct(b.dead)}, green ${pct(b.green)}, dry ${pct(b.dry)}; M ${b.M.toFixed(1)}; the mend changed ${land.found.changed} tiles`,
   ].join("<br>");
   console.log(`seed ${seed} at ${size}²: ${caption.replace(/<br>/g, "; ")}; stage ${ms} ms ${JSON.stringify(land.ms)}`);
@@ -120,15 +130,22 @@ async function shoot(browser: Browser, seed: number, size: number): Promise<{ sh
   });
   await page.waitForFunction(() => (window.dgm3d!.renderer as unknown as { highSettled: boolean }).highSettled, null, { timeout: 300_000 });
   const [mx, my] = startMiddleTile({ x: st.x, y: st.y, orientation: st.orientation });
-  const o = ORIENTATIONS.indexOf(st.orientation);
   const shots: Shot[] = [];
   for (const frame of ["whole", "vista"] as const) {
     let view: unknown;
     if (frame === "whole") view = { mode: "orbit", yaw: 0, pitch: (WHOLE.pitch * Math.PI) / 180, distance: WHOLE.distance * size, target: [size / 2, 8, -size * (0.5 - WHOLE.south)] };
     else {
-      // (the game turns its first camera 35° clockwise from the start's orientation)
-      const cam = openingCamera({ x: mx, y: my, z: st.z, orientation: st.orientation }, VISTA_ZOOM);
-      view = { mode: "orbit", yaw: -((o * 90 + 35) * Math.PI) / 180, pitch: (60 * Math.PI) / 180, distance: cam.distance, target: [cam.target[0], cam.target[2], -cam.target[1]] };
+      // (the eye on the line from the lip through the start, raised by the pitch over the lip)
+      const fall = land.plan.links.find((l) => l.id === PLAIN_IDS.redFall)!.fall!;
+      const lx = (fall.lip[0][0] + fall.lip[1][0]) / 2;
+      const ly = (fall.lip[0][1] + fall.lip[1][1]) / 2;
+      const dx = lx - (mx + 0.5);
+      const dy = ly - (my + 0.5);
+      const far = Math.hypot(dx, dy);
+      const pitch = (VISTA_PITCH * Math.PI) / 180;
+      const p = plainOf(land.plan)!;
+      const across = Math.max(far + VISTA_BACK, (p.L + VISTA_OVER - fall.crest) / Math.tan(pitch));
+      view = { mode: "orbit", yaw: Math.atan2(-dx / far, dy / far), pitch, distance: across / Math.cos(pitch), target: [lx, fall.crest, -ly] };
     }
     await page.evaluate((v) => {
       const rr = window.dgm3d!.renderer as unknown as { persp: { fov: number; updateProjectionMatrix(): void }; setView(v: unknown): void; setClock?: (t: number | null) => void };
@@ -179,7 +196,7 @@ async function shoot(browser: Browser, seed: number, size: number): Promise<{ sh
     }
     const file = `plain-${size}-${seed}-${frame}.jpg`;
     writeFileSync(join(OUT, file), jpg);
-    shots.push({ label: `seed ${seed} at ${size}², ${frame === "whole" ? "the whole map, north up" : "the first frame from the start"}`, file, jpg });
+    shots.push({ label: `seed ${seed} at ${size}², ${frame === "whole" ? "the whole map, north up" : "the first frame from the start's terrace, facing the Red Fall"}`, file, jpg });
   }
   await context.close();
   return { shots, caption };

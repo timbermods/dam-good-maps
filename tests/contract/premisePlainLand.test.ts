@@ -4,8 +4,9 @@
 // (seeds 1 and 2 at each size) are premisePlainLand.heavy.test.ts.
 
 import { describe, expect, it } from "vitest";
-import { MEND, PLAIN_LAND_CHECKS, plainLand, plainLandFailures, type PlainLand, type PlainLandContext } from "../../src/core/premise/plainLand";
-import { lineAt, plainOf, toLocal, turnOf } from "../../src/core/premise/premises/poisonedPlain";
+import { combOf, MEND, nearOnLine, PLAIN_LAND_CHECKS, plainLand, plainLandFailures, type PlainLand, type PlainLandContext, type SideValley } from "../../src/core/premise/plainLand";
+import { FAR_OVER, lineAt, onMap, plainOf, toLocal, turnOf } from "../../src/core/premise/premises/poisonedPlain";
+import type { Point } from "../../src/core/premise/types";
 import { makeSpec, type MapSpec } from "../../src/core/spec/mapspec";
 
 const spec = (seed: number, side: number): MapSpec => makeSpec({ seed, size: { x: side, y: side }, theme: "any", premise: "any" });
@@ -16,7 +17,7 @@ const landOf = (s: MapSpec): PlainLand & { held: boolean } => {
   return r;
 };
 
-// (seed 2 at 128²: its second plan holds)
+// (seed 2 at 128²)
 const s = spec(2, 128);
 const good = landOf(s);
 
@@ -106,7 +107,10 @@ describe("Broken poisoned-floodplain lands fail their invariants", () => {
     ["wall.wanders", "the far wall's foot on the ground ruled from the terrace's head to the plain's foot", (c) => {
       const p = plainOf(c.plan)!;
       const T = turnOf(c.plan, p);
-      const [a, b] = [p.terrace[0], p.plainTo];
+      // (over the stretch where the foot stands on the map, so the ruled foot is on the ground its whole length)
+      let [a, b] = [Infinity, -Infinity];
+      for (let u = Math.ceil(p.terrace[0]); u <= p.plainTo; u++)
+        if (onMap(T, [u, lineAt(p.far, p.step, u)], 3)) [a, b] = [Math.min(a, u), Math.max(b, u)];
       const [va, vb] = [lineAt(p.far, p.step, a), lineAt(p.far, p.step, b)];
       for (let i = 0; i < c.heights.length; i++) {
         const [u, v] = toLocal(T, [tile(i)[0] + 0.5, tile(i)[1] + 0.5]);
@@ -115,10 +119,46 @@ describe("Broken poisoned-floodplain lands fail their invariants", () => {
         c.relief.floor[i] = v <= ruled ? 1 : 0;
       }
     }],
+    ["wall.height", "the far wall shaved to 4 over the plain's head", (c) => {
+      const p = plainOf(c.plan)!;
+      const T = turnOf(c.plan, p);
+      for (let i = 0; i < c.heights.length; i++) {
+        const [u, v] = toLocal(T, [tile(i)[0] + 0.5, tile(i)[1] + 0.5]);
+        if (!c.relief.floor[i] && v > lineAt(p.far, p.step, u)) c.heights[i] = Math.min(c.heights[i], p.L + FAR_OVER - 4);
+      }
+    }],
+    ["fall.drop", "the gulch's mouth cut down to 3 over the backswamp", (c) => {
+      const p = plainOf(c.plan)!;
+      const T = turnOf(c.plan, p);
+      const sv = good.found.valley;
+      for (let i = 0; i < c.heights.length; i++) {
+        if (c.relief.floor[i]) continue;
+        const [u, v] = toLocal(T, [tile(i)[0] + 0.5, tile(i)[1] + 0.5]);
+        const q = nearOnLine(sv.line, u, v);
+        if (q.s <= 5 && q.d <= 3) c.heights[i] = Math.min(c.heights[i], sv.foot + 3);
+      }
+    }],
+    ["terrain.ruled_land", "the far wall's side valleys a comb: evenly spaced, parallel, alike", (c) => {
+      // (eight straight grooves 18 tiles apart, each 22 long at 20° off the wall's normal, 2.5 half-wide)
+      const p = plainOf(c.plan)!;
+      const comb: SideValley[] = [];
+      for (let k = 0; k < 8; k++) {
+        const a = p.terrace[0] + 10 + 18 * k;
+        const v0 = lineAt(p.far, p.step, a);
+        const line: Point[] = Array.from({ length: 23 }, (_, s) => [a + s * Math.sin(0.35), v0 + s * Math.cos(0.35)]);
+        comb.push({ wall: "far", foot: p.L - 1, mouth: a, line, hang: 6, rise: 1, half: line.map(() => 2.5), pinch: -1, kind: "valley", box: [a - 14, v0 - 14, a + 22, v0 + 36] });
+      }
+      expect(combOf(c.plan, comb).why).toMatch(/evenly spaced|alike/);
+      c.relief = { ...c.relief, valleys: [...comb, ...c.relief.valleys.filter((v) => v.wall === "near")] };
+    }],
     ["terrain.ruled_land", "the ground laid in straight terraces", (c) => {
       for (let i = 0; i < c.heights.length; i++) c.heights[i] = 4 + Math.floor(tile(i)[1] / 6);
     }],
   ];
+
+  it("draws its side valleys no comb", () => {
+    for (const wall of ["far", "near"] as const) expect(combOf(good.plan, good.relief.valleys, wall).why).toBeNull();
+  });
 
   it("has a broken land for every land invariant", () => {
     expect([...new Set(broken.map(([id]) => id))].sort()).toEqual(PLAIN_LAND_CHECKS.map((inv) => inv.id).sort());

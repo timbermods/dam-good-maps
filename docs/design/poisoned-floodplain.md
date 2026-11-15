@@ -27,14 +27,15 @@ Across the valley, from the near wall to the far wall:
 
 | Landform | What it is in life | How it is made | Numbers |
 |---|---|---|---|
-| The near wall | The valley's side the river hugs | The shared relief | As the theme's |
+| The near wall | The valley's side the river hugs | Crags and benches from its foot, its crest 4 to 6 over the plain; past it the theme's upland, softened (its plates' straight sides read through noise) | 4 or more over the plain where the first frame sees it |
 | The river | The trunk stream, clean, the map's strong springs at its head | Stage 1's course, meandering by flow; it stays in the near third of the floor and leaves by an edge | Width by flow as the lake stair's channels; bed two under the plain |
 | The levees | The banks a river builds from its own floods: highest at the channel, uneven, with low places where old floods broke out | A bank along both sides of the river whose height is noise along the course: one level over the plain for most of its length, level with the plain at 2 to 4 low places (each 4 to 8 tiles long). Its width is noise too, 3 to 6 tiles. It follows the meanders, so it is never straight | No stretch of crest at one height longer than a fifth of the river's length on the plain |
-| The plain | The floodplain: the largest level land on the map | One level, `L`, falling one level down the valley every 40 to 60 tiles as the river's own profile falls (a riser that wanders across the floor, never a straight step) | Mean width `P` across the valley (§2); its length 0.7 to 0.85 of the side along the axis; the floor (plain and backswamp) 20 to 30 % of the map at every size |
+| The plain | The floodplain: the largest level land on the map | One level, `L`, falling one level down the valley every 40 to 60 tiles as the river's own profile falls (a riser that wanders across the floor, never a straight step); at most as many risers as leave the Red Fall's 6 or 7 levels under the water's ceiling of 16 (two), farther apart on a longer plain | Mean width `P` across the valley (§2); its length 0.7 to 0.85 of the side along the axis; the floor (plain and backswamp) 20 to 30 % of the map at every size |
 | The backswamp | The floor's lowest strip, under the far wall, where the plain's water gathers | A strip one level under the plain, `L − 1`, 7 to 10 tiles wide at 128² and up to 0.06 of the side on larger maps, its edge with the plain a wandering riser | It carries the red stream, which wanders within it |
 | The slough | An old channel a flood cut from a low place in the levee across the plain to the backswamp | A dry bed one level under the plain, 2 or 3 wide, winding (a bend every 6 to 10 widths), from a low place in the levee's middle third (the upper half of it where the red stream joins the river) to the backswamp. One at 128², two at 192² and 256² | Dry on day 1; it is the river-in's way, already in the land |
-| The far wall | The valley's other side | The shared relief, higher than the near wall; hard rock at the gulch's mouth | Sheer only at the Red Fall |
-| The gulch (the Stain) | A hanging side valley: its stream never cut down to the main floor | A side valley of the far wall found by search (§3), its floor 3 to 5 levels over the backswamp at its mouth, narrow (4 to 7 wide), with a narrows 3 or fewer wide within its lower half | The red source at its head |
+| The far wall | The valley's other side, the edge of a plateau | Big crags and narrow benches from its foot to a crest 9 to 13 over the plain; past it a plateau that rolls by noise and sinks a few levels toward the edge, its side valleys and old valleys cut in it; hard rock at the gulch's mouth | 8 or more over the plain wherever the first frame sees it (within 60 tiles of the start); sheer only at the Red Fall |
+| The side valleys | Hanging valleys of both walls; never a comb | Each a wander: mouths spaced by noise (0.4 to 2.5 of the mean), each off its wall's normal by its own heading (within 35°, its neighbour's never within 10° for more than 12 tiles), turning along it by noise; lengths and widths from wide ranges; some branch, some are alcoves. The far wall's hang at the Red Fall's height | Cut by distance from their wandering lines, their edges jagged by noise |
+| The gulch (the Stain) | A hanging side valley: its stream never cut down to the main floor | A side valley of the far wall found by search (§3), its floor 6 or 7 levels over the backswamp at its mouth (D510), narrow (4 to 7 wide), with a narrows 3 or fewer wide within its lower half | The red source at its head |
 | The col | A low saddle between the gulch and the next side valley | Found with the gulch: the lowest point of the ridge between them, 2 levels over the gulch's floor at the narrows | Never under 2 |
 | The old valley (the Dry Fork) | A dry side valley with its own way out | The neighbour of the gulch on its downstream or upstream side, falling from the col to a map edge of its own, never opening onto the plain | Bare, a few dead trees, no water on day 1 |
 | The start's terrace | A river terrace: an older, higher floor the river left when it cut down | A bench 2 levels over the plain at the plain's upstream end, on the plain's side of the river, upstream of the gulch's mouth by the badwater distance or more | Room by the shared floors (D515); its own brook from a spring in the slope behind it |
@@ -97,7 +98,7 @@ valley in the land the shared relief made:
   red source: one badwater source at the gulch's head, its strength a fifth (Badwater low), a quarter (medium) or a third (high) of the river's, enough for a
   stream 2 wide the length of the backswamp.
 - **Courses.** The river: in at one edge, out at another, between its levees. The red stream: down the gulch, over the
-  Red Fall (a fall of 3 to 5 levels, the landmark: the gulch's mouth stands that far over the backswamp), along the backswamp, then by the seed either into the river in the river's
+  Red Fall (a fall of 6 or 7 levels, the landmark, D510: the gulch's mouth stands that far over the backswamp), along the backswamp, then by the seed either into the river in the river's
   last 30 % (D476, D498: the river is never red above the join) or out by the edge on its own. The start's brook: down
   the terrace into the river.
 - **Hazards.** The premise plans the map's badwater. `land/hazards.ts` places none of its own on a map of this
@@ -146,11 +147,14 @@ Stage as PREMISES §1.4; each with a hand-broken case in its test.
   `plain.width` (`P` against §2); `stream.join` (the join in the river's last 30 %, or the stream's own exit);
   `start.badwater` (the terrace upstream of the mouth by the distance); `frame.fall` (the Red Fall in the first
   frame); `poisoned.ladder` (every rung has a site); with §1.4's shared plan checks.
-- **land:** `gulch.found` (the pair within the mend's budget); `col.over` (2 or more over the narrows' floor, and the
+- **land:** `gulch.found` (the pair within the mend's budget); `fall.drop` (the Red Fall 6 or 7 on the ground, from the
+  gulch's mouth to the backswamp); `wall.height` (the far wall 8 or more over the plain, the near wall 4 or more,
+  wherever the first frame sees them: the highest ground within 16 tiles out from the foot, 4 either way, the foot
+  within 60 tiles of the start); `col.over` (2 or more over the narrows' floor, and the
   lowest way out of the gulch other than its mouth); `fork.own` (the Dry Fork reaches its edge and no tile of the
   plain by `flowThrough` from the col); `levee.wanders` (§1's crest rule, and no straight run of bank over 8 tiles);
   `plain.bands` by the soil's reach on stage 2's ground (dead 8 to 25 %, dry 30 % or more); `terrain.ruled_land`
-  (the shared look check).
+  (the shared look check, and each wall's side valleys never a comb: `combOf`).
 - **settled:** `river.clean` (no tile of the river above the join at contamination over 0); `plain.bands` again on
   the settled water; `levee.holds` (in a badtide's water, soil contamination on the plain only within 7 tiles of a
   low place); every blocking check of the shared gate.

@@ -89,8 +89,26 @@ export const RIVER_ROOM = { width: 8, share: 0.12 } as const;
  *  least every fifth of the river's length on the plain, which 2 to 4 low places alone cannot give). */
 export const LEVEE = { width: [3, 6], cell: [10, 16], low: [4, 8], lows: { small: [2, 3], large: [3, 4] }, apart: 12, crestCell: 11, hump: 0.4, humpLen: [4, 7], most: 0.2, mostAt1: 0.5 } as const;
 /** The plain falls a level down the valley every 40 to 60 tiles, at a riser that wanders across the floor: its wander
- *  `amp` tiles by noise over `cell` tiles across. None within `end` tiles of the plain's foot. */
+ *  `amp` tiles by noise over `cell` tiles across. None within `end` tiles of the plain's foot. The water's ceiling
+ *  (`plainTop`) holds the Red Fall's 6 or 7 levels (D510) over the backswamp only with the plain's head low: so the
+ *  plain has as many risers as leave its head at `L` that room (`mostRisersUnder`), and on a longer plain they stand
+ *  farther apart (`riserEvery`). */
 export const RISER = { every: [40, 60], amp: [3, 6], cell: [8, 14], end: 20 } as const;
+/** The far wall stands this many levels or more over the plain wherever the first frame sees it (planning's verdict on
+ *  round 1 of the land, 2026-11-15); the near wall `NEAR_OVER` (its crest along the valley). */
+export const FAR_OVER = 8;
+export const NEAR_OVER = [4, 6] as const;
+/** The plain's least level at its head: the river's bed at the downstream end a level over the floor, two under it. */
+const PLAIN_LEAST = BED_FLOOR + 3;
+/** The most risers a plain may have under the water's ceiling `top`: its head `L` leaves the Red Fall's least height
+ *  and the gulch's least rise under `top - 2`, where the Red Spring may stand. */
+export const mostRisersUnder = (top: number): number => Math.max(0, top - 2 - GULCH.rise[0] - GULCH.h[0] + 1 - PLAIN_LEAST);
+/** The risers' spacing on a plain whose risers may run `span` tiles (its head to `RISER.end` above its foot), `most`
+ *  of them at most: 40 to 60 tiles, or evenly farther apart where `most` cannot reach its foot so. */
+export function riserEvery(span: number, most: number): [number, number] {
+  const even = span / (most + 1);
+  return even * 1.15 <= RISER.every[1] ? [RISER.every[0], RISER.every[1]] : [Math.max(RISER.every[0], even * 0.95), even * 1.15];
+}
 /** The start's terrace at the plain's head (the design's §5): its length down the valley holds the start's bench
  *  (`frame.bench`) `room` times over beside the brook, which crosses it `brookAt` tiles from its upstream end; the start
  *  stands `lip` tiles back from its downstream lip, `across` of the way from the river's room to the far wall. */
@@ -100,10 +118,10 @@ export const TERRACE = { len: [26, 56], room: 1.2, brookAt: 9, lip: 4, across: [
  *  frame) to `to` of the plain's length; the least run of it the vista frame shows around the gulch's mouth, tiles (the
  *  lip's widest and a tile either side); how far past the nearest framed place the mouth may be drawn. */
 export const WINDOW = { to: 0.75, framed: 9, past: 3 } as const;
-/** The gulch (the Stain): its floor over the backswamp at its mouth (the Red Fall's height there), its width, its
+/** The gulch (the Stain): its floor over the backswamp at its mouth (the Red Fall's height there: 6 or 7, D510), its width, its
  *  length into the far wall, its narrows (where in its lower half, how wide), how far its floor rises to its head; the
  *  col over the narrows' floor; the Dry Fork's fall from the col to its edge. */
-export const GULCH = { h: [3, 5], width: [4, 7], len: [18, 30], slant: 0.4, narrowsAt: [0.2, 0.45], narrows: [2, 3], rise: [1, 3], colOver: 2, colOut: [7, 11], forkFall: [3, 6] } as const;
+export const GULCH = { h: [6, 7], width: [4, 7], len: [18, 30], slant: 0.4, narrowsAt: [0.2, 0.45], narrows: [2, 3], rise: [1, 3], colOver: 2, colOut: [7, 11], forkFall: [3, 6] } as const;
 /** The red source's strength as a share of the river's by the Badwater setting (the design's §4, planning's ruling of
  *  2026-11-15: a fifth, a quarter, a third). */
 export const RED_SHARE = { low: 1 / 5, normal: 1 / 4, high: 1 / 3 } as const;
@@ -215,8 +233,10 @@ export interface PlainNumbers {
   /** The badwater distance the start keeps (D469, D85). */
   badwater: number;
   /** Stage 2's search (`plainLand.ts`): the side valley found for the gulch (its index among the relief's), the tiles the
-   *  mend changed, how far over the narrows the col stood before the mend. Absent on the plan as drawn. */
-  found?: { valley: number; changed: number; over: number };
+   *  mend changed, how far over the narrows the col stood before the mend, and where the plan as drawn looked for the
+   *  gulch (the far wall's side valleys are drawn from there, before and after the re-siting). Absent on the plan as
+   *  drawn. */
+  found?: { valley: number; changed: number; over: number; anchor: number };
 }
 
 export type PlainPlan = Omit<PremisePlan, "premise"> & { premise: typeof PLAIN_ID; plain: PlainNumbers };
@@ -233,10 +253,6 @@ const I = PLAIN_IDS;
 const plainTop = (spec: MapSpec) => Math.min(spec.settings.terrain.highestTerrain, EDITOR_LEVEL);
 /** The badwater distance the start keeps (as the shared gate reads it: `validate/playability.ts`). */
 const badwaterOf = (spec: MapSpec) => Math.max(spec.settings.hazards.badwaterDistance, spec.settings.start.rules.badwaterWithin);
-/** The most risers a plain of this side can hold. */
-const mostRisers = (N: number) => Math.max(0, Math.floor((PLAIN.long[1] * N - RISER.end) / RISER.every[0]));
-/** The plain's least level: the river's bed at the downstream end a level over the floor, the Red Fall's pool on it. */
-const leastL = (N: number) => BED_FLOOR + 3 + mostRisers(N);
 
 export function poisonedPlainEligible(spec: MapSpec): string | null {
   const { x, y } = spec.size;
@@ -246,7 +262,8 @@ export function poisonedPlainEligible(spec: MapSpec): string | null {
   if (spec.settings.hazards.badwater === "off") return "The poisoned floodplain is a red stream's story, and Badwater is Off";
   if (spec.settings.water.rivers === 0) return "The poisoned floodplain needs its river, and Rivers is 0";
   // the Red Fall's spring under the water's ceiling: the plain's lowest level, the backswamp under it, the fall over it
-  if (leastL(x) - 1 + GULCH.h[0] + GULCH.rise[0] > plainTop(spec) - 2) return `Highest terrain ${spec.settings.terrain.highestTerrain} is too low for the plain's levels and the Red Fall`;
+  if (PLAIN_LEAST - 1 + GULCH.h[0] + GULCH.rise[0] > plainTop(spec) - 2) return `Highest terrain ${spec.settings.terrain.highestTerrain} is too low for the plain's levels and the Red Fall`;
+  if (PLAIN_LEAST + FAR_OVER + 1 > spec.settings.terrain.highestTerrain) return `Highest terrain ${spec.settings.terrain.highestTerrain} is too low for the far wall over the plain`;
   return null;
 }
 
@@ -623,9 +640,11 @@ function layout(spec: MapSpec, attempt: number, t: number): Laid {
 
   // ---- down the valley: the plain's risers, its level
   const risers: Riser[] = [];
-  for (let u = plainFrom + rng.range(RISER.every[0], RISER.every[1]); u < plainTo - RISER.end; u += rng.range(RISER.every[0], RISER.every[1]))
+  const mostR = mostRisersUnder(top);
+  const every = riserEvery(plainTo - RISER.end - plainFrom, mostR);
+  for (let u = plainFrom + rng.range(every[0], every[1]); u < plainTo - RISER.end && risers.length < mostR; u += rng.range(every[0], every[1]))
     risers.push({ at: r2(u), amp: r2(rng.range(RISER.amp[0], RISER.amp[1])), cell: r2(rng.range(RISER.cell[0], RISER.cell[1])), seed: seedOf() });
-  const L = BED_FLOOR + 3 + risers.length + (draw() < 0.5 ? 1 : 0);
+  const L = PLAIN_LEAST + risers.length + (draw() < 0.5 && risers.length < mostR ? 1 : 0);
   const lv = (u: number, v: number) => (u < plainFrom ? L : plainLevel({ L, risers }, u, v));
 
   // ---- the start on the terrace's lip at the plain's head, a third to a half of the way across from the river,
@@ -731,8 +750,9 @@ function layout(spec: MapSpec, attempt: number, t: number): Laid {
 
   const redFlow = r2(flow * (RED_SHARE[spec.settings.hazards.badwater as keyof typeof RED_SHARE] ?? RED_SHARE.normal));
   const endJoin = rng.float() < 0.5;
-  const walls = { near: Math.min(sky - 2, L + rng.int(5, 8)), far: 0 };
-  walls.far = Math.min(sky, Math.max(walls.near + 2, crest + rise + 4));
+  const walls = { near: Math.min(sky - 2, L + rng.int(NEAR_OVER[0] + 1, NEAR_OVER[1] + 1)), far: 0 };
+  walls.far = Math.min(sky, Math.max(walls.near + 2, crest + rise + 4, L + FAR_OVER + 1));
+  if (walls.far < L + FAR_OVER) return { why: "the far wall cannot stand 8 over the plain under the highest ground" };
   if (walls.far < colLevel + 2) return { why: "the far wall stands under the col" };
 
   // ---- the levees: width by noise, the low places, the crest runs; the sloughs from the low places to the backswamp
@@ -1209,13 +1229,16 @@ const plainLevels: Invariant = {
     };
     if (p.terraceLevel !== p.L + TERRACE.rise) return fail(`The terrace stands at ${p.terraceLevel}, not ${TERRACE.rise} over the plain (${p.L + TERRACE.rise})`);
     let last = p.plainFrom;
+    const mostR = mostRisersUnder(plan.top);
+    const every = riserEvery(p.plainTo - RISER.end - p.plainFrom, mostR);
+    if (p.risers.length > mostR) return fail(`The plain has ${p.risers.length} risers (${mostR} at most under the water's ceiling, ${plan.top})`);
     for (const r of p.risers) {
       const gap = r.at - last;
-      if (gap < RISER.every[0] - 0.01 || gap > RISER.every[1] + 0.01) return fail(`A riser of the plain stands ${gap.toFixed(1)} tiles below the last (${RISER.every.join(" to ")})`);
+      if (gap < every[0] - 0.01 || gap > every[1] + 0.01) return fail(`A riser of the plain stands ${gap.toFixed(1)} tiles below the last (${every.map((e) => e.toFixed(0)).join(" to ")})`);
       if (r.amp < RISER.amp[0] - 0.01) return fail(`A riser of the plain wanders ${r.amp} tiles (a straight step)`);
       last = r.at;
     }
-    if (p.plainTo - last > RISER.every[1] + RISER.end + 0.01) return fail(`The plain runs ${(p.plainTo - last).toFixed(0)} tiles to its foot without a riser`);
+    if (p.plainTo - last > every[1] + RISER.end + 0.01) return fail(`The plain runs ${(p.plainTo - last).toFixed(0)} tiles to its foot without a riser`);
     const river = linkOf(plan, I.river);
     const springs = bodyOf(plan, I.springs);
     if (!river?.path || !Array.isArray(river.bed) || !springs) return fail("The plan has no river from its springs");
