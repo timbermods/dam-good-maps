@@ -52,7 +52,7 @@ describe("a river through a planned lake", () => {
     for (const [theme, seed] of [
       // (seed 7 for 0.8.5's maps, D148: River Valley round 2's trunk no longer crosses a planned lake on seed 5; seed 4 for
       // seed 7 since generator 0.10.16's ground with grade, D148: seed 7's courses no longer cross a planned lake, seed 4's
-      // cross 41 of its tiles; seed 1 for seed 4 since generator 0.10.23's round forms (the look round), D148: seed 4's courses
+      // cross 41 of its tiles; seed 1 for seed 4 since generator 0.10.24's round forms (the look round), D148: seed 4's courses
       // no longer cross a planned lake, seed 1's cross 11 of its tiles, the first of seeds 1–12 that does)
       ["riverValley", 1],
       ["riverValley", 8],

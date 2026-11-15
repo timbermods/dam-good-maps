@@ -212,7 +212,7 @@ test("an Unstable Core's moment shows under the water row while a hazard is held
   const errors: string[] = [];
   page.on("pageerror", (e) => errors.push(String(e)));
   await page.setViewportSize({ width: 1400, height: 900 });
-  // (seed 7 since generator 0.10.23's round forms (the look round), D148: the land moved the cores' draws, and seed 4242's
+  // (seed 7 since generator 0.10.24's round forms (the look round), D148: the land moved the cores' draws, and seed 4242's
   // map now holds one core, in cycle 8, so its note stands alone; of seeds 1 to 8, seed 7's alone holds exactly two, each
   // with a moment of its own, cycles 7 and 6 (seeds 5 and 8 one, the others three or four))
   await openEditor(page, "s=7&z=96&d=n&t=riverValley&bw=0&uc=1");
@@ -223,7 +223,7 @@ test("an Unstable Core's moment shows under the water row while a hazard is held
   const cores = notes.filter({ hasText: /^Unstable core/ });
   await expect(notes).toHaveCount(0);
   await bar.getByRole("button", { name: "Badtide" }).click();
-  // (this map's two cores start their countdowns in cycles 7 and 6 since generator 0.10.23 (seed 7, above); seed 4242's in
+  // (this map's two cores start their countdowns in cycles 7 and 6 since generator 0.10.24 (seed 7, above); seed 4242's in
   // cycles 7 and 12 since generator 0.10.20's contour edges and their mends,
   // D518, D148: the land moved the cores' draws; cycles 12 and 11 since generator 0.10.17's start floors, D515, D148: the
   // land moved the cores' draws; cycles 9 and 8 since generator 0.10.16's ground with grade, D148: the

@@ -50,7 +50,7 @@ test("a river that dries out completely gets the dry tint as well as the line, d
   const errors: string[] = [];
   page.on("pageerror", (e) => errors.push(String(e)));
   await page.setViewportSize({ width: 1280, height: 800 });
-  // (Islands seed 1 since generator 0.10.23's round forms, D148: no water of seed 3 dries out completely now; of Islands
+  // (Islands seed 1 since generator 0.10.24's round forms, D148: no water of seed 3 dries out completely now; of Islands
   // 96² seeds 1–14 a body of water dries out completely in 1, 10, 11 and 12, and seed 1 is the first, 48 bed tiles gone.
   // Islands seed 2 since generator 0.10.11, #726, D148: seed 1's water no longer dries out completely; seed 3 since
   // generator 0.10.20's contour edges and their mends, D518, D148: no water of seed 2 dries out completely now; of Islands

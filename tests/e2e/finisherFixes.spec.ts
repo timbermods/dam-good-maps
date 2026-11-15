@@ -139,7 +139,7 @@ test("the checks' Show marks the tiles the problem names, and Esc takes the mark
 test("Markers labels the seeps, aquifers, drains and reserves, with a warning on the aquifer that gives no water", async ({ page }) => {
   test.setTimeout(300_000);
   await page.setViewportSize({ width: 1600, height: 900 });
-  // (seed 3 since generator 0.10.23's round forms, D148: on seed 2's new land the seep is placed on a flat spot the view
+  // (seed 3 since generator 0.10.24's round forms, D148: on seed 2's new land the seep is placed on a flat spot the view
   // closing in on the three shows without its label (none of one, dev's run 43562178770); seed 3's three all get theirs.
   // Seed 2 since generator 0.10.17, D515, D148: seed 1's seep now lands where the view closing in on the three leaves it
   // no label, at the view's edge, as labels do there; seeds 2, 3 and 4 made the case)

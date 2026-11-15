@@ -47,7 +47,7 @@ const spec = (theme: ThemeId, size: number, seed: number, badwaterDistance?: num
 
 describe("the shown land's bounds (#236)", () => {
   it("above 128², a shown land failing the same way three times in a row ends its round, and is never dropped within it", () => {
-    // (Highlands 136², badwater distance 60, seed 1 since generator 0.10.23's round forms, the look round, D148: seed 6 passes now
+    // (Highlands 136², badwater distance 60, seed 1 since generator 0.10.24's round forms, the look round, D148: seed 6 passes now
     // with no round ended by the bound; of seeds 1–8, 10–14, 18, 27, 28, 34, 36, 48, 56 and 59 only 1, 2, 8 and 10 end a round now, and none breaks
     // the shown land's rules; seed 6 since the D518 mends (the rolling ground's reweighed noise, compact rises,
     // wash treads and dead-stand knots), D148: seed 15's attempts no longer fail three alike on a shown land, it passes on land 5; of
@@ -76,7 +76,7 @@ describe("the shown land's bounds (#236)", () => {
 
   it("each stage's progress says how many attempts failed before it and why the last did, in a short plain phrase", () => {
     // (seed 2: it fails six attempts before its map, with several reasons; seed 1 makes its map at the first since generator 0.10.7, D502;
-    // seed 1 since generator 0.10.23's round forms, the look round, D148: seed 2 fails one attempt now, and seed 1 fails four, each
+    // seed 1 since generator 0.10.24's round forms, the look round, D148: seed 2 fails one attempt now, and seed 1 fails four, each
     // for its own reason)
     const { progress, failures } = traced(spec("riverValley", 64, 1));
     expect(failures.length).toBeGreaterThan(1);

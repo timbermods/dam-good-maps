@@ -492,7 +492,7 @@ test("Quake: a painted Lift follows the stroke and is kept when let go; V flips 
 });
 
 test("Craterize is click-only (D368 (7)): a drag draws no line and makes one crater, centred where the press began", async ({ page }) => {
-  // (seed 1 since generator 0.10.23's round forms, D148: on 4244 the press now lands at the map's west edge beside a
+  // (seed 1 since generator 0.10.24's round forms, D148: on 4244 the press now lands at the map's west edge beside a
   // fall, and the ground that gives way down it pulls the lowered tiles' middle 2.4 tiles west of the press (dev's run
   // 43562178770), as on 4243 (2.4) and 4245 (2.3); on seed 1 the press lands on open ground, the crater's middle 0.02
   // tiles from it. Seed 4244 since 0.8.8's maps, the Canyon and Highlands height round, D148: on 4242 the far tile stands

@@ -10,7 +10,7 @@ test("a brush on a cliff's face lies on that cliff, under the pointer, and its s
   const errors: string[] = [];
   page.on("pageerror", (e) => errors.push(String(e)));
   await page.setViewportSize({ width: 1400, height: 900 });
-  // (seed 8 since generator 0.10.23's round forms, D148: the first cliff seed 7's aim finds, at (30, 45), now shows at the
+  // (seed 8 since generator 0.10.24's round forms, D148: the first cliff seed 7's aim finds, at (30, 45), now shows at the
   // view's top, 95 px down, under the bar over the map, so the pointer there never reaches the map; seeds 8, 6, 5 and 4
   // stage it)
   await openEditor(page, "s=8&z=128&d=n&t=canyon");

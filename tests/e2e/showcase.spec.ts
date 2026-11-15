@@ -11,7 +11,7 @@ test("Showcase: start a search, see a card, stop, open a pick", async ({ page })
   const errors: string[] = [];
   page.on("pageerror", (e) => errors.push(String(e)));
   await page.setViewportSize({ width: 1920, height: 1080 });
-  // (seed 13 since generator 0.10.23's round forms (the look round), D148: the land moved, and seed 4242's search now
+  // (seed 13 since generator 0.10.24's round forms (the look round), D148: the land moved, and seed 4242's search now
   // offers its variation 1 under the name of the map on show, "Shelf Above Valley", so the waits below for the pick's name
   // in the title and on the on-show card were met before the pick had opened, and the focus was read while the open was
   // still under way, on the page's body; seed 13's first fourteen candidates never offer a card named as the map on show,

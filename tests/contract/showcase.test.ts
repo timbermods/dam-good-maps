@@ -1,6 +1,6 @@
 // Showcase mode (D488 (2)): the search makes the asked map's siblings in order, measures each one's arc,
 // keeps the best three that pass, and each pick's share spec regenerates its file byte for byte. The beats
-// asserted here were read off these three maps by hand (Lake Basin 96², seed 2, variations 0–2) and re-read off the new maps for generator 0.10.13 (D507, D148), 0.10.16 (ground with grade, D148), 0.10.17 (the start's floors, D515, D148) 0.10.20 (contour edges, D518, D148), 0.10.21 (the look round, D518, D148) and 0.10.23 (round forms, D148).
+// asserted here were read off these three maps by hand (Lake Basin 96², seed 2, variations 0–2) and re-read off the new maps for generator 0.10.13 (D507, D148), 0.10.16 (ground with grade, D148), 0.10.17 (the start's floors, D515, D148) 0.10.20 (contour edges, D518, D148), 0.10.21 (the look round, D518, D148) and 0.10.24 (round forms, D148).
 
 import { createHash } from "node:crypto";
 import { describe, expect, it } from "vitest";
@@ -52,7 +52,7 @@ describe("Showcase mode (D488 (2))", () => {
     // next water 8 tiles' walk away, its dam a 4-tile one 30 tiles south-east holding 3,100; the second sibling's nearest water
     // is 14 tiles' walk from its start, the next 25, its landmark an 11-level mesa 40 tiles south, its dam a 7-tile one 20 tiles
     // south-west holding 5,400)
-    // (generator 0.10.23's round forms, the look round, D148: no mesa, plateau, butte, cone or knoll is a circle and the
+    // (generator 0.10.24's round forms, the look round, D148: no mesa, plateau, butte, cone or knoll is a circle and the
     // weathering reaches in a disc, so all three lands moved and the beats below were read off the new maps by hand with
     // `arcOf` and `showcaseSearch` at tries: 3; before it the asked map had its 8-level mesa 44 tiles east, a dam 53 tiles
     // south-east holding 6,500 and a drowned village but no drought choice, the first sibling every beat but the vista, and

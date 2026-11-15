@@ -11,7 +11,7 @@ test("the title renames the map in place: Enter saves with no undo step, a blank
   const errors: string[] = [];
   page.on("pageerror", (e) => errors.push(String(e)));
   await page.setViewportSize({ width: 1400, height: 900 });
-  // (seed 13 since generator 0.10.23's round forms (the look round), D148: the land moved and seed 4242's map is named by
+  // (seed 13 since generator 0.10.24's round forms (the look round), D148: the land moved and seed 4242's map is named by
   // its standout "Shelf Above Valley" now, too wide for one line in the header's room at 1400 (147px there), so its title
   // stands on two lines and the field, one line, sits lower; seed 13's "Lee Valley" stands on one line, as 4242's name did)
   await openEditor(page, "s=13&z=96&d=n&t=riverValley");

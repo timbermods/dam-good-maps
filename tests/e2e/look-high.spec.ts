@@ -311,7 +311,7 @@ test("the game's bloom is drawn only when something can pass its knee, and skipp
       // corner, its bowl 3.2 up): the bloom is drawn, from a source drawn round the start alone, and the frame is what
       // the whole frame's source makes of it
       // (3.55 from the bowl, asked for: the frame these numbers were measured on. The view asked for 11, but on seed
-      // 4242's land before generator 0.10.23 the rock behind held the camera at 3.55; 0.10.23's round forms (#1102, D148)
+      // 4242's land before generator 0.10.24 the rock behind held the camera at 3.55; 0.10.24's round forms (#1102, D148)
       // took that rock away, the camera stood at 11 and the lantern, a sixth as wide, lifted 71,716 bytes)
       r.setView({ mode: "orbit", yaw: -Math.PI / 6, pitch: 0.5, distance: 3.55, target: [at[0] - 1, at[1] + 3.2, at[2] - 1] });
       canvas();
@@ -555,7 +555,7 @@ test("an eruption in High (D378): its plume rises, its lava glows on High's grou
   page.on("pageerror", (e) => errors.push(String(e)));
   page.on("console", (m) => m.type() === "error" && errors.push(m.text()));
   await page.setViewportSize({ width: 1280, height: 900 });
-  // (Highlands seed 47 since generator 0.10.23's round forms (the look round, #1102), D148. The spot found below on the land
+  // (Highlands seed 47 since generator 0.10.24's round forms (the look round, #1102), D148. The spot found below on the land
   // before them (seed 31) became a level-6 knoll in a lake at X 41 · Y 55, its flows running into the water (1,381 lava
   // pixels on CI); seed 2, the choice here until now, finds X 71 · Y 71 and drew 1,799 on CI (hot - cold, #1102 at
   // b0cf92cc) against 2,350 to 2,610 in software drawing here: 136 of the 625 tiles within 12 of that spot are water and
@@ -667,7 +667,7 @@ test("an eruption in High (D378): its plume rises, its lava glows on High's grou
 
 test("every basin source's highlight reads, under its own water too, in High as in Standard (D378, D249; Kyler, 2026-10-03), and the water over one the pointer's water comes from glows (D196), clean and bad alike", async ({ page }) => {
   const errors: string[] = [];
-  // (River Valley seed 4 since generator 0.10.23's round forms (the look round), D148: on seeds 3, 2, 5, 7 and 9 the river
+  // (River Valley seed 4 since generator 0.10.24's round forms (the look round), D148: on seeds 3, 2, 5, 7 and 9 the river
   // now enters at the map's east or west edge, its first sources on the edge column under its water, whose highlight shows
   // only as a thin red line along the edge, the tile's middle the test reads no redder (0 on all five; seed 3's at
   // X 95 · Y 52, 0.48 under); every one of seed 4's sources turns red, eight of them more than 0.5 under their own water,
@@ -845,7 +845,7 @@ test("High's visible seasons follow the game's timers: no plant dies of dryness 
   const errors: string[] = [];
   page.on("pageerror", (e) => errors.push(String(e)));
   await page.setViewportSize({ width: 1280, height: 900 });
-  // (seed 8 since generator 0.10.23's round forms (the look round), D148: on seed 3's land every plant the drought dries
+  // (seed 8 since generator 0.10.24's round forms (the look round), D148: on seed 3's land every plant the drought dries
   // has dried by its first days, so all 646 are dead by day 20 and none more by day 24; seed 4's the same (663), and on
   // seeds 1, 2 and 5 to 7 nothing withers at all, as on a map with caves; on seed 8's, 590 are dead by day 20 and 604 by
   // day 24. Seed 3 since

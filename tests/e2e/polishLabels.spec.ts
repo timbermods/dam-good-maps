@@ -67,7 +67,7 @@ test("the open Legend hangs centred under its toggle and keeps Ground height's L
 test("the minimap shows a held Drought day's water, and the map's own again after it", async ({ page }) => {
   test.setTimeout(240_000);
   await page.setViewportSize({ width: 1920, height: 1080 });
-  // (seed 6 since generator 0.10.23's round forms (the look round), D148: the land moved and seed 2's river came out
+  // (seed 6 since generator 0.10.24's round forms (the look round), D148: the land moved and seed 2's river came out
   // shallow, 42 of its minimap's pixels water-blue, the deep water's colour; of seeds 1 to 6, seed 6's shows the most, 214,
   // 31 on its held Drought day. Seed 2 since generator 0.10.13, D507: the start frames the map, and seed 4242's river came
   // out shallow, 50 water-blue)

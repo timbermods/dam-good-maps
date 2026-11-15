@@ -85,9 +85,11 @@ import * as ed from "../../src/worker/session";
  *  trees moved, D148); `32c11aba…` before generator 0.10.21's look round (D518: no one-level step runs straight over 8
  *  tiles, so its land's edges jog; its ruin fields lie along their level's rim, and the dead stands read the dry land as the checks do: a new map, D148); `46455017…` before the dead stands' dry reading. */
 // (generator 0.10.22, the settings keeping their promises: the version in the file alone, the map otherwise byte for byte 0.10.21's, D148;
-// `52341eab…` before generator 0.10.23's round forms (the look round: no mesa, plateau, butte, cone or knoll is a circle, and
+// `52341eab…` before generator 0.10.23's shown land kept for a rescue round, which moves only maps above 128²: the version
+// in the file alone, D148);
+// `36ed64bf…` before generator 0.10.24's round forms (the look round: no mesa, plateau, butte, cone or knoll is a circle, and
 // the weathering reaches in a disc, so no ring round one has square corners: a new land, D148)
-const LIVE_SHA = "ad42d2fee20d8b0e4a58f2cdfb83e1217aa5ac5b7e29fe4aea32409272b09d23";
+const LIVE_SHA = "ca3cf458b65043713b4c3ea287ae269b163a222a0dedcebbc92367e34aed2b2d";
 const spec = () => makeSpec({ seed: 4242, size: { x: 128, y: 128 }, theme: "riverValley", designedFor: "normal" });
 
 describe("mine sites and ruins, models of our own", () => {

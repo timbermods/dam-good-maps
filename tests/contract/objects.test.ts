@@ -237,7 +237,7 @@ describe("the generator's M7 set pieces keep their rules (ROADMAP M7)", () => {
     // reweighed noise, compact rises, a dry wash's broad flat broken up, the lake stair's bench bend 24 tiles off the start), D148:
     // those three hold no rise now, and over seeds 1–20 of Canyon and River Valley 15 hold one that keeps every rule (Canyon 2, 3, 7, 8,
     // 11, 12, 17, 20; River Valley 4, 5, 7, 11, 15, 18, 20); canyon 20, river valley 5 and river valley 7 for canyon 7, canyon 8 and
-    // river valley 4 since generator 0.10.23's round forms, the look round, D148: those three hold no rise now; of Canyon seeds 1–12, 17
+    // river valley 4 since generator 0.10.24's round forms, the look round, D148: those three hold no rise now; of Canyon seeds 1–12, 17
     // and 20 only 2 and 20 hold one that keeps every rule, and of River Valley seeds 1–7, 11, 15, 18 and 20, seeds 2, 5, 7, 11, 15, 18
     // and 20 do)
     for (const [theme, seed] of [["canyon", 2], ["canyon", 20], ["riverValley", 5], ["riverValley", 7]] as [ThemeId, number][]) {
