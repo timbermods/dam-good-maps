@@ -38,7 +38,7 @@ export const PLACES_WATER_WITHOUT_OUTLET = new Set([
 /** Water that keeps moving (D245, `water.settles`): under the game's water rules (D311) these places' water has not
  *  settled within the settle's days; each keeps its own land and water with the card note "Water keeps moving". */
 export const PLACES_WATER_KEEPS_MOVING = new Set([
-  "niagara-falls", "twelve-apostles",
+  "twelve-apostles",
 ]);
 
 /** Water sources start rivers (D171): the places whose conversion puts a source inside a flow
@@ -48,12 +48,10 @@ export const PLACES_WATER_KEEPS_MOVING = new Set([
  *  sources with no head within 20 tiles and merges that move the depth below too far.
  *  The list only shrinks. */
 export const PLACES_SOURCES_IN_FLOW = new Set([
-  "blyde-river-canyon", "brahmaputra-near-majuli", "chilean-aysen-fjord", "chocolate-hills",
-  "death-valley", "ethiopian-highlands", "finnish-saimaa", "geirangerfjord", "glencoe",
-  "iguazu-falls", "kenai-aialik-bay", "lofoten", "mamore-river", "milford-sound",
-  "monument-valley", "mount-fuji", "niagara-falls", "painted-desert", "phong-nha",
-  "rhine-and-moselle", "roaring-river-fan", "sete-cidades", "skeidara-outwash",
-  "taklimakan-kunlun-fan", "tara-gorge", "toklat-river", "twelve-apostles",
+  "chocolate-hills", "death-valley", "geirangerfjord", "glencoe", "iguazu-falls",
+  "kenai-aialik-bay", "lofoten", "mamore-river", "monument-valley", "mount-fuji", "niagara-falls",
+  "painted-desert", "phong-nha", "roaring-river-fan", "sete-cidades", "taklimakan-kunlun-fan",
+  "tara-gorge", "toklat-river", "twelve-apostles",
 ]);
 
 /** A mine site on every map (Kyler, 2026-09-25): the places as converted for real-places-done have
@@ -75,12 +73,11 @@ export const PLACES_LACK_BADWATER = true;
  *  both, in varied, natural ways (D229), and empties the lists. */
 export const PLACES_SHORT_OF_WOOD = new Set([
   "alaknanda-and-bhagirathi", "brahmaputra-near-majuli", "chocolate-hills", "colorado-plateau",
-  "godavari-delta", "kenai-aialik-bay", "lauterbrunnen", "li-river-yangshuo",
-  "mount-roraima",
+  "godavari-delta", "kenai-aialik-bay", "li-river-yangshuo", "mount-roraima",
 ]);
 export const PLACES_BELOW_THE_FLOOR = new Set([
   "alaknanda-and-bhagirathi", "brahmaputra-near-majuli", "colorado-plateau", "godavari-delta",
-  "kenai-aialik-bay", "lauterbrunnen",
+  "kenai-aialik-bay",
 ]);
 
 /** The start's water is never a sealed puddle (Kyler's D302, M9a), and a start has water a pump
@@ -95,8 +92,8 @@ export const PLACES_BELOW_THE_FLOOR = new Set([
 export const PLACES_START_WITHOUT_FED_WATER = new Set([
   "capitol-reef", "cliffs-of-moher", "colca-canyon", "death-valley", "deccan-plateau",
   "drumheller", "english-lake-district", "fish-river-canyon", "glencoe", "iguazu-falls",
-  "kaieteur-falls", "kinabatangan-river", "mount-etna", "mount-mayon", "ngorongoro",
-  "niagara-falls", "phong-nha", "twelve-apostles", "yosemite-valley",
+  "kinabatangan-river", "mount-etna", "mount-mayon", "ngorongoro", "niagara-falls", "phong-nha",
+  "twelve-apostles", "yosemite-valley",
 ]);
 
 /** Plants that die (D385): the conversion planted these places' trees and bushes on ground the
@@ -118,7 +115,7 @@ export const PLACES_PLANTS_ON_DRY_SOIL = new Set<string>();
  *  start, or a spring's thin sheet over the land round it). Real places 2 plants them by the
  *  settled water and empties the list. */
 export const PLACES_SHORT_OF_BERRIES = new Set([
-  "alaknanda-and-bhagirathi", "colorado-plateau", "rhine-and-moselle", "uvac-river",
+  "alaknanda-and-bhagirathi", "colorado-plateau", "uvac-river",
 ]);
 
 /** The failing checks of a place, its known faults apart (the conversion's edge wall and sources in
