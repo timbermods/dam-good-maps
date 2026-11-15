@@ -60,8 +60,8 @@ export interface BadwaterAsk {
   count: number;
   /** Each source's strength, blocks per second over its 3×3. */
   strength: number;
-  /** No badwater within this many tiles of the start: the larger of the Badwater distance setting
-   *  and the start rule's (D85, D200). */
+  /** No badwater within this many tiles of the start: the Badwater distance setting (D85, D200; the start
+   *  rule beside it folded into it, D527), or Easy start's where it is farther. */
   distance: number;
   /** Tiles no pit or ditch may take (the weir's pool). */
   keepOff?: Uint8Array | null;
