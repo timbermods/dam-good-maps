@@ -94,9 +94,12 @@ describe("the drought line (D133, D269)", () => {
   // shore); River Valley 2's river keeps 23 tiles of water on the last day now; of River Valley seeds 1–30 the river dries out
   // entirely in 3, 7, 16, 17 and 20, and seed 7 is the first after seed 3, which stays in the list;
   // Lake Basin 3 for 1 since generator 0.10.21's look round (D518: the land's long straight steps jog), D148: no pool of Lake Basin 1
-  // dries out now; of Lake Basin seeds 1–15 the pools dry out in 3, 7 and 8, and seed 3 is the first)
+  // dries out now; of Lake Basin seeds 1–15 the pools dry out in 3, 7 and 8, and seed 3 is the first;
+  // Lake Basin 7 for 3 since generator 0.10.23, D(new-leaks): a course's water leaves only by its own way, so the land moved,
+  // D148: no pool of Lake Basin 3 dries out now (a lake keeps 224 tiles of shore, no bed tile gone); of Lake Basin seeds 1–20
+  // the pools dry out in 7, 8 and 20, and seed 7 is the first (its lake keeps 187 tiles of shore, 56 bed tiles gone))
   for (const [theme, seed] of [
-    ["lakeBasin", 3],
+    ["lakeBasin", 7],
     ["riverValley", 3],
     ["delta", 1],
     ["riverValley", 7],

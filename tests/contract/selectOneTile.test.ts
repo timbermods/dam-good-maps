@@ -28,11 +28,14 @@ describe("Select's actions on a one-tile selection change that tile (D259, D264)
   // level 13 now, and of the map's 7 tiles at level 8, dry, unbuilt, with level ground on four sides, (35, 16) is the first
   // in row order; (35, 17) at level 7 since the D518 mends (wash treads and dead-stand knots), D148: seed 3's map has no
   // such tile at level 8 now, and of its 74 tiles at level 7, dry, unbuilt, with level ground on four sides, (35, 17) is the first
-  // off the map's edge row, so Raise and Lower want 8 and 6 where they wanted 9 and 7; Cut down to 4 and Fill up to 10 are as they were)
-  it("Highlands 64², seed 3: the dry level tile (35, 17), at level 7, selected alone: Raise, Lower, Cut down to 4 and Fill up to 10 each leave it where they said", async () => {
+  // off the map's edge row, so Raise and Lower want 8 and 6 where they wanted 9 and 7; Cut down to 4 and Fill up to 10 are as they were;
+  // (30, 26) at level 7 since generator 0.10.23, D(new-leaks): a course's water leaves only by its own way, so the land
+  // moved and a dead birch stands on (35, 17) now, D148: of the map's 71 such tiles at level 7, (30, 26) is the first off
+  // the map's edge rows (54, 1 lies on its second row); the levels each action wants are as they were)
+  it("Highlands 64², seed 3: the dry level tile (30, 26), at level 7, selected alone: Raise, Lower, Cut down to 4 and Fill up to 10 each leave it where they said", async () => {
     await runGenerate(makeSpec({ seed: 3, theme: "highlands", size: { x: W, y: W } }));
     ed.refine();
-    const t = 17 * W + 35;
+    const t = 26 * W + 30;
     const b = open().built;
     expect(b.heights[t]).toBe(7);
     expect(b.water[t]).toBe(0);

@@ -113,7 +113,11 @@ ${TALL_NOTE}`);
   });
 
   it("the forces build up to the ceiling on any map, never past it", async () => {
-    await runGenerate(makeSpec({ seed: 3, theme: "highlands", size: { x: W, y: W } }));
+    // (Highlands 96² seed 5 since generator 0.10.23, D(new-leaks): a course's water leaves only by its own way, so the land
+    // moved, D148: seed 3's map grows an overhang at (58, 24), on the Lift's line, and a force leaves caves and overhangs as
+    // they are; seed 4's first eruption stops at 16; seed 5 is the first after 3 where every force runs and the first
+    // eruption rises past 16, to 19)
+    await runGenerate(makeSpec({ seed: 5, theme: "highlands", size: { x: W, y: W } }));
     ed.refine();
     const s = MapSession.open(decodeProject(ed.project().bytes));
     const st = s.built.start!;

@@ -441,10 +441,13 @@ describe("Crop map to selection: the lip at the new edge (M9b's rule, water/edge
   // the first whose crop leaves the start whole, raises the edge beside the head (2 tiles at 0 behind, 1 at 1) and leaves no water beside it, at both distances; its spring is at (23, 20);
   // seed 5 since generator 0.10.21's look round (D518: the land's long straight steps jog, the dead stands read the dry land as the checks do), D148: seed 4's springs at (23, 29) and (23, 30) have a berry patch on the edge tile beside them, which the lip never raises (the ground under an object stays), so
   // water pours past it; of seeds 1–60 only 4, 5, 7, 39, 41 and 60 have a spring 23 tiles in from the west edge, and of those seed 5, whose spring is at (23, 0), passes at both distances);
-  // seed 4 again besides seed 5 since the lip lifts the objects on the ground it raises (planning's ruling, 2026-11-13): its berry patch beside the springs rises with the edge
+  // seed 4 again besides seed 5 since the lip lifts the objects on the ground it raises (planning's ruling, 2026-11-13): its berry patch beside the springs rises with the edge;
+  // seed 7 for seed 4 since generator 0.10.23, D(new-leaks): a course's water leaves only by its own way, so the land moved, D148: seed 4 has no spring
+  // 23 tiles in from the west edge now; of seeds 1–80 only 5, 7, 54, 60, 67 and 79 have one, and seed 7, whose spring is at (23, 63), is the first besides
+  // seed 5 with bushes on the edge beside it that rise with the lip (five at 0 behind, four at 1; the lip raising ten tiles at both distances)
   it.each([
-    [4, 0],
-    [4, 1],
+    [7, 0],
+    [7, 1],
     [5, 0],
     [5, 1],
   ])("seed %i: a source %i tile(s) behind the new edge does not pour its water off the map", (seed, behind) => {
@@ -478,10 +481,14 @@ describe("Crop map to selection: the lip at the new edge (M9b's rule, water/edge
 describe("Crop map to selection: the lip stays at the new edges and is no wall", () => {
   // seed 14 at 128²: sources at (40..44, 127) on the old north edge, cropped to {27, 44, 60, 84} (it holds the
   // start at (82, 60)): their river mouth stands on a side the crop did not cut
+  // (cropped to {27, 48, 64, 80} since generator 0.10.23, D(new-leaks): a course's water leaves only by its own way, so the
+  // land moved, D148: the start stands at (89, 60), past {27, 44, 60, 84}'s east side, and a badwater source at (27, 46) on
+  // its west side, where the lip rightly holds a source on the new edge 6 levels up; {27, 48, 64, 80} holds the start and
+  // the springs at (27, 127) and (28, 127) on the old edge, and its lip raises 9 tiles by at most 2, as dev's crop did)
   it("changes no tile on a side the crop did not cut, and little beside the new ones", () => {
     const original = MapSession.fromGenerated(generate(makeSpec({ seed: 14, size: { x: 128, y: 128 } })));
     original.settleCanonical();
-    const r = { x: 27, y: 44, w: 60, h: 84 };
+    const r = { x: 27, y: 48, w: 64, h: 80 };
     const s = MapSession.fromGenerated(generate(makeSpec({ seed: 14, size: { x: 128, y: 128 } })));
     s.settleCanonical();
     expect(s.apply(crop(r.x, r.y, r.w, r.h)).errors).toEqual([]);
