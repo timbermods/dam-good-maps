@@ -1416,6 +1416,11 @@ export function planBadwater(h: Uint8Array, W: number, H: number, wetNow: ArrayL
       // (a gully: no longer than `DITCH_CAP` (4), and never abreast of a river, a stream or another gully for
       // `ABREAST_RUN` tiles but its last `MOUTH` before it joins (2))
       if (gully && (tiles.length > DITCH_CAP || abreastRun(tiles, W, H, (j) => wetAt[j] === 1 || beds.has(j)) >= ABREAST_RUN)) continue;
+      // (nor does it bring a gully drawn before abreast of it, its own mouth left out)
+      if (gully && drawn.length) {
+        const mine = new Set(tiles.slice(0, Math.max(0, tiles.length - MOUTH)));
+        if (drawn.some((d, g) => abreastRun(d.tiles, W, H, (j) => wetAt[j] === 1 || mine.has(j) || (beds.has(j) && beds.get(j)!.g !== g)) >= ABREAST_RUN)) continue;
+      }
       // (the gully it joins, if it joins one: its bed's tile and level there)
       const joins = gully ? beds.get(route.end) : undefined;
       // its bed widened beside its route where the gully widens (D(new-ditch)), else (where that

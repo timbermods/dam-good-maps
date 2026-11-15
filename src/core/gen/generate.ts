@@ -2516,7 +2516,18 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
         if (bad.features.some((f) => reached.has(f.id))) {
           for (const f of bad.features) contains.delete(f.id);
           h.set(bare);
-          keepOffH = orMask(keepOffH, bad.avoid);
+          // (only the pits reached are kept off: the others were sites, which the plan finds again, D(new-ditch) (5);
+          // on Islands all of them, as before, its own ruling to come)
+          if (shown.theme === "islands") keepOffH = orMask(keepOffH, bad.avoid);
+          else {
+            const off = new Uint8Array(N);
+            for (const f of bad.features) {
+              if (!reached.has(f.id) || f.kind !== "setPiece") continue;
+              const p = f.params.plan as { x: number; y: number };
+              for (let y = Math.max(0, p.y - 7); y <= Math.min(H - 1, p.y + 9); y++) for (let x = Math.max(0, p.x - 7); x <= Math.min(W - 1, p.x + 9); x++) off[y * W + x] = 1;
+            }
+            keepOffH = orMask(keepOffH, off);
+          }
           bad = ++hollowTries < HOLLOW_TRIES && guess ? planBad(est, { ...badAsk, keepOff: keepOffH }, attempt * 4 + 5 + hollowTries, guess) : noBad;
           if (bad.features.length) {
             h.set(bad.heights);

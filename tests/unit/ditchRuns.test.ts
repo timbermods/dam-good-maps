@@ -5,7 +5,7 @@
 // (D(new-ditch)); and a ditch's bed widened beside its route (`channelTiles`' `side`).
 
 import { describe, expect, it } from "vitest";
-import { ditchRuns } from "../../src/core/land/hazards";
+import { abreastRun, ditchRuns } from "../../src/core/land/hazards";
 import { channelTiles, checkChannel } from "../../src/core/features/route";
 
 const W = 64;
@@ -64,5 +64,21 @@ describe("a ditch's widened bed", () => {
   it("refuses a widening that lies beside no route tile", () => {
     expect(checkChannel(c, W, W)).toEqual([]);
     expect(checkChannel({ ...c, side: [11, 8] }, W, W)).toEqual(["each of the outflow channel's widenings lies beside its route"]);
+  });
+});
+
+// planning's ruling of 2026-11-15, rule 2 (D(new-ditch)): no gully stays within 6 tiles of other water or another gully
+// for 20 tiles or more, but for its last 6 before it joins
+describe("a gully running abreast", () => {
+  const river = (i: number) => i % W === 30;
+  it("counts the stretch within 6 of the water, its last 6 tiles left out", () => {
+    // 30 tiles down column 24, 6 from the river at column 30
+    expect(abreastRun(walk(24, 2, "S".repeat(29)), W, W, river)).toBe(24);
+    // column 23 is 7 off: none
+    expect(abreastRun(walk(23, 2, "S".repeat(29)), W, W, river)).toBe(0);
+  });
+  it("leaves a gully that turns into the water at its end", () => {
+    // 20 tiles down column 10, then 20 east to the river: only the tiles from column 24 on are within 6, the last 6 left out
+    expect(abreastRun(walk(10, 2, "S".repeat(19) + "E".repeat(19)), W, W, river)).toBe(0);
   });
 });
