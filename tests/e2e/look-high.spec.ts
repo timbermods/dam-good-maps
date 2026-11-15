@@ -309,7 +309,10 @@ test("the game's bloom is drawn only when something can pass its knee, and skipp
       // with its fire burning and its light on, its lantern in view (the start's middle 1 tile in from the entrance
       // corner, its bowl 3.2 up): the bloom is drawn, from a source drawn round the start alone, and the frame is what
       // the whole frame's source makes of it
-      r.setView({ mode: "orbit", yaw: -Math.PI / 6, pitch: 0.5, distance: 11, target: [at[0] - 1, at[1] + 3.2, at[2] - 1] });
+      // (3.55 from the bowl, asked for: the frame these numbers were measured on. The view asked for 11, but on seed
+      // 4242's land before generator 0.10.23 the rock behind held the camera at 3.55; 0.10.23's round forms (#1102, D148)
+      // took that rock away, the camera stood at 11 and the lantern, a sixth as wide, lifted 71,716 bytes)
+      r.setView({ mode: "orbit", yaw: -Math.PI / 6, pitch: 0.5, distance: 3.55, target: [at[0] - 1, at[1] + 3.2, at[2] - 1] });
       canvas();
       const fireBlooms = r.blooms();
       const boxed = canvas();
@@ -325,7 +328,7 @@ test("the game's bloom is drawn only when something can pass its knee, and skipp
       let edge: boolean | null = null;
       let gone: boolean | null = null;
       for (let s = 0; s < 30 && gone === null; s += 0.05) {
-        r.setView({ mode: "orbit", yaw: -Math.PI / 6, pitch: 0.5, distance: 11, target: [at[0] - 1 - right[0] * s, at[1] + 3.2 - right[1] * s, at[2] - 1 - right[2] * s] });
+        r.setView({ mode: "orbit", yaw: -Math.PI / 6, pitch: 0.5, distance: 3.55, target: [at[0] - 1 - right[0] * s, at[1] + 3.2 - right[1] * s, at[2] - 1 - right[2] * s] });
         r.renderNow();
         if (edge === null && !r.fireShows()) edge = r.blooms();
         if (edge !== null && !r.fireBox(r.camera())) gone = r.blooms();
