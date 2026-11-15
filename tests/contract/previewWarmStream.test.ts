@@ -6,7 +6,9 @@
 // surface that sloshed on past the preview's four-day cap: River Valley 96² seed 9 at generator 0.10.23, an
 // Underground Ruins at 34,31, read 0.793 at 41,50 where the settle gives 0.657.
 //
-// Two lands: one built here, so no generator version moves it, and River Valley 96² seed 9. The built land is
+// Two lands: one built here, so no generator version moves it, and River Valley 96² seed 9. The generated lands
+// (seeds 9 and 8) are fixtures, tests/fixtures/projects, `fixtureInEditor`: the land of generator 0.10.22 these
+// cases were written on, byte for byte, so a land change moves nothing here (D148). The built land is
 // a blank 96² map with a river running diagonally from the north-east corner (three tiles wide in each row,
 // one tile over per row), fed by three sources of strength 4: north of row 40 the land is at 7 and the bed at
 // 6, from row 40 on the land is at 4 and the bed at 3, so the river falls three levels there and runs fast
@@ -33,11 +35,10 @@
 
 import { describe, expect, it } from "vitest";
 import { footprintTiles } from "../../src/core/format/footprints";
-import { makeSpec } from "../../src/core/spec/mapspec";
-import { runGenerate } from "../../src/worker/api";
 import * as ed from "../../src/worker/session";
 import { flowThrough } from "../../src/core/sim/prefill";
 import { UNFED_SHARE, unfedTiles } from "../../src/core/sim/preview";
+import { fixtureInEditor } from "../fixtureEditor";
 
 const W = 96;
 const ID = "11111111-2222-4333-8444-555555555555";
@@ -124,9 +125,8 @@ describe("the preview after an edit beside a stream ends where the canonical set
     }
   }, 120000);
 
-  it("on River Valley 96² seed 9: every placement that levels, and a raise and a dig of every third tile, within 2 tiles of the river", async () => {
-    await runGenerate(makeSpec({ seed: 9, theme: "riverValley", size: { x: W, y: W } }));
-    ed.refine();
+  it("on River Valley 96² seed 9: every placement that levels, and a raise and a dig of every third tile, within 2 tiles of the river", () => {
+    fixtureInEditor("riverValley", W, 9);
     settle();
     const before = snap();
     const counts = { placed: 0, raised: 0, dug: 0 };
@@ -259,9 +259,8 @@ describe("a channel that still carries a tenth of its walk's flow keeps its wate
     expect(count.turned, "tiles under the turned rule").toBeGreaterThan(5);
   }, 120000);
 
-  it("River Valley 96² seed 8: an Underground Ruins at 82,52 leaves the river 0.12 of its walk's flow", async () => {
-    await runGenerate(makeSpec({ seed: 8, theme: "riverValley", size: { x: W, y: W } }));
-    ed.refine();
+  it("River Valley 96² seed 8: an Underground Ruins at 82,52 leaves the river 0.12 of its walk's flow", () => {
+    fixtureInEditor("riverValley", W, 8);
     settle();
     const before = snap();
     const g = gap(before, flowLeft(place("UndergroundRuins", 82, 52)));
