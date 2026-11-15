@@ -24,18 +24,18 @@ test("the start requirements follow the settings, and the editor's start follows
   await openEditor(page, "s=77&z=96&d=n&t=riverValley");
 
   // each requirement, met, with the validator's number and Normal's defaults (D227: Starting wood 200,
-  // 80 before), and the starting-logs floor (178 within 40 tiles' walk)
+  // 80 before; D527: the berries' least is Berries near start, 48), and the starting-logs floor (178 within 40 tiles' walk)
   let c = await checks(page);
-  expect([c["start.water"].limit, c["start.wood"].limit, c["start.food"].limit, c["start.wood_floor"].limit]).toEqual([20, 200, 30, 178]);
+  expect([c["start.water"].limit, c["start.wood"].limit, c["start.food"].limit, c["start.wood_floor"].limit]).toEqual([20, 200, 48, 178]);
   for (const id of ["start.water", "start.wood", "start.food", "start.wood_floor"]) expect(c[id].ok, id).toBe(true);
 
   // the settings are the thresholds: Starting wood 75 moves the check's limit (set in the map generator's Difficulty section)
   const sheet = await openSection(page, "Difficulty");
-  // Difficulty holds the start rules in this order, at Normal's values; "Designed for" and its Easy and Hard are gone
-  await expect(sheet.locator(".set-label")).toHaveText(["Starting wood", "Max walk to water", "Starting berries", "Start area", "No ruins within"]);
+  // Difficulty holds the start rules in this order, at Normal's values; "Designed for" and its Easy and Hard are gone, and
+  // Starting berries folded into Berries near start (D527)
+  await expect(sheet.locator(".set-label")).toHaveText(["Starting wood", "Max walk to water", "Start area", "No ruins within"]);
   await expect(sheet.getByRole("slider", { name: "Starting wood" })).toHaveValue("200");
   await expect(sheet.getByRole("slider", { name: "Max walk to water" })).toHaveValue("20");
-  await expect(sheet.getByRole("slider", { name: "Starting berries" })).toHaveValue("30");
   await expect(page.locator("aside[aria-label=\"Map Generator\"]")).not.toContainText("Designed for");
   await expect(page.locator("aside[aria-label=\"Map Generator\"]").getByRole("button", { name: /^(Easy|Hard)$/ })).toHaveCount(0);
   await sheet.getByRole("slider", { name: "Starting wood" }).fill("75");

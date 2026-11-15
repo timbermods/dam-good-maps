@@ -4,7 +4,7 @@
 import Ajv2020 from "ajv/dist/2020";
 import { describe, expect, it } from "vitest";
 import { generate } from "../../src/core/gen/generate";
-import { decodeSpecFragment, DIFFICULTY_RULES, encodeSpecFragment, GENERATOR_MIN_SIDE, generatorSizeRefusal, makeSpec, PREMISE_CHOICES, seedFromText, THEMES, type MapSpec } from "../../src/core/spec/mapspec";
+import { decodeSpecFragment, DIFFICULTY_RULES, encodeSpecFragment, GENERATOR_MIN_SIDE, generatorSizeRefusal, makeSpec, PREMISE_CHOICES, seedFromText, THEMES, upgradeSpec, type MapSpec } from "../../src/core/spec/mapspec";
 import { MAPSPEC_SCHEMA, validateSpec } from "../../src/core/spec/schema";
 
 const ajv = new Ajv2020({ allErrors: true, strict: false });
@@ -138,7 +138,7 @@ describe("URL codec (PLAN §14.5)", () => {
         forestDensity: int(50, 200),
         groveSize: pick(["scattered", "normal", "bigWoods"] as const),
         speciesMix: { pine: int(0, 100), birch: int(0, 100), oak: int(0, 100), succulent: int(0, 100) },
-        berriesNearStart: int(20, 100),
+        berriesNearStart: int(20, 200),
         berryBushes: int(50, 300),
         ruins: int(25, 300),
         relics: pick(["off", "some"] as const),
@@ -147,7 +147,7 @@ describe("URL codec (PLAN §14.5)", () => {
       };
       st.start = {
         area: pick(["small", "normal", "large"] as const),
-        rules: { waterWithin: int(4, 40), woodWithin20: int(0, 800), bushesWithin20: int(0, 200), badwaterWithin: int(12, 60), ruinsWithin: int(0, 60) },
+        rules: { waterWithin: int(4, 40), woodWithin20: int(0, 800), badwaterWithin: int(12, 60), ruinsWithin: int(0, 60) },
       };
       if (rng() < 0.3) spec.archetype = pick(THEMES);
       // (a premise is a closed list since step 9, D508: a premise id or Any)
@@ -197,6 +197,31 @@ describe("URL codec (PLAN §14.5)", () => {
     const bad = decodeSpecFragment("#s=5&t=canyon&st=x")!;
     expect(bad.spec.settings.start.rules.woodWithin20).toBe(DIFFICULTY_RULES.normal.woodWithin20);
     expect(bad.problems.length).toBe(1);
+  });
+
+  it("reads a link's Starting berries from before D527 into Berries near start, the larger of the two", () => {
+    const berries = (f: string) => decodeSpecFragment(f)!.spec.settings.resources.berriesNearStart;
+    // (Normal's Berries near start is 48)
+    expect(berries("#s=5&t=canyon&z=96&d=n&sb=70")).toBe(70);
+    expect(berries("#s=5&t=canyon&z=96&d=n&sb=30")).toBe(48);
+    expect(berries("#s=5&t=canyon&z=96&d=n&bn=90&sb=60")).toBe(90);
+    expect(berries("#s=5&t=canyon&z=96&d=n&bn=25&sb=200")).toBe(200);
+    const old = decodeSpecFragment("#s=5&t=canyon&z=96&d=n&sb=70")!;
+    expect(old.problems).toEqual([]);
+    expect(encodeSpecFragment(old.spec)).toContain("&bn=70");
+    expect(encodeSpecFragment(old.spec)).not.toContain("sb=");
+    const bad = decodeSpecFragment("#s=5&t=canyon&sb=x")!;
+    expect(bad.spec.settings.resources.berriesNearStart).toBe(48);
+    expect(bad.problems.length).toBe(1);
+  });
+
+  it("opens a spec from before D527 with Berries near start the larger of it and Starting berries", () => {
+    const spec = JSON.parse(JSON.stringify(makeSpec({ seed: 5 }))) as MapSpec & { settings: { start: { rules: Record<string, number> } } };
+    spec.settings.start.rules.bushesWithin20 = 120;
+    upgradeSpec(spec);
+    expect(spec.settings.resources.berriesNearStart).toBe(120);
+    expect("bushesWithin20" in spec.settings.start.rules).toBe(false);
+    expect(validateSpec(spec)).toEqual([]);
   });
 
   it("hashes text seeds", () => {

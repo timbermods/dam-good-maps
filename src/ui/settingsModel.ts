@@ -189,7 +189,7 @@ export function band(key: string, spec: MapSpec): string {
     case "groveSize":
       return "Official groves: most about 40 trees.";
     case "berriesNearStart":
-      return "Never fewer than Minimum starting bushes. Official maps: most 57 within 20 tiles' walk.";
+      return "At least this many living berry bushes within 20 tiles' walk; the generator places a tenth more. Official maps: most 57 within 20 tiles' walk.";
     case "berryBushes":
       return `About ${budget().bushes.toLocaleString()} bushes, in a few large patches. Official maps this size: ${range("bushes")}.`;
     case "ruins":
@@ -198,8 +198,6 @@ export function band(key: string, spec: MapSpec): string {
       return "The walk to clean water a pump reaches, using only the map's own slopes. Official maps: most 12 tiles.";
     case "woodWithin20":
       return `Logs from grown trees within 20 tiles' walk: an oak gives 8, a pine 2, a birch 1. Saplings count once grown. However it is set, every map has at least ${LOG_FLOOR} logs within ${LOG_FLOOR_WALK} tiles' walk, enough to build a Forester. Official maps: most 110.`;
-    case "bushesWithin20":
-      return "Living berry bushes within 20 tiles' walk. Official maps: most 57.";
     case "ruinsWithin":
       return "A target: the map card warns when ruins are nearer. Official maps: most 45 tiles.";
     default:

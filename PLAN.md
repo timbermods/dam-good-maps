@@ -276,7 +276,7 @@ log(area) between small (50–100²), medium (128²), large (192²) and max (256
 | Forest density | 50% – 200% | 100% | Trees per 10k tiles, size-aware (small 1,715, medium 1,061, large 544, max 559), each map within the official typical range (×0.92–1.17). About a third alive, on moist ground; the rest stored dead on dry ground. |
 | Grove size | Scattered, Normal, Big woods | Normal | Median 20 / 40 / 80 trees (a grove: trees within 2 tiles of each other), capped at 120 / 250 / 400, with clearings between; near the start groves of 9 / 15 / 30. Groves are single-species, as every official grove of 20+ is. |
 | Species mix | weights for Pine, Birch, Oak, Succulent | 47 / 27 / 20 / 6 | The only species that load for both factions and in the editor. Succulents go on dry soil only. |
-| Berries near start | 20 – 100 | by difficulty (Easy 40, Normal 48, Hard 60) | The generation target, never below Minimum starting bushes (§5.6): living bushes within 20 tiles' walk of the start, in 2–3 patches beside water, grown within the colony's walk first (D97). |
+| Berries near start | 20 – 200 | by difficulty (Easy 40, Normal 48, Hard 60) | The start's least berries (§5.6), placed with a tenth more so a start moved a tile still holds them (D527: Starting berries, the minimum alone, folded into it): living bushes within 20 tiles' walk of the start, in 2–3 patches beside water, grown within the colony's walk first (D97). |
 | Berry bushes elsewhere | 50% – 300% | 100% | Bushes per 10k tiles, size-aware (small 265, medium 92, large 40, max 44), each map within the official typical range (×0.98–1.07), in a few patches of about 44 along the banks. |
 | Ruins and scrap | 25% – 300% | 100% | Scrap per 1k tiles, size-aware (small 840, medium 705, large 236, max 235), each map within the official typical range (×0.75–1.41). |
 | Relics | Off, Some | Some | 1–3 small (13–70 tiles out), 1–2 medium (40–140) from 128² (0–1 below), one large (140+) from 192². |
@@ -298,7 +298,7 @@ threshold is a setting under "Start rules", with the difficulty's default:
 | Water without stairs | 12 | 20 | 28 | Clean pumpable water (depth ≥ 0.3, contamination < 0.05) touches a shore tile the start reaches on foot within this many tiles' walk, over the map's own ground and its Slope entities (never stairs the player builds), levels changing through slopes. Rivers, lakes and ponds count. A pump on that shore reaches the surface (0–2 levels below the shore). The water must be fed by a running source or be a lake that lasts the difficulty's drought (9 / 30 days at Normal / Hard), never a sealed puddle (D302). | `sw`, 4–40 |
 | Starting wood | 250 | 200 | none (0) | At least this many logs of grown trees within 20 tiles' walk of the start (slopes allowed), each tree by its species' yield (oak 8, pine 2 and resin, birch 1; maple 6, chestnut 4 and mangrove 2 on imported maps: the game's blueprints, `src/core/data/log-floor.json`; the file's own logs where it stores them), alive or dead. A sapling's logs count only once it has grown; the indicators and map card show them apart, as wood still growing (D164). Hard has no minimum nearby beyond the floor below (D227). | **Minimum starting wood (logs)**, `sl`, 0–800 |
 | The starting-logs floor | 178 | 178 | 178 | At least the floor of logs, counted as Starting wood counts them, within about 40 tiles' walk of the district center, at every difficulty ("can I survive": enough to build a Forester by the worst still-viable route, plus a water pump, a dwelling and, for Iron Teeth, a Breeding Pod, plus 10%; D224, D227). Computed from the game's blueprints by `tools/log-floor.ts` and pinned with the game version in `src/core/data/log-floor.json` (178 for 1.1.2.4); recomputed when the game's version changes. Absolute: generated maps, Real places and Pick a place must meet it; the editor shows it on the quiet dot without blocking export. | never configurable |
-| Starting bushes | 40 | 30 | 20 | At least this many living berry bushes within 20 tiles' walk of the start (slopes allowed), across any number of patches. | **Minimum starting bushes**, `sb`, 0–200 |
+| Starting berries | 40 | 48 | 60 | At least this many living berry bushes within 20 tiles' walk of the start (slopes allowed), across any number of patches: Berries near start, which the generator places with a tenth more (D527). An opened file, which has no settings, is held to 40 / 30 / 30. | **Berries near start** (§5.5), `bn`, 20–200 |
 
 "Living" means the plant survives at steady state. Changing Designed for resets the three to the difficulty's
 defaults (D66). The generator never aims below a minimum, and any target below one rises to it; near-start groves
@@ -307,11 +307,11 @@ species by the wood they give as well as by the mix. The map's own groves and pa
 only what those leave short within the walk, spread the way the land offers it, so no two starts get the same ring
 (D252, §7.7). The start's bench stands a level above the floodplain (D26), and the colony walks down to the river
 over the map's own slopes (§7.5). Imported maps use their difficulty's defaults. The walk to the water is measured to
-the shore tile (D104); trees are Pine, Birch and Oak, bushes BlueberryBush. The panel's names are **Water without
-stairs (tiles)**, **Minimum starting wood (logs)** and **Minimum starting bushes**, and the map card lists the three,
-starting wood with the species that give it ("mostly oak") and the logs still growing. Share links keep `sw` and
-`sb`; starting wood is `sl`, and a link or project file from before D164 opens its Minimum starting trees (`st`) as 2
-logs a tree.
+the shore tile (D104); trees are Pine, Birch and Oak, bushes BlueberryBush. The panel's names are **Max walk to water**,
+**Starting wood** and **Berries near start**, and the map card lists the three, starting wood with the species that
+give it ("mostly oak") and the logs still growing. Share links keep `sw`; starting wood is `sl`, and a link or project
+file from before D164 opens its Minimum starting trees (`st`) as 2 logs a tree. A link or project file from before
+D527 that gives Starting berries (`sb`) opens with the larger of it and Berries near start (`bn`) as Berries near start.
 
 **Difficulty targets.** The difficulty preset sets these; each can be overridden under "Start rules". They are
 generation targets, never a reason to reject a map (D85): the generator aims for them, and the map card shows an
@@ -319,7 +319,6 @@ advisory warning when a map misses one.
 
 | Target | Easy | Normal | Hard | Source |
 |---|---|---|---|---|
-| Berries near start (§5.5) | 40 | 48 | 60 | Official median 47; never below Minimum starting bushes. |
 | No badwater within | 30 | 15 | 8 | Official maps' nearest badwater median 14.8, p25 10 (D85). |
 | No ruins within | 20 | 15 | 12 | Official p10 22. |
 | Drought sized for | 4 days, 40 beavers | 9 days, 50 beavers | 30 days, 50 beavers | Game mode durations. |
@@ -991,7 +990,7 @@ when a map misses one (D85).
 | `start.water` | Requirement 1 (D153, D302): clean water touches a shore tile the start reaches on foot within the water-distance rule's walk (12 / 20 / 28), over the map's own ground and its Slope entities, and a pump on that shore reaches the surface (§5.6). Only water in a body (4-connected, over 0.001 deep) that a running source feeds, or that lasts the rule's drought (after `droughtStorage` for the difficulty's drought days, one of its tiles a pump reaches within the walk still is), counts: never a sealed puddle (`startWaterShore`, `start_water_shore`); the generator plans a start again when its water is only such a puddle. | rejects |
 | `start.wood` | Requirement 2 (D164, D227): the logs of the grown trees within 20 tiles' walk (slopes allowed), alive or dead, by species ≥ Minimum starting wood (250 / 200 / 0); saplings' logs reported apart. | rejects |
 | `start.wood_floor` | The starting-logs floor (D224, D227): the same logs within about 40 tiles' walk (the pin's `withinWalk`) ≥ the floor (178 for 1.1.2.4), at every difficulty. Never approximate: counted over the ground and its slopes, never the water. Both validators. | rejects (the editor: on the quiet dot, never blocking export) |
-| `start.food` | Requirement 3: living berry bushes within 20 tiles' walk (slopes allowed) ≥ Minimum starting bushes (40 / 30 / 20). | rejects |
+| `start.food` | Requirement 3: living berry bushes within 20 tiles' walk (slopes allowed) ≥ Berries near start (40 / 48 / 60; an opened file 40 / 30 / 30, D527). | rejects |
 | `start.badwater` | No badwater water or contaminated soil within the badwater distance (30 / 15 / 8). | blocking when generating (Kyler, 2026-10-05); advisory otherwise |
 | `start.reach` | Dry tiles walkable from the start (same level, plus slope links; blocked by Thorns, Blockage, NaturalDam, relics, cores, geothermal and mine sites) ≥ the buildable-land target (750 / 1,300 / 2,500). | advisory |
 | `start.ruins_clear` | No ruin column within 20 / 15 / 12. | advisory |
@@ -1108,7 +1107,7 @@ one step away (D336). Any `.timber` or project file opens in the editor.
 
 - **State in the URL fragment:** `#v=<generatorVersion>&s=<seed>&t=<theme>&z=<size>&d=<difficulty>` plus only the
   settings that differ from the theme preset (at the link's difficulty and size), in a fixed order with two-letter keys
-  (the table is `core/spec/codec.ts`, D65; start rules `sw`, `sl`, `sb`, `sx`, `sr`; enum values as one letter), then
+  (the table is `core/spec/codec.ts`, D65; start rules `sw`, `sl`, `sx`, `sr`, `sb` before D527; enum values as one letter), then
   `a` archetype, `p` premise and `c` colonies (reserved for Timber Together, D5), each only when set. A value the
   decoder cannot use is reported and the preset's value kept. A link from before D462 may carry `sp` and `k` (set
   pieces and constraints, which no map read): they are ignored, and the link opens the same map.

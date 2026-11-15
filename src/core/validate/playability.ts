@@ -29,8 +29,9 @@ export { WALK_BLOCKERS };
 /** Thresholds for one map: from its spec, or the difficulty's defaults for an imported map. The
  *  three start requirements (PLAN §5.6, D85) are `waterWithin` (water without stairs: tiles' walk
  *  over the map's own ground and slopes to a shore a pump works from), `woodWithin20` (Minimum
- *  starting wood, in logs, D164) and `bushesWithin20` (Minimum starting bushes); the other start
- *  rules are targets with an advisory warning. */
+ *  starting wood, in logs, D164) and `bushesWithin20`, the least living berry bushes within 20 tiles'
+ *  walk: Berries near start (`resources.berriesNearStart`, D527), or the difficulty's for a map without
+ *  settings; the other start rules are targets with an advisory warning. */
 export interface Rules {
   difficulty: Difficulty;
   waterWithin: number;
@@ -122,7 +123,8 @@ export function rulesFor(spec: MapSpec | null, designedFor: Difficulty = "normal
     difficulty,
     waterWithin: r.waterWithin,
     woodWithin20: r.woodWithin20,
-    bushesWithin20: r.bushesWithin20,
+    // (Berries near start is the start's least berries, D527)
+    bushesWithin20: s ? s.resources.berriesNearStart : d.bushesWithin20,
     // the Badwater distance setting and the start rule say the same thing: the stricter counts
     badwaterWithin: s ? Math.max(s.hazards.badwaterDistance, s.start.rules.badwaterWithin) : r.badwaterWithin,
     ruinsWithin: r.ruinsWithin,

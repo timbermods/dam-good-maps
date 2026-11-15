@@ -71,11 +71,11 @@ function spec(designedFor: "easy" | "normal" | "hard", set: { sources?: string; 
     designedFor,
     theme: "riverValley",
     settings: {
-      start: { rules: { waterWithin: rules[0], woodWithin20: rules[1], bushesWithin20: rules[2], badwaterWithin: rules[3], ruinsWithin: rules[4] }, area: set.area ?? "normal" },
+      start: { rules: { waterWithin: rules[0], woodWithin20: rules[1], badwaterWithin: rules[3], ruinsWithin: rules[4] }, area: set.area ?? "normal" },
       hazards: { badwaterDistance: 12, badwater: set.badwater ?? "normal" },
       terrain: { buildableLand: set.land ?? "normal" },
       water: { sources: set.sources ?? "normal", droughtReserve: set.reserve ?? "normal" },
-      resources: { ruins: 100, forestDensity: 80, berryBushes: 120 },
+      resources: { ruins: 100, forestDensity: 80, berryBushes: 120, berriesNearStart: rules[2] },
     },
   } as unknown as MapSpec;
 }

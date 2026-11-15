@@ -105,7 +105,6 @@ export const SETTING_KEYS: readonly SettingKey[] = [
   { key: "es", path: ["start", "easyStart"], kind: "flag" },
   { key: "sw", path: ["start", "rules", "waterWithin"], kind: "int" },
   { key: "sl", path: ["start", "rules", "woodWithin20"], kind: "int" },
-  { key: "sb", path: ["start", "rules", "bushesWithin20"], kind: "int" },
   { key: "sx", path: ["start", "rules", "badwaterWithin"], kind: "int" },
   { key: "sr", path: ["start", "rules", "ruinsWithin"], kind: "int" },
 ];
@@ -113,9 +112,10 @@ export const SETTING_KEYS: readonly SettingKey[] = [
 const SPECIES = ["pine", "birch", "oak", "succulent"] as const;
 const DIFF_CODES: Record<Difficulty, string> = { easy: "e", normal: "n", hard: "h" };
 const DIFFS: Record<string, Difficulty> = { e: "easy", n: "normal", h: "hard" };
-/** Keys that are not settings, and `st`: Minimum starting trees before D164 (read as wood). */
+/** Keys that are not settings, `st`: Minimum starting trees before D164 (read as wood), and `sb`: Starting berries
+ *  before D527 (read into Berries near start, the larger of the two). */
 // (`sp` and `k`: set pieces and constraints, which older links may carry; ignored)
-const OTHER_KEYS = new Set(["v", "s", "t", "z", "d", "a", "p", "c", "sp", "k", "st", "vr", "in"]);
+const OTHER_KEYS = new Set(["v", "s", "t", "z", "d", "a", "p", "c", "sp", "k", "st", "sb", "vr", "in"]);
 
 function getAt(s: Settings, path: Path): unknown {
   let o: unknown = s;
@@ -287,6 +287,17 @@ export function decodeSpecFragment(fragment: string): DecodedFragment | null {
     if (!/^\d+$/.test(st) || validateSpec(spec).length) {
       spec.settings.start.rules.woodWithin20 = before;
       problems.push(`setting st=${st} is not valid here, so the preset's value is kept`);
+    }
+  }
+  // a link from before D527 may give Starting berries (`sb`), the start's least berries beside Berries near start:
+  // the one setting now, it reads the larger of the two
+  const sb = params.get("sb");
+  if (sb !== undefined) {
+    const before = spec.settings.resources.berriesNearStart;
+    if (/^\d+$/.test(sb)) spec.settings.resources.berriesNearStart = Math.max(before, Number(sb));
+    if (!/^\d+$/.test(sb) || validateSpec(spec).length) {
+      spec.settings.resources.berriesNearStart = before;
+      problems.push(`setting sb=${sb} is not valid here, so the preset's value is kept`);
     }
   }
   const a = params.get("a");

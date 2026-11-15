@@ -52,7 +52,7 @@ export const HINT: Record<string, string> = {
   "mix-birch": "How many of the trees are birches",
   "mix-oak": "How many of the trees are oaks",
   "mix-succulent": "How many of the trees are succulents",
-  "berries-start": "Berry bushes near the start",
+  "berries-start": "Least berry bushes near the start",
   berries: "Berry bushes elsewhere",
   ruins: "Ruins and scrap metal",
   relics: "How many relics are placed",
@@ -61,7 +61,6 @@ export const HINT: Record<string, string> = {
   "start-area": "How roomy the land round the start is",
   "rule-water": "Longest walk to water",
   "rule-wood": "Logs the start reaches on foot",
-  "rule-bushes": "Berry bushes in walking reach",
   "rule-ruins": "How far ruins stay from the start",
 };
 

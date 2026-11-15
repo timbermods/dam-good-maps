@@ -68,7 +68,9 @@ describe("the website's link", () => {
 
 describe("a start move", () => {
   it("returns the start checks that now fail first, and nothing when they pass", async () => {
-    const r = await made({ theme: "riverValley", size: 96, seed: 2 });
+    // (seed 3 since generator 0.10.24's berries, D527, D148: seed 2's start a tile east holds its fast wood at 40%
+    // against 40%, a hair short)
+    const r = await made({ theme: "riverValley", size: 96, seed: 3 });
     const handle = /^Map (map-\d+) /.exec(textOf(r))![1];
     const s = mapOf(handle);
     const st = s.built.start!;

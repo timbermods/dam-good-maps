@@ -68,7 +68,6 @@ test("every number of the settings has its unit", async ({ page }) => {
   const value = (label: string) => panel.locator(".gen-item", { has: page.locator(".set-label", { hasText: new RegExp(`^${label}$`) }) }).locator(".set-value");
   await expect(value("Starting wood")).toHaveText(/^\d+ logs$/);
   await expect(value("Max walk to water")).toHaveText(/^\d+ tiles$/);
-  await expect(value("Starting berries")).toHaveText(/^\d+ bushes$/);
   await expect(value("Berries near start")).toHaveText(/^\d+ bushes$/);
   await expect(value("No ruins within")).toHaveText(/^\d+ tiles$/);
   // a long name ends in "…" in the Name box, never cut mid-letter

@@ -93,7 +93,7 @@ import { caveStream, checkForm, formsWanted, growOn } from "./forms3d";
 import { description, toTimberFile } from "./pack";
 import { outcomesOf, PROMISES, promiseSides, type Outcomes } from "./outcomes";
 import { mapSays, mapWords, type PlayFacts } from "./names";
-import { nearStartTargets, planResources } from "./resources";
+import { NEAR_BERRIES_MARGIN, nearStartTargets, planResources } from "./resources";
 import { planRuinStories } from "./ruinStories";
 import { DROUGHT, REACH_MIN, RESERVE, reservoirNeeded, RUIN_HEIGHT_SHARES } from "./calibrated";
 import { gameSoil } from "../sim/soil";
@@ -1754,11 +1754,12 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
     const r = spec.settings.start.rules;
     r.waterWithin = Math.min(r.waterWithin, Math.floor(easyT.water) + 2);
     r.woodWithin20 = Math.max(r.woodWithin20, easyT.wood);
-    r.bushesWithin20 = Math.max(r.bushesWithin20, easyT.bushes);
     r.ruinsWithin = Math.min(r.ruinsWithin, 10);
     r.badwaterWithin = Math.max(r.badwaterWithin, EASY_BADWATER);
     spec.settings.hazards.badwaterDistance = Math.max(spec.settings.hazards.badwaterDistance, EASY_BADWATER);
-    spec.settings.resources.berriesNearStart = Math.max(spec.settings.resources.berriesNearStart, Math.ceil(1.5 * easyT.bushes));
+    // (Berries near start is the start's least, D527, and the generator places a margin over it: about 1.5 × Easy
+    // start's berries placed, as ever)
+    spec.settings.resources.berriesNearStart = Math.max(spec.settings.resources.berriesNearStart, Math.ceil((1.5 * easyT.bushes) / NEAR_BERRIES_MARGIN));
   }
   // (a long Islands map's sea is proved settled before its land is shown, DRAINED_SEA)
   const seaProved = specIn.theme === "islands" && !!g.seaLayout && mapShape(W, H).long;
@@ -1786,7 +1787,7 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
   const startRules = spec.settings.start.rules;
   const floors = rulesFor(spec);
   const moistWalk = Math.max(MOIST_WALK.least, Math.round(MOIST_WALK.share * (floors.farmland + floors.forester)));
-  const moistWant = ease >= 1 ? Math.max(moistWalk, Math.round(1.3 * (startRules.bushesWithin20 + startRules.woodWithin20 / OAK_LOGS))) : moistWalk;
+  const moistWant = ease >= 1 ? Math.max(moistWalk, Math.round(1.3 * (spec.settings.resources.berriesNearStart + startRules.woodWithin20 / OAK_LOGS))) : moistWalk;
   // the rule's drought, which a start's unfed water must last (D302; `start.water`)
   const droughtDays = DROUGHT[spec.designedFor].days;
   // the drought-aware start (#59): Easy requires water that lasts the first drought, Normal and Hard prefer it

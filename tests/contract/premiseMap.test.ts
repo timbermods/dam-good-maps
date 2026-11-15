@@ -52,14 +52,17 @@ import { decodeSpecFragment, encodeSpecFragment, makeSpec, type MapSpec } from "
 // wash's banks in long treads, its dead stands in knots in their woods (a stand its ground holds short of 15 trees none),
 // a third of their trees young, its rolling and rises reweighed and its bend kept off the start, a new ground, D148; and
 // for the dead stands dense in their woods, each knot its own shape: its resources, D148; and for generator 0.10.21's
-// look round, D518: its ruin fields along their level's rim, a wash's banks jogging, the dead stands reading the dry land as the checks do, the version in its description, D148; and generator 0.10.22's version alone, the map otherwise 0.10.21's, D148)
-const SHA = "2350df0a01cf7cea30084f2b2e202b5ae7a01e2fa2f2415c8721c4b24f7b7a7a";
+// look round, D518: its ruin fields along their level's rim, a wash's banks jogging, the dead stands reading the dry land as the checks do, the version in its description, D148; and generator 0.10.22's version alone, the map otherwise 0.10.21's, D148; and generator 0.10.24's berries near the start,
+// a tenth over Berries near start and its rescue planting at that, D527, D148)
+const SHA = "98670d0189016eed45978f1f3473de776cd12241e9c4f4ef706332e739d75656";
 
 // (a Hard map whose start lake parts as it falls: the single analytic reading stood 0.32 over the run there, PR #1040;
 // seed 5 for 7 since D518 with dev's ways out by a ramp's line (#1061), D148: seed 7's Hard lake stair holds no plan now
 // (the start's water gone on day 14), and of Hard seeds 1-14, 4, 5, 10, 11 and 13 hold (dev: 4, 5, 7, 10, 11); seed 5's
-// start lake parts into three pieces of 10 tiles or more by the drought's end)
-const HARD_SEED = 5;
+// start lake parts into three pieces of 10 tiles or more by the drought's end; seed 4 since generator 0.10.24's berries
+// near the start, D527, D148: seed 5's Hard lake stair holds no plan now (the start's water gone on day 15), and of
+// Hard seeds 4, 5, 10, 11 and 13 only 4 and 11 hold)
+const HARD_SEED = 4;
 
 describe("The premise mode (§2.2, build step 4)", () => {
   const made = makeSpec({ seed: 1, size: { x: 128, y: 128 }, theme: "any", premise: "lakeStair" });
