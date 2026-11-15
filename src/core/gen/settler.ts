@@ -507,7 +507,12 @@ export function pickStart(
             w = Math.min(w, walk[(y + dy) * W + x + dx]);
             wa = Math.min(wa, walkAny[(y + dy) * W + x + dx]);
           }
-        const sameLevel = w <= waterAim3(waterRule, opts.waterExact);
+        // (under a rule of 7 the 3×3's estimate reaches past the check's aim by the step from the 3×3 to the middle the
+        // check walks from: there the middle's own walk on its level decides, and a place it leaves short is judged
+        // over the slopes, as one whose shore is on another level)
+        let mid = walk[i];
+        if (waterRule < 7) for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) mid = Math.min(mid, walk[(y + dy) * W + x + dx] + (dx && dy ? S2 : dx || dy ? 1 : 0));
+        const sameLevel = w <= waterAim3(waterRule, opts.waterExact) && (waterRule >= 7 || mid <= aimMid);
         if (!sameLevel && !(wa <= waterAim3(waterRule, opts.waterExact))) continue;
         if (!sameLevel) w = wa;
         // (Easy start: its water at the pond's distance, and room for its clearing)
