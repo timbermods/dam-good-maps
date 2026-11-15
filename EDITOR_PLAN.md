@@ -428,10 +428,16 @@ place of its bottom rule.
     wet tile and never cuts a dry tile below the surface of the water beside it (the level rises to that surface
     instead); a footprint that stands in water on uneven ground is refused with one plain reason ("the water is in
     the way: the ground here is uneven, and levelling it would spill the water"), and one already level may stand
-    in shallow water. The rule lives in the core (`core/features/footprintLevel.ts` `platformLevel`,
-    `core/doc/placing.ts` `levelFootprint`, `levelProblem`); the ghost shows the level the worker names. Other
-    objects' tiles, caves and water are left as they are; water and badwater sources stay cut-only (D290). It
-    refuses only at the map's edge and on another object's tiles, with one plain reason.
+    in shallow water. **The levelling leaves the bank that holds the water as it is** (D(new-bank)): a dry tile
+    within two steps of the water and no higher than its surface rounded up to a level (`holdsWater`) is neither
+    raised nor cut, so the natural edge stops short of it; a footprint on such a bank is levelled to the bank's own
+    height, or, where no level keeps the bank, refused with one plain reason ("the water is in the way: levelling
+    the ground here would move the bank that holds it"). The rule lives in the core
+    (`core/features/footprintLevel.ts` `platformPlan`, `holdsWater`, `core/doc/placing.ts` `levelFootprint`,
+    `levelProblem`), so the shelf, a move, the start, the MCP and collaboration all meet it; the ghost shows the
+    level the worker names. Other objects' tiles, caves and water are left as they are; water and badwater
+    sources stay cut-only (D290). It refuses only at the map's edge, on another object's tiles and for the water,
+    with one plain reason.
   - **Objects stand in caves where the game allows them** (D491): a map object, a source, a seep, an aquifer, a
     ruin, a mine site, a tree or a bush may stand on a cave's floor, on the ground under a ledge or on a roof's
     top. Under a roof nothing is levelled: the game's own rule decides, block by block (`core/features/objects.ts`

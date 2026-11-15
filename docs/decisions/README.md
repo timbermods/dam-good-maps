@@ -69,6 +69,7 @@ Read this index, then [how-we-work.md](how-we-work.md), then only the topic file
 
 ## [Core, files and validation](core.md)
 
+- D(new-bank): A placement's levelling leaves the bank that holds the water as it is (amends D328, D345 B6)
 - D499: ruins.fields is a target for generated ruins
 - D491: Objects may stand in caves where the game allows them
 - D475: No old-project compatibility until launch

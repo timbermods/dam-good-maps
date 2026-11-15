@@ -5,7 +5,7 @@
 
 import { entityTiles } from "../features/edits";
 import { isPickable, openPart, standProblem } from "../features/objects";
-import { floorBesideWater, platformLevel } from "../features/footprintLevel";
+import { floorBesideWater, holdsWater, platformLevel, platformPlan } from "../features/footprintLevel";
 import { FOOTPRINTS, startEntranceTile, startMiddleTile, worldBlocks, type Orientation } from "../format/footprints";
 import { FLUIDS } from "../data/parity";
 import { seatLevel } from "../forces/clear";
@@ -186,8 +186,9 @@ export function objectCells(entities: readonly EntitySpec[], W: number, H: numbe
 
 /** Why a shelf object can't be levelled where it is: its ground isn't level and part of it stands
  *  in water, so levelling it would fill or drain water (D345, B6: placing an object never visibly
- *  spills water). Null when it can stand, or for a source (which is cut-only, D290). `extra`: further
- *  tiles that level with it (the start's door). */
+ *  spills water), or it stands on the bank that holds the water and no level leaves that bank as it
+ *  is (D(new-bank), `platformPlan`). Null when it can stand, or for a source (which is cut-only,
+ *  D290). `extra`: further tiles that level with it (the start's door). */
 export function levelProblem(s: MapSession, p: { template?: string; x: number; y: number; orientation: Orientation; flipped?: boolean }, extra: readonly number[] = []): string | null {
   const template = p.template ?? "BadwaterSource";
   const fp = FOOTPRINTS[template];
@@ -197,8 +198,13 @@ export function levelProblem(s: MapSession, p: { template?: string; x: number; y
   for (const blk of worldBlocks(fp, { template, x: p.x, y: p.y, z: 0, orientation: p.orientation, flipped: !!p.flipped })) if (blk.x >= 0 && blk.y >= 0 && blk.x < W && blk.y < H) tiles.add(blk.y * W + blk.x);
   const list = [...tiles];
   if (!list.length) return null;
-  return platformLevel(s.built.heights, waterDepth(s), W, H, list) === null ? "the water is in the way: the ground here is uneven, and levelling it would spill the water" : null;
+  const plan = platformPlan(s.built.heights, waterDepth(s), W, H, list);
+  if (!("refused" in plan)) return null;
+  return plan.refused === "wet" ? "the water is in the way: the ground here is uneven, and levelling it would spill the water" : BANK_PROBLEM;
 }
+
+/** The refusal of a placement whose levelling would move the bank that holds the water (D(new-bank)). */
+export const BANK_PROBLEM = "the water is in the way: levelling the ground here would move the bank that holds it";
 
 /** Planned operations that make no feature (an entity placed by hand). */
 export type PlannedOps = { ok: true; ops: EditOp[]; report: string[]; label: string; tiles: number[] } | { ok: false; errors: string[] };
@@ -276,7 +282,8 @@ const EDGE_REACH = 6;
  *  (the settled water is the map's own): where the level would fill one, the footprint is cut down
  *  to its lowest tile instead. The edge then meets the land around it in short natural slopes (one
  *  level a tile, out to `EDGE_REACH`), never a step or a wall, and leaves wet tiles, other objects'
- *  tiles and caves as they are. All in the placement's own step, before it.
+ *  tiles, the bank that holds the water (`holdsWater`, D(new-bank): the edge stops short of it) and
+ *  caves as they are. All in the placement's own step, before it.
  *
  *  A badwater source is 3 × 3 and the game keeps it only on level ground: it also takes what stands
  *  on its nine tiles (hand-placed objects; a generated tree makes room by itself; never the start,
@@ -318,9 +325,9 @@ export function levelFootprint(s: MapSession, p: { template?: string; x: number;
   const h = b.heights;
   if (list.every((i) => h[i] === h[list[0]])) return ops;
   const water = waterDepth(s);
-  // the level most of the footprint stands at, raised where a tile can't be cut beside water; a
-  // footprint standing in water is refused before this (`levelProblem`), so the fallback is only
-  // for callers that skip it
+  // the level most of the footprint stands at, raised where a tile can't be cut beside water, or the
+  // height of the bank it stands on; a footprint standing in water or on a bank no level keeps is
+  // refused before this (`levelProblem`), so the fallback is only for callers that skip it
   let level = platformLevel(h, water, W, H, list) ?? low;
   const target = new Map<number, number>();
   for (const i of list) target.set(i, level);
@@ -354,7 +361,8 @@ export function levelFootprint(s: MapSession, p: { template?: string; x: number;
       }
     }
     for (const j of next) {
-      if (!s.plainAt(j) || held.has(j) || water[j] > 0) continue;
+      // (the water and its bank are left as they are: raising the bank would lift the water, cutting it let it out)
+      if (!s.plainAt(j) || held.has(j) || water[j] > 0 || holdsWater(h, water, W, H, j)) continue;
       const hv = h[j];
       const want = hv > level ? Math.min(hv, level + d) : Math.max(hv, level - d);
       const room = biggest - d + 1;
