@@ -78,14 +78,9 @@ export const WASHES = {
    *  `reach[0]` to `reach[1]` tiles (two and three for a reach of seven or eight), the middle ones a tile to one side of
    *  the line (`wanderRuns`), so each bank wanders as a contour does. */
   reach: [3, 5, 6] as const,
-  /** The sideways meander: at most this far off the flow's line, swinging from one side to the other every
-   *  `meanderCell` tiles along it (`swingAt`). The swing crosses the line every cell and reaches 0.6 to 1 of `meander`
-   *  each side, so from one side to the other it drifts further than a tread (3.6 tiles at least). A swing that
-   *  stayed on one side, or turned back short of a tread, was forgiven by the treads, and a line straight across a
-   *  flat (where the drainage runs straight down the tilt) kept a bed ruler-straight for 60 tiles (Canyon 3 at 256²,
-   *  the look round of #1186). */
+  /** The sideways meander: at most this far off the flow's line, with this wavelength. */
   meander: 3,
-  meanderCell: 14,
+  meanderCell: 16,
   /** The centre line smoothed over this many points each side. */
   smooth: 2,
   /** The deepest a bed cuts under the lowest ground beside it: deeper and it ends there, in a hollow. */
@@ -306,18 +301,6 @@ function flow(
   return { rcv, area, order, n };
 }
 
-/** The meander's swing at point `s` of a line, in [-1, 1]: a side for each `cell` points, alternating, its reach drawn
- *  from 0.6 to 1, eased from one to the next. */
-export function swingAt(seed: number, s: number, cell: number): number {
-  const f = s / cell;
-  const k = Math.floor(f);
-  let t = f - k;
-  t = t * t * (3 - 2 * t);
-  const first = hash32(seed, "swing-side") & 1;
-  const side = (j: number) => ((j + first) % 2 === 0 ? 1 : -1) * (0.6 + 0.4 * (hash32(seed, "swing", j) / 4294967296));
-  return side(k) * (1 - t) + side(k + 1) * t;
-}
-
 /** A line's points (tile centres), smoothed and swung sideways by the meander. */
 function curveOf(line: readonly number[], W: number, seed: number, smooth: number): { x: number[]; y: number[] } {
   const n = line.length;
@@ -350,7 +333,7 @@ function curveOf(line: readonly number[], W: number, seed: number, smooth: numbe
     tx /= len;
     ty /= len;
     const fade = Math.min(1, s / 6, (n - 1 - s) / 6);
-    const off = WASHES.meander * fade * swingAt(seed, s, WASHES.meanderCell);
+    const off = WASHES.meander * fade * valueNoise(seed, s, 0, WASHES.meanderCell);
     x.push(sx[s] - ty * off);
     y.push(sy[s] + tx * off);
   }
