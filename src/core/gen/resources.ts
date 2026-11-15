@@ -363,27 +363,30 @@ export function planResources(spec: MapSpec, g: Ground, candidate: number, attem
   // across broken ground to their size, on ground a beaver walks to from the start (`startGround`, the walk the
   // planting keeps to; `growGroveAcross`); Scattered's stay small (at most 1.5 times the median: a draw of 12 or 21 trees read as a grove, not a scatter) and apart, a tile of open ground between each and the
   // start's other groves (`startGap`), so broken ground never joins them into one. At Normal the start's planting is as
-  // it was, its wood and fast share unmoved.
+  // it was, its wood and fast share unmoved; so is a rescue round's (`lean`).
   const sizeLean = spec.settings.resources.groveSize;
+  // (a rescue round, the start rules asked hard after maps that fell short, plants as Normal: the start's wood comes
+  // first there, its groves as big and as close as the rules need; everySetting's starved Delta at 96², seed 2)
+  const lean = constraints?.woodLean ? "normal" : sizeLean;
   let startGround: Uint8Array | null = null;
-  const startGap = new Uint8Array(sizeLean === "scattered" ? N : 0);
+  const startGap = new Uint8Array(lean === "scattered" ? N : 0);
   const sizeRng = stream(seed, "start-grove-size", candidate, attempt);
   let startSize = (): number =>
-    sizeLean === "scattered" ? Math.max(4, Math.min(Math.round(1.5 * grove.median), Math.round(sizeRng.logNormal(grove.median, 0.45)))) : Math.max(6, Math.min(grove.cap, Math.round(sizeRng.logNormal(2 * grove.median, 0.45))));
+    lean === "scattered" ? Math.max(4, Math.min(Math.round(1.5 * grove.median), Math.round(sizeRng.logNormal(grove.median, 0.45)))) : Math.max(6, Math.min(grove.cap, Math.round(sizeRng.logNormal(2 * grove.median, 0.45))));
   // `place` leans the species by where the grove grows (pine, birch, oak, succulent), on the mix
   const growGrove = (seedTile: number, size: number, living: boolean, within: Uint8Array | null = null, fill?: number, forWood = false, prefix = "forest/grove", place?: readonly number[], only?: "Pine" | "Birch"): number => {
     const allowed = new Uint8Array(N);
-    const own = sizeLean !== "normal" && prefix.startsWith("forest/start");
-    for (let i = 0; i < N; i++) allowed[i] = free[i] && (living ? moist[i] : !moist[i]) && (!within || within[i]) && !(own && sizeLean === "scattered" && startGap[i]) ? 1 : 0;
+    const own = lean !== "normal" && prefix.startsWith("forest/start");
+    for (let i = 0; i < N; i++) allowed[i] = free[i] && (living ? moist[i] : !moist[i]) && (!within || within[i]) && !(own && lean === "scattered" && startGap[i]) ? 1 : 0;
     if (!allowed[seedTile]) return 0;
     let grown: { area: number[]; tiles: number[] } | null;
-    if (own && sizeLean === "bigWoods" && startGround) {
+    if (own && lean === "bigWoods" && startGround) {
       const more = new Uint8Array(N);
       for (let i = 0; i < N; i++) more[i] = free[i] && (living ? moist[i] : !moist[i]) && startGround[i] ? 1 : 0;
       grown = growGroveAcross(ground, vegRng, allowed, more, seedTile, size, fill);
     } else grown = growGroveAt(ground, vegRng, allowed, seedTile, size, fill);
     if (!grown) return 0;
-    if (own && sizeLean === "scattered")
+    if (own && lean === "scattered")
       for (const i of grown.area) {
         const x = i % W;
         const y = (i - x) / W;
@@ -530,7 +533,7 @@ export function planResources(spec: MapSpec, g: Ground, candidate: number, attem
     const lay = walk && nearWalk ? startLayout(stream(seed, "start-planting", candidate, attempt), g.start, walk, nearWalk, W, H, grove.median) : null;
     startGround = plantWalk;
     // (Big Woods: the layout's draw, its size the setting's median one to three times)
-    if (lay && sizeLean === "bigWoods") startSize = () => Math.max(6, Math.min(grove.cap, Math.round(sizeRng.logNormal(lay.groveSize, 0.45))));
+    if (lay && lean === "bigWoods") startSize = () => Math.max(6, Math.min(grove.cap, Math.round(sizeRng.logNormal(lay.groveSize, 0.45))));
 
     // its berries: 1–3 patches (PLAN §7.7), more when the moist land near the start is narrow (a
     // canyon floor), at most 6 a pass. They go within the colony's walk first, in two passes (D85
@@ -610,7 +613,7 @@ export function planResources(spec: MapSpec, g: Ground, candidate: number, attem
     let got = gotWood;
     const r = FOREST.nearStart.radius;
     // (seeds enough for the groves' size: Scattered's small ones take more of them)
-    const each = sizeLean === "scattered" ? grove.median : Math.floor(grove.median * 1.5);
+    const each = lean === "scattered" ? grove.median : Math.floor(grove.median * 1.5);
     if (lay && nearWalk) {
       const kindOf = placeKinds({ W, H, heights: g.heights, wet, moist, free, waterDist, start: g.start, within: plantWalk! });
       const used = new Set<FloorWoodKind>();
@@ -634,7 +637,7 @@ export function planResources(spec: MapSpec, g: Ground, candidate: number, attem
         const zone = besideTiles(seedW, W, H, 3);
         for (let i = 0; i < N; i++) zone[i] &= plantWalk![i];
         // enough trees for the logs still wanted, within the layout's grove size
-        const n = sizeLean !== "normal" ? startSize() : Math.max(6, Math.min(Math.ceil((nearWood - got) / (perTree * 0.8)), Math.round(lay.rng.logNormal(lay.groveSize, 0.45)), grove.cap));
+        const n = lean !== "normal" ? startSize() : Math.max(6, Math.min(Math.ceil((nearWood - got) / (perTree * 0.8)), Math.round(lay.rng.logNormal(lay.groveSize, 0.45)), grove.cap));
         const sp = FLOOR_KINDS[kind].species;
         let grew = false;
         for (const s of pickSeeds(lay.rng, seedW, W, 3, 4)) {
@@ -660,7 +663,7 @@ export function planResources(spec: MapSpec, g: Ground, candidate: number, attem
         if (nearHere && free[i] && moist[i]) w[i] = within && lay ? lay.groves[i] : byWalk(i);
       }
       for (const s of pickSeeds(lay ? lay.rng : vegRng, w, W, Math.max(4, Math.ceil(nearTrees / Math.max(1, each)) + 3), 5)) {
-        if (growGrove(s, sizeLean !== "normal" ? startSize() : each, true, within, dense ? 1 : nearFill.trees, tight, "forest/start", lay && !tight ? [...lay.opening, 0] : undefined)) got += groveLogs;
+        if (growGrove(s, lean !== "normal" ? startSize() : each, true, within, dense ? 1 : nearFill.trees, tight, "forest/start", lay && !tight ? [...lay.opening, 0] : undefined)) got += groveLogs;
         if (got >= nearWood) break;
       }
     }
@@ -671,7 +674,7 @@ export function planResources(spec: MapSpec, g: Ground, candidate: number, attem
       const w = new Float64Array(N);
       for (let i = 0; i < N; i++) if (plantWalk![i] && free[i] && !moist[i] && !wet[i]) w[i] = lay ? lay.groves[i] : 1;
       for (const s of pickSeeds(lay ? lay.rng : vegRng, w, W, Math.max(4, Math.ceil((nearWood - got) / Math.max(1, each)) + 3), 5)) {
-        if (growGrove(s, sizeLean !== "normal" ? startSize() : each, false, plantWalk, nearFill.trees, true, "forest/start/dead")) got += groveLogs;
+        if (growGrove(s, lean !== "normal" ? startSize() : each, false, plantWalk, nearFill.trees, true, "forest/start/dead")) got += groveLogs;
         if (got >= nearWood) break;
       }
     }
@@ -824,7 +827,7 @@ export function planResources(spec: MapSpec, g: Ground, candidate: number, attem
       yard[i] = (x - g.start.x) * (x - g.start.x) + (y - g.start.y) * (y - g.start.y) < YARD_CLEAR * YARD_CLEAR ? 1 : 0;
     }
     // (Scattered's small groves take more of them to reach the share)
-    for (let k = 0; k < (sizeLean === "scattered" ? 40 : 12); k++) {
+    for (let k = 0; k < (lean === "scattered" ? 40 : 12); k++) {
       const t = tally();
       if (t.all >= woodWant && t.fast >= share * t.live) break;
       const w = new Float64Array(N);
@@ -832,7 +835,7 @@ export function planResources(spec: MapSpec, g: Ground, candidate: number, attem
       const seeds = pickSeeds(vegRng, w, W, 3, 4);
       if (!seeds.length) break;
       const need = Math.max(woodWant - t.all, (share * t.live - t.fast) / (1 - share), 1);
-      const n = sizeLean !== "normal" ? startSize() : Math.max(6, Math.min(Math.ceil(need / (TREE_LOGS[fastSp] * 0.8)), Math.round(grove.median * 2.5)));
+      const n = lean !== "normal" ? startSize() : Math.max(6, Math.min(Math.ceil(need / (TREE_LOGS[fastSp] * 0.8)), Math.round(grove.median * 2.5)));
       let grew = false;
       for (const s of seeds)
         if (growGrove(s, n, true, within, nearFill.trees, true, "forest/start/fast", undefined, fastSp)) {
