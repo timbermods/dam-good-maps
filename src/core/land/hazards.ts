@@ -1192,7 +1192,9 @@ export function planBadwater(h: Uint8Array, W: number, H: number, wetNow: ArrayL
       // (Islands' ditches as they were, its own ruling to come, D498 (3))
       const gully = !ask.sea;
       const allowed = (i: number) => !pit[i] && !keepOff[i];
-      const wound = gully ? gullyDitch(base, hh, W, H, allowed, isEnd, hash32(seed, "ditch-gully", attempt, c)) : windDitch(base, hh, W, H, allowed, isEnd, hash32(seed, "ditch-meander", attempt, c), stream(seed, "ditch-wave", attempt, c));
+      // (a gully ends where its route does: in the water it joins, never on the map's edge short of it)
+      const toWater = goal[base[base.length - 1]] === 1;
+      const wound = gully ? gullyDitch(base, hh, W, H, toWater ? (i) => allowed(i) && !onBorder(i) : allowed, toWater ? (i) => goal[i] === 1 : isEnd, hash32(seed, "ditch-gully", attempt, c)) : windDitch(base, hh, W, H, allowed, isEnd, hash32(seed, "ditch-meander", attempt, c), stream(seed, "ditch-wave", attempt, c));
       if (!wound) continue;
       const route = { tiles: wound, end: wound[wound.length - 1] };
       // its water must never pass the start's water on the way out
