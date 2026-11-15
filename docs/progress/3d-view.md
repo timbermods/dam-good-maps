@@ -4341,19 +4341,23 @@ with blue points, the larger gap of the two (the birch's crown is next).
 - **Built:** the bush's pattern (`objectPatterns.ts` layer 5, D135: drawn in code) is a mound of thirteen rosettes, four
   rosettes for cards and four clusters of berries, each part over its colour (the leaves 0.71 / 0.99 / 1.34, the
   berries 0.56 / 0.99 / 1.33), cut at the game's 0.312. `bushCards.ts` builds the bush from it for both looks: a dome
-  of 24 triangles its mound covers from above, seven rosette cards, four berry cards (two triangles each): 46
+  of 24 triangles its mound covers from above, seven rosette cards (the four on its shoulders laid on the dome), four
+  berry cards laid on the dome where they stand, facing out along it, so none floats or shows edge-on (two triangles
+  each; look.test.ts): 46
   triangles (was 60 in Standard and 164 close up in High, whose five crowns and berry points it replaces; High's far
   mound stays). Seen from above it covers 0.96 × 0.93 where the cut keeps it (the game's 0.93; look.test.ts). A dead
   bush keeps its cards in the dead leaves' brown without its berries; a dying one shrinks and dries as before (a
   dying Standard model now keeps its parts' patterns). High's plants take patterns as Standard's do (`Shape.patterned`,
   the pattern packed in `lod`, its UV in `puv`), so the vegetation program and the sun's depth pass cut them the same.
+  Both read a cut layer's alpha no coarser than its 3rd mip (`PATTERN_ALPHA_MIP`): from the 5th a rosette's whole card
+  averages past the cut (a cluster of berries' from the 4th), so a card seen edge-on far off would draw whole.
 - **Cost:** the GPU a frame (median of two runs, #1148's branch → this one) on `cave` Standard 3.57–3.72 → 3.48–3.86 ms,
   High 4.11–4.36 → 4.13–4.49 ms; on `start` Standard 4.29–4.84 → 4.36–4.64 ms, High 5.45–5.59 → 5.03–5.42 ms; draw calls
   unchanged; triangles at `cave` Standard 591–596k → 580k, High 501–507k → 495–501k, at `start` Standard 604–609k →
   597k, High 559k → 540k; the pattern atlas 1.4 → 1.75 MB (a fifth layer); its drawing about 0.25 s in the worker; the
   light look unchanged (no pattern, each part in its colour).
 - **Falls short:** (1) The twigs under the bush are left out. (2) The game's berries sit on the leaves by a second UV
-  set; ours are cards over them. (3) The game's normal map lights each leaf; ours carry that light drawn in. (4) High's
+  set; ours are cards on the dome under them. (3) The game's normal map lights each leaf; ours carry that light drawn in. (4) High's
   far bush is still the faceted mound.
 - **Sheet** (local only): `C:\dgm-showcase\objects\close\bushes-sheet.png`, the game's cave frame and the branch in
   both looks, the bushes cropped (game | before | branch, both looks), and the pattern.

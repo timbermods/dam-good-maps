@@ -45,6 +45,23 @@ export const PATTERN_LAYERS = 5;
 export const PATTERN_CUT = 0.312;
 /** A texel is the part's albedo over its colour divided by this. */
 export const PATTERN_GAIN = 3;
+/** The coarsest mip a cut layer's alpha is read at (8 texels to one). Coarser, a card's whole region averages past the
+ *  cut (a bush's rosette's from its 5th, a cluster of berries' from its 4th), so a card seen edge-on, whose texels the
+ *  sampler averages along it, would be drawn whole: a line in the air. */
+export const PATTERN_ALPHA_MIP = 3;
+/** GLSL: whether a pattern keeps the texel at `at` (u, v, layer less one), `dx` and `dy` its UV's change across a pixel
+ *  (taken where every pixel takes them): a cut layer's alpha read no coarser than `PATTERN_ALPHA_MIP`, the tiling
+ *  layers' always kept. */
+export const PATTERN_KEPT_GLSL = /* glsl */ `
+  bool patternKept(sampler2DArray atlas, vec3 at, vec2 dx, vec2 dy) {
+    float layer = at.z + 1.0;
+    if (abs(layer - ${PATTERN.ivy}.0) > 0.5 && abs(layer - ${PATTERN.bush}.0) > 0.5) return true;
+    float most = ${((1 << PATTERN_ALPHA_MIP) / PATTERN_SIZE).toFixed(6)};
+    vec2 gx = dx * min(1.0, most / max(length(dx), 1e-8));
+    vec2 gy = dy * min(1.0, most / max(length(dy), 1e-8));
+    return textureGrad(atlas, at, gx, gy).a >= ${PATTERN_CUT};
+  }
+`;
 /** Metres of a part a unit of each tiling layer's UV, as the game's model maps its textures. */
 export const PATTERN_TILE = { thatch: 2.49, planks: 1.61, wood: 1.45 } as const;
 

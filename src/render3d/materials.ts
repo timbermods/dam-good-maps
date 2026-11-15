@@ -79,7 +79,7 @@ import { SHORE_FILM, SHORE_FILM_TERRAIN_GLSL, SHORE_FILM_VERTEX_GLSL } from "./s
 import { EDGE_BAND, SHADOW_OFFSET, SHADOW_RES, SHADOW_SCALE, WATER_BYTE_FINE, WATER_BYTE_STEPS, type TileSpan } from "./light";
 import { LIGHT_LEVELS, SUN_MARCH_STEP, SUN_MARCH_STEPS, type CaveLight } from "./caveLight";
 import { CUT_SLACK, VIEW_TAN } from "./cutWater";
-import { PATTERN, PATTERN_CUT, PATTERN_GAIN, PATTERN_LAYERS, PATTERN_SIZE as OBJECT_PATTERN_SIZE } from "./objectPatterns";
+import { PATTERN, PATTERN_GAIN, PATTERN_KEPT_GLSL, PATTERN_LAYERS, PATTERN_SIZE as OBJECT_PATTERN_SIZE } from "./objectPatterns";
 import { FALL } from "./waterMesh";
 import { RUN_LEVELS, type RunSoil } from "./runSoil";
 import { DITHER_GLSL, FADE_OFF, OBJECT_FADE_GLSL } from "./objectFade";
@@ -2896,9 +2896,15 @@ ${hook(h, "objectVertex")}        vNormal = normalize(mat3(m) * ${hook(h, "objec
       #if !LITE
         varying vec3 vPattern;
         uniform sampler2DArray objectAtlas;
+        ${PATTERN_KEPT_GLSL}
       #endif
       ${common(h)}${CAVE_POINT}${DITHER_GLSL}${GAME_LIT}
       void main() {
+        #if !LITE
+          // (the pattern's place's change across a pixel, taken before any pixel leaves)
+          vec2 patternDx = dFdx(vPattern.xy);
+          vec2 patternDy = dFdy(vPattern.xy);
+        #endif
         ${SUN_PX_GLSL}
         // the game's layers: what stands above the slice is cut away
         if (vWorld.y > slice + 0.02) discard;
@@ -2906,8 +2912,9 @@ ${hook(h, "objectVertex")}        vNormal = normalize(mat3(m) * ${hook(h, "objec
         #if !LITE
           // a part with a pattern: its albedo as the pattern varies its colour, cut away where the game's cut takes it
           if (vPattern.z > 0.5) {
-            vec4 t = texture(objectAtlas, vec3(vPattern.xy, vPattern.z - 1.0));
-            if (t.a < ${f(PATTERN_CUT)}) discard;
+            vec3 at = vec3(vPattern.xy, vPattern.z - 1.0);
+            if (!patternKept(objectAtlas, at, patternDx, patternDy)) discard;
+            vec4 t = texture(objectAtlas, at);
             vColor *= ${f(PATTERN_GAIN)} * t.rgb;
           }
         #endif

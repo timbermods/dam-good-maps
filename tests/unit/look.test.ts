@@ -7,6 +7,7 @@ import { describe, expect, it } from "vitest";
 import { storedSoil } from "../../src/core/format/world";
 import { describeTile, entitiesByTile } from "../../src/editor/features";
 import { buildEntities, modelKeyOf, modelOf, modelTriangles } from "../../src/render3d/entities3d";
+import { BERRY_OFF, bushTriangles, domeAt } from "../../src/render3d/bushCards";
 import { BUSH_BERRIES, PATTERN, PATTERN_CUT, PATTERN_GAIN, PATTERN_SIZE, PATTERN_TILE, patternAlpha, patternTexels } from "../../src/render3d/objectPatterns";
 import { casterLevelsOf, decodeTop, DEFAULT_SUN, encodeTop, litFraction, objectCasters, PLANT_WIDEST, shadowMap, shadowTops, SHADOW_RES, soilNibbles, tileData, waterByte, withCasterLevels } from "../../src/render3d/light";
 import { DEAD, entityView, soilView, surfaceWater, waterFromDepth, YOUNG } from "../../src/render3d/model";
@@ -479,6 +480,30 @@ describe("the models", () => {
       const across = Math.max(x1 - x0, z1 - z0);
       expect(across / 0.93).toBeGreaterThan(0.9);
       expect(across / 0.93).toBeLessThan(1.1);
+    }
+    // each berry card on the dome, touching it and facing out along its surface, as the game's berries sit on its leaves
+    // (none floating, none seen edge-on), whatever the variant
+    for (let v = 0; v < 4; v++) {
+      const all = bushTriangles(true, v);
+      const dome = all.filter((t) => !t.berries).slice(0, 24);
+      const cards = all.filter((t) => t.berries);
+      expect(cards.length).toBe(8);
+      for (let k = 0; k < cards.length; k += 2) {
+        // (a card's two triangles share its diagonal: its middle is the diagonal's)
+        const [a, c] = [cards[k].p[0], cards[k].p[2]];
+        const mid = [0, 1, 2].map((i) => (a[i] + c[i]) / 2);
+        const e1 = [0, 1, 2].map((i) => cards[k].p[1][i] - a[i]);
+        const e2 = [0, 1, 2].map((i) => c[i] - a[i]);
+        const n = [e1[1] * e2[2] - e1[2] * e2[1], e1[2] * e2[0] - e1[0] * e2[2], e1[0] * e2[1] - e1[1] * e2[0]];
+        const l = Math.hypot(...n);
+        const on = domeAt(dome, mid[0] - BERRY_OFF * (n[0] / l), mid[2] - BERRY_OFF * (n[2] / l))!;
+        expect(on, `variant ${v}`).not.toBeNull();
+        // its middle at BERRY_OFF from the surface along the surface's normal, and it lies in the surface's plane
+        expect(Math.abs(mid[1] - BERRY_OFF * (n[1] / l) - on.y)).toBeLessThan(1e-3);
+        expect(Math.abs((n[0] * on.n[0] + n[1] * on.n[1] + n[2] * on.n[2]) / l)).toBeGreaterThan(0.999);
+        // facing up and out, not edge-on to a camera looking down on it
+        expect(on.n[1]).toBeGreaterThan(0.5);
+      }
     }
   });
 

@@ -13,7 +13,7 @@
 
 import { DepthTexture, DoubleSide, Matrix4, MeshDepthMaterial, NearestFilter, OrthographicCamera, RedFormat, UnsignedByteType, UnsignedIntType, Vector3, WebGLRenderTarget, type DataArrayTexture, type Scene, type Vector4, type WebGLRenderer } from "three";
 import { SUN } from "../materials";
-import { PATTERN_CUT } from "../objectPatterns";
+import { PATTERN_KEPT_GLSL } from "../objectPatterns";
 import { OBJECT_FADE_GLSL } from "../objectFade";
 
 /** The depth map's side (texels). Fitted to the map as the sun sees it, a texel is 0.06–0.09 of a tile over a 128² map
@@ -184,9 +184,12 @@ export function fadingDepth(u: ObjectFadeUniforms): MeshDepthMaterial {
       varying vec3 vPattern;
       uniform float slice;
       uniform sampler2DArray objectAtlas;
+      ${PATTERN_KEPT_GLSL}
       void main() {
+        vec2 patternDx = dFdx(vPattern.xy);
+        vec2 patternDy = dFdy(vPattern.xy);
         if (vDropped > 0.5 || vHeight > slice + 0.02) discard;
-        if (vPattern.z > 0.5 && texture(objectAtlas, vec3(vPattern.xy, vPattern.z - 1.0)).a < ${PATTERN_CUT}) discard;`,
+        if (vPattern.z > 0.5 && !patternKept(objectAtlas, vec3(vPattern.xy, vPattern.z - 1.0), patternDx, patternDy)) discard;`,
     );
   };
   // (one program per kind of mesh, as three.js's own depth material has)
