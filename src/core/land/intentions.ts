@@ -127,15 +127,24 @@ const WEIGHT6: Record<IntentionId, ThemeWeights> = {
   "district-behind": { riverValley: 1, canyon: 0.8, highlands: 1.1, lakeBasin: 0.9, delta: 0.8, islands: 0.6 },
 };
 
-/** The themes the committed table offers an intention for (land/intentionTable.ts reads the same file; read here
- *  from the file itself, so this module does not import the one that imports it). */
-const OFFERED = (TABLE as { offered: Partial<Record<IntentionId, readonly string[]>> }).offered;
+/** The themes the committed table offers an intention for, by counted side (land/intentionTable.ts reads the same
+ *  file and holds the rule, `countedSide`; read here from the file itself, so this module does not import the one that
+ *  imports it). */
+const TABLED = TABLE as { sides: number[]; offered: Record<string, Partial<Record<IntentionId, readonly string[]>>> };
 
-/** How often a map of the theme draws the intention: its `WEIGHT6` entry on a theme the table offers it for, 0
- *  elsewhere (D138 as amended 2026-11-15). "Any" weighs each intention by its mean over the six themes, so read. */
-function weightOf(id: IntentionId, theme: ThemeId): number {
+/** The offered list a W×H map takes: the smallest counted side whose square holds its area, else the largest (128²
+ *  when no size is given). */
+function offeredAt(size: { W: number; H: number } | null): Partial<Record<IntentionId, readonly string[]>> {
+  const side = size ? (TABLED.sides.find((s) => s * s >= size.W * size.H) ?? TABLED.sides[TABLED.sides.length - 1]) : TABLED.sides[0];
+  return TABLED.offered[String(side)] ?? {};
+}
+
+/** How often a map of the theme draws the intention: its `WEIGHT6` entry on a theme the table offers it for at the
+ *  map's side, 0 elsewhere (D138 as amended 2026-11-15). "Any" weighs each intention by its mean over the six themes,
+ *  so read. */
+function weightOf(id: IntentionId, theme: ThemeId, offered: Partial<Record<IntentionId, readonly string[]>>): number {
   const w = WEIGHT6[id];
-  const on = OFFERED[id] ?? [];
+  const on = offered[id] ?? [];
   if (theme !== "any") return on.includes(theme) ? w[theme] : 0;
   const vs = (Object.keys(w) as (keyof ThemeWeights)[]).map((t) => (on.includes(t) ? w[t] : 0));
   return vs.reduce((a, b) => a + b, 0) / vs.length;
@@ -164,12 +173,13 @@ export function drawIntentions(theme: ThemeId, vt: number, rng: Rng, size: { W: 
   const r = rng.float();
   const n = r < 0.6 ? 1 : 2;
   const out: IntentionId[] = [];
+  const offered = offeredAt(size);
   for (let k = 0; k < n; k++) {
     const w = ACTIVE.map((id) => {
       if (out.includes(id) || out.some((o) => clashes(o, id))) return 0;
       if (size && tooSmallFor(id, size.W, size.H)) return 0;
       if (sea && DRAINS_A_SEA.has(id)) return 0;
-      return weightOf(id, theme) * (VERTICAL.has(id) ? 1 + vt / 100 : 1);
+      return weightOf(id, theme, offered) * (VERTICAL.has(id) ? 1 + vt / 100 : 1);
     });
     if (w.every((x) => x === 0)) break;
     out.push(ACTIVE[rng.weighted(w)]);
@@ -439,7 +449,8 @@ export function startPreference(id: IntentionId, s: SettlerView, x: number, y: n
       // from the start (12–60 tiles out), one side's open farmland twice the other's and the
       // other side higher (its wood and ruins are placed later; the check reads them)
       const b = s.blocks;
-      const want = (200 * W * H) / 16384;
+      // (in tiles on every map: the start's ring of 12–60 tiles is the same ground at every size, planning 2026-11-15)
+      const want = 200;
       for (const [ux, uy] of [[1, 0], [0.707, 0.707], [0, 1], [-0.707, 0.707]] as const) {
         const side = [
           { farm: 0, h: 0, n: 0 },
@@ -1034,14 +1045,15 @@ export function checkIntention(id: IntentionId, c: FinalCtx): CheckResult {
       let said = "";
       for (let id = 0; id < b.tiles.length && !found; id++) {
         const t = b.tiles[id];
-        if (t.length < 60) continue;
+        // (a lake of 60+ tiles, 10 of them a level deep, at 128²: the map's own proportions, scaled by its area)
+        if (t.length < (60 * N) / 16384) continue;
         let surf = 0;
         let deep = 0;
         for (const i of t) {
           surf = Math.max(surf, h[i] + D[i]);
           if (D[i] >= 1) deep++;
         }
-        if (surf < med + 5 || deep < 10) continue;
+        if (surf < med + 5 || deep < (10 * N) / 16384) continue;
         const inBody = new Set(t);
         const spill = c.falls.some((f) => {
           const fx = f.i % W;
@@ -1513,7 +1525,7 @@ export function checkIntention(id: IntentionId, c: FinalCtx): CheckResult {
         const [a, b] = side;
         if (!a.n || !b.n) continue;
         const richer = b.wood >= 2 * a.wood && b.wood >= 60 ? "wood" : b.ruins >= 2 * a.ruins && b.ruins >= 10 ? "ruins" : null;
-        if (a.farm >= 2 * b.farm && a.farm >= (200 * N) / 16384 && richer && b.h / b.n >= a.h / a.n + 1.5)
+        if (a.farm >= 2 * b.farm && a.farm >= 200 && richer && b.h / b.n >= a.h / a.n + 1.5)
           return { ok: true, note: `${a.farm} tiles of farmland one way; ${richer === "wood" ? `${Math.round(b.wood)} logs` : `${b.ruins} ruins`} up high the other`, say: `Two ways to grow: open farmland one way, ${richer === "wood" ? "wood" : "ruins"} up high the other.` };
       }
       return { ok: false, note: "no two directions that offer different riches" };
@@ -1554,11 +1566,12 @@ export function checkIntention(id: IntentionId, c: FinalCtx): CheckResult {
       return { ok: false, note: "no plug holding back a lake" };
     }
     case "district-behind": {
-      // a site's level ground, 300+ tiles (at 128²) and 35–70 tiles out, that the colony reaches only
-      // once the debris on its ramps is cleared
+      // a site's level ground, 300+ tiles and 35–70 tiles out, that the colony reaches only once the
+      // debris on its ramps is cleared (in tiles on every map: a second district at the start's scale,
+      // planning 2026-11-15)
       const open = c.walkCleared;
       if (!open) return { ok: false, note: "no debris" };
-      const want = (300 * N) / 16384;
+      const want = 300;
       const regions = new Map<number, { n: number; near: number }>();
       const lab = levelRegions(h, W, H).labels;
       for (let i = 0; i < N; i++) {

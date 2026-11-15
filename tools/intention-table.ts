@@ -1,11 +1,13 @@
 // Which themes each intention is offered for (planning, 2026-11-14, amended 2026-11-15; src/core/land/intentionTable.ts):
-// each intention asked alone of each theme on seeds 1–12 at 128² and at 256², offered where it emerged on at least 8 of
-// the 12 at both sides.
+// each intention asked alone of each theme on seeds 1–12 at 128² and at 256², offered at a side where it emerged on at
+// least 8 of the 12 at that side.
 //
 //   npm run intentions                                    (writes src/core/land/intentionTable.json; about 1,500 maps a
 //                                                          side, some 12 core-hours at 128² and 30 at 256²)
 //   npm run intentions -- --side 256 --threads 6          (counts one side, or with --theme one theme, and writes those
 //                                                          cells into the committed table, the others kept)
+//   npm run intentions -- --side 256 --ids two-ways,high-lake
+//                                                         (counts only the intentions named, and writes their cells)
 //   npm run intentions -- --check                         (writes nothing; fails when the committed table differs)
 //   npm run intentions -- --check --theme canyon --side 256 --part 2/3
 //                                                         (the same, for one theme, one side and every third intention
@@ -17,7 +19,7 @@
 // only what it offers): a change to its offered list moves maps, with a generator version and a re-pin.
 
 import { readFileSync, writeFileSync } from "node:fs";
-import { INTENTION_SIDES, offeredBy, STYLE_THEMES, type IntentionTable, type StyleTheme } from "../src/core/land/intentionTable";
+import { INTENTION_SIDES, offeredOf, STYLE_THEMES, type IntentionTable, type StyleTheme } from "../src/core/land/intentionTable";
 import { INTENTIONS, type IntentionId } from "../src/core/land/intentions";
 import { computeTable } from "./lib/intentionTable";
 
@@ -37,7 +39,9 @@ if (!(Number.isInteger(k) && Number.isInteger(n) && k >= 1 && k <= n)) throw new
 const threads = arg("--threads") === null ? undefined : Number(arg("--threads"));
 const themes = only ? [only] : STYLE_THEMES;
 const sides = side !== null ? [side] : INTENTION_SIDES;
-const ids: IntentionId[] = INTENTIONS.filter((_, i) => i % n === k - 1);
+const named = arg("--ids")?.split(",").filter(Boolean) ?? null;
+for (const id of named ?? []) if (!(INTENTIONS as readonly string[]).includes(id)) throw new Error(`--ids: "${id}" is not an intention`);
+const ids: IntentionId[] = INTENTIONS.filter((id, i) => i % n === k - 1 && (!named || named.includes(id)));
 const t0 = performance.now();
 const table = await computeTable(
   threads,
@@ -56,7 +60,7 @@ if (!check) {
     for (const id of INTENTIONS)
       for (const t of STYLE_THEMES)
         for (const s of INTENTION_SIDES) if (!scoped(id, t, s)) out.counts[id][t][String(s)] = committed.counts?.[id]?.[t]?.[String(s)] ?? 0;
-  out.offered = Object.fromEntries(INTENTIONS.map((id) => [id, offeredBy(out.counts[id])])) as IntentionTable["offered"];
+  out.offered = offeredOf(out.counts);
   writeFileSync(FILE, `${JSON.stringify(out, null, 1)}\n`);
   console.log(`wrote ${FILE}${whole ? "" : ` (${sides.map((s) => `${s}²`).join(", ")}${only ? `, ${only}` : ""}${n > 1 ? `, part ${k}/${n}` : ""})`}`);
 } else {

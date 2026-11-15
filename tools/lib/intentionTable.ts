@@ -7,7 +7,7 @@ import { cpus } from "node:os";
 import { isMainThread, parentPort, Worker, workerData } from "node:worker_threads";
 import { generate } from "../../src/core/gen/generate";
 import { INTENTIONS, type IntentionId } from "../../src/core/land/intentions";
-import { INTENTION_LEAST, INTENTION_SEEDS, INTENTION_SIDES, type IntentionTable, offeredBy, type StyleTheme, STYLE_THEMES } from "../../src/core/land/intentionTable";
+import { INTENTION_LEAST, INTENTION_SEEDS, INTENTION_SIDES, type IntentionTable, offeredOf, type StyleTheme, STYLE_THEMES } from "../../src/core/land/intentionTable";
 import { GENERATOR_VERSION, makeSpec } from "../../src/core/spec/mapspec";
 
 interface Task {
@@ -72,6 +72,5 @@ export async function computeTable(threads = Math.max(1, cpus().length), progres
       });
     }),
   );
-  const offered = Object.fromEntries(INTENTIONS.map((id) => [id, offeredBy(counts[id])])) as IntentionTable["offered"];
-  return { generatorVersion: GENERATOR_VERSION, sides: [...INTENTION_SIDES], seeds: [...INTENTION_SEEDS], least: INTENTION_LEAST, counts, offered };
+  return { generatorVersion: GENERATOR_VERSION, sides: [...INTENTION_SIDES], seeds: [...INTENTION_SEEDS], least: INTENTION_LEAST, counts, offered: offeredOf(counts) };
 }
