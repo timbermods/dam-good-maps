@@ -252,7 +252,7 @@ const I = PLAIN_IDS;
 
 const plainTop = (spec: MapSpec) => Math.min(spec.settings.terrain.highestTerrain, EDITOR_LEVEL);
 /** The badwater distance the start keeps (as the shared gate reads it: `validate/playability.ts`). */
-const badwaterOf = (spec: MapSpec) => Math.max(spec.settings.hazards.badwaterDistance, spec.settings.start.rules.badwaterWithin);
+const badwaterOf = (spec: MapSpec) => spec.settings.hazards.badwaterDistance;
 
 export function poisonedPlainEligible(spec: MapSpec): string | null {
   const { x, y } = spec.size;

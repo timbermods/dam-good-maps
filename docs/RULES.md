@@ -208,6 +208,8 @@ way, proposes the change on [#236](https://github.com/timbermods/dam-good-maps/i
   adds its map to the list in `tools/fixture-projects.ts` and runs `npm run fixtures:projects`; a deliberate refresh of every
   map is `npm run fixtures:projects -- --all` (then the suite, and re-aim what moved). Keep fixtures few and small: the bytes
   go in git, so scenarios share a map where they can.
+  A water test on a generated map opens one too (`previewWarmStream`'s River Valley 96² seeds 8 and 9): a preview test must
+  not hang on the generator's land.
 - **Dependency updates:** merge GitHub Actions updates and minor or patch npm updates when CI is green (CI's byte checks
   catch anything that changes a map). Hold major upgrades (TypeScript 7.0, @types/node 26, and any future major) for a
   deliberate upgrade step at a quiet time, such as housekeeping (ROADMAP.md, "Housekeeping"; D283), with the full nightly

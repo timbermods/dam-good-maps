@@ -168,7 +168,7 @@ export function band(key: string, spec: MapSpec): string {
       return `${b.sources} badwater source${b.sources > 1 ? "s" : ""}, for Extract late in the game. Official maps this size: about ${typical}.`;
     }
     case "badwaterDistance":
-      return "A target: the map card warns when badwater is nearer. Official maps: most 15 tiles.";
+      return "Official maps: most 15 tiles.";
     case "thornBelts":
       return "Belts of thorns bar the way to relics and geothermal fields. Clearing them takes builders and hurts. Official maps: 8 of 19 have some.";
     case "unstableCores":
