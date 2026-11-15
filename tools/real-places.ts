@@ -523,6 +523,7 @@ function filmsAfter(libraryId: string, place: PlaceData, had: Checked): { place:
   const { W, H } = place;
   let cur = place;
   let r = had;
+  let m = realMeasure(had.built.settle.depth, real);
   const notes: string[] = [];
   for (let round = 0; round < BED_ROUNDS; round++) {
     const left = films(r.built.settle.depth, r.built.model.floor, W, H).filter((f) => f.floor0 * 2 <= f.tiles.length);
@@ -545,12 +546,16 @@ function filmsAfter(libraryId: string, place: PlaceData, had: Checked): { place:
       const cand = { ...cur, heights: encodeHeights(tried) };
       const c = buildChecked(cand);
       const worse = c.strictFails.filter((id) => !r.strictFails.includes(id));
-      if ((r.built.settle.settled && !c.built.settle.settled) || worse.length || flaggedSources(cand).flagged.length > flow) {
-        notes.push(`film ${f.tiles.length} at ${f.at.join(",")}: its ${what} refused (${[...worse, ...(c.built.settle.settled ? [] : ["the water would not settle"]), ...(flaggedSources(cand).flagged.length > flow ? ["a source in another's flow"] : [])].join(", ")})`);
+      // (and the water over real water held, the water over real dry land not grown: D(new-films)'s conditions)
+      const mm = realMeasure(c.built.settle.depth, real);
+      const measure = [...(mm.real < m.real ? [`real water ${m.real} → ${mm.real}`] : []), ...(mm.dry > m.dry ? [`real dry land ${m.dry} → ${mm.dry}`] : [])];
+      if ((r.built.settle.settled && !c.built.settle.settled) || worse.length || measure.length || flaggedSources(cand).flagged.length > flow) {
+        notes.push(`film ${f.tiles.length} at ${f.at.join(",")}: its ${what} refused (${[...worse, ...measure, ...(c.built.settle.settled ? [] : ["the water would not settle"]), ...(flaggedSources(cand).flagged.length > flow ? ["a source in another's flow"] : [])].join(", ")})`);
         continue;
       }
       cur = cand;
       r = c;
+      m = mm;
       any = true;
       notes.push(`film ${f.tiles.length} at ${f.at.join(",")} ${what}`);
     }
