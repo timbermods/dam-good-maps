@@ -570,6 +570,8 @@ function runPlace(item: LibraryItem): Outcome | null {
   const { withheld, entries } = out;
   const files = { set: (k: string, b: Uint8Array) => void out.files.push([k, b]) };
   let place = toPlace(item, fx);
+  // (the columns the survey stood: a place's ruins are laid again to this count, whatever ruins it holds by then)
+  const surveyedRuins = decodeTiles(place.ruins).length;
   if (only && !only.includes(place.id)) return null;
   out.id = place.id;
   if (WITHHELD_UNTIL[place.id]) {
@@ -589,7 +591,7 @@ function runPlace(item: LibraryItem): Outcome | null {
     const kept = join(OUT, `data/${place.id}.json.gz`);
     if (!existsSync(kept)) throw new Error(`--ruins: ${kept} is missing (a new place needs the full run)`);
     const committed = JSON.parse(new TextDecoder().decode(gunzipSync(new Uint8Array(readFileSync(kept))))) as PlaceData;
-    return finishPlace(item, committed, buildChecked(committed), t, "  (--ruins: the committed place)", out);
+    return finishPlace(item, committed, surveyedRuins, t, "  (--ruins: the committed place)", out);
   }
   // Sources only at heads (D171, tools/lib/placeSources.ts): a source in another's flow merges into the upstream source
   // where that file's rules allow it; the rest stay, and the place keeps the fault until none is left. (The sealed-land
@@ -872,20 +874,22 @@ function runPlace(item: LibraryItem): Outcome | null {
     plants +
     groves +
     everySpot;
-  return finishPlace(item, place, { built, v, strict, blocking, strictFails }, t, notes, out);
+  return finishPlace(item, place, surveyedRuins, t, notes, out);
 }
 
 /** A place whose start, water and plants are settled: its ruin fields laid along its land (D(new-ruins),
- *  src/core/places/ruins.ts), built and checked, its files and index entry made. The last step of `runPlace`, and the
- *  whole of `--ruins`, which takes the committed place for everything before it. */
-function finishPlace(item: LibraryItem, place: PlaceData, checked: Checked, t: number, notes: string, out: Outcome): Outcome {
+ *  src/core/places/ruins.ts) to the survey's count of columns, built and checked, its files and index entry made. The
+ *  last step of `runPlace`, and the whole of `--ruins`, which takes the committed place for everything before it: the
+ *  ruins are laid on the place with none, so both give the same files, and `--ruins` again changes nothing. */
+function finishPlace(item: LibraryItem, place: PlaceData, columns: number, t: number, notes: string, out: Outcome): Outcome {
   const say = (line: string) => void out.lines.push(line);
   const { entries } = out;
   const files = { set: (k: string, b: Uint8Array) => void out.files.push([k, b]) };
   // Ruin fields along the land (D(new-ruins)): the survey's ruled squares go and the generator's laying (D518) lays the
   // place's columns again on its settled ground, objects only. The water and soil they are read from stay as they are
   // (the build throws if the water moved), and a laying that fails a check the place passed is not kept.
-  const laid = layRuins(place, checked);
+  const bare = { ...place, ruins: encodeTiles([]) };
+  const laid = layRuins(bare, buildChecked(bare), columns);
   place = laid.place;
   const { built, v, strict, blocking, strictFails } = laid.checked;
   const ruinNote = laid.note;
@@ -935,15 +939,15 @@ function finishPlace(item: LibraryItem, place: PlaceData, checked: Checked, t: n
   return out;
 }
 
-/** The place's ruins laid along its land (`placeRuins`), seeded from its key, built and checked: the first of a few
- *  layings that fails nothing the place passed with the survey's columns. None that does is an error: the place keeps no
- *  ruled square (tests/contract/places.test.ts). */
-function layRuins(place: PlaceData, r: Checked): { place: PlaceData; checked: Checked; note: string } {
+/** `columns` ruins laid along a place's land (`placeRuins`; the place has none, `r` its build), seeded from its key,
+ *  built and checked: the first of a few layings that fails nothing the place passes without them. None that does is an
+ *  error. */
+function layRuins(place: PlaceData, r: Checked, columns: number): { place: PlaceData; checked: Checked; note: string } {
   const ground = { depth: r.built.settle.depth, moisture: r.strict.analysis!.moisture, soilContamination: r.strict.analysis!.soilContamination };
-  const had = decodeTiles(place.ruins).length;
+  const had = columns;
   const refused: string[] = [];
   for (let round = 0; round < RUIN_ROUNDS; round++) {
-    const tiles = placeRuins(place, r.built.heights, ground, round ? `${seedKey(place)}:${round}` : seedKey(place));
+    const tiles = placeRuins(place, r.built.heights, ground, round ? `${seedKey(place)}:${round}` : seedKey(place), columns);
     const next = { ...place, ruins: encodeTiles(tiles) };
     const c = buildChecked(next);
     if (!c.built.settle.depth.every((d, i) => d === r.built.settle.depth[i])) throw new Error(`${place.name}: laying the ruins changed the water`);

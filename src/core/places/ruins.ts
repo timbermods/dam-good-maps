@@ -34,13 +34,13 @@ export interface PlaceRuinGround {
   soilContamination: ArrayLike<number>;
 }
 
-/** The place's ruin tiles laid along its land (ascending): about as many columns as `p.ruins` holds (the last field is
- *  grown to the columns left, less its gaps), fewer where its ground has no room for them. The place's own ruins are
- *  ignored (they are what is laid again); every other object, the start and its door are kept clear. */
-export function placeRuins(p: PlaceData, heights: ArrayLike<number>, ground: PlaceRuinGround, key: string): number[] {
+/** The place's ruin tiles laid along its land (ascending): about `columns` of them, the survey's count (the last field
+ *  is grown to the columns left, less its gaps), fewer where its ground has no room for them. The place's own ruins are
+ *  ignored (they are what is laid again, so laying again on a laid place gives the same tiles); every other object, the
+ *  start and its door are kept clear. */
+export function placeRuins(p: PlaceData, heights: ArrayLike<number>, ground: PlaceRuinGround, key: string, columns: number): number[] {
   const { W, H } = p;
   const N = W * H;
-  const columns = decodeTiles(p.ruins).length;
   if (!columns) return [];
   // (the tiles something stands on: the sources, the start and its door, the plants)
   const occupied = new Uint8Array(N);
