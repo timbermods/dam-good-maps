@@ -414,10 +414,10 @@ investigation's mesher (`investigation/erode/core/mesher.ts`) as the proposal. E
 Kyler's notes at the approval of `investigation/3d-view` (item 7, the terrain side; moving water waits for item 4) and
 Standard's shadow before a cave (item 8).
 - **The stone on ceilings:** a run's underside (a cave's ceiling, an overhang's roof seen from below) was a flat mortar
-  colour. It is now the walls' cobbled stone laid on the level plane, its stones along x and its courses along y, at
-  the walls' scale (`materials.ts`, the wall branch with `ceiling`), so it keeps its scale and orientation on ceilings,
-  walls and their corners in both looks (High's strata hook reads the same `along` and `y`); the level lines, the seams
-  between levels and the top's lip stay the walls' alone. Only maps with terrain above terrain have undersides.
+  colour. It is now the walls' stone (since `fix/cliff-face` their rock, "The cliff face as the game draws it") laid on
+  the level plane, along x and up y, at the walls' scale (`materials.ts`, the wall branch with `ceiling`), so it keeps
+  its scale and orientation on ceilings, walls and their corners in every look; the level lines and the top's lip
+  stay the walls' alone (the seams between levels went with `fix/cliff-face`). Only maps with terrain above terrain have undersides.
 - **Interiors that read** (*superseded by D497*: a cave is lit as open ground, "The game's light" below): a cave's least sky rose from 0.30 to 0.55 (`caveLight.ts` `CAVE_SKY_FLOOR`, the volume's
   least byte too) and the walk in from an opening loses 16 a cell instead of 26, so light carries about six cells in
   before the least; deeper in, the sky's light comes bounced off the rock, so walls and ceilings take nearly a floor's
@@ -3922,7 +3922,7 @@ frames, and the start was still the white map-editor marker.
   third. The top storey's posts are broken off at the variant's heights, one of them bent in A and E.
 - **Built** (`entities3d.ts` `RUIN_FACES`, `storey`, `band`, `rails`, `drape`): each storey from that table, the slab
   bands boxes 0.03 thick with a broken edge, the rails thin rods; the ivy flat leaves on the faces' outsides placed as
-  the game's cover: seen from a side, wet (h = 4) the game's 0.74 / 0.63 / 0.38 / 0.28 of each storey from the foot up
+  the game's cover (cut-out cards since "The ruins' ivy as the game draws it", below): seen from a side, wet (h = 4) the game's 0.74 / 0.63 / 0.38 / 0.28 of each storey from the foot up
   and ours 0.71 / 0.63 / 0.33 / 0.31–0.32; dry the foot 0.66 and ours 0.63 (held within 0.07, look-mine-ruins.test.ts). The game shows the dry model on dry or
   contaminated ground (`RuinModelUpdater`), as before. A storey is at most 284 triangles with its densest ivy (was 288 near, 24 far), in the
   game's colours, untinted (`palette.ts` `RUIN`: the means of the texels its cut-out keeps, rust #5d2f17, slab #6c5a39,
@@ -3956,8 +3956,9 @@ frames, and the start was still the white map-editor marker.
 - **Falls short:** (1) The game lights a fire in the bowl (its particles); left out (drawn since "The fire and the
   Iron Teeth's start", below). (2) The Iron Teeth's district center differs; ours is the Folktails' for both factions
   (drawn since the same). (3) The ruins' slab bands are clean boxes with a broken
-  edge where the game's are cracked cut-outs, and our leaves are larger and fewer than the game's. (4) The ivy's brown
-  roots at the foot (`IvyWet0A`) are left out. (5) The ruins' shadow in Standard is a solid post, half again the
+  edge where the game's are cracked cut-outs, and our leaves are larger and fewer than the game's (the leaves drawn
+  since "The ruins' ivy as the game draws it", below). (4) The ivy's brown roots at the foot (`IvyWet0A`) are left out
+  (its stems drawn since the same). (5) The ruins' shadow in Standard is a solid post, half again the
   area of the model's latticed one.
 - **Revived on dev** (`look/ruins-start`, 2026-11-14, 522 commits on; no conflict): dev still drew the start as the grey
   placeholder house with its entrance post, and the ruins as the scaffold towers. Sheet: `docs/sheets/ruins-start.jpg`,
@@ -4236,6 +4237,45 @@ L* here are read over our regions, so they differ from the list above by up to 1
   last 1–1.5 is unexplained. (3) The middle curtain's streaks reach 0.69 of the game's at best (2.96 against 4.29),
   whatever the gloss; the gloss is not their cause, and what is has not been found.
 
+## The cliff face as the game draws it (D497, D135 as amended 2026-11-14; `fix/cliff-face`)
+
+Judged on the in-game capture kit's Four Lakes r14 frames (day 1; local only), the close `cave` camera and the
+opening `first` one, ours posed from their cameras (tools/capture-ingame.ts), real Chrome on the RTX 2070 SUPER.
+
+- **The finding:** in the game's `cave` frame the rock is fine-grained and low in contrast; ours was a cobble four to
+  six times too large with thick black mortar, a dark seam at every level and faint vertical cracks, and High drew its
+  own strata over it (#65's). None of it is the game's.
+- **The game's material** (TerrainURP's `Cliff` variant, its pixel program disassembled locally, the `Cliff` material's
+  values; `tools/game-cliff-texture.py`): albedo `CliffDetail` triplanar at world × `_Albedo_Triplanar_Tile` 0.45 (a
+  repeat every 2.2 tiles) × the height gradient, no detail texture; normal `Cliff_N` triplanar at ×
+  `_Normal_Triplanar_Tile` 0.125 (8 tiles), whiteout blend, `_Normalmap_Strength` 1. `CliffDetail`: mean 67.3 / 61.8
+  / 51.7, its luma's spread 0.152 of its mean (0.66 / 0.99 / 1.36 at its 1st, 50th and 99th percentiles), rounded
+  translucent patches with darker bands round them, most of its power at 0.06–0.5 tiles; a blue–red hue spread of
+  0.035. `Cliff_N`: faceted stones in rough courses about half a tile wide and a third tall, slopes spread 0.36 a
+  component at full size and 0.28 at 16 texels a tile. No mortar, no seam at a level, no cracks.
+- **Ours now** (`materials.ts` `ROCK`): our own texture at those statistics, a second layer of the pattern texture (now
+  a two-layer array, one sampler as before), 4 tiles across: R the albedo's lightness, G its hue, B and A the stones'
+  normal. Measured from Chrome (`tools/rock-texture.ts`): spread 0.150 (0.67 / 1.00 / 1.33), hue 0.034; slopes 0.34 /
+  0.36 at full size, 0.28 / 0.29 at 16 texels a tile. A wall's albedo is the game's mean × it × the gradient; its light
+  takes the stones' normal (`litN`: the ambient by it, the sun by n·L and its shadow, the specular); a face turned from
+  the sun takes none through a tilted stone (`faceSun`, as the block shades it in the game). The light look draws the
+  mean, flat. Every look draws the same rock: High's "Rock strata" switch goes (D135 as amended 2026-11-14).
+- **Against the game** (rock pixels, L* by CIE; game / dev Standard / branch, Standard and High the same within 0.1):
+  - `cave` (in shade): mean 15.5 / 17.9 / 14.8; 10th–90th percentile 12.5–18.7 / 14.4–21.2 / 11.2–18.5; on the left
+    face the spread 2.4 / 6.3 / 2.8, its fine part (under 4 px) 1.53 / 3.09 / 1.48, its middle (2–10 px) 1.41 / 3.79 /
+    1.61.
+  - `first` (part in sun): mean 18.6 / 20.6 / 18.1; 10th–90th 15.2–22.8 / 16.4–25.9 / 13.9–22.6; fine 2.21 / 2.45 /
+    2.19. The sunlit faces show the stones' courses as the game's do.
+- **Cost:** none measured. benchOrbit at both cameras, the GPU's median a frame, two runs each, dev → branch: Standard
+  `first` 3.73, 3.63 → 3.52, 3.66 ms, `cave` 3.62, 3.77 → 3.60, 3.64; High `first` 4.43, 4.06 → 4.08, 4.28, `cave`
+  3.18, 3.58 → 3.13, 3.49. One texture read a wall where the cobbles took five.
+- **The sheet:** `C:\dgm-showcase\cliff\face\sheet.png` (local only): both cameras, game | dev | branch in both looks,
+  and the rock at the close camera, game against branch.
+- **Falls short:** (1) Our albedo's power sits a little broader than the game's (0.27 of it at 0.25–0.5 tiles against
+  0.19, 0.11 at 0.06–0.125 against 0.18), and the game's darker bands read longer and wider at the close camera. (2)
+  The `cave` face reads 0.7 L* darker than the game's and its middle scales 1.1 times; the rock is a texture of our
+  own, so it matches the game's statistics, not its texels.
+
 ## The pine's boughs as the game draws them (D135, D178, D496; `fix/close-objects`)
 
 At the Four Lakes r14 cave camera the game's pines are five whorls of drooping boughs, each whorl a star; ours were
@@ -4271,6 +4311,42 @@ three smooth cones in Standard and four scalloped cones in High, which read as o
   each; ours are flat facets, two to a bough. (2) Each whorl is a little rounder in the game's (its boughs broad lobes);
   ours are triangles to their tips. (3) Standard's pine shadows are still the fitted discs (`light.ts`
   `PLANT_SHAPES`).
+
+## The ruins' ivy as the game draws it (D135, D178 as amended 2026-11-10, D496, D497; `fix/close-ivy`)
+
+Judged on the in-game capture kit's Four Lakes r14 `cave` start frame (day light; local only), ours posed from its
+camera with the map opened from its file. The game's ivy hangs over its ruins in trails of five-lobed leaves with light
+brown stems climbing from the foot; ours was large flat squares set diagonally on the faces.
+
+- **Read from the game's models and atlas** (numbers only, `tools/game-model-albedo.py`; no texture in git): `Ivy_Wet`
+  and `Ivy_Dry` are one material (EnvironmentURP5, cut at alpha 0.312), each model a few dozen double-sided cards at the
+  tile's edges, 72–292 triangles, 6.4 m of card a unit of UV in a 2048² atlas: cards of stems branching up from a
+  column's foot and cards of leaf trails hanging from its top, the leaves about 0.16 m across. The texels the cut keeps:
+  the leaves (0.148, 0.180, 0.095), from 0.56 to 1.31 times that in lightness (its normal map's light), the stems
+  (0.236, 0.203, 0.124), 0.035 m wide.
+- **Built** (`objectPatterns.ts`, D135: drawn in code): one 256² layer at 128 texels a metre, made once a page in the
+  textures' worker (about 0.1 s; the ivy is cut away until it lands): three strips of trails 0.5 × 1 m that run on from
+  storey to storey (the same at their foot as their top), one strip hanging from a column's top, a root of stems and
+  stems running on, each part's mean over the cut the game's (`palette.ts` `RUIN.ivy`, `RUIN.ivyStem`). A model's part
+  takes a pattern by `Model.card` (`entities3d.ts`): double-sided, its UV in a `puv` attribute and its pattern packed
+  into `lod` (its view plus 4 × the pattern), so no other model carries anything more. The object program samples the
+  pattern's layer and cuts at the game's 0.312 (not in the light look, whose ruins have no ivy); High's sun-depth pass
+  cuts the same, so the cards cast the leaves' shadow. `drape` lays the cards at the tile's edge over the posts: stems
+  on the storeys with clearly some (a root on the foot of a wet column), running trails on every storey below the
+  column's top, trails hanging from the top storey.
+- **Coverage held** (look-mine-ruins.test.ts, now through the pattern's alpha at each point): seen from a side, wet
+  (h = 4) the game's 0.74 / 0.63 / 0.38 / 0.28 of each storey from the foot up and ours 0.76 / 0.67 / 0.35 /
+  0.32–0.34; dry the foot 0.66 and ours 0.67. A storey with the most ivy is 16 cards, 64 triangles (was 128).
+- **Cost:** `benchOrbit` at the `cave` camera (1600 × 900, headed Chrome, RTX 2070 Super; the GPU's median a frame,
+  two runs of two, dev → branch): Standard 2.73–3.76 → 2.72–2.88 ms, High 3.41–4.35 → 3.39–3.97 ms:
+  within the runs' spread. Draw calls 93 and 102, unchanged; triangles Standard 526 k → 519 k, High 513 k → 507 k. The
+  pattern is 0.33 MB with its mips. The light look is untouched (its ruins have no ivy; its program samples nothing).
+- **Falls short:** (1) Each storey's ivy is its own batch, as before, so a column's trails change density at each
+  storey's top rather than hanging as one from the column's top as the game's do. (2) The game's normal map lights each
+  leaf by its own tilt; ours carry that light drawn into the pattern, the same under every sun. (3) The game's ivy
+  spills past the tile at the foot (`IvyWet0A`, a skirt on the ground); ours stays within the tile.
+- **Sheet** (local only): `C:\dgm-showcase\objects\close\ivy-sheet.png`, the game | dev | branch at the `cave`
+  camera in both looks, the pattern, and the ruins cropped.
 
 ## The rest of the step (next parts)
 

@@ -16,7 +16,7 @@ import { waterHooks } from "../../src/render3d/high/shaders";
 import { dropFlags, EDGE_CURTAIN, meshWaterChunk, SHORE_BITS } from "../../src/render3d/waterMesh";
 import { plainLayers } from "../../src/render3d/waterLayers";
 import { DataTexture, ShaderMaterial } from "three";
-import { sceneUniforms, terrainMaterial, waterMaterial } from "../../src/render3d/materials";
+import { ROCK, sceneUniforms, terrainMaterial, waterMaterial } from "../../src/render3d/materials";
 
 const lum = (c: readonly number[]) => 0.2126 * c[0] + 0.7152 * c[1] + 0.0722 * c[2];
 
@@ -126,6 +126,19 @@ describe("the ground's colours", () => {
     expect(cliffTint(0)).toEqual(WALL.gradient.min);
     for (let k = 0; k < 3; k++) expect(cliffTint(22)[k]).toBeCloseTo(WALL.gradient.max[k], 6);
     for (let lv = 0; lv < 22; lv++) expect(lum(wallColor(lv + 1))).toBeGreaterThan(lum(wallColor(lv)));
+  });
+
+  it("draws the walls' rock as the game's cliff (D497): its albedo's mean, lit through its stones, no mortar or seams", () => {
+    // the game's CliffDetail mean, 67.3/61.8/51.7 of 255
+    [67.3, 61.8, 51.7].forEach((v, k) => expect(ROCK.albedo[k]).toBeCloseTo(v / 255, 3));
+    const tex = () => new DataTexture(new Uint8Array(4), 1, 1);
+    const src = terrainMaterial(sceneUniforms(1, 1, tex(), tex(), tex(), tex()), 0, 1).fragmentShader;
+    expect(src).toContain("vec3 wc = rockAlbedo(rk) * cliffTint;");
+    expect(src).toContain("light = gameLight(litN, sunHere);");
+    // (a face turned from the sun takes none through its stones' tilt)
+    expect(src).toContain("faceSun = step(0.0, dot(n, sunDir));");
+    expect(src).not.toContain("cobble(");
+    expect(src).not.toContain("float seam");
   });
 
   it("the legend names each colour, for soil and for height colours", () => {
