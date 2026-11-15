@@ -252,8 +252,13 @@ place of its bottom rule.
   main two again), the panel as tall as they need up to the room and scrolling inside past it; the menu in columns, the panels and Help in the first,
   all of it in view; the hints in the room's left half at rest, stepping aside while a sheet or the panel is open.
   **Everywhere on a phone:** every control at least 44px, none off the screen, the page never zoomed or scrolled (the
-  editor is the dynamic viewport's height and clips what would spill), the notch and the home bar kept clear (safe
-  areas, `viewport-fit=cover`), fields 16px so the browser never zooms on focus. A long press's tooltip shows its phrase without the key caps, which name keys a
+  editor fills the box the browser pins fixed elements to and clips what would spill), the notch and the home bar kept clear (safe
+  areas, `viewport-fit=cover`). **The foot keeps clear of the browser's own bar** (iOS 26 Safari's floating address bar
+  lay over the tool row, 2026-11-15): the root is `position: fixed`, inset 0, never a viewport unit's height, and what
+  read the viewport's height reads that box's (`--room-h`); should the box still reach under a bar, `--bar-b` is how far
+  its foot lies below the visual viewport's (`ui/phoneRoot.ts`; 0 while a field has the focus or the page is
+  pinch-zoomed), and the foot's room is the larger of it and the home bar's inset (a tablet's root ends at the bar
+  instead). `?viewport=on` shows the measures behind it in a box mid-screen, for a screenshot from a phone. Fields 16px so the browser never zooms on focus. A long press's tooltip shows its phrase without the key caps, which name keys a
   finger has none of, until a key is pressed on the page (a tablet with a keyboard). **Nothing cut at rest:** every control
   and card whole inside the room less its insets and inside its panel; a row or page that scrolls may show its next item
   in part only at an end where more lies and that is not a safe-area edge, or where it fades (a page of cards fades out
@@ -285,7 +290,7 @@ place of its bottom rule.
   (Glaciate's Benches at 820), never cut off; in the dock's narrow cells a setting's name keeps its whole words, wrapping between them, its value and
   Auto going under it where the line has no room, so no name is ever cut short. Under 1,280 wide the dock takes the view's
   whole width (its cells shrink to 44px, never narrower than a tool's word whatever the font; where the row can't hold
-  them it scrolls sideways, as a phone's does, the tool in hand scrolled into view; Select's shapes alike) and the editor is the dynamic viewport's height; under
+  them it scrolls sideways, as a phone's does, the tool in hand scrolled into view; Select's shapes alike) and the editor fills the box the browser pins fixed elements to (as a phone's, above); under
   1,100 the header takes two lines. Every control at least 44px, fields 16px, no iOS callout on a long press but in a
   field or a link, the same gestures (§7, "Touch").
 - **Together** (D362, D431, D486; `docs/COLLAB-BRIEF.md`; part 6a): two players edit one map through a relay and a

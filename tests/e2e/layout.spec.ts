@@ -978,6 +978,94 @@ for (const room of INSET_ROOMS) {
   });
 }
 
+// ---- the browser's own bar over the page (#1074; iOS 26 Safari's floating address bar lay over the tool row on Kyler's
+// iPhone, 2026-11-15): with the visual viewport ending above the root (stubbed, as Safari's bar would leave it), the
+// tools stand at or above the visual viewport's foot, their band running on under the bar, and a tool's sheet above
+// them; with no bar, the row stands where it always has. With the home bar's inset as well, the larger of the two.
+
+test.describe("a phone upright under a browser's own bar", () => {
+  test.use({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 2, isMobile: true, hasTouch: true });
+
+  test("at 390×844: the tools clear of the bar, and where they always were without one", async ({ page }) => {
+    test.setTimeout(120_000);
+    await applyInsets(page, { top: 59, right: 0, bottom: 34, left: 0 });
+    // (the visual viewport `__bar` px shorter than the layout viewport, as Safari's floating bar would leave it)
+    await page.addInitScript(() => {
+      const real = Object.getOwnPropertyDescriptor(VisualViewport.prototype, "height")!;
+      Object.defineProperty(VisualViewport.prototype, "height", {
+        configurable: true,
+        get(this: VisualViewport) {
+          return real.get!.call(this) - ((window as unknown as { __bar?: number }).__bar ?? 0);
+        },
+      });
+    });
+    await openEditor(page);
+    const bar = (px: number) =>
+      page.evaluate(async (px) => {
+        (window as unknown as { __bar?: number }).__bar = px;
+        window.visualViewport!.dispatchEvent(new Event("resize"));
+        await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
+      }, px);
+    const foot = () =>
+      page.evaluate(() => {
+        const vv = window.visualViewport!;
+        const row = document.querySelector(".tool-dock > .tool-bar")!.getBoundingClientRect();
+        const tools = [...document.querySelectorAll(".tool-dock > .tool-bar button.icon-button")].map((b) => b.getBoundingClientRect());
+        const sheet = document.querySelector(".tool-dock > .tool-settings.sheet")?.getBoundingClientRect();
+        return {
+          barB: getComputedStyle(document.documentElement).getPropertyValue("--bar-b").trim(),
+          visible: vv.offsetTop + vv.height,
+          rowTop: row.top,
+          rowBottom: row.bottom,
+          toolsBottom: Math.max(...tools.map((r) => r.bottom)),
+          toolsH: Math.min(...tools.map((r) => r.height)),
+          sheetBottom: sheet?.bottom ?? null,
+        };
+      });
+
+    // no bar: the row as it always stood, its tools above the home bar's 34px inset
+    const before = await foot();
+    expect(before.barB).toBe("0px");
+    expect(before.rowBottom).toBe(844);
+    expect(before.toolsBottom).toBe(844 - 34 - 4);
+
+    // a bar 75px over the page's foot: the tools at or above the visual viewport's foot, still 44px and more; the row's
+    // band runs on to the root's foot under the bar
+    await bar(75);
+    const under = await foot();
+    expect(under.barB).toBe("75px");
+    expect(under.visible).toBe(844 - 75);
+    expect(under.toolsBottom).toBeLessThanOrEqual(under.visible);
+    expect(under.toolsBottom).toBe(844 - 75 - 4);
+    expect(under.toolsH).toBeGreaterThanOrEqual(44);
+    expect(under.rowBottom).toBe(844);
+    // a tool's sheet stands on the lifted row
+    await page.locator(".tool-bar button[aria-label^='Raise']").first().tap();
+    await expect(page.locator(".tool-settings.sheet")).toBeVisible();
+    const held = await foot();
+    expect(held.sheetBottom!).toBeLessThanOrEqual(held.rowTop + 0.5);
+    expect(held.sheetBottom!).toBeLessThanOrEqual(held.visible);
+
+    // a bar shorter than the home bar's inset: the inset keeps its room; a field with the focus (a keyboard up) never lifts
+    await bar(20);
+    expect((await foot()).toolsBottom).toBe(844 - 34 - 4);
+    await bar(300);
+    await page.evaluate(() => {
+      const field = document.createElement("input");
+      field.className = "bar-test-field";
+      document.body.append(field);
+      field.focus();
+    });
+    expect((await foot()).barB).toBe("0px");
+    await page.evaluate(() => document.querySelector<HTMLInputElement>(".bar-test-field")!.remove());
+
+    // the bar gone: back where it was
+    await bar(0);
+    const after = await foot();
+    expect({ rowTop: after.rowTop, rowBottom: after.rowBottom, toolsBottom: after.toolsBottom }).toEqual({ rowTop: before.rowTop, rowBottom: 844, toolsBottom: 844 - 34 - 4 });
+  });
+});
+
 // ---- the tool row under a finger (#1074): it moves only with the finger and comes to rest on a whole tool by itself only
 // once no finger is on it; once scrolled away from the tool in hand it stays there until the tool or the room changes.
 
