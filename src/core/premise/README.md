@@ -102,6 +102,27 @@ control on the page yet); and step 9's core: the theme and the premise as two ch
   `gateRange.ts` reads the range along u (`rangeAt`, `sideOf`, `spineLocal`). Not offered: `premises/dev.ts`
   `DEV_PREMISES` lists it for the tools and tests; joining `spec/mapspec.ts` `PREMISE_IDS` offers it. No playability
   floor of its own: the shared gate holds the start.
+- `premises/poisonedPlain.ts`: the poisoned floodplain (`docs/design/poisoned-floodplain.md`), stage 0 only (its §9
+  row 1), not offered: `poisonedPlainEligible` (a side under 128, Badwater Off, Rivers 0 each refused in one line), the
+  layout in a local frame turned onto the map by an angle and mirrored (`boxOf`, `toMap`; planning's ruling of
+  2026-11-15: the valley is not a corridor): its axis 10° to 35° off the grid with 1 or 2 gentle bends (`VALLEY`,
+  `axisHeading`); each wall its own wandering line (round 3: spurs onto the floor and re-entrants back, 0.15 to 0.3 of
+  `P` either way, a spur and its re-entrant 1.5 to 3 `P` long, `WALL`, a wall drawn again while it runs straight), not
+  parallel (the floor narrower at the plain's head, its mean over any `P` of its length 0.8 to 1.3 of `P`, `PLAIN`,
+  `floorWidths`, `widthMeans`), the backswamp and the red stream on the far wall's foot; the
+  plain by the map (`P` the larger of (M + 9) / 0.7 and 0.28 to 0.36 of the side, `plainRange`; its length 0.7 to 0.85
+  of the side, its foot where its middle leaves the map; the floor 20 to 30 % of the map), at level L with its risers
+  40 to 60 tiles apart (`RISER`), with the river's reach `M_REACH` a named guess step 2 measures; the river meandering
+  in the near third, its width by flow; the levees as noise with 2 to 4 low places, not rasterised (`LEVEE`); the
+  backswamp 7 to 10 wide (up to 0.06 of the side, `SWAMP`, `swampMost`) and the slough or two (`SLOUGH`: the first
+  from the middle third, a second a third of the plain away); the start's terrace at the plain's head a third to a half
+  of the way across (`TERRACE`); the far wall's search window from the badwater distance, searched nearest-first in
+  the runs the vista frame shows, with targets for the gulch, the col and the old valley (`WINDOW`, `GULCH`); the Red
+  Spring's stream a fifth, a quarter or a third of the river (`RED_SHARE`) to its join in the river's last 30 % or its
+  own exit (`JOIN`); five regions; the ladder's rungs at their sites. Its numbers in `PlainPlan.plain` (`plainOf`), the
+  day-1 shares by arithmetic on the map's tiles (`plainShares`), the diagram's own pieces (`plainOverlays`) and its
+  `plan` invariants (`plain.levels`, `plain.width`, `wall.wanders`, `stream.join`, `start.badwater`, `frame.fall`, `poisoned.ladder`).
+  `plainLayoutTry` gives one try as far as it got. `premises/dev.ts` lists it.
 - `gateWater.ts`: the wall with one gate's stage 1 (§5.1 "As built (water)"): `gateWater` (the shared `waterByNumber`,
   then the leat's bar, the Veil's foot a level under the sill with its outer row the ribbon, the first frame's beds under
   two), `GATE_WATER_CHECKS` (the shared ones, the Still Pool a `Body.backwater`; `gate.dry`, `frame.water`) and `gateSettleModel` (the undrawn ground over every
@@ -141,7 +162,7 @@ control on the page yet); and step 9's core: the theme and the premise as two ch
   / `gateWorksFailures`.
 - `planChecks.ts`: §1.4's checks every premise shares (levels fit, no bed under `BED_FLOOR`, bodies apart, the graph
   closes, the works add up, the skeleton is whole).
-- `geom.ts`: capsule chains, paths and gaps. `diagram.ts`: the water-story diagram (`planSvg`, `planRaster`).
+- `geom.ts`: capsule chains, paths and gaps. `diagram.ts`: the water-story diagram (`planSvg`, `planRaster`; a premise's own pieces as `PlanOverlay` bands, lines and labels; water reached from a bad source drawn red).
 - `levels.ts`: the water table (§2.2, stage 1): each body's level and each link's flow, width and depth, from the
   sources down the graph, and the fitted constants `WATER`; `HOLD` and `holdDeep`, how deep a lake's floor lies so it
   keeps most of its water through the difficulty's longest drought (§4.4 `drought.lakes`).
@@ -197,7 +218,8 @@ the presets split; a pair refused in one line; the style changes the land past t
 day 1's water; every panel setting's role and the greyed list); `tests/contract/premisePlan.test.ts` (quick: the frame's arithmetic, eligibility, 18 plans, variety,
 a broken plan for every `plan` invariant, the Four Lakes fixture `tests/fixtures/four-lakes.plan.json`);
 `premiseGatePlan.test.ts` (quick: the wall with one gate kept out of the choices, its eligibility, seeds 1 to 24 a size,
-variety, a broken plan for every `plan` invariant); `gateBrooks.test.ts` (quick: the brooks' meander: its swing and
+variety, a broken plan for every `plan` invariant); `premisePlainPlan.test.ts` (quick: the poisoned floodplain kept out of the choices, its eligibility, seeds 1 to 12 a
+size with day 1's bands, variety, its diagram, a broken plan for every `plan` invariant); `gateBrooks.test.ts` (quick: the brooks' meander: its swing and
 wavelength, no curve touching itself, the straight head, the steps aside on a steep reach, the room, one of six draws
 with no straight reach at any angle, a trunk's straight reach and tight loop);
 `premiseGateWorks.test.ts` (quick: the works invariants on two plans, the rungs and their gains, the card, a broken
