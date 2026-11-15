@@ -61,6 +61,8 @@ export async function phoneClipped(page: Page) {
       if (el.closest("[aria-hidden=true], .visually-hidden, script, style, svg, canvas, [role=tooltip]")) continue;
       const own = [...el.childNodes].some((n) => n.nodeType === 3 && (n.textContent ?? "").trim() !== "");
       if (!own && !el.matches(TEXTY)) continue;
+      // (a control whose only words are a drawing, as the compass's turning N, has no words to cut)
+      if (!own && el.children.length && [...el.children].every((c) => c.getAttribute("aria-hidden") === "true")) continue;
       if (!el.textContent?.trim() || el.clientWidth === 0) continue;
       if (!el.checkVisibility({ checkOpacity: true, checkVisibilityCSS: true } as never)) continue;
       const r = el.getBoundingClientRect();
@@ -128,4 +130,154 @@ export async function hitTargets(page: Page, scope: string) {
       }
     return out.sort((a, b) => Math.min(a.w, a.h) - Math.min(b.w, b.h));
   }, scope);
+}
+
+/** A phone's safe-area insets in CSS px (the notch, the rounded corners and the home bar). */
+export interface Insets {
+  top: number;
+  right: number;
+  bottom: number;
+  left: number;
+}
+
+/** The safe-area insets applied to the page as the phone's browser gives them, `env(safe-area-inset-*)` (Chrome's own
+ *  emulation, `Emulation.setSafeAreaInsetsOverride`; the page asks for them with `viewport-fit=cover`). */
+export async function applyInsets(page: Page, insets: Insets) {
+  const cdp = await page.context().newCDPSession(page);
+  await cdp.send("Emulation.setSafeAreaInsetsOverride" as never, { insets } as never);
+}
+
+/** What a phone's room shows cut, covered or out of place, as the page lays it out at rest (#1074; Kyler's phone on its
+ *  side cut the Size card at the notch's inset and the rail's first and last tools at its ends). Each fault as a line:
+ *  - a control (or a setting's card) not whole inside the room less its insets, or spilling past the plate it stands on;
+ *  - one cut by a row or panel that scrolls, unless the cut is in the scroll's direction where more is there (a part-shown
+ *    next item says the row goes on), and that edge is not a safe-area edge or the scroller fades it; a row of tools (or
+ *    one that snaps) stands on a whole item at its start;
+ *  - one another element covers (what the page hands a tap at its middle and its edges' middles is someone else's);
+ *  - text cut short (`phoneClipped`), or one text laid over another. */
+export async function phoneFaults(page: Page, insets: Insets): Promise<string[]> {
+  const faults = await page.evaluate((ins) => {
+    const W = document.documentElement.clientWidth;
+    const H = document.documentElement.clientHeight;
+    const safe = { left: ins.left, top: ins.top, right: W - ins.right, bottom: H - ins.bottom };
+    const out: string[] = [];
+    const sel = "button, select, textarea, a[href], input:not([type=hidden]):not([type=file]), [role=checkbox], [role=menuitem], [role=slider], .set.plate";
+    const name = (el: Element) => {
+      const n = (el.getAttribute("aria-label") || el.textContent || "").trim().replace(/\s+/g, " ").slice(0, 28);
+      const cls = [...el.classList].slice(0, 2).join(".");
+      return `${el.tagName.toLowerCase()}${cls ? `.${cls}` : ""} "${n}"`;
+    };
+    const px = (n: number) => Math.round(n);
+    type Side = "left" | "top" | "right" | "bottom";
+    type Box = Record<Side, number>;
+    const SIDES: Side[] = ["left", "top", "right", "bottom"];
+    const clear = (c: string) => c === "rgba(0, 0, 0, 0)" || c === "transparent";
+    function* ancestry(e: Element | null) {
+      for (; e && e !== document.body; e = e.parentElement) yield e;
+    }
+    const scrollsWay = (a: HTMLElement, across: boolean) => {
+      const s = getComputedStyle(a);
+      return across ? /auto|scroll/.test(s.overflowX) && a.scrollWidth > a.clientWidth + 1 : /auto|scroll/.test(s.overflowY) && a.scrollHeight > a.clientHeight + 1;
+    };
+    for (const el of document.querySelectorAll<HTMLElement>(sel)) {
+      if (el.closest("[hidden], .visually-hidden, [aria-hidden=true], [role=tooltip]") || el.classList.contains("visually-hidden")) continue;
+      if (!el.checkVisibility({ checkOpacity: true, checkVisibilityCSS: true } as never)) continue;
+      const r = el.getBoundingClientRect();
+      if (r.width < 1 || r.height < 1) continue;
+      // what of it shows: cut by every ancestor that clips (at its padding box), each cut kept with what made it
+      let vis: Box = { left: r.left, top: r.top, right: r.right, bottom: r.bottom };
+      const cuts: { side: Side; by: HTMLElement; at: number }[] = [];
+      let plate: { el: HTMLElement; box: DOMRect } | null = null;
+      for (let a = el.parentElement; a && a !== document.documentElement; a = a.parentElement) {
+        const s = getComputedStyle(a);
+        if (!plate && a !== document.body && (!clear(s.backgroundColor) || s.backgroundImage !== "none")) plate = { el: a, box: a.getBoundingClientRect() };
+        if (s.overflowX === "visible" && s.overflowY === "visible") continue;
+        const q = a.getBoundingClientRect();
+        const pad: Box = { left: q.left + a.clientLeft, top: q.top + a.clientTop, right: q.left + a.clientLeft + a.clientWidth, bottom: q.top + a.clientTop + a.clientHeight };
+        for (const k of SIDES) if (k === "left" || k === "top" ? pad[k] > vis[k] + 0.5 : pad[k] < vis[k] - 0.5) cuts.push({ side: k, by: a, at: pad[k] });
+        vis = { left: Math.max(vis.left, pad.left), top: Math.max(vis.top, pad.top), right: Math.min(vis.right, pad.right), bottom: Math.min(vis.bottom, pad.bottom) };
+      }
+      const shows = vis.right - vis.left > 0.5 && vis.bottom - vis.top > 0.5;
+      // (scrolled out of a row or panel that scrolls: reachable, nothing of it drawn)
+      if (!shows) {
+        if (!cuts.some((c) => scrollsWay(c.by, c.side === "left" || c.side === "right"))) out.push(`${name(el)} off the screen`);
+        continue;
+      }
+      // a cut: fine only in a scroll's direction where more is there; a row that snaps stands on a whole item at its
+      // start; at a safe-area edge only where the scroller fades its edge (a fade says more is there, and what lies
+      // under the inset is faded away)
+      const faded = new Set<Side>();
+      for (const c of cuts) {
+        const across = c.side === "left" || c.side === "right";
+        const start = c.side === "left" || c.side === "top";
+        const b = c.by;
+        const s = getComputedStyle(b);
+        const fades = (s.maskImage || s.webkitMaskImage || "none") !== "none";
+        if (fades) faded.add(c.side);
+        // (a row of tools, or one that snaps, stands on whole items)
+        const snaps = (s.scrollSnapType || "none") !== "none" || b.getAttribute("role") === "toolbar";
+        const more = start ? (across ? b.scrollLeft : b.scrollTop) > 1 : across ? b.scrollLeft + b.clientWidth < b.scrollWidth - 1 : b.scrollTop + b.clientHeight < b.scrollHeight - 1;
+        const edge = start ? ins[c.side] > 0 && c.at <= safe[c.side] + 2 : ins[c.side] > 0 && c.at >= safe[c.side] - 2;
+        const why = !scrollsWay(b, across) ? "by a box that does not scroll that way" : !more ? "where nothing more is there" : start && snaps ? "at the start of a row of tools (at rest it stands on a whole item)" : edge && !fades ? "at a safe-area edge" : "";
+        if (why) out.push(`${name(el)} cut at its ${c.side} ${why} (${name(b)}, ${px(r[c.side])} past ${px(c.at)})`);
+      }
+      // what shows of it lies in the room less its insets (but where a scroller fades it away)
+      const under = SIDES.filter((k) => !faded.has(k) && (k === "left" || k === "top" ? vis[k] < safe[k] - 0.5 : vis[k] > safe[k] + 0.5));
+      if (under.length) out.push(`${name(el)} under the safe area at its ${under.join(", ")} (${px(vis.left)},${px(vis.top)} to ${px(vis.right)},${px(vis.bottom)})`);
+      // inside the plate it stands on
+      if (plate && !cuts.length) {
+        const b = plate.box;
+        const outs = SIDES.filter((k) => (k === "left" || k === "top" ? r[k] < b[k] - 0.5 : r[k] > b[k] + 0.5));
+        if (outs.length) out.push(`${name(el)} spills past its plate ${name(plate.el)} at its ${outs.join(", ")}`);
+      }
+      // nothing laid over part of it: the page's answer to a tap at its middle and at its edges' middles is this control
+      // (one wholly under a sheet is put away, not covered; a menu or a dialog opened over the page lies over it by
+      // design, as a scroller's sticky foot does over what scrolls under it)
+      if (getComputedStyle(el).pointerEvents !== "none" && !el.matches(".set.plate")) {
+        const mx = (vis.left + vis.right) / 2;
+        const my = (vis.top + vis.bottom) / 2;
+        const laid = (hit: Element) => !!hit.closest("[role=tooltip], .tip, [role=menu], [role=dialog], :has(> [role=dialog])") || [...ancestry(hit)].some((a) => getComputedStyle(a).position === "sticky");
+        // (partly: some of those points answer this control, another something else)
+        const hits = [[mx, my], [vis.left + 3, my], [vis.right - 3, my], [mx, vis.top + 3], [mx, vis.bottom - 3]].map(([x, y]) => ({ x, y, hit: document.elementFromPoint(x, y) }));
+        const own = hits.some((p) => p.hit && el.contains(p.hit));
+        const others = hits.filter((p) => p.hit && !el.contains(p.hit) && !laid(p.hit));
+        if (own && others.length) out.push(`${name(el)} partly covered at ${px(others[0].x)},${px(others[0].y)} by ${name(others[0].hit!)}`);
+      }
+    }
+    // one text laid over another (each text's own drawn lines, not its box), where both are drawn
+    const texts: { el: HTMLElement; rs: DOMRect[] }[] = [];
+    const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
+    for (let n = walker.nextNode(); n; n = walker.nextNode()) {
+      if (!(n.textContent ?? "").trim()) continue;
+      const host = n.parentElement!;
+      if (host.closest("[hidden], .visually-hidden, [aria-hidden=true], script, style, svg, [role=tooltip], .tip, .note-sizer") || !host.checkVisibility({ checkOpacity: true, checkVisibilityCSS: true } as never)) continue;
+      const range = document.createRange();
+      range.selectNodeContents(n);
+      const rs = [...range.getClientRects()].filter((q) => q.width > 1 && q.height > 1 && q.right > 0 && q.bottom > 0 && q.left < W && q.top < H);
+      // (a text under a sheet or a dialog is put away: only texts drawn at their own middle count)
+      const mid = rs[0] && document.elementFromPoint((rs[0].left + rs[0].right) / 2, (rs[0].top + rs[0].bottom) / 2);
+      if (rs.length && mid && (host.contains(mid) || mid.contains(host))) texts.push({ el: host, rs });
+    }
+    const seen = new Set<string>();
+    for (let i = 0; i < texts.length; i++)
+      for (let j = i + 1; j < texts.length; j++) {
+        const a = texts[i];
+        const b = texts[j];
+        if (a.el === b.el) continue;
+        for (const p of a.rs)
+          for (const q of b.rs) {
+            const w = Math.min(p.right, q.right) - Math.max(p.left, q.left);
+            const h = Math.min(p.bottom, q.bottom) - Math.max(p.top, q.top);
+            // (a line's box is its font's height: lines set tight touch without overlapping)
+            if (w <= 2 || h <= Math.min(p.height, q.height) * 0.35) continue;
+            // (one inside the other's box, a word in its button, lies on it rather than over it)
+            if (a.el.contains(b.el) || b.el.contains(a.el)) continue;
+            const line = `${name(a.el)} overlaps ${name(b.el)}`;
+            if (!seen.has(line)) out.push(line);
+            seen.add(line);
+          }
+      }
+    return out;
+  }, insets);
+  return [...faults, ...(await phoneClipped(page))];
 }

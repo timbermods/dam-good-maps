@@ -12,7 +12,7 @@
 import { expect, test, type Page } from "@playwright/test";
 import { legendEntries, objectLegend } from "../../src/render3d/palette";
 import { openLayoutMap as openEditor, settle } from "./helpers";
-import { hitTargets, phoneClipped, phoneControls } from "./phone";
+import { applyInsets, hitTargets, phoneClipped, phoneControls, phoneFaults } from "./phone";
 
 // (its tests stand alone: they run in parallel, so the browser shards and their two workers share them; one worker
 // running them all in a row took a shard past its 30 minutes)
@@ -924,6 +924,56 @@ for (const phone of PHONES) {
       await putDown.tap();
       await expect(raise).toHaveAttribute("aria-pressed", "false");
       await expect(page.locator(".tool-settings.sheet")).toHaveCount(0);
+    });
+  });
+}
+
+// ---- a real phone's insets (#1074; Kyler's iPhone 16 Pro Max on its side, 2026-11-14: the Size card cut at the notch's
+// inset, the rail's first and last tools cut at rest). The specs above run with no safe areas; here the browser gives the
+// page a phone's own (`env(safe-area-inset-*)`, phone.ts `applyInsets`), and every tool is taken up in turn, its settings
+// in one row and pulled up: no control or setting's card cut, covered or under an inset at rest, none past its plate, no
+// word cut short or laid over another (phone.ts `phoneFaults`).
+
+const INSET_ROOMS = [
+  { name: "a big phone on its side", viewport: { width: 956, height: 440 }, insets: { top: 0, right: 62, bottom: 21, left: 62 } },
+  { name: "a phone on its side", viewport: { width: 844, height: 390 }, insets: { top: 0, right: 47, bottom: 21, left: 47 } },
+  { name: "a phone upright", viewport: { width: 390, height: 844 }, insets: { top: 59, right: 0, bottom: 34, left: 0 } },
+];
+
+for (const room of INSET_ROOMS) {
+  test.describe(`${room.name} with its insets`, () => {
+    test.use({ viewport: room.viewport, deviceScaleFactor: 2, isMobile: true, hasTouch: true, reducedMotion: "reduce" });
+
+    test(`at ${room.viewport.width}×${room.viewport.height}: every tool's settings, in one row and pulled up, whole and clear of the insets`, async ({ page }) => {
+      test.setTimeout(240_000);
+      await applyInsets(page, room.insets);
+      await openEditor(page);
+      const found: string[] = [];
+      const measure = async (state: string) => {
+        await page.waitForFunction(() => window.dgmEditor!.roomSettled(), null, { timeout: 10_000 });
+        await page.evaluate(() => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r))));
+        for (const f of await phoneFaults(page, room.insets)) found.push(`${state}: ${f}`);
+      };
+      await measure("at rest");
+      const tools = await page.locator(".tool-dock > .tool-bar button.icon-button:not(.objects-button)").evaluateAll((bs) => bs.map((b) => b.getAttribute("aria-label")!));
+      expect(tools.length, "the tools found").toBeGreaterThan(10);
+      // (each picked as a tap picks it, from wherever the row was left: the row brings it whole into view)
+      const pick = (label: string) => page.locator(`.tool-dock > .tool-bar button[aria-label="${label}"]`).evaluate((b: HTMLElement) => b.click());
+      for (const tool of tools) {
+        const name = tool.replace(/ \(.*/, "");
+        await pick(tool);
+        await expect(page.locator(".tool-dock > .tool-settings.sheet")).toBeVisible();
+        await measure(`${name} in hand`);
+        const handle = page.locator(".sheet-handle");
+        if (await handle.count()) {
+          await handle.evaluate((b: HTMLElement) => b.click());
+          await expect(page.locator(".tool-settings.sheet.tall")).toBeVisible();
+          await measure(`${name} pulled up`);
+        }
+        await pick(tool);
+        if (name === "Select") await page.keyboard.press("Escape");
+      }
+      expect(found).toEqual([]);
     });
   });
 }
