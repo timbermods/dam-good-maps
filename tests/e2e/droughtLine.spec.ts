@@ -1,8 +1,9 @@
 // The drought line (the Weather view, D133, D269): the faint waterline of the drought's last day is drawn once the
 // worker has it, is put away while a Drought day is held and at the next edit, and comes back for the new map's version.
+// Its maps are saved (`openSaved`): the page's own map of each fragment, as generator 0.10.26 made it.
 
 import { expect, test, type Page } from "@playwright/test";
-import { openEditor, openYourMaps, topDown } from "./open";
+import { openSaved, openYourMaps, topDown } from "./open";
 
 const showing = (page: Page) => page.evaluate(() => window.dgm3d!.renderer.droughtLineShowing);
 /** The map's own water settled and on show (the canonical settle in the session, its journey played), the condition the
@@ -56,7 +57,7 @@ test("a river that dries out completely gets the dry tint as well as the line, d
   // generator 0.10.20's contour edges and their mends, D518, D148: no water of seed 2 dries out completely now; of Islands
   // 96² seeds 1–30 a stream dries out completely in 3, 9, 13, 18, 19, 20, 25, 26 and 27, and seed 3 is the first, 52 bed
   // tiles gone, 43 of them flowing on Day 0)
-  await openEditor(page, "s=1&z=96&d=n&t=islands");
+  await openSaved(page, "s=1&z=96&d=n&t=islands");
   const drawn = () => page.evaluate(() => window.dgm3d!.renderer.droughtDrawn);
   await expect.poll(async () => (await drawn()).tint, { timeout: 60_000 }).toBeGreaterThan(0);
   expect((await drawn()).line).toBeGreaterThan(0);
@@ -71,7 +72,7 @@ test("the drought line shows, goes while a day is held and at an edit, and comes
   const errors: string[] = [];
   page.on("pageerror", (e) => errors.push(String(e)));
   await page.setViewportSize({ width: 1280, height: 800 });
-  await openEditor(page, "s=4&z=96&d=n&t=lakeBasin");
+  await openSaved(page, "s=4&z=96&d=n&t=lakeBasin");
   // (it arrives once the drought's days are worked out in the background)
   await expect.poll(() => showing(page), { timeout: 60_000 }).toBe(true);
 
@@ -94,7 +95,7 @@ test("hovering a lake in the Drought view says the day it dries, or that it last
   const errors: string[] = [];
   page.on("pageerror", (e) => errors.push(String(e)));
   await page.setViewportSize({ width: 1280, height: 800 });
-  await openEditor(page, "s=4&z=96&d=n&t=lakeBasin");
+  await openSaved(page, "s=4&z=96&d=n&t=lakeBasin");
   // (the map's own water is the canonical settle's, which the Day 0 of both views is)
   await settled(page);
   await topDown(page);
@@ -154,7 +155,7 @@ test("hovering a lake in the Badtide view says the day it turns bad (D133)", asy
   const errors: string[] = [];
   page.on("pageerror", (e) => errors.push(String(e)));
   await page.setViewportSize({ width: 1280, height: 800 });
-  await openEditor(page, "s=4&z=96&d=n&t=lakeBasin");
+  await openSaved(page, "s=4&z=96&d=n&t=lakeBasin");
   // (the map's own water is the canonical settle's, which the Day 0 of both views is)
   await settled(page);
   await topDown(page);
@@ -197,7 +198,7 @@ test("an edit while the Drought view is held: the old map's days say nothing on 
   const errors: string[] = [];
   page.on("pageerror", (e) => errors.push(String(e)));
   await page.setViewportSize({ width: 1280, height: 800 });
-  await openEditor(page, "s=4&z=96&d=n&t=lakeBasin");
+  await openSaved(page, "s=4&z=96&d=n&t=lakeBasin");
   await settled(page);
   await topDown(page);
   const lake = await page.evaluate(() => {
@@ -244,7 +245,7 @@ test("a Compare flip while the Drought view is held, to a version whose land cov
   const errors: string[] = [];
   page.on("pageerror", (e) => errors.push(String(e)));
   await page.setViewportSize({ width: 1600, height: 900 });
-  await openEditor(page, "s=4&z=96&d=n&t=lakeBasin");
+  await openSaved(page, "s=4&z=96&d=n&t=lakeBasin");
   await settled(page);
   await topDown(page);
   const info = () => page.evaluate(() => window.dgmEditor!.info());
@@ -302,7 +303,7 @@ test("a day held while the water drawn has not yet answered an edit's land: the 
   const errors: string[] = [];
   page.on("pageerror", (e) => errors.push(String(e)));
   await page.setViewportSize({ width: 1280, height: 800 });
-  await openEditor(page, "s=4&z=96&d=n&t=lakeBasin");
+  await openSaved(page, "s=4&z=96&d=n&t=lakeBasin");
   await settled(page);
   const lake = await firstLake(page);
   expect(lake).not.toBeNull();
@@ -341,7 +342,7 @@ test("while Drought or Badtide is held, one quiet line says the day the start's 
   const errors: string[] = [];
   page.on("pageerror", (e) => errors.push(String(e)));
   await page.setViewportSize({ width: 1280, height: 800 });
-  await openEditor(page, "s=4&z=96&d=n&t=lakeBasin");
+  await openSaved(page, "s=4&z=96&d=n&t=lakeBasin");
   await settled(page);
   const note = page.locator(".water-bar .core-moment");
   // (no hazard held: no line)

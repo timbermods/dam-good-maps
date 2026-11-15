@@ -210,6 +210,12 @@ way, proposes the change on [#236](https://github.com/timbermods/dam-good-maps/i
   go in git, so scenarios share a map where they can.
   A water test on a generated map opens one too (`previewWarmStream`'s River Valley 96² seeds 8 and 9): a preview test must
   not hang on the generator's land.
+  The browser specs too: a spec that tests the editor on some land opens it saved, `openSaved(page, "s=4242&z=96&d=n&t=riverValley")`
+  (tests/e2e/open.ts: the page's own map of that fragment, saved once as `page-<theme>-<size>-<seed>[-<setting><value>…]`,
+  listed in `PAGE` in `tools/fixture-projects.ts`, opened through the page's own Open as a player opens a project, D455), because
+  every land change sent a dozen specs hunting new seeds for the ground they need. A spec whose subject is the generator seen
+  through the page (generating, versions, Showcase, the settings) generates with `openEditor`, and asserts only what holds on
+  any land, never a tile.
 - **Dependency updates:** merge GitHub Actions updates and minor or patch npm updates when CI is green (CI's byte checks
   catch anything that changes a map). Hold major upgrades (TypeScript 7.0, @types/node 26, and any future major) for a
   deliberate upgrade step at a quiet time, such as housekeeping (ROADMAP.md, "Housekeeping"; D283), with the full nightly

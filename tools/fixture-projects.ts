@@ -6,13 +6,16 @@
 //
 // A refresh moves the maps the tests stand on: run the quick suite after it and re-aim what moved, as a land change does.
 // Add a fixture here when a test needs a map the list lacks, and open it with `fixtureProject`/`fixtureSession`.
+// A browser spec's map goes in PAGE, as the fragment the spec opened before (`page-<theme>-<size>-<seed>[-...]`, the map the
+// page makes of it), and the spec opens it with `openSaved` (tests/e2e/open.ts); a refresh of those re-aims the browser specs.
 
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { decodeProject, encodeProject } from "../src/core/doc/document";
 import { generate } from "../src/core/gen/generate";
 import { MapSession } from "../src/core/doc/session";
-import { GENERATOR_VERSION, makeSpec, type ThemeId } from "../src/core/spec/mapspec";
-import { FIXTURE_DIR, fixtureName, type FixtureVariant } from "../tests/fixtureProjects";
+import { GENERATOR_VERSION, makeSpec, type MapSpec, type ThemeId } from "../src/core/spec/mapspec";
+import { decodeSpecFragment } from "../src/core/spec/codec";
+import { FIXTURE_DIR, fixtureName, pageFixtureName, type FixtureVariant } from "../tests/fixtureProjects";
 
 type Entry = [theme: ThemeId, size: number, seed: number, variant?: FixtureVariant];
 
@@ -52,13 +55,56 @@ const LIST: Entry[] = [
   ["islands", 96, 5, "noforms"],
 ];
 
+// The browser specs' maps (tests/e2e, `openSaved`): each the map the page made of its fragment, saved with the generator
+// each spec was aimed at (0.10.26)
+const PAGE: string[] = [
+  "s=4242&z=96&d=n&t=riverValley",
+  "s=56&z=96&d=n&t=riverValley",
+  "s=1&z=96&d=n&t=riverValley",
+  "s=2&z=96&d=n&t=riverValley",
+  "s=3&z=96&d=n&t=riverValley",
+  "s=4&z=96&d=n&t=riverValley",
+  "s=6&z=96&d=n&t=riverValley",
+  "s=7&z=96&d=n&t=riverValley",
+  "s=13&z=96&d=n&t=riverValley",
+  "s=4242&z=96&d=n&t=riverValley&bw=0",
+  "s=8&z=96&d=n&t=riverValley&bw=0",
+  "s=7&z=96&d=n&t=riverValley&bw=0&uc=1",
+  "s=1&z=96&d=n&t=highlands",
+  "s=47&z=96&d=n&t=highlands",
+  "s=4242&z=96&d=n&t=highlands",
+  "s=4244&z=96&d=n&t=highlands",
+  "s=4246&z=96&d=n&t=highlands",
+  "s=4&z=96&d=n&t=lakeBasin",
+  "s=77&z=96&d=n&t=lakeBasin",
+  "s=86&z=96&d=n&t=lakeBasin",
+  "s=5&z=128&d=n&t=lakeBasin",
+  "s=8&z=128&d=n&t=canyon",
+  "s=1&z=96&d=n&t=islands",
+  "s=7&z=128&d=n&t=islands",
+];
+
+/** Each fixture: its file's name, and the map's spec and whether it has 3D forms. */
+const JOBS: { name: string; make: () => { spec: MapSpec; forms: boolean } }[] = [
+  ...LIST.map(([theme, size, seed, variant]) => ({
+    name: fixtureName(theme, size, seed, variant),
+    make: () => {
+      const spec = makeSpec({ seed, theme, size: { x: size, y: size } });
+      const terracing = /terr(\d+)/.exec(variant ?? "")?.[1];
+      if (terracing !== undefined) spec.settings.terrain.terracing = Number(terracing);
+      return { spec, forms: !variant?.startsWith("noforms") };
+    },
+  })),
+  // (the spec the page makes of the fragment: App.tsx's initialSpec)
+  ...PAGE.map((fragment) => ({ name: pageFixtureName(fragment), make: () => ({ spec: decodeSpecFragment(fragment)!.spec, forms: true }) })),
+];
+
 const args = process.argv.slice(2);
 const all = args.includes("--all");
 const named = args.filter((a) => !a.startsWith("--"));
 mkdirSync(FIXTURE_DIR, { recursive: true });
 let total = 0;
-for (const [theme, size, seed, variant] of LIST) {
-  const name = fixtureName(theme, size, seed, variant);
+for (const { name, make } of JOBS) {
   const path = `${FIXTURE_DIR}/${name}`;
   if (named.length ? !named.includes(name.replace(/\.damgoodmaps$/, "")) : !all && existsSync(path)) {
     // (a file on disk holds no stored map, however it got there)
@@ -69,10 +115,8 @@ for (const [theme, size, seed, variant] of LIST) {
     }
     continue;
   }
-  const spec = makeSpec({ seed, theme, size: { x: size, y: size } });
-  const terracing = /terr(\d+)/.exec(variant ?? "")?.[1];
-  if (terracing !== undefined) spec.settings.terrain.terracing = Number(terracing);
-  const r = generate(spec, variant?.startsWith("noforms") ? { forms: false } : {});
+  const { spec, forms } = make();
+  const r = generate(spec, forms ? {} : { forms: false });
   // (no stored map: it belongs to one generator version and doubles the file, so the file holds the map's base and its features, as the project of an older generator does)
   const { stored: _stored, ...doc } = decodeProject(MapSession.fromGenerated(r, r.file).project());
   const bytes = encodeProject(doc);
@@ -80,4 +124,4 @@ for (const [theme, size, seed, variant] of LIST) {
   total += bytes.length;
   console.log(`${name}: ${(bytes.length / 1024).toFixed(0)} KB (generator ${GENERATOR_VERSION})`);
 }
-console.log(`${LIST.length} fixtures, ${(total / 1048576).toFixed(2)} MB`);
+console.log(`${JOBS.length} fixtures, ${(total / 1048576).toFixed(2)} MB`);
