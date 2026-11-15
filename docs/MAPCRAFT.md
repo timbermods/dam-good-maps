@@ -183,6 +183,14 @@ a premise or one still to come, may carry its own, lower playability floor.
   contour were tried and dropped (they cost Highlands 4 its start): the shores wait for the water tree. A gently
   curving shore still counts as straight under an 8-tile strip, so the share is a relative measure, not a limit; the
   game's own maps have not been run.
+- **The water tree** (D(water-tree), planning's ruling of 2026-11-15): `tools/water-tree.ts` reads each map's drainage
+  as a tree: courses (heads that bring water), joins and whether the course below is a tile or more wider than both
+  arms (medians over 4–20 tiles; a head on another's water, or a join under 4 tiles from a way out, is not read),
+  courses alone to the edge or the sea, the wet share on day 1, irrigable dry (dry land within a 24-tile canal of a
+  course's clean water and at most 2 levels above it) and width by order. `--json` writes the rows;
+  `tools/water-tree-sheet.py` lays before and after out with the start's numbers first, on `tools/ruled-water.ts
+  --frames --plain` frames. The 42 maps at 256² and River Valley 9, 0.10.28 → 0.10.29: courses 8.8 → 5.3, wider below
+  33 → 77 %, wet 30.2 → 22.6 %, irrigable dry 8.2 → 6.4 %, attempts 173 → 190, leaks 38 → 37.
 
 **Land first, story second** (planning's ruling of 2026-11-11, for every path: themes, premises, hand maps). Every
 landform is one geology makes, shaped by the shared natural relief. A premise is found in or cut into natural land by a

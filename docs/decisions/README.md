@@ -91,6 +91,7 @@ Read this index, then [how-we-work.md](how-we-work.md), then only the topic file
 
 ## [The generator](generator.md)
 
+- D(water-tree): Above 128² the water is a tree: a few larger rivers, the water split by drained area, heads where water gathers, wider below each join
 - D(ruled-water): No course runs beside another: it joins the one it would run beside; Delta's arms step diagonally
 - D527: Every move of a generator control changes the next map, or the control is greyed with its reason
 - D520: The reach rule: a crossing between two bends under 5 wide is a ruled reach past five times its width; every other straight stretch, wider water and lakes at 12 rows

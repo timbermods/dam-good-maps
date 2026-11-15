@@ -26,6 +26,10 @@
 //   `gameMoistureReach` (sim/soil3d.ts `moistureReach3d`, the rule the game's soil settles to, on the stored water,
 //   its contamination and the map's objects) at `MOIST_MIN` or more, as a share of the land. `spacing`: the land per
 //   tile of channel centre line, about the width of dry ground between parallel threads.
+// (b') Irrigable dry (planning's rule 5 for the water tree, 2026-11-15): the land the moisture does not reach on day 1
+//   that a short canal could water: within `IRR_CANAL` tiles' walk over the land (four sides) of a course's clean water
+//   (`WET` deep or more, not the sea, under 0.1 contaminated), and at most `IRR_LIFT` levels above that water's surface
+//   (the nearest water's, by the walk); as a share of the land. The aim is dry ground a player can water, not reach.
 // (c) Width by order. The channels' centre line is their Zhang–Suen thinning (`ruled-water.ts` `thin`). Its tiles'
 //   crossing number (the runs of line tiles round each tile's eight) is 1 at an end, 2 along a line, 3 or more at a
 //   join (touching join tiles are one join). The join tiles taken out cut the line into links (8-connected, never
@@ -47,7 +51,9 @@
 //   - `w1`: the median width of the first order (each path above the first join onto it); `w2`: of the rest.
 //   - `joins`: the joins the paths make; `wider`: those where the path below the join (its tiles `NEAR` down from it)
 //     is a tile or more wider (medians) than both the path joining (its last `NEAR` tiles) and the one it joins above
-//     the join (its `NEAR` tiles up from it). (The thinning's own joins, a braid's or a pool's, are not read.)
+//     the join (its `NEAR` tiles up from it). (The thinning's own joins, a braid's or a pool's, are not read, nor a
+//     head's whose path is under `NEAR[0]` tiles, a spring on another's water that brings no stream of its own, nor
+//     one under `NEAR[0]` tiles from a way out, with no stretch below it to read.)
 
 import { readdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
 import { basename, join, resolve } from "node:path";
@@ -77,6 +83,9 @@ export const HEAD_LINE = 12;
 export const MIN_LINE = 8;
 /** The stretch of each link read at a join, in tiles along the line from it. */
 export const NEAR = [4, 20] as const;
+/** Irrigable dry (b'): a short canal's walk from a course's water, and the levels above its surface it may lift. */
+export const IRR_CANAL = 24;
+export const IRR_LIFT = 2;
 
 const N8: readonly [number, number][] = [
   [0, -1],
@@ -112,6 +121,8 @@ export interface WaterTree {
   land: number;
   spacing: number;
   wetShare: number;
+  /** Irrigable dry, a share of the land (b'). */
+  irrigable: number;
   width: number;
   oneWidth: number;
   thin: number;
@@ -516,14 +527,17 @@ export function waterTree(W: number, H: number, heights: ArrayLike<number>, dept
     firstJoin.push(path.length);
     pathLen += path.length;
     if (met < 0) return;
-    // (a join: the incoming path's last stretch, the path it meets above and below the join)
-    joins++;
     const into = pathOf[by[met]];
     const at = into.indexOf(met);
     firstJoin[by[met]] = Math.min(firstJoin[by[met]], at);
-    const above = into.slice(0, at).reverse();
     const down: number[] = [];
     for (let d = met, n = 0; d >= 0 && n <= NEAR[1]; d = below(d), n++) down.push(d);
+    // (a head that starts on another's water, its path shorter than `NEAR[0]`, brings no stream of its own; a join at
+    // the way out, under `NEAR[0]` tiles below it, has no stretch below to read: neither is read as a join)
+    if (path.length < NEAR[0] || down.length < NEAR[0]) return;
+    // (a join: the incoming path's last stretch, the path it meets above and below the join)
+    joins++;
+    const above = into.slice(0, at).reverse();
     const wIn = midWidth(path.slice().reverse());
     const wAbove = above.length ? midWidth(above) : 0;
     const wBelow = midWidth(down);
@@ -544,6 +558,34 @@ export function waterTree(W: number, H: number, heights: ArrayLike<number>, dept
     landN++;
     if (reach.value[i] >= MOIST_MIN) moist++;
   }
+  // ---- (b') irrigable dry: dry on day 1, a short canal from a course's clean water and within its lift
+  const dist = new Int32Array(N).fill(-1);
+  const surf = new Float64Array(N);
+  const q: number[] = [];
+  for (let i = 0; i < N; i++)
+    if (wet[i] && !sea[i] && !(contamination[i] >= 0.1)) {
+      dist[i] = 0;
+      surf[i] = heights[i] + depth[i];
+      q.push(i);
+    }
+  let irr = 0;
+  for (let k = 0; k < q.length; k++) {
+    const i = q[k];
+    if (dist[i] >= IRR_CANAL) continue;
+    const x = i % W,
+      y = (i - x) / W;
+    for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+      const xx = x + dx,
+        yy = y + dy;
+      if (xx < 0 || yy < 0 || xx >= W || yy >= H) continue;
+      const j = yy * W + xx;
+      if (dist[j] >= 0 || wet[j]) continue;
+      dist[j] = dist[i] + 1;
+      surf[j] = surf[i];
+      q.push(j);
+      if (!(reach.value[j] >= MOIST_MIN) && heights[j] <= surf[j] + IRR_LIFT) irr++;
+    }
+  }
   const n = (f: Head["fate"]) => heads.filter((h) => h.fate === f).length;
   return {
     heads,
@@ -560,6 +602,7 @@ export function waterTree(W: number, H: number, heights: ArrayLike<number>, dept
     land: landN,
     spacing: widths.length ? landN / widths.length : 0,
     wetShare: landN ? moist / landN : 0,
+    irrigable: landN ? irr / landN : 0,
     width: med,
     oneWidth: widths.length ? one / widths.length : 0,
     thin: widths.length ? thinN / widths.length : 0,
@@ -598,7 +641,7 @@ const pct = (x: number) => `${(100 * x).toFixed(1)} %`;
 function row(name: string, m: WaterTree): string {
   return (
     `${name.padEnd(16)} courses ${String(m.courses).padStart(3)} (in ${m.inflows}, springs ${String(m.springs).padStart(2)}) joined ${String(m.joined).padStart(2)} alone ${String(m.alone).padStart(2)} (edge ${m.edge}, sea ${m.sea}) lost ${m.lost}  systems ${String(m.systems).padStart(2)}` +
-    `  spacing ${m.spacing.toFixed(1).padStart(5)}  wet ${pct(m.wetShare).padStart(7)}  width ${m.width.toFixed(1)} one ${pct(m.oneWidth)} thin ${pct(m.thin)} w1 ${m.w1.toFixed(1)} w2 ${m.w2.toFixed(1)}  joins ${m.joins} wider ${m.wider}  course ${m.courses ? Math.round(m.courseLen / m.courses) : 0}`
+    `  spacing ${m.spacing.toFixed(1).padStart(5)}  wet ${pct(m.wetShare).padStart(7)}  irrigable ${pct(m.irrigable).padStart(7)}  width ${m.width.toFixed(1)} one ${pct(m.oneWidth)} thin ${pct(m.thin)} w1 ${m.w1.toFixed(1)} w2 ${m.w2.toFixed(1)}  joins ${m.joins} wider ${m.wider}  course ${m.courses ? Math.round(m.courseLen / m.courses) : 0}`
   );
 }
 
@@ -611,7 +654,7 @@ export function total(name: string, ms: WaterTree[]): string {
   const wmean = (f: (m: WaterTree) => number) => s((m) => f(m) * m.centre) / Math.max(1, centre);
   return (
     `${name} (${ms.length} maps): courses ${(courses / ms.length).toFixed(1)} a map (inflows ${s((m) => m.inflows)}, springs ${s((m) => m.springs)}), joined ${pct(s((m) => m.joined) / Math.max(1, courses))}, alone ${pct(s((m) => m.alone) / Math.max(1, courses))} (edge ${s((m) => m.edge)}, sea ${s((m) => m.sea)}), lost ${s((m) => m.lost)};` +
-    ` heads/system ${(courses / Math.max(1, s((m) => m.systems))).toFixed(2)}; spacing ${(land / Math.max(1, centre)).toFixed(1)}; wet ${pct(s((m) => m.wetShare * m.land) / Math.max(1, land))};` +
+    ` heads/system ${(courses / Math.max(1, s((m) => m.systems))).toFixed(2)}; spacing ${(land / Math.max(1, centre)).toFixed(1)}; wet ${pct(s((m) => m.wetShare * m.land) / Math.max(1, land))}; irrigable ${pct(s((m) => m.irrigable * m.land) / Math.max(1, land))};` +
     ` width ${wmean((m) => m.width).toFixed(1)}, one width ${pct(wmean((m) => m.oneWidth))}, thin ${pct(wmean((m) => m.thin))}, w1 ${wmean((m) => m.w1).toFixed(1)}, w2 ${wmean((m) => m.w2).toFixed(1)};` +
     ` joins ${joins}, wider below ${s((m) => m.wider)} (${pct(s((m) => m.wider) / Math.max(1, joins))}); course length ${(s((m) => m.courseLen) / Math.max(1, courses)).toFixed(0)}`
   );

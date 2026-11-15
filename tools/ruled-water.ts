@@ -5,6 +5,7 @@
 //   npx tsx tools/ruled-water.ts <out> [<out> …]              the measures of every map in each folder, and their totals
 //   npx tsx tools/ruled-water.ts map.timber …                 the measures of these files
 //   npx tsx tools/ruled-water.ts --frames <dir> map.timber …  a frame of each (north up, the marks drawn) and its numbers
+//                                                             (`--plain`: no marks, the map as the game shows it)
 //
 // --gen makes each map (each theme in its own process, `--jobs` at once) and writes "<theme>-<seed>.timber" and a
 // "<theme>-<seed>.json" beside it: the attempts, the leaks (failed attempts refused because "a river's water leaves its
@@ -646,7 +647,7 @@ function frame(path: string, to: string, scale: number): void {
   for (let y = 0; y < g.H; y++)
     for (let x = 0; x < g.W; x++) {
       const k = m.marks[y * g.W + x];
-      if (!k) continue;
+      if (!k || process.argv.includes("--plain")) continue;
       const c = k === 1 ? [255, 110, 0] : [255, 255, 0];
       for (let dy = 0; dy < scale; dy++)
         for (let dx = 0; dx < scale; dx++) {
