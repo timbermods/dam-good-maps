@@ -73,7 +73,7 @@ way, proposes the change on [#236](https://github.com/timbermods/dam-good-maps/i
   blocks only for real bugs and anything that breaks what players get; polish goes in a follow-up. The browser specs and
   the heavier suites run on dev's tip after the merge, and nightly; a failure there is fixed forward at once by whoever's
   merge broke it, or that merge is reverted. The planning session watches dev's runs and sends each failure to its owner.
-  No full run by hand except for a release. The browser shards run one worker each (fifteen shards since 2026-11-09): a
+  No full run by hand except for a release. The browser shards run one worker each (fifteen shards since 2026-11-09, twenty since 2026-11-15): a
   second worker beside a spec that draws in software made it two to three times slower and red (runs 42592717654,
   42599783087). A shard that outgrows its 30 minutes gets more shards, never a second worker or a longer limit.
   **The `page` job (2026-11-10):** a PR into dev that changes `src/editor/`, `src/ui/`, `src/render3d/` or `src/styles/` also runs the `page` job (thirteen
