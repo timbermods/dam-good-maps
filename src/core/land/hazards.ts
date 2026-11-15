@@ -26,7 +26,8 @@
 // tile wider below the join, and none stays within 6 tiles of a river, a stream or another gully for 20
 // tiles or more but its last 6; (3) its bed stays a level over the water it joins until its last 6 tiles,
 // else the site is no site; (4) it is at most `DITCH_CAP` tiles long; (5) the sites are found from the water
-// outward (the fall lines that reach such water), and the pits are drawn from them.
+// outward (the fall lines that reach such water), and the pits are drawn from them, those ending in a river or
+// lake first, a join next, the map's edge last.
 // Islands' ditches are drawn as before (`windDitch`), its own ruling to come (D498 (3)).
 //
 // Ported from the design version 2 prototype (investigation/generative/v2/hazards.ts).
@@ -1213,8 +1214,16 @@ export function planBadwater(h: Uint8Array, W: number, H: number, wetNow: ArrayL
     // (D(new-ditch) (5): a gully's sites are found from the water outward: the places whose own fall line, the field's
     // drainage, reaches water it may join or a gully drawn before any other water and within `DITCH_CAP` of its pit's
     // rim; or the map's edge, where it may end there)
+    // (planning's ruling of 2026-11-15, the edge ends last: each site's fall line ends in water it may join (1), an
+    // earlier gully's bed (2) or the map's edge (3), 0 where it reaches none of them within the cap. The sites are
+    // tried in that order, a river or lake below the start's reach first, a join next, the edge only where a pit has
+    // no other: badwater that leaves the map at once is no hazard, the player never meets it. Worked out again as
+    // the beds drawn grow)
     let falls: Uint8Array | null = null;
-    if (gullies && dnE) {
+    let fallsAt = -1;
+    const fallsNow = (): Uint8Array | null => {
+      if (!gullies || !dnE) return null;
+      if (falls && fallsAt === beds.size) return falls;
       const kind = new Uint8Array(N);
       const steps = new Int32Array(N);
       for (let q = 0; q < dnE.order.length; q++) {
@@ -1222,18 +1231,22 @@ export function planBadwater(h: Uint8Array, W: number, H: number, wetNow: ArrayL
         const r = dnE.rcv[j];
         const x = j % W;
         const y = (j - x) / W;
-        if (o0.goal[j] || beds.has(j)) kind[j] = 1;
-        else if (wetAt[j]) kind[j] = 2;
-        else if (x === 0 || y === 0 || x === W - 1 || y === H - 1) kind[j] = only ? 2 : 1;
-        else if (r < 0) kind[j] = 2;
+        if (o0.goal[j]) kind[j] = 1;
+        else if (beds.has(j)) kind[j] = 2;
+        else if (wetAt[j]) kind[j] = 4;
+        else if (x === 0 || y === 0 || x === W - 1 || y === H - 1) kind[j] = only ? 4 : 3;
+        else if (r < 0) kind[j] = 4;
         else {
           kind[j] = kind[r];
           steps[j] = steps[r] + 1;
         }
       }
       falls = new Uint8Array(N);
-      for (let j = 0; j < N; j++) if (kind[j] === 1 && steps[j] <= DITCH_CAP + 4) falls[j] = 1;
-    }
+      for (let j = 0; j < N; j++) if (kind[j] < 4 && steps[j] <= DITCH_CAP + 4) falls[j] = kind[j];
+      fallsAt = beds.size;
+      return falls;
+    };
+    const falls0 = fallsNow();
     // candidate pit centres: beyond the distance, off the water, on ground that stands above its
     // surroundings (a hollow dug there keeps a rim two levels high). They aim at about the distance
     // (its pit and the soil it soaks a few tiles further out): the Badwater distance setting is how
@@ -1248,7 +1261,7 @@ export function planBadwater(h: Uint8Array, W: number, H: number, wetNow: ArrayL
         if (lo < BED_FLOOR + 2) continue;
         // (a ditch that must join one water: only pits whose way to it is open and short enough)
         if (only && !(toWaterAt(i, lo - 2) <= limit)) continue;
-        if (falls && !falls[i]) continue;
+        if (falls0 && !falls0[i]) continue;
         cands.push([Math.abs(sd[i] - (D + 11)) + 8 * rng.float() - 0.3 * h[i] + 0.5 * Math.max(0, Math.min(ditchEst(i, lo - 2), 4 * W) - 10), i]);
       }
     cands.sort((a, b) => a[0] - b[0] || a[1] - b[1]);
@@ -1271,14 +1284,40 @@ export function planBadwater(h: Uint8Array, W: number, H: number, wetNow: ArrayL
     // pits by the nearest low water lie close together, and a second hollow was left unplaced)
     // (a gully's sites: up to `GULLY_TRIES`, one within 3 tiles of a site already found wanting passed over, as it has
     // the same gully)
+    // (a gully's sites in the order of their ends, `falls`, each kind up to `GULLY_TRIES`; once a pit is placed, from
+    // the first kind again, as a new bed may give a site a join)
     const wanting: [number, number][] = [];
-    for (let c = 0, tried = 0; c < cands.length && tried < (gullies ? GULLY_TRIES : 60) && out.count < want; c++) {
+    const done = new Uint8Array(cands.length);
+    const tries = [0, 0, 0, 0];
+    let tier = falls0 ? 1 : 0;
+    let at = 0;
+    let count = out.count;
+    const next = (): number => {
+      if (out.count !== count) {
+        count = out.count;
+        tier = falls0 ? 1 : 0;
+        at = 0;
+      }
+      for (;;) {
+        const f = fallsNow();
+        if (tries[tier] < (gullies ? GULLY_TRIES : 60))
+          for (; at < cands.length; at++) {
+            if (done[at] || (f && f[cands[at][1]] !== tier)) continue;
+            done[at] = 1;
+            return at++;
+          }
+        if (!f || tier >= 3) return -1;
+        tier++;
+        at = 0;
+      }
+    };
+    for (let c = next(); c >= 0 && out.count < want; c = next()) {
       const i = cands[c][1];
       const cx = i % W;
       const cy = (i - cx) / W;
       if (placed.some(([px, py]) => Math.max(Math.abs(px - cx), Math.abs(py - cy)) < 24)) continue;
       if (gullies && wanting.some(([px, py]) => Math.max(Math.abs(px - cx), Math.abs(py - cy)) < 4)) continue;
-      tried++;
+      tries[tier]++;
       if (gullies) wanting.push([cx, cy]);
       // where water on each tile goes (side to side, as the game's water moves), and where a ditch
       // may end: the same until a pit is dug (reused across candidates)
