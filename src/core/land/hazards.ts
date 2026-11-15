@@ -20,6 +20,7 @@
 // in an even 45° stair of 6, 9 straight at any angle nor in a regular wave (D209, analysis/straight.ts);
 // its bed widens to 2 or 3 tiles where a noise along it says, and its banks step down to it a level a
 // tile, a gully's sides, never a one-tile slot. A pit whose ditch can't be drawn so goes elsewhere.
+// Islands' ditches are drawn as before (`windDitch`), its own ruling to come (D498 (3)).
 //
 // Ported from the design version 2 prototype (investigation/generative/v2/hazards.ts).
 
@@ -34,6 +35,7 @@ import { distanceFrom, MinHeap, N4, N8 } from "../math/grid";
 import { fbm } from "../math/noise";
 import { stream, type Rng } from "../math/rng";
 import { walkRoute } from "./wind";
+import { meanderPath, smoothPath } from "./hydro";
 import { regularWave } from "../analysis/straight";
 import type { Point } from "../features/schema";
 import type { Drainage } from "./drainage";
@@ -535,6 +537,48 @@ export function straightStretch(tiles: readonly number[], W: number, above = Inf
  *  analysis/straight.ts). */
 function wavy(tiles: readonly number[], W: number): boolean {
   return regularWave(tiles.map((i) => [i % W, (i - (i % W)) / W])) !== null;
+}
+
+/** A ditch's route bent as a river's course is: its line smoothed, then the rivers' meander on it
+ *  (a swing up to 3.2 tiles, a wavelength of 13–20 tiles, both varied by noise as it goes), drawn
+ *  again as side-to-side steps that end at the first tile `isEnd` names. A draw whose steps would
+ *  still cross ground the ditch keeps off, or that comes out ruler-straight or in a regular wave (D209),
+ *  is drawn again from the next seed, four times; then with a smaller swing; the route as traced
+ *  is the last resort. Null where even that fails. Islands' ditches only, as they were before the gully
+ *  (D(new-ditch)): its own ruling is to come (D498 (3)). */
+function windDitch(tiles: readonly number[], h: Uint8Array, W: number, H: number, allowed: (i: number) => boolean, isEnd: (i: number) => boolean, seed: number, rng: Rng): number[] | null {
+  const n = tiles.length;
+  const pts: Point[] = tiles.map((i) => [i % W, (i - (i % W)) / W]);
+  const tries: Point[][] = [];
+  if (n >= 8) {
+    // (its corners rounded first: the route thinned to a point every few tiles, then cut as a
+    // river's course is, so a turn bends over several tiles, never at a right angle, #330)
+    const sparse = pts.filter((_, k) => k % 4 === 0 || k === n - 1);
+    const path = smoothPath(sparse, 3, 1);
+    const amp = Math.min(3.2, n / 7);
+    for (const f of [1, 1, 1, 1, 0.6, 0.6]) {
+      const a = f * amp;
+      tries.push(meanderPath(path, h, W, H, { amp: a, minAmp: 0.6 * a, cell: 13 + 7 * rng.float(), widthVar: 0 }, hash32(seed, "draw", tries.length)));
+    }
+    tries.push(path, smoothPath(pts, 3, 1));
+  }
+  tries.push(pts);
+  for (const t of tries) {
+    // (a bend's point on ground the ditch keeps off is left out, not the whole draw: a ditch beside
+    // the start's water would otherwise fall back to its traced line)
+    const along = t.slice(1).filter(([x, y]) => {
+      const xx = Math.round(x);
+      const yy = Math.round(y);
+      return xx >= 0 && yy >= 0 && xx < W && yy < H && allowed(yy * W + xx);
+    });
+    const walked = walkRoute(tiles[0], along, W, H, allowed, isEnd);
+    if (!walked || walked.length < 3) continue;
+    if (straightStretch(walked, W, DITCH_STRAIGHT) > DITCH_STRAIGHT) continue;
+    // (the outlet stored drops the tile on the water it joins; the map's check reads that line)
+    if (wavy(walked, W) || wavy(walked.slice(0, -1), W)) continue;
+    return walked;
+  }
+  return null;
 }
 
 /** How many gullies a ditch draws before its pit goes elsewhere (`gullyDitch`). */
@@ -1145,7 +1189,10 @@ export function planBadwater(h: Uint8Array, W: number, H: number, wetNow: ArrayL
       if (!base || base.length < 3 || base.length > limit) continue;
       // drawn as a gully down that line (D(new-ditch): a ditch that cannot wander, running straight
       // along the grid or the diagonal or in a regular wave, is no gully: the pit goes elsewhere)
-      const wound = gullyDitch(base, hh, W, H, (i) => !pit[i] && !keepOff[i], isEnd, hash32(seed, "ditch-gully", attempt, c));
+      // (Islands' ditches as they were, its own ruling to come, D498 (3))
+      const gully = !ask.sea;
+      const allowed = (i: number) => !pit[i] && !keepOff[i];
+      const wound = gully ? gullyDitch(base, hh, W, H, allowed, isEnd, hash32(seed, "ditch-gully", attempt, c)) : windDitch(base, hh, W, H, allowed, isEnd, hash32(seed, "ditch-meander", attempt, c), stream(seed, "ditch-wave", attempt, c));
       if (!wound) continue;
       const route = { tiles: wound, end: wound[wound.length - 1] };
       // its water must never pass the start's water on the way out
@@ -1157,7 +1204,7 @@ export function planBadwater(h: Uint8Array, W: number, H: number, wetNow: ArrayL
       const ring3 = (i: number) => nearOfAt(i, W, H, 3, (j) => pit[j] === 1);
       const wet = (j: number) => hy.water[j] === 1 || hy.water[j] === 2;
       let dug: { next: Uint8Array; plan: BadwaterPlan; bed: Map<number, number>; stepped: number[] } | null = null;
-      for (const wide of [true, false]) {
+      for (const wide of gully ? [true, false] : [false]) {
         const side = wide ? gullySides(tiles, hh, W, H, (i) => !pit[i] && !keepOff[i] && !goal[i] && !wet(i) && !ring3(i), hash32(seed, "ditch-width", attempt, c)) : [];
         const sideAt = new Map<number, number>();
         for (let k = 0; k + 1 < side.length; k += 2) sideAt.set(side[k + 1] * W + side[k], k >> 1);
@@ -1205,7 +1252,7 @@ export function planBadwater(h: Uint8Array, W: number, H: number, wetNow: ArrayL
         for (const [j, lv] of bed) next[j] = Math.min(next[j], lv);
         // its banks stepped down to the bed a level a tile, a gully's sides (never the pit and its rim,
         // water or the ground by it, nor ground the ditch keeps off)
-        const stepped = stepBanks(next, bed, W, H, (i) => keepOff[i] === 1, (i) => nearOfAt(i, W, H, 1, (j) => pit[j] === 1) || nearOfAt(i, W, H, 2, wet));
+        const stepped = !gully ? [] : stepBanks(next, bed, W, H, (i) => keepOff[i] === 1, (i) => nearOfAt(i, W, H, 1, (j) => pit[j] === 1) || nearOfAt(i, W, H, 2, wet));
         let flat = true;
         for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) if (next[(cy + dy) * W + cx + dx] !== floor) flat = false;
         // (the check of the map reads the route's bed alone as the levee: so does this one)
