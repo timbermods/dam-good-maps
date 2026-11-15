@@ -8,10 +8,11 @@
 // land, only one ring at the cursor (its size) and the line a drag draws (D321, items 13 and 41: a
 // fault, a fissure, a travelling force's path; Craterize is click-only, D368 (7)). Keys 7, 8, 9, 0 pick them, V flips a quake's side, Esc puts a
 // force away; with reduced motion the land is exactly the same.
+// Its maps are saved (`openSaved`): the page's own map of each fragment, as generator 0.10.26 made it.
 
 import { expect, test, type Page } from "@playwright/test";
 import { phases, watchOpen } from "./helpers";
-import { openEditor, setWaterSpeed, topDown } from "./open";
+import { openSaved, setWaterSpeed, topDown } from "./open";
 import { FAST_MS, MIN_SHOW_MS, showMs, WATCH_FACTOR } from "../../src/editor/forceDriver";
 
 const info = (page: Page) => page.evaluate(() => window.dgmEditor!.info());
@@ -26,7 +27,7 @@ const gesture = (page: Page) => page.evaluate(() => window.dgmEditor!.gesture())
 const startAt = async (page: Page) => ((await info(page)).features.find((f) => f.kind === "start")!.params as { position: [number, number] }).position;
 
 async function openTopDown(page: Page, hash = "s=4242&z=96&d=n&t=highlands") {
-  await openEditor(page, hash);
+  await openSaved(page, hash);
   await topDown(page);
 }
 
