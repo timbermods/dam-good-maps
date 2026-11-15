@@ -23,10 +23,11 @@
 // where ground only turned a walk, only a fall below a tenth (`UNFED_SHARE`), and a channel that keeps more
 // keeps its water and momentum while the preview's own steps lower it. Held here: on a land built for it,
 // flattening one tile turns a spring's walk (two sources of 4) away from a river (three of 4), leaving the
-// river 0.6 of its walk's flow; on River Valley 96² seed 8 an Underground Ruins at 82,52 leaves 0.12 of it on
-// 363 wet tiles; and one edit that weakens a source and turns its walk takes each rule where it belongs.
+// river 0.6 of its walk's flow; on River Valley 96² seed 8 an Underground Ruins at 79,56 leaves 0.14 of it on
+// 75 wet tiles (82,52 and 0.12 on 363 before #1145's land); and one edit that weakens a source and turns its walk takes each rule where it belongs.
 // Neither turned case fails with the old line (any fall over a tenth restarted the tile dry); the one that
-// does, seed 9's Ruins at 34,34 (0.105 against the settle, now 0.038), needs #1145's land and is held there.
+// does, seed 9's Ruins at 45,49 on #1145's land (0.233 against the settle, now 0.011; at 34,34 on its first land,
+// 0.105 and 0.038), is held there.
 // Not held, for a ruling: a trench a river filled that a turned walk leaves, another walk still crossing it
 // with half the flow, keeps 1.90 in the preview against the settle's 0 (1.93 before: a pool tile is never
 // judged by its flow).
@@ -124,7 +125,7 @@ describe("the preview after an edit beside a stream ends where the canonical set
     }
   }, 120000);
 
-  it("on River Valley 96² seed 9: every placement that levels, and a raise and a dig of every third tile, within 2 tiles of the river", async () => {
+  it("on River Valley 96² seed 9: every placement that levels, and a raise and a dig of every second tile, within 2 tiles of the river", async () => {
     await runGenerate(makeSpec({ seed: 9, theme: "riverValley", size: { x: W, y: W } }));
     ed.refine();
     settle();
@@ -135,8 +136,10 @@ describe("the preview after an edit beside a stream ends where the canonical set
       if (g !== null && g >= TOL) worst.push(`${what}: ${g.toFixed(3)}`);
       return g !== null;
     };
-    for (let y = 10; y < W - 10; y += 3)
-      for (let x = 10; x < W - 10; x += 3) {
+    // (every second tile since #1145's land, generator 0.10.25, D148: on every third its river has 4 dry tiles beside it
+    // that a raise changes, the sweep's floor 10; on every second, 18 raised, 97 dug and 71 placed, the most 0.071)
+    for (let y = 10; y < W - 10; y += 2)
+      for (let x = 10; x < W - 10; x += 2) {
         const i = y * W + x;
         if (!(before.d[i] > 0) && nearWater(before.d, [i])) {
           if (check(`a raise at ${x},${y}`, gap(before, sculpt("raise", x, y)))) counts.raised++;
@@ -259,15 +262,34 @@ describe("a channel that still carries a tenth of its walk's flow keeps its wate
     expect(count.turned, "tiles under the turned rule").toBeGreaterThan(5);
   }, 120000);
 
-  it("River Valley 96² seed 8: an Underground Ruins at 82,52 leaves the river 0.12 of its walk's flow", async () => {
+  it("River Valley 96² seed 8: an Underground Ruins at 79,56 leaves the river 0.14 of its walk's flow", async () => {
+    // (79,56 for 82,52 on #1145's land, generator 0.10.25, D148: a Ruins at 82,52 is refused there; of the
+    // placements that turn a walk on seed 8, the least share any leaves is 0.14, on 75 tiles,
+    // and 79,56 is the nearest of them; no placement on seeds 1–12 (on every second tile but on 8 and 9) turns a walk over more than 75 tiles and leaves
+    // under a fifth, so the tiles' floor is 50 where it was 100)
     await runGenerate(makeSpec({ seed: 8, theme: "riverValley", size: { x: W, y: W } }));
     ed.refine();
     settle();
     const before = snap();
-    const g = gap(before, flowLeft(place("UndergroundRuins", 82, 52)));
+    const g = gap(before, flowLeft(place("UndergroundRuins", 79, 56)));
     expect(g, "the ruins are placed").not.toBeNull();
-    expect(left.falls, "the river's walk loses flow").toBeGreaterThan(100);
+    expect(left.falls, "the river's walk loses flow").toBeGreaterThan(50);
     expect(left.least, "the river keeps more than a tenth of its walk's flow").toBeGreaterThan(UNFED_SHARE);
+    expect(g!, `the preview differs from the settle by ${g!.toFixed(3)}`).toBeLessThan(TOL);
+  }, 120000);
+  it("River Valley 96² seed 9: an Underground Ruins at 45,49 turns the river's walk and leaves it more than a tenth of its flow", async () => {
+    // (#1145's case, D148: on generator 0.10.23's land it was the Ruins at 34,34, 0.105 against the settle with the old
+    // line and 0.038 with this one; on 0.10.25's land a Ruins there is refused, the levelling would spill the water, and
+    // at 45,49 the old line reads 0.233 and this one 0.011, the river keeping 0.86 of its walk's flow on 29 tiles)
+    await runGenerate(makeSpec({ seed: 9, theme: "riverValley", size: { x: W, y: W } }));
+    ed.refine();
+    settle();
+    const before = snap();
+    const g = gap(before, flowLeft(place("UndergroundRuins", 45, 49)));
+    expect(g, "the ruins are placed").not.toBeNull();
+    expect(left.falls, "the river's walk loses flow").toBeGreaterThan(20);
+    expect(left.least, "the river keeps more than a tenth of its walk's flow").toBeGreaterThan(UNFED_SHARE);
+    expect(left.least, "and loses more than a tenth").toBeLessThan(0.9);
     expect(g!, `the preview differs from the settle by ${g!.toFixed(3)}`).toBeLessThan(TOL);
   }, 120000);
 });
