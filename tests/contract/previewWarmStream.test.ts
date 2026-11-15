@@ -15,6 +15,8 @@
 //
 // The measure: the most a tile's water differs between the preview and the canonical settle, over the tiles
 // that were wet before the edit or hold more than 0.05 in either; the tolerance is placeNoSpill.test.ts's, 0.1.
+// Digging the bank tile beside the fall at (58, 39) is left out: it leaves a travelling wave in the preview
+// (gap 0.285), with the code before this change too, a separate cause this test does not cover.
 
 import { describe, expect, it } from "vitest";
 import { footprintTiles } from "../../src/core/format/footprints";

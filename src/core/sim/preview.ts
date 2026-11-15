@@ -7,7 +7,8 @@
 // every tile whose ground and water objects the edit left alone and that was wet or lies away from
 // the edit, and takes the canonical pre-fill on the rest: the ground an edit changed, the tiles of
 // emitters that are new or changed, and the dry tiles near them (WARM_MARGIN). A wet tile beside the
-// edit keeps its water and momentum (D(new-preview)): restarting a stretch of flowing river left a
+// edit keeps its water and momentum (D(new-preview)), but only where a source, a stored lake or the
+// water kept away from the edit reaches it (D385): restarting a stretch of flowing river left a
 // step in its surface with no momentum, which sloshed on past the cap. Then the exact simulation
 // runs until the edit's water has found its level: checked every 64 ticks, the volume changes by under 0.2% and at most 0.05% of
 // the map moves by more than 0.05 (a local change reaches a whole lake or sea, whose level then
@@ -194,8 +195,16 @@ export function warmStart(from: WarmState, next: WaterModel): { state: WaterStat
   // them whose floor, dam and emitters the edit left alone keeps its water and its momentum, D(new-preview):
   // restarting a stretch of flowing river with the pre-fill's depth and no momentum left a step in its
   // surface that sloshed on past the preview's cap)
+  // (such a tile is not a seed: like the restarted tiles it keeps its water only where a running
+  // source, a stored lake or the other kept water reaches it, D385, so a pool whose only source the
+  // edit deleted still dries)
   const changed = widened(edited, next.W, next.H);
-  for (let i = 0; i < changed.length; i++) if (changed[i] && !edited[i] && from.water.depth[i] > 0) changed[i] = 0;
+  const beside = new Uint8Array(changed.length);
+  for (let i = 0; i < changed.length; i++)
+    if (changed[i] && !edited[i] && from.water.depth[i] > 0) {
+      changed[i] = 0;
+      beside[i] = 1;
+    }
   // (water no source feeds any more starts as the canonical start has it: dry, D260)
   const unfed = unfedTiles(from, next, init);
   // (a lake the edit stored, a Fill: its tiles start from it, as the canonical start has them)
@@ -210,16 +219,17 @@ export function warmStart(from: WarmState, next: WaterModel): { state: WaterStat
     init.depth[i] = from.water.depth[i];
     init.contamination[i] = from.water.contamination[i];
     if (po) for (let k = 0; k < 4; k++) out[4 * i + k] = po[4 * i + k];
-    seeds[i] = 1;
+    if (!beside[i]) seeds[i] = 1;
   }
   // (water a removal drained feeds nothing)
   for (const i of next.drained ?? []) seeds[i] = 0;
   // (the pre-fill's water nothing reaches would come from nowhere: those tiles start dry, D385)
   const fed = fedTiles(next, init.depth, seeds);
   for (let i = 0; i < N; i++) {
-    if (!(changed[i] || unfed?.[i]) || fed[i] || !(init.depth[i] > 0)) continue;
+    if (!(changed[i] || beside[i] || unfed?.[i]) || fed[i] || !(init.depth[i] > 0)) continue;
     init.depth[i] = 0;
     init.contamination[i] = 0;
+    if (beside[i]) for (let k = 0; k < 4; k++) out[4 * i + k] = 0;
   }
   // (and the unfed water a removal drained is gone, as the canonical settle takes it)
   drainUnfed(next, init.depth, init.contamination, po ? out : null);
