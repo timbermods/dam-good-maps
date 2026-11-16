@@ -1,12 +1,13 @@
 # Editor decisions
 
 These are the decisions in force, by topic, one file per topic. Every decision as recorded, with its reasons, date and amendments, is in [docs/archive/decisions.md](../archive/decisions.md); a number missing here is superseded or completed there.
-A decision gets a number only when it is a rule that constrains future work (D470); model choices, which session does what and Kyler's verdict on one round go in STATUS or the Progress log, unnumbered. New decisions are written once, into their topic file, with the next free number (D521; only the milestone session hands out numbers) and a line added to this index; they move to the archive when superseded or completed.
+A decision gets a number only when it is a rule that constrains future work (D470); model choices, which session does what and Kyler's verdict on one round go in STATUS or the Progress log, unnumbered. New decisions are written once, into their topic file, with the next free number (D529; only the milestone session hands out numbers) and a line added to this index; they move to the archive when superseded or completed.
 
 Read this index, then [how-we-work.md](how-we-work.md), then only the topic files your task touches.
 
 ## [How we work (sessions, models, reviews, documents, merging, releases)](how-we-work.md)
 
+- D526: A look or interaction change holds until planning has judged its sheet; no separate look agent
 - D490: A session merges its own PR after a fresh reviewer approves it
 - D489: Merge on review and quick checks; the full suites run on dev after the merge
 - D488: The next three weeks: showcase-quality maps (amends D485's order)
@@ -20,6 +21,7 @@ Read this index, then [how-we-work.md](how-we-work.md), then only the topic file
 - D454: No excess checks
 - D115: Kyler's one rule, lighter process
 - D117: The probe rule
+- D218: Probe batches on the dedicated machine without asking
 - D483: What a probe batch plays
 - D148: Stale tests follow decisions
 - D341: Green before merging
@@ -89,6 +91,8 @@ Read this index, then [how-we-work.md](how-we-work.md), then only the topic file
 
 ## [The generator](generator.md)
 
+- D(new-leaks): A course's water leaves only by its own way: pools only inside banks that hold them, never a raised lip; nothing beside a course lowered under its water; Delta courses join the fan by plan; no channel left under its reach downstream
+- D527: Every move of a generator control changes the next map, or the control is greyed with its reason
 - D520: The reach rule: a crossing between two bends under 5 wide is a ruled reach past five times its width; every other straight stretch, wider water and lakes at 12 rows
 - D519: A premise map's moist floor falls as the map grows: 30 % at 128², 25 % at 192², 20 % at 256²
 - D518: Contour edges and Canyon's side canyons: the levels' edges on warped contours, no one-level step straight over 8 tiles, ruin fields along the land, rises in nested rings, the premise plates turned and bent; Canyon's side canyons cut 3 levels by the wash pass (amended: Real places' ruin fields too, D(new-ruins))
@@ -155,7 +159,8 @@ Read this index, then [how-we-work.md](how-we-work.md), then only the topic file
 - D27: The canonical settle
 - D120: One water model, stacked columns
 - D350: Water that won't settle
-- D99: The editor's water
+- D99: The editor's water (its warm start amended by D(new-preview))
+- D(new-preview): A wet tile beside an edit keeps its water and momentum in the preview's warm start (amends D99)
 - D98: Approximate water on imports
 - D133: Weather: Drought and Badtide
 
@@ -214,13 +219,14 @@ Read this index, then [how-we-work.md](how-we-work.md), then only the topic file
 
 ## [Real places and Pick a place](real-places.md)
 
-- D136: Real places gallery (amended: names without "Near", D(new-names))
+- D136: Real places gallery (amended: names without "Near", D522)
 - D245: Real places kept on their land
 - D420: No map keeps unfed water
 - D421: Gallery hides unfed starts (amended)
 - D445: Gallery shows every place
-- D(new-names): Real places' names without "Near", in the id and link too (amends D136)
 - D(new-ruins): Real places' ruins lie along the land, laid as the generator lays its own (with D518)
+- D521: Real places built under the game's water rules (D311's conversion carried out)
+- D522: Real places' names without "Near", in the id and link too (amends D136)
 - D166: Pick a place
 
 ## [3D terrain](3d-terrain.md)

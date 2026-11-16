@@ -2,10 +2,11 @@
 // Items shelf and the bars, never cut off under one of them. Where the first spot would run under one, the note flips to
 // the pointer's other side. Seen with the Block tool's refusal and a shelf object's "Place here", beside the shelf and
 // above the bar.
+// Its maps are saved (`openSaved`): the page's own map of each fragment, as generator 0.10.26 made it.
 
 import { expect, test, type Page } from "@playwright/test";
 import { toolInHand } from "./helpers";
-import { openEditor, openLegend, topDown } from "./open";
+import { openSaved, openLegend, topDown } from "./open";
 
 type Rect = { left: number; top: number; right: number; bottom: number };
 
@@ -109,7 +110,7 @@ test.beforeEach(async ({ page }) => {
 test("the Block tool's refusal beside the Items shelf and above the bar stays in the free view", async ({ page }) => {
   // (1920: the width at which the corner between the Block settings and the shelf left the note half under the settings row)
   await page.setViewportSize({ width: 1920, height: 1080 });
-  await openEditor(page, "s=77&z=96&d=n&t=lakeBasin");
+  await openSaved(page, "s=77&z=96&d=n&t=lakeBasin");
   await putHintsAway(page);
   const spot = await dryTile(page);
   // a 3 × 3 working area, then the Block tool: a click outside it is refused ("outside the selection")
@@ -186,7 +187,7 @@ const bringAndPoint = (page: Page, x: number, y: number, level: number, sx: numb
 test("the Block tool's refusal follows the pointer when the view moves under it and the pointer comes to the same face again", async ({ page }) => {
   // (dev's run 41019538572: the pointer came back to the face it had been refused on, at another place on the screen,
   // and the refusal stayed where the pointer had been. Top-down shows only a tile's top, so every place is that face)
-  await openEditor(page, "s=77&z=96&d=n&t=lakeBasin");
+  await openSaved(page, "s=77&z=96&d=n&t=lakeBasin");
   await putHintsAway(page);
   await topDown(page);
   const spot = await dryTile(page);
@@ -224,10 +225,12 @@ test("the Block tool's refusal follows the pointer when the view moves under it 
 });
 
 test("a shelf object's \"Place here\" flips from under the shelf and the bar", async ({ page }) => {
-  // (Lake Basin seed 85 since D518's contour edges, D148: a pine's note shows only over dry soil, "dry ground: these will
-  // die", and seed 79's dry stretch nearest the middle now lies on moist soil, where a pine shows its ring alone; seed 85's
-  // lies on dry soil. Seed 79 since generator 0.10.17, D515: seed 77's lay on moist soil then)
-  await openEditor(page, "s=85&z=96&d=n&t=lakeBasin");
+  // (Lake Basin seed 86 since generator 0.10.24's round forms, D148: seed 85's dry stretch nearest the middle now lies on
+  // moist soil, where a pine shows its ring alone, as do seeds 79's and 80's; seed 86's lies on dry soil. Seed 85 since
+  // D518's contour edges, D148: a pine's note shows only over dry soil, "dry ground: these will die", and seed 79's dry
+  // stretch nearest the middle now lies on moist soil, where a pine shows its ring alone; seed 85's lies on dry soil. Seed
+  // 79 since generator 0.10.17, D515: seed 77's lay on moist soil then)
+  await openSaved(page, "s=86&z=96&d=n&t=lakeBasin");
   await putHintsAway(page);
   const spot = await dryTile(page);
   await page.getByRole("button", { name: /^Pine/ }).click();
@@ -250,10 +253,12 @@ test("a shelf object's \"Place here\" flips from under the shelf and the bar", a
 
 test("with the Legend open, a note beside the pointer keeps off its panel", async ({ page }) => {
   await page.setViewportSize({ width: 1920, height: 1080 });
-  // (Lake Basin seed 85 since D518's contour edges, D148: a pine's note shows only over dry soil, "dry ground: these will
-  // die", and seed 79's dry stretch nearest the middle now lies on moist soil, where a pine shows its ring alone; seed 85's
-  // lies on dry soil. Seed 79 since generator 0.10.17, D515: seed 77's lay on moist soil then)
-  await openEditor(page, "s=85&z=96&d=n&t=lakeBasin");
+  // (Lake Basin seed 86 since generator 0.10.24's round forms, D148: seed 85's dry stretch nearest the middle now lies on
+  // moist soil, where a pine shows its ring alone, as do seeds 79's and 80's; seed 86's lies on dry soil. Seed 85 since
+  // D518's contour edges, D148: a pine's note shows only over dry soil, "dry ground: these will die", and seed 79's dry
+  // stretch nearest the middle now lies on moist soil, where a pine shows its ring alone; seed 85's lies on dry soil. Seed
+  // 79 since generator 0.10.17, D515: seed 77's lay on moist soil then)
+  await openSaved(page, "s=86&z=96&d=n&t=lakeBasin");
   await putHintsAway(page);
   const spot = await dryTile(page);
   const legend = await openLegend(page);
@@ -305,7 +310,7 @@ const sweep = (page: Page, points: [number, number][], text = "X 46 · Y 35 is o
 for (const size of [{ width: 1920, height: 1080 }, { width: 1280, height: 720 }]) {
   test(`${size.width}: a note does not jump away and back as the pointer moves down the gap beside the shelf`, async ({ page }) => {
     await page.setViewportSize(size);
-    await openEditor(page, "s=77&z=96&d=n&t=lakeBasin");
+    await openSaved(page, "s=77&z=96&d=n&t=lakeBasin");
     await putHintsAway(page);
     const spot = await dryTile(page);
     // (the pick first, in the view as it opens: the close view below makes each frame three to five times dearer, and on
@@ -354,7 +359,7 @@ function reversals(path: { x: number; y: number }[], near: number) {
  *  the refusal's note. The note itself is then set by the test hook at exact pointer places, as hovering would set it. */
 async function blockScene(page: Page, size: { width: number; height: number }) {
   await page.setViewportSize(size);
-  await openEditor(page, "s=77&z=96&d=n&t=lakeBasin");
+  await openSaved(page, "s=77&z=96&d=n&t=lakeBasin");
   await putHintsAway(page);
   const spot = await dryTile(page);
   const corner = (tx: number, ty: number) => page.evaluate(([a, b]) => window.dgmEditor!.tileToClient(a, b), [tx, ty] as const);

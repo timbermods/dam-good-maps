@@ -5,9 +5,8 @@
 
 import { describe, expect, it } from "vitest";
 import { footprintTiles } from "../../src/core/format/footprints";
-import { makeSpec } from "../../src/core/spec/mapspec";
-import { runGenerate } from "../../src/worker/api";
 import * as ed from "../../src/worker/session";
+import { fixtureInEditor } from "../fixtureEditor";
 
 const W = 96;
 const cover = (template: string) => (x: number, y: number) => footprintTiles(template, { template, x, y, z: 0, orientation: "Cw0", flipped: false }).map(([a, b]) => b * W + a);
@@ -83,8 +82,8 @@ describe("placing an object never visibly spills water (D345, B6)", () => {
       let refused = 0;
       // (seed 3 for seed 2 before generator 0.10.6, D498, D148: the new seed 2 map has a cave under the dune at 54,23 that the snapshot reads as 0.06 of water on the surface, and a lake-edge tile at 63,29 that the canonical settle leaves 0.15 short of level until any edit nearby moves it; neither is the placement spilling; seed 4 for seed 1 before generator 0.10.7, D502: the new seed 1 map has a perched pool at 60,39 whose surface, 15.1, stood above the dry tiles beside it, 13 to 14, before any placement, so the LargeRelic at 58,34 lowering three of them cut nothing the water had held; seed 8 added on D502 narrowed to no forms below 128²; seed 4 is back since #756: its dam tile at 40,36, 0.43 deep below the NaturalDam's crest, was drained by the settle after the LargeRelic at 31,52, 17 tiles away, because the levelling cut the plain a spring's walk had crossed to reach the dam's pool, and the preview read that as the pool losing its feed; seeds 5 and 6 refuse a ruins or relic spot as "not level" on their cave ground, which the sweep does not take, and seed 7's LargeRelic at 31,25 lowers a dry tile two levels beside a 0.06 film of water that stays; seed 9 for seed 4 since generator 0.10.11, #726, D148: the new seed 4 map's dam tile at 40,36 is dry as the editor settles it, and the settle after an UndergroundRuins at 25,40 or a LargeRelic at 31,43, 15 tiles off, wets it 0.32 deep, #756's far-edit settle the other way round, sent to the milestone session on #236)
       for (const seed of [3, 8, 9]) {
-        await runGenerate(makeSpec({ seed, theme: "riverValley", size: { x: W, y: W } }));
-        ed.refine();
+        // (a fixture since generator 0.10.29, D148: the land these cases were written on, tests/fixtures/projects, so the weathering's reach moving the generator's land moves nothing here)
+        fixtureInEditor("riverValley", W, seed);
         // the water as the editor settles it, so that a placement is compared with that
         canonical();
         const base = snap();
@@ -135,8 +134,7 @@ describe("placing an object never visibly spills water (D345, B6)", () => {
   }
 
   it("a footprint that is level already may stand in shallow water: nothing changes", async () => {
-    await runGenerate(makeSpec({ seed: 1, theme: "riverValley", size: { x: W, y: W } }));
-    ed.refine();
+    fixtureInEditor("riverValley", W, 1);
     const base = snap();
     const own = cover("SmallRelic");
     for (let y = 8; y < W - 8; y++)

@@ -8,10 +8,11 @@
 // land, only one ring at the cursor (its size) and the line a drag draws (D321, items 13 and 41: a
 // fault, a fissure, a travelling force's path; Craterize is click-only, D368 (7)). Keys 7, 8, 9, 0 pick them, V flips a quake's side, Esc puts a
 // force away; with reduced motion the land is exactly the same.
+// Its maps are saved (`openSaved`): the page's own map of each fragment, as generator 0.10.26 made it.
 
 import { expect, test, type Page } from "@playwright/test";
 import { phases, watchOpen } from "./helpers";
-import { openEditor, setWaterSpeed, topDown } from "./open";
+import { openSaved, setWaterSpeed, topDown } from "./open";
 import { FAST_MS, MIN_SHOW_MS, showMs, WATCH_FACTOR } from "../../src/editor/forceDriver";
 
 const info = (page: Page) => page.evaluate(() => window.dgmEditor!.info());
@@ -26,7 +27,7 @@ const gesture = (page: Page) => page.evaluate(() => window.dgmEditor!.gesture())
 const startAt = async (page: Page) => ((await info(page)).features.find((f) => f.kind === "start")!.params as { position: [number, number] }).position;
 
 async function openTopDown(page: Page, hash = "s=4242&z=96&d=n&t=highlands") {
-  await openEditor(page, hash);
+  await openSaved(page, hash);
   await topDown(page);
 }
 
@@ -492,10 +493,13 @@ test("Quake: a painted Lift follows the stroke and is kept when let go; V flips 
 });
 
 test("Craterize is click-only (D368 (7)): a drag draws no line and makes one crater, centred where the press began", async ({ page }) => {
-  // (seed 4244 since 0.8.8's maps, the Canyon and Highlands height round, D148: on 4242 the far tile stands on
-  // the top bench beside a fall of nine levels to the west, and the ground that gives way down it makes the
-  // lowered tiles 41 wide for 28 tall, though still centred on the press)
-  await openTopDown(page, "s=4244&z=96&d=n&t=highlands");
+  // (seed 1 since generator 0.10.24's round forms, D148: on 4244 the press now lands at the map's west edge beside a
+  // fall, and the ground that gives way down it pulls the lowered tiles' middle 2.4 tiles west of the press (dev's run
+  // 43562178770), as on 4243 (2.4) and 4245 (2.3); on seed 1 the press lands on open ground, the crater's middle 0.02
+  // tiles from it. Seed 4244 since 0.8.8's maps, the Canyon and Highlands height round, D148: on 4242 the far tile stands
+  // on the top bench beside a fall of nine levels to the west, and the ground that gives way down it makes the lowered
+  // tiles 41 wide for 28 tall, though still centred on the press)
+  await openTopDown(page, "s=1&z=96&d=n&t=highlands");
   await page.keyboard.press("Shift+Digit2");
   const row = page.getByRole("group", { name: "Craterize options" });
   await row.getByRole("slider", { name: "Power" }).fill("50");

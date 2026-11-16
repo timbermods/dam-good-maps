@@ -1,8 +1,11 @@
-// The one way a spec opens the editor on a generated map (D330: the page is the editor). The page generates
-// the map of the URL fragment and opens it in the editor by itself; there is no step between. Most specs
-// need only this: `await openEditor(page, "s=4242&z=96&d=n&t=riverValley")`.
+// The ways a spec opens the editor (D330: the page is the editor). A spec that tests the editor on some land opens that
+// land saved (`openSaved(page, "s=4242&z=96&d=n&t=riverValley")`), so the generator's next version moves none of its
+// tiles; a spec whose subject is the generator seen through the page generates the map of the URL fragment
+// (`openEditor`), which the page opens in the editor by itself, with no step between.
 
 import { expect, type Locator, type Page } from "@playwright/test";
+import { decodeSpecFragment } from "../../src/core/spec/codec";
+import { pageFixtureName, pageFixtureProject } from "../fixtureProjects";
 
 /** Open `fragment` (a spec fragment such as "s=4242&z=96&d=n&t=riverValley", with or without its #) and
  *  wait until the editor and the 3D view are ready, hooks `window.dgmEditor` and `window.dgm3d` set.
@@ -16,6 +19,32 @@ export async function openEditor(page: Page, fragment: string, opts: { timeout?:
   if (here && here !== "about:blank" && here !== ":") await page.goto("about:blank");
   await page.goto(`./#${hash}`);
   await waitForEditor(page, opts);
+}
+
+/** The small map the page makes first when a spec opens a saved one (`openSaved`): the page opens a file over an open map.
+ *  River Valley 48², seed 1: a second or two to make. */
+const FIRST_MAP = "s=1&z=48&d=n&t=riverValley";
+
+/** Open the saved map of `fragment` and wait as `openEditor` does, that map on show: the map the page made of that fragment,
+ *  saved once (tests/fixtures/projects/page-…, listed in tools/fixture-projects.ts), opened through the page's own Open as a
+ *  player opens a project. A saved project reopens as it was saved (D455), so the land never moves with the generator's
+ *  versions. The page shows it as the map it made: its name, its seed, its settings and its link. (A reload of it unedited
+ *  makes the link's map again, as ever.) */
+export async function openSaved(page: Page, fragment: string, opts: { timeout?: number } = {}): Promise<void> {
+  const hash = fragment.replace(/^#/, "");
+  const bytes = pageFixtureProject(hash);
+  const spec = decodeSpecFragment(hash)!.spec;
+  await openEditor(page, FIRST_MAP, opts);
+  await page.getByLabel("Open a map or a project").setInputFiles({ name: pageFixtureName(hash), mimeType: "application/octet-stream", buffer: Buffer.from(bytes) });
+  await page.waitForFunction(
+    ([w, h, seed]) => {
+      const i = window.dgmEditor?.info();
+      const m = window.dgm3d?.renderer.mapState();
+      return !!i && !!m && i.W === w && i.H === h && i.spec?.seed === seed && m.W === w && m.H === h;
+    },
+    [spec.size.x, spec.size.y, spec.seed] as const,
+    { timeout: opts.timeout ?? 120_000 },
+  );
 }
 
 const held = new WeakSet<Page>();

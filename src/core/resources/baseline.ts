@@ -150,6 +150,69 @@ export function growGroveAt(g: BaselineGround, rng: Rng, allowed: Uint8Array, se
   return growCluster(g, rng, allowed, seedTile, n, fill, GROVE_RAGGED, keepFill);
 }
 
+/** A grove of about `n` trees as `growGroveAt` grows it, and, where its ground cuts it short, grown on across the gaps
+ *  onto `more` (the ground it may take beyond `allowed`), a tile at a time from the tiles nearest it: beside it first,
+ *  else two tiles off, as a grove is trees within 2 tiles of each other (the official groves' measure). So a grove on
+ *  broken ground (a knoll's ragged rings, a bench cut by steps) still reaches its size, its trees on the ground's pieces
+ *  and the gaps between them the ground it can't take; it stops short only where nothing is left within 2 tiles of it.
+ *  The start's planting grows its groves this way, so Grove size keeps its promise near the start however broken the
+ *  land (generator 0.10.29). */
+export function growGroveAcross(g: BaselineGround, rng: Rng, allowed: Uint8Array, more: Uint8Array, seedTile: number, n: number, fill = GROVE_AREA_FILL): { area: number[]; tiles: number[] } | null {
+  if (!allowed[seedTile]) return null;
+  const { W, H } = g;
+  const want = Math.max(n, Math.round(n / fill));
+  const order = growBlob(rng, allowed, W, H, seedTile, want, 1.5);
+  if (order.length < want) {
+    const blob = new Set(order);
+    // (each candidate's count of the grove's tiles round it: beside it, the 8 round it, or within 2 tiles)
+    const near1 = new Map<number, number>();
+    const near2 = new Map<number, number>();
+    const add = (t: number) => {
+      const x = t % W;
+      const y = (t - x) / W;
+      for (let dy = -2; dy <= 2; dy++)
+        for (let dx = -2; dx <= 2; dx++) {
+          if (!dx && !dy) continue;
+          const xx = x + dx;
+          const yy = y + dy;
+          if (xx < 0 || yy < 0 || xx >= W || yy >= H) continue;
+          const j = yy * W + xx;
+          if (blob.has(j) || (!more[j] && !allowed[j])) continue;
+          const m = dx >= -1 && dx <= 1 && dy >= -1 && dy <= 1 ? near1 : near2;
+          m.set(j, (m.get(j) ?? 0) + 1);
+        }
+    };
+    for (const t of order) add(t);
+    while (order.length < want) {
+      const from = near1.size ? near1 : near2;
+      if (!from.size) break;
+      // (drawn as `growBlob` draws, the tiles with more of the grove round them likelier, in ascending tile order)
+      const cands = [...from.keys()].sort((a, b) => a - b);
+      const weight = (c: number) => BRIDGE_WEIGHT[Math.min(8, from.get(c)!)];
+      let total = 0;
+      for (const c of cands) total += weight(c);
+      let r = rng.float() * total;
+      let pick = cands[cands.length - 1];
+      for (const c of cands) {
+        r -= weight(c);
+        if (r < 0) {
+          pick = c;
+          break;
+        }
+      }
+      near1.delete(pick);
+      near2.delete(pick);
+      blob.add(pick);
+      order.push(pick);
+      add(pick);
+    }
+  }
+  const keep = order.length >= want ? n : Math.min(n, order.length);
+  return { area: order, tiles: thinCluster(rng, order, W, Math.max(1, keep), GROVE_RAGGED) };
+}
+/** `growBlob`'s weights at compactness 1.5 (k^1.5 for k of the grove's tiles round a candidate). */
+const BRIDGE_WEIGHT = [0, 1, 2.8284271247, 5.1961524227, 8, 11.1803398875, 14.6969384567, 18.5202591775, 22.627416998];
+
 /** A blob of about n / fill tiles thinned to n from its edge; a blob the ground cut short keeps
  *  every tile up to n, or with `keepFill` only as many as `fill` of it (a grove in a narrow strip
  *  of moist ground stays as open as one with room). */
@@ -409,7 +472,14 @@ export interface RuinFieldOptions {
    *  land with its tile-scale speckle taken out (places/ruins.ts `fieldLevels`), whose contours its fields follow. Each
    *  column still stands on its own tile's ground. */
   levels?: ArrayLike<number>;
+  /** The scrap no new field takes (less than a field's least size, or no room left for another) grows the fields
+   *  placed, and the last field gives back what it grew past the scrap asked (D527: every 5 % step of Ruins and scrap
+   *  moves the ruins); else the remainder is left over and the overshoot kept. */
+  topUp?: boolean;
 }
+
+/** The share of the tiles a growing field passes over and leaves as gaps (`topUp`), about a band's own share. */
+const TOP_UP_GAPS = 0.15;
 
 /** The ruin bands' widths, tiles (least, most), and the share of a band's tiles left as gaps (least, most). */
 export const RUIN_BAND = { width: [2, 4] as const, gaps: [0.12, 0.22] as const, reach: 28 } as const;
@@ -494,7 +564,6 @@ const AXES: readonly [number, number][] = [
 export function planRuinFields(g: BaselineGround, scrap: number, o: RuinFieldOptions): { fields: RuinField[]; scrap: number } {
   const { W, H } = g;
   const N = W * H;
-  const spacing = o.spacing ?? 18;
   const ruinFree = new Uint8Array(N);
   let allowedCount = 0;
   // two tiles off water: a column needs a dry neighbour at its level for its scavenger
@@ -508,6 +577,7 @@ export function planRuinFields(g: BaselineGround, scrap: number, o: RuinFieldOpt
     allowedCount += ruinFree[i];
   }
   if (allowedCount < 0.05 * N) for (let i = 0; i < N; i++) ruinFree[i] = freeAt(g, i) && !nearWater[i] && far(i) ? 1 : 0;
+  const eligible = o.topUp ? ruinFree.slice() : null;
   const fields: RuinField[] = [];
   const centres: [number, number][] = [];
   const lv = o.levels ?? g.heights;
@@ -515,13 +585,19 @@ export function planRuinFields(g: BaselineGround, scrap: number, o: RuinFieldOpt
   // (the tiles round the fields laid, which no later field takes: a second pass on the moist ground keeps them)
   const moat = new Uint8Array(N);
   let left = scrap;
-  for (let pass = 0; pass < (o.moistWhenShort ? 2 : 1) && left > 0; pass++) {
-    if (pass) for (let i = 0; i < N; i++) ruinFree[i] = freeAt(g, i) && !nearWater[i] && far(i) && !moat[i] ? 1 : 0;
-    planFields();
-  }
-  return { fields, scrap: scrap - left };
-
-  function planFields() {
+  // (`topUp`, D527: where the fields placed have no room left to grow, new fields come at half the spacing, and then on
+  // moist ground too, each pass's fields grown in turn, until the scrap is placed or the land holds no more;
+  // `moistWhenShort`, D(new-ruins): a second pass on the moist ground, the fields laid and their moats kept)
+  for (let pass = 0; pass < (eligible ? 3 : o.moistWhenShort ? 2 : 1) && left > 0; pass++) {
+    const spacing = (o.spacing ?? 18) / (pass && eligible ? 2 : 1);
+    if (pass && !eligible) for (let i = 0; i < N; i++) ruinFree[i] = freeAt(g, i) && !nearWater[i] && far(i) && !moat[i] ? 1 : 0;
+    if (pass === 2 && eligible) {
+      const owner = new Uint8Array(N);
+      markRing(owner, fields.flatMap((f) => f.tiles), W, H, 1);
+      // (the start's own moist ground, its forester's plot and first farms, D515, stays clear: twice the ruins' distance)
+      const startSide = (i: number) => !!o.startDist && o.startDist[i] < 2 * o.minStart;
+      for (let i = 0; i < N; i++) if (!owner[i] && freeAt(g, i) && !nearWater[i] && far(i) && !(g.moisture[i] > 0 && startSide(i))) ruinFree[i] = eligible[i] = 1;
+    }
     for (let tries = 0; left > 0 && tries < 200 && fields.length < (o.maxFields ?? 64); tries++) {
       // (to a thousandth: the feature stores it, and its build draws the same heights)
       const tallness = Math.round(o.rng.range(-1, 1) * 1000) / 1000;
@@ -581,9 +657,9 @@ export function planRuinFields(g: BaselineGround, scrap: number, o: RuinFieldOpt
               const xx = x + dx;
               const yy = y + dy;
               if (xx >= 0 && xx < W && yy >= 0 && yy < H) {
-              ruinFree[yy * W + xx] = 0;
-              moat[yy * W + xx] = 1;
-            }
+                ruinFree[yy * W + xx] = 0;
+                moat[yy * W + xx] = 1;
+              }
             }
           g.taken[i] = 1;
         }
@@ -636,7 +712,103 @@ export function planRuinFields(g: BaselineGround, scrap: number, o: RuinFieldOpt
       }
       centres.push(centreOf(tiles, W));
     }
+    if (eligible && left > 0 && fields.length) left = topUpFields(g, fields, left, eligible, ruinFree, rim, o);
   }
+  // (`topUp`: the last field placed gives back the columns it grew past the scrap asked, its last-grown first, while one
+  // goes whole and it keeps 10, so the ruins hold the scrap to within a column either way)
+  const last = fields[fields.length - 1];
+  if (eligible && left < 0 && last) {
+    const scrapOf = (f: RuinField) => (o.scrapOf ? o.scrapOf(f.tiles, f.tallness) : Math.round(f.tiles.length * 15 * meanStoreys(f.tallness)));
+    let had = scrapOf(last);
+    while (last.tiles.length > 10) {
+      const t = last.tiles.pop()!;
+      const now = scrapOf(last);
+      if (left + (had - now) > 0) {
+        last.tiles.push(t);
+        break;
+      }
+      left += had - now;
+      had = now;
+      g.taken[t] = 0;
+    }
+  }
+  return { fields, scrap: scrap - left };
+}
+
+/** The scrap left once the fields are placed, onto them (`topUp`): in turn, each field takes one tile beside it on its
+ *  own level (in its rim band first when fields follow the land), keeping its one-tile moat from the others and passing
+ *  over some as gaps, until the scrap is placed or no field has room. Returns the scrap still left. */
+function topUpFields(g: BaselineGround, fields: RuinField[], scrap: number, eligible: Uint8Array, ruinFree: Uint8Array, rim: Uint8Array | null, o: RuinFieldOptions): number {
+  const { W, H } = g;
+  const N = W * H;
+  let left = scrap;
+  const owner = new Int32Array(N).fill(-1);
+  fields.forEach((f, k) => {
+    for (const i of f.tiles) owner[i] = k;
+  });
+  const passed = new Uint8Array(N);
+  const closed = new Uint8Array(N);
+  const scrapOf = (f: RuinField) => (o.scrapOf ? o.scrapOf(f.tiles, f.tallness) : Math.round(f.tiles.length * 15 * meanStoreys(f.tallness)));
+  const got = fields.map(scrapOf);
+  const open = fields.map(() => true);
+  const takes = (j: number, k: number, level: number) => {
+    if (!eligible[j] || passed[j] || owner[j] !== -1 || g.taken[j] || g.heights[j] !== level) return false;
+    // (a column needs a dry neighbour at its level: never the level's rim itself)
+    if (rim && rim[j] < 1) return false;
+    const x = j % W;
+    const y = (j - x) / W;
+    for (const [dx, dy] of N8) {
+      const xx = x + dx;
+      const yy = y + dy;
+      if (xx < 0 || yy < 0 || xx >= W || yy >= H) continue;
+      const m = owner[yy * W + xx];
+      if (m !== -1 && m !== k) return false;
+    }
+    return true;
+  };
+  while (left > 0 && open.some(Boolean)) {
+    for (let k = 0; k < fields.length && left > 0; k++) {
+      if (!open[k]) continue;
+      const f = fields[k];
+      const level = g.heights[f.tiles[0]];
+      const band: number[] = [];
+      const beyond: number[] = [];
+      const seen = new Set<number>();
+      for (const t of f.tiles) {
+        const x = t % W;
+        const y = (t - x) / W;
+        for (const [dx, dy] of N4) {
+          const xx = x + dx;
+          const yy = y + dy;
+          if (xx < 0 || yy < 0 || xx >= W || yy >= H) continue;
+          const j = yy * W + xx;
+          if (seen.has(j)) continue;
+          seen.add(j);
+          if (takes(j, k, level)) (rim && rim[j] > RUIN_BAND.width[1] ? beyond : band).push(j);
+        }
+      }
+      const pool = band.length ? band : beyond;
+      if (!pool.length) {
+        open[k] = false;
+        continue;
+      }
+      const t = o.rng.pick(pool);
+      if (o.rng.float() < TOP_UP_GAPS) {
+        passed[t] = 1;
+        continue;
+      }
+      f.tiles.push(t);
+      owner[t] = k;
+      g.taken[t] = 1;
+      // (the tile and its moat are closed to the fields a later pass places, as a whole field's are)
+      markRing(closed, [t], W, H, 1);
+      const now = scrapOf(f);
+      left -= now - got[k];
+      got[k] = now;
+    }
+  }
+  for (let i = 0; i < N; i++) if (closed[i]) ruinFree[i] = 0;
+  return left;
 }
 
 // -------------------------------------------------------------------------------------- mine sites

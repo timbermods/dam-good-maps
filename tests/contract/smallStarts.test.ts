@@ -1,3 +1,4 @@
+// Generates live, not from a fixture: its subject is what the generator makes (a small start prepared before the land is shown), D148.
 import { describe, expect, it } from "vitest";
 import { generate } from "../../src/core/gen/generate";
 import { makeSpec, type ThemeId } from "../../src/core/spec/mapspec";
@@ -14,8 +15,11 @@ describe("small starts prepared before the land is shown (D348, D363, D373)", ()
   // three again, so seed 2 stands for it, the first of Canyon 96² seeds 1–18 that passes on the land first shown and misses
   // an outcome: 2, 12 and 16 do; since D518's mends (wash treads, compact rises, dead-stand knots), D148: seed 2's land
   // moved and it meets all three, so seed 3 stands for it, the first of Canyon 96² seeds 1–20 that misses an outcome, its
-  // promise, and still passes on the land first shown: 3, 4, 6, 8 and 12 miss)
-  for (const [theme, seed, size, met] of [["any", 31, 96, true], ["islands", 4, 96, true], ["highlands", 14, 96, true], ["canyon", 3, 96, false], ["canyon", 9, 128, true]] as const)
+  // promise, and still passes on the land first shown: 3, 4, 6, 8 and 12 miss; since generator 0.10.24's round forms, the look
+  // round, D148: Canyon 128² seed 9 misses its water story again, its main system holding 67% of the map's water beside a second,
+  // so seed 1 stands for it, the first of Canyon 128² seeds 1–11 that meets all three and passes on the land first shown: all but 9 do; seed 3 → 2 at 0.10.29 (#1186), D148: the disc's land (the weathering's disc of the square's area, the washes' brush and swing) has no missed outcome on Canyon 96² seed 3, which meets all three now; seed 2, the nearest, misses its promise and passes on the land first shown, as do 1 and 4 of seeds 1–5)
+  // seed 2 → 1 at 0.10.36 (#1205), D148: Canyon 96² seed 2 meets all three on the new land; seed 1, the nearest, misses an outcome and passes on the land first shown (of seeds 1–12: 1, 4, 5, 6, 8 and 11 miss one)
+  for (const [theme, seed, size, met] of [["any", 31, 96, true], ["islands", 4, 96, true], ["highlands", 14, 96, true], ["canyon", 1, 96, false], ["canyon", 1, 128, true]] as const)
     it(`${theme} ${size}² seed ${seed} passes without changing the shown land`, () => {
       const shown: Uint8Array[] = [];
       const r = generate(makeSpec({ theme: theme as ThemeId, seed, size: { x: size, y: size } }), {

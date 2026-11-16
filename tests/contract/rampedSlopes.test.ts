@@ -13,9 +13,8 @@ import { applyBrush, markBrushTiles, type BrushParams } from "../../src/core/fea
 import { StrokePreview } from "../../src/core/features/raster/strokePreview";
 import { RIM_SPACING, rimSlopes } from "./rimSlopes";
 import { slopeHighSide, ORIENTATIONS } from "../../src/core/format/footprints";
-import { runGenerate } from "../../src/worker/api";
 import * as ed from "../../src/worker/session";
-import { makeSpec } from "../../src/core/spec/mapspec";
+import { fixtureInEditor } from "../fixtureEditor";
 
 const W = 48;
 const tile = (x: number, y: number) => [4 * x + 2, 4 * y + 2];
@@ -73,8 +72,8 @@ describe("a ramped Flatten lays its own slopes (D270)", () => {
     // (seed 4 since generator 0.10.16's ground with grade, D148: seed 5's dry spot, (76, 60), has underground ruins under
     // the stroke, which ride it level when the page lets go of it (`finish`), a step this test leaves out; seed 4's spot,
     // (16, 16), has no object under it)
-    await runGenerate(makeSpec({ seed: 4, theme: "riverValley", size: { x: 96, y: 96 } }));
-    ed.refine();
+    // (a fixture since generator 0.10.29, D148: the land these cases were written on, tests/fixtures/projects, so the weathering's reach moving the generator's land moves nothing here)
+    fixtureInEditor("riverValley", 96, 4);
     const s0 = MapSession.open(decodeProject(ed.project().bytes));
     const b = s0.built;
     const st = b.start!;

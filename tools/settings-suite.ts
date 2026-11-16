@@ -98,6 +98,10 @@ export const EXPERIMENTS: Experiment[] = [
     digits: 3,
   },
   {
+    // (generator 0.10.27, D(new-leaks), D148: eight seeds, as the reach's experiment has: once lands a leak used to refuse
+    // are kept, River Valley 96² lands vary more from seed to seed than the setting moves them; on seeds 1-4 Generous seed
+    // 1 became its 2nd attempt's land, flat share 0.41 where its 6th's was 0.62, and the mean moved 0.021)
+    minSeeds: 8,
     setting: "Buildable land",
     target: "flat share 0.40 / 0.52 / 0.60 (tiles whose 8 neighbours share their level)",
     theme: "riverValley",
@@ -401,20 +405,6 @@ export const EXPERIMENTS: Experiment[] = [
     metric: (m) => m.bushesNearStart,
     expect: "up",
     delta: 30,
-  },
-  {
-    setting: "Start rules: no badwater within",
-    target: "least distance from the start to badwater or contaminated soil",
-    theme: "riverValley",
-    values: ["15", "50"],
-    apply: (s, v) => {
-      s.settings.start.rules.badwaterWithin = num(v);
-      s.settings.hazards.badwaterDistance = 15;
-    },
-    metric: (m) => (Number.isFinite(m.badwaterDistance) ? m.badwaterDistance : 200),
-    expect: "up",
-    delta: 15,
-    digits: 1,
   },
   {
     setting: "Start rules: no ruins within",

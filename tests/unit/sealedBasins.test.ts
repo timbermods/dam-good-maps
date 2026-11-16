@@ -10,7 +10,7 @@
 import { spawnSync } from "node:child_process";
 import { describe, expect, it } from "vitest";
 import { canonicalSettle, prefill } from "../../src/core/sim/prefill";
-import { PREVIEW_CHECK, previewSettle } from "../../src/core/sim/preview";
+import { PREVIEW_CHECK, PREVIEW_PASSES, previewSettle } from "../../src/core/sim/preview";
 import { sealedTiles, settle, SETTLE_DAYS, steadyApartFromSealed, TICKS_PER_DAY, waterSteady, WaterSim, type Emitter, type WaterModel } from "../../src/core/sim/water";
 
 /** Python with numpy, for the oracle's side (CI has it; a machine without it skips). */
@@ -189,8 +189,9 @@ describe("the canonical settle: it stops once only a drying lake changes, and st
     const settled = canonicalSettle(m);
     const p = previewSettle({ model: m, water: settled }, m);
     expect(p.settled).toBe(false);
-    expect(p.steadyTicks).toBe(PREVIEW_CHECK);
-    expect(p.ticks).toBe(PREVIEW_CHECK);
+    // (at the first check the preview's rule lets it stop at: two in a row, PREVIEW_PASSES, #1181)
+    expect(p.steadyTicks).toBe(PREVIEW_PASSES * PREVIEW_CHECK);
+    expect(p.ticks).toBe(PREVIEW_PASSES * PREVIEW_CHECK);
   });
 });
 

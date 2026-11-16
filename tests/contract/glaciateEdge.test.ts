@@ -18,6 +18,11 @@ beforeAll(async () => {
 
 /** Tiles a glacier drawn from `origin` to `end` changes by a level or more (then taken back). */
 function glacier(origin: [number, number], end: [number, number], power: number): number {
+  return lowered(origin, end, power).reduce((n, v) => n + (v ? 1 : 0), 0);
+}
+
+/** Whether each tile a glacier drawn from `origin` to `end` changes by a level or more (then taken back). */
+function lowered(origin: [number, number], end: [number, number], power: number): boolean[] {
   const before = ed.terrainNow().heights.slice();
   const r = ed.forceStart({ verb: "glaciate", settings: { ...GLACIATE_DEFAULTS, mode: "flow", power, size: null, benches: null, steps: null, tarn: null, scree: null, seed: 1 } as never, origin, end, via: [], cut: null, natural: true });
   expect(r.errors).toEqual([]);
@@ -28,9 +33,7 @@ function glacier(origin: [number, number], end: [number, number], power: number)
   expect(ed.forceStop(r.gesture).kept).toBe(true);
   const after = ed.terrainNow().heights.slice();
   ed.undo();
-  let n = 0;
-  for (let i = 0; i < after.length; i++) if (Math.abs(after[i] - before[i]) >= 1) n++;
-  return n;
+  return Array.from(after, (v, i) => Math.abs(v - before[i]) >= 1);
 }
 
 it.each([
@@ -44,5 +47,32 @@ it.each([
     const n = glacier(origin, end, power);
     expect(n).toBeGreaterThanOrEqual(9);
     expect(n).toBeGreaterThan(glacier(origin, inside, power) * 0.5);
+  }
+});
+
+// One test says whether a glacier runs off the map, for its width and its trough's open end alike
+// (rust/forces `glacier_runs_off`, #1204): the width once freed at an end that came to the edge on a slant
+// while the trough, its line aimed along the edge, stayed closed, and a glacier drawn so ended short of the
+// edge (12 tiles of the edge's line cut beside its end, 0 before). Where it runs off, the trough reaches the
+// edge open and as wide there as three tiles in: never a lip, never a slot.
+it.each([
+  ["into a corner", [54, 57], [63, 63]],
+  ["to the north edge on a slant", [10, 12], [40, 2]],
+] as [string, [number, number], [number, number]][])("drawn %s, it runs off the map open and at its width", (_how, origin, end) => {
+  // (the tiles cut on an edge's line, and on the line three tiles in from it, within 9 tiles of the end)
+  const near = (x: number, y: number) => Math.hypot(x - end[0], y - end[1]) <= 9;
+  const line = (cut: boolean[], edge: number, inset: number) => {
+    let n = 0;
+    for (let t = 0; t < 64; t++) {
+      const [x, y] = [[t, inset], [t, 63 - inset], [inset, t], [63 - inset, t]][edge];
+      if (near(x, y) && cut[y * 64 + x]) n++;
+    }
+    return n;
+  };
+  for (const power of [0, 100]) {
+    const cut = lowered(origin, end, power);
+    const edge = [0, 1, 2, 3].reduce((a, b) => (line(cut, b, 0) > line(cut, a, 0) ? b : a));
+    expect(line(cut, edge, 0)).toBeGreaterThanOrEqual(3);
+    expect(line(cut, edge, 0)).toBeGreaterThanOrEqual(line(cut, edge, 3) * 0.5);
   }
 });

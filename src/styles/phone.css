@@ -4,20 +4,27 @@
    settings in a sheet above that row (one row, or half the screen pulled up by its handle), Show and the objects as
    sheets. On its side: the same bar, the tools in a rail at the left, the settings, Show and the objects in a panel at the
    right (at most 40 % of the width). Every control at least 44 px, nothing off the screen, the page never zooms or
-   scrolls; the notch and the home bar keep their room (safe areas, the dynamic viewport's height). */
+   scrolls; the notch and the home bar keep their room (safe areas), and the foot keeps clear of the browser's own bar. */
 
+/* The root is the box the browser pins fixed elements to (inset 0), not a viewport unit's height: iOS 26 Safari's
+   floating bar lies over the foot of `100dvh` and is reported to keep fixed elements above it (2026-11-15). Should the fixed box still
+   reach under a bar, `--bar-b` (ui/phoneRoot.ts, measured from the visual viewport) is how far, and the foot's room is
+   the larger of it and the home bar's inset: `--safe-b` below carries both, so every foot that keeps the home bar's room
+   (the tool row, the sheets above it, the objects, the rail and the panel on its side, the pages) keeps the bar's too.
+   What read the viewport's height reads `--room-h`, this box's height. Elsewhere `--bar-b` is 0: nothing moves. */
 .editor[data-phone] {
   /* the tool row's height (its 56px buttons and their padding), the Show button's, the gap round the edges */
   --phone-row: 64px;
   --phone-gap: 8px;
   --safe-t: env(safe-area-inset-top, 0px);
   --safe-r: env(safe-area-inset-right, 0px);
-  --safe-b: env(safe-area-inset-bottom, 0px);
+  --safe-b: max(env(safe-area-inset-bottom, 0px), var(--bar-b, 0px));
   --safe-l: env(safe-area-inset-left, 0px);
-  position: relative;
-  height: 100vh;
-  height: 100dvh;
-  width: 100%;
+  position: fixed;
+  inset: 0;
+  width: auto;
+  height: auto;
+  min-height: 0;
   overflow: clip;
 }
 
@@ -130,7 +137,7 @@
   left: 0;
   right: auto;
   min-width: min(260px, calc(100vw - 16px));
-  max-height: calc(100dvh - 72px - var(--safe-t) - var(--safe-b));
+  max-height: calc(var(--room-h, 100dvh) - 72px - var(--safe-t) - var(--safe-b));
   overflow-y: auto;
   overscroll-behavior: contain;
 }
@@ -157,7 +164,7 @@
   top: calc(56px + var(--safe-t));
   width: auto;
   max-width: none;
-  max-height: calc(100dvh - 72px - var(--safe-t) - var(--safe-b));
+  max-height: calc(var(--room-h, 100dvh) - 72px - var(--safe-t) - var(--safe-b));
   overflow-y: auto;
 }
 
@@ -174,7 +181,7 @@
 .editor[data-phone] .tool-dock > .tool-bar {
   display: flex;
   flex-wrap: nowrap;
-  gap: 4px;
+  gap: 6px;
   overflow-x: auto;
   overflow-y: hidden;
   overscroll-behavior: contain;
@@ -184,6 +191,25 @@
   height: calc(var(--phone-row) + var(--safe-b));
   padding: 4px max(6px, var(--safe-r)) calc(4px + var(--safe-b)) max(6px, var(--safe-l));
   border-radius: 0;
+  /* (at rest the row stands on whole tools: as many as it holds, sized to fill it exactly (TopBar.tsx `fitToolRow`,
+     `--tool-along`), each a place it snaps to; a fade at an end where more tools lie) */
+  scroll-snap-type: x mandatory;
+  scroll-padding-inline: max(6px, var(--safe-l)) max(6px, var(--safe-r));
+}
+
+.editor[data-phone] .tool-dock > .tool-bar[data-more="start"] {
+  -webkit-mask-image: linear-gradient(to right, transparent, #000 16px);
+  mask-image: linear-gradient(to right, transparent, #000 16px);
+}
+
+.editor[data-phone] .tool-dock > .tool-bar[data-more="end"] {
+  -webkit-mask-image: linear-gradient(to left, transparent, #000 16px);
+  mask-image: linear-gradient(to left, transparent, #000 16px);
+}
+
+.editor[data-phone] .tool-dock > .tool-bar[data-more="start end"] {
+  -webkit-mask-image: linear-gradient(to right, transparent, #000 16px, #000 calc(100% - 16px), transparent);
+  mask-image: linear-gradient(to right, transparent, #000 16px, #000 calc(100% - 16px), transparent);
 }
 
 .editor[data-phone] .tool-bar::-webkit-scrollbar {
@@ -192,9 +218,10 @@
 
 .editor[data-phone] .tool-bar button.icon-button {
   flex: none;
-  width: 64px;
+  width: var(--tool-along, 64px);
   height: 56px;
   padding: 4px 2px;
+  scroll-snap-align: start;
 }
 
 .editor[data-phone] .tool-bar button.icon-button svg {
@@ -206,9 +233,11 @@
   font-size: 12px;
 }
 
+/* (the hairline before the forces takes no room of its own, drawn in the gap: every tool is one step from the next, so
+   the row's whole tools fill it exactly) */
 .editor[data-phone] .tool-bar .tool-sep {
   flex: none;
-  margin: 8px 2px;
+  margin: 8px -3.5px;
 }
 
 /* the notes and the first steps over the row, never over a control: they stand in the dock's column, above the sheet */
@@ -227,7 +256,7 @@
   flex-wrap: nowrap;
   align-items: stretch;
   height: auto;
-  max-height: 50dvh;
+  max-height: calc(var(--room-h, 100dvh) / 2);
   padding: 0 max(8px, var(--safe-r)) 8px max(8px, var(--safe-l));
   border-radius: 12px 12px 0 0;
 }
@@ -255,6 +284,7 @@
 .editor[data-phone] .tool-settings.sheet .settings-grid {
   display: flex;
   flex-wrap: wrap;
+  align-items: flex-start;
   gap: 6px;
   height: auto;
   min-height: 0;
@@ -265,19 +295,35 @@
   min-width: 150px;
 }
 
+/* (Select's shapes and its words: each the sheet's whole width) */
+.editor[data-phone] .tool-settings.sheet .set-group:is(:has(> .segmented.shapes), :has(> .set-words)) {
+  flex-basis: 100%;
+}
+
 .editor[data-phone] .tool-settings.sheet.tall .settings-grid {
   flex: 0 1 auto;
   overflow-y: auto;
   overscroll-behavior: contain;
 }
 
-/* one row: the first row's settings side by side, sideways if they need more room */
-.editor[data-phone] .tool-settings.sheet:not(.tall) .settings-grid {
-  flex-wrap: nowrap;
-  overflow-x: auto;
-  overflow-y: hidden;
-  scrollbar-width: none;
+/* (where more settings lie above or under what shows, that end fades out: the sheet says it scrolls) */
+.editor[data-phone] .tool-settings.sheet.tall .settings-grid[data-more="end"] {
+  -webkit-mask-image: linear-gradient(to top, transparent, #000 12px);
+  mask-image: linear-gradient(to top, transparent, #000 12px);
 }
+
+.editor[data-phone] .tool-settings.sheet.tall .settings-grid[data-more="start"] {
+  -webkit-mask-image: linear-gradient(to bottom, transparent, #000 12px);
+  mask-image: linear-gradient(to bottom, transparent, #000 12px);
+}
+
+.editor[data-phone] .tool-settings.sheet.tall .settings-grid[data-more="start end"] {
+  -webkit-mask-image: linear-gradient(to bottom, transparent, #000 12px, #000 calc(100% - 12px), transparent);
+  mask-image: linear-gradient(to bottom, transparent, #000 12px, #000 calc(100% - 12px), transparent);
+}
+
+/* one row: the first row's two settings side by side; where the sheet is too narrow for both, the second under the first
+   (never a row that scrolls sideways with nothing to say so) */
 
 .editor[data-phone] .tool-settings.sheet:not(.tall) .set-group:not([data-row="1"]) {
   display: none;
@@ -338,7 +384,10 @@
   display: flex;
   flex-direction: column;
   gap: 10px;
-  padding: 12px max(10px, var(--safe-r)) calc(12px + var(--safe-b)) max(10px, var(--safe-l));
+  /* (the home bar's inset a border, not padding: what scrolls shows through a box's padding, and the last row stood
+     under the home bar) */
+  padding: 12px max(10px, var(--safe-r)) 12px max(10px, var(--safe-l));
+  border-bottom: var(--safe-b) solid var(--panel);
   overflow-y: auto;
   overscroll-behavior: contain;
   border-radius: 12px 12px 0 0;
@@ -592,32 +641,52 @@
   top: 0;
 }
 
+/* (the rail ends at the home bar's inset, its tools whole above it; at rest it stands on whole tools, as the row does) */
 .editor[data-phone="side"] .tool-dock > .tool-bar {
   position: absolute;
   left: 0;
   top: 0;
-  bottom: 0;
+  bottom: var(--safe-b);
   flex-direction: column;
   width: calc(72px + var(--safe-l));
   height: auto;
-  padding: 4px 4px max(4px, var(--safe-b)) max(4px, var(--safe-l));
+  padding: 4px 4px 4px max(4px, var(--safe-l));
   overflow-x: hidden;
   overflow-y: auto;
   touch-action: pan-y;
+  border-radius: 0 0 12px 0;
+  scroll-snap-type: y mandatory;
+  scroll-padding-block: 4px;
+}
+
+.editor[data-phone="side"] .tool-dock > .tool-bar[data-more="start"] {
+  -webkit-mask-image: linear-gradient(to bottom, transparent, #000 16px);
+  mask-image: linear-gradient(to bottom, transparent, #000 16px);
+}
+
+.editor[data-phone="side"] .tool-dock > .tool-bar[data-more="end"] {
+  -webkit-mask-image: linear-gradient(to top, transparent, #000 16px);
+  mask-image: linear-gradient(to top, transparent, #000 16px);
+}
+
+.editor[data-phone="side"] .tool-dock > .tool-bar[data-more="start end"] {
+  -webkit-mask-image: linear-gradient(to bottom, transparent, #000 16px, #000 calc(100% - 16px), transparent);
+  mask-image: linear-gradient(to bottom, transparent, #000 16px, #000 calc(100% - 16px), transparent);
 }
 
 .editor[data-phone="side"] .tool-bar button.icon-button {
   width: 64px;
-  height: 52px;
+  height: var(--tool-along, 52px);
 }
 
 .editor[data-phone="side"] .tool-bar .tool-sep {
   width: auto;
   height: 1px;
-  margin: 2px 8px;
+  margin: -3.5px 8px;
 }
 
-/* the panel at the right: at most 40 % of the width, clear of Show's button at the foot */
+/* the panel at the right: at most 40 % of the width, clear of Show's button at the foot (which stands clear of the home
+   bar); its room starts at the panel's own edge, never at the far side's inset */
 .editor[data-phone="side"] :is(.tool-dock > .tool-settings.sheet, .phone-show, .objects-dock) {
   position: absolute;
   left: auto;
@@ -625,21 +694,36 @@
   top: 0;
   bottom: auto;
   width: min(40%, 320px);
-  max-height: calc(100% - 56px - 2 * var(--phone-gap));
+  max-height: calc(100% - 56px - var(--phone-gap) - max(var(--phone-gap), var(--safe-b)));
   border-radius: 0 0 0 12px;
 }
 
+/* a tool's settings in one column the panel's whole width, each its name and value on a line and its control under them
+   (as the Map Generator's page has them): the main two at rest, every one pulled down from the handle. A column needs
+   less room than Show's chips: the panel keeps to it, so the map keeps its own */
 .editor[data-phone="side"] .tool-dock > .tool-settings.sheet {
+  width: min(40%, calc(264px + var(--safe-r)));
+  padding-left: 8px;
   padding-right: max(8px, var(--safe-r));
 }
 
-/* (one row: Size and the main choice side by side; pulled up, a setting a line) */
 .editor[data-phone="side"] .tool-settings.sheet .set-group {
-  min-width: 128px;
+  flex: 1 1 100%;
+  min-width: 0;
 }
 
-.editor[data-phone="side"] .tool-settings.sheet.tall .set-group {
-  flex-basis: 100%;
+/* (a button setting, one cell on the desktop's bar, shares its line with the next: Up 1 beside Down 1) */
+.editor[data-phone="side"] .tool-settings.sheet .set-group:has(> .set > .set-button) {
+  flex-basis: calc(50% - 3px);
+}
+
+.editor[data-phone="side"] .phone-show {
+  padding-left: 10px;
+  border-bottom: 0;
+}
+
+.editor[data-phone="side"] .objects-dock > :is(.objects-menu, .object-window) {
+  padding-left: 10px;
 }
 
 .editor[data-phone="side"] .objects-dock > :is(.objects-menu, .object-window) {
@@ -689,6 +773,106 @@
   min-height: 44px;
   padding: 0 8px;
   font-size: 14px;
+}
+
+/* every setting's card one layout (planning, 2026-11-14; Kyler's phone had Power's name in the middle of its card and
+   Size's at its top): the name and the value on one line at the card's top, the control under them the card's width,
+   Auto at that line's end beside it; every card's name and every slider stand level along a row */
+.editor[data-phone] .tool-settings .set.plate:has(> .set-head) {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-content: start;
+  column-gap: 6px;
+  row-gap: 2px;
+  height: auto;
+  padding: 6px 8px 4px;
+}
+
+.editor[data-phone] .tool-settings .set.plate > .set-head,
+.editor[data-phone] .tool-settings .set.plate > .set-head > .set-right {
+  display: contents;
+}
+
+.editor[data-phone] .tool-settings .set.plate > .set-head > .set-label {
+  grid-row: 1;
+  grid-column: 1;
+  align-self: center;
+  line-height: 20px;
+  white-space: normal;
+}
+
+.editor[data-phone] .tool-settings .set.plate > .set-head > .set-right > * {
+  grid-row: 1;
+  grid-column: 2;
+  justify-self: end;
+  align-self: center;
+}
+
+.editor[data-phone] .tool-settings .set.plate > .set-head > .set-right > .set-auto {
+  grid-row: 2;
+}
+
+.editor[data-phone] .tool-settings .set.plate > :not(.set-head) {
+  grid-row: 2;
+  grid-column: 1 / -1;
+}
+
+.editor[data-phone] .tool-settings .set.plate:has(> .set-head .set-auto) > :not(.set-head) {
+  grid-column: 1;
+}
+
+/* (a choice's options each a finger's 44px: where the card is too narrow for them all they wrap to a second line, never
+   cut off; the outline drawn inside, as a tablet's) */
+.editor[data-phone] .tool-settings .set-seg {
+  flex-wrap: wrap;
+  min-height: 44px;
+  border: 0;
+  box-shadow: inset 0 0 0 1px var(--rule);
+}
+
+.editor[data-phone] .tool-settings .set-seg button {
+  flex: 1 0 auto;
+  min-width: 44px;
+}
+
+/* (three choices and Auto, or four choices, do not fit half a phone's width (Erupt's Peak, Crater, Caldera; Flatten's
+   Steps): such a card takes the sheet's whole width, its layout the same) */
+.editor[data-phone] .tool-settings.sheet .set-group:is(:has(.set-seg > button:nth-child(3)):has(.set-auto), :has(.set-seg > button:nth-child(4))) {
+  flex-basis: 100%;
+}
+
+/* Select's shapes: four to a line, icon over its name, the names at the tool row's size */
+.editor[data-phone] .set-group > .segmented.shapes {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 4px;
+  height: auto;
+}
+
+.editor[data-phone] .set-group > .segmented.shapes > button {
+  height: 52px;
+  min-width: 0;
+}
+
+/* (Whole map two cells, its name on one line: with a finger's Add or take away after it, the second line is whole) */
+.editor[data-phone] .set-group > .segmented.shapes > button.whole-map {
+  grid-column: span 2;
+}
+
+.editor[data-phone] .set-group > .segmented.shapes > button .icon-word {
+  font-size: 12px;
+}
+
+/* (the words under them, what to do or what is selected, on as many lines as they need) */
+.editor[data-phone] .tool-settings .set-group.centre {
+  justify-content: flex-start;
+  align-items: stretch;
+}
+
+.editor[data-phone] .tool-settings .set-words {
+  white-space: normal;
+  font-size: 14px;
+  line-height: 20px;
+  text-align: left;
 }
 
 /* (one row: the first two of the first row, Size and the main choice; the rest when pulled up) */
@@ -819,6 +1003,12 @@
   position: absolute;
 }
 
+/* (the handle stops short of the × on its row, centred: one control under a finger at a time) */
+.editor[data-phone] .tool-settings.sheet:has(> .put-down) > .sheet-handle {
+  align-self: center;
+  width: calc(100% - 2 * 52px);
+}
+
 .editor[data-phone] .tool-settings.sheet > .put-down {
   position: absolute;
   z-index: 1;
@@ -935,6 +1125,15 @@ html[data-phone] :is(.dialog, .phone-page) :is(input, select, textarea) {
   padding-bottom: var(--safe-b);
 }
 
+/* (on a phone a page fades out over the home bar and a little above it, so a card going on past the screen's foot reads
+   as more below, never as cut; at the page's end its last card stands above the fade. The Map Generator's ends at its
+   Generate band instead) */
+.editor[data-phone] .phone-page:not(:has(.gen-panel)) > .phone-page-body {
+  padding-bottom: calc(var(--safe-b) + 20px);
+  -webkit-mask-image: linear-gradient(to bottom, #000 calc(100% - var(--safe-b) - 20px), transparent);
+  mask-image: linear-gradient(to bottom, #000 calc(100% - var(--safe-b) - 20px), transparent);
+}
+
 .editor:is([data-phone], [data-tablet]) .phone-page-body > .gen {
   position: static;
   inset: auto;
@@ -952,7 +1151,8 @@ html[data-phone] :is(.dialog, .phone-page) :is(input, select, textarea) {
 
 /* ---- the dialogs: a sheet the screen's width, scrolling inside, its buttons at its foot */
 html[data-phone] .dialog-backdrop {
-  padding: max(8px, env(safe-area-inset-top, 0px)) max(8px, env(safe-area-inset-right, 0px)) max(8px, env(safe-area-inset-bottom, 0px)) max(8px, env(safe-area-inset-left, 0px));
+  /* (its foot clear of the browser's own bar too, as the editor's: --bar-b, ui/phoneRoot.ts) */
+  padding: max(8px, env(safe-area-inset-top, 0px)) max(8px, env(safe-area-inset-right, 0px)) max(8px, env(safe-area-inset-bottom, 0px), calc(var(--bar-b, 0px) + 8px)) max(8px, env(safe-area-inset-left, 0px));
   place-items: end stretch;
 }
 
@@ -1108,7 +1308,7 @@ html[data-phone] .phone-only {
   right: max(8px, var(--safe-r));
   top: calc(56px + var(--safe-t));
   width: auto;
-  max-height: calc(100dvh - 72px - var(--safe-t) - var(--safe-b));
+  max-height: calc(var(--room-h, 100dvh) - 72px - var(--safe-t) - var(--safe-b));
   overflow-y: auto;
   padding-top: 52px;
 }
@@ -1510,7 +1710,13 @@ html[data-phone] .dialog > footer {
   font-size: 15px;
 }
 
-/* ---- the map being made: centred on the screen upright and on its side, every word of its line kept */
+/* ---- the map being made: centred on the screen upright and on its side, every word of its line kept; the land's first
+   look sized by the room the root fills, not the viewport's height (page.css, `--land`) */
+html[data-phone] {
+  --land: min(512px, calc(var(--room-h, 100vh) / 2));
+  --land-lift: max(0px, calc(var(--room-h, 100vh) / 2 + var(--head) / 2 + var(--land) / 2 + 122px - (var(--room-h, 100vh) - 72px - 60px)));
+}
+
 html[data-phone] .dialog-backdrop.making-backdrop {
   place-items: center;
   padding-top: max(8px, env(safe-area-inset-top, 0px));

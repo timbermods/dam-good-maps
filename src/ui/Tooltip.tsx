@@ -10,6 +10,8 @@
 // decide whether it was long: a page busy past `LONG_PRESS` runs the timer before a tap's lift that came sooner, and
 // that tap stays a tap (as `render3d/touch.ts`'s hold, #1074 slice 6).
 //
+// A finger with no keyboard sees no key caps: a coarse pointer's tooltips show their phrase alone until a key is pressed.
+//
 // tests/e2e/tooltips.spec.ts checks every control on the page has one, in the form; tests/unit/tooltipForm.test.ts
 // checks the tools', forces' and shelf's, where they are written.
 
@@ -50,6 +52,15 @@ export function keyParts(entry: string): { cap: string; words: string } {
 export function keysOf(el: Element): string[] {
   const k = el.getAttribute("data-keys");
   return k ? k.split(KEY_SEP).filter(Boolean) : [];
+}
+
+/** A key has been pressed on this page: a finger's device has a keyboard after all, and the key caps show. */
+let keyed = false;
+
+/** The key caps show: always to a mouse; to a finger (a coarse pointer, a phone or a tablet) only once a key has been
+ *  pressed, since with no keyboard a cap names a key there is none of. */
+function capsShow(): boolean {
+  return keyed || !window.matchMedia?.("(pointer: coarse)").matches;
 }
 
 /** The tooltip as it shows: its words, its keys, and where. */
@@ -162,6 +173,8 @@ export function Tooltips() {
       longAt = null;
     };
     const press = (e?: Event) => {
+      // (a key typed into a field may be the screen's own keyboard: it says nothing of a real one)
+      if (e instanceof KeyboardEvent && !(e.target instanceof Element && e.target.closest("input, textarea, select, [contenteditable]"))) keyed = true;
       quiet = true;
       hide();
       clearTimeout(linger);
@@ -253,7 +266,7 @@ export function Tooltips() {
   return (
     <div ref={box} class={`tip${shown.above ? " above" : ""}${shown.left ? " beside" : ""}`} role="tooltip" aria-hidden="true" style={{ left: `${left}px`, top: `${shown.y}px` }}>
       <span class="tip-text">{shown.text}</span>
-      {shown.keys.map((k) => {
+      {(capsShow() ? shown.keys : []).map((k) => {
         const { cap, words } = keyParts(k);
         return (
           <span class="tip-key" key={k}>

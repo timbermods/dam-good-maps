@@ -35,7 +35,7 @@ export interface PlaceData {
   /** A slug of the name: "yosemite-valley" (the link's `#place=yosemite-valley`). */
   id: string;
   /** "Yosemite Valley": the one name the map, its file, the gallery and the editor's Real places panel all carry
-   *  (D(new-names): no "Near"). */
+   *  (D522: no "Near"). */
   name: string;
   /** The landform family the survey sampled it for, and its name on the page. */
   family: string;

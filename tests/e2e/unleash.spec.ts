@@ -4,7 +4,7 @@
 // the land it aims there; Try another re-rolls the course. The source stays: no second one.
 
 import { expect, test, type Page } from "@playwright/test";
-import { openEditor, setWaterSpeed, topDown } from "./open";
+import { openSaved, setWaterSpeed, topDown } from "./open";
 
 const info = (page: Page) => page.evaluate(() => window.dgmEditor!.info());
 const idle = (page: Page) => page.evaluate(() => window.dgmEditor!.idle());
@@ -23,8 +23,8 @@ test("Unleash: a selected source carves its own course, kept as one step when it
   page.on("pageerror", (e) => errors.push(String(e)));
   // (seed 1 since D518's contour edges, D148: seed 4242's land now has an overhang whose holding ground lay on the line the
   // drag aimed along, and a force leaves that ground as it is, so the aimed carve was refused; seed 1's has no cave or
-  // overhang)
-  await openEditor(page, "s=1&z=96&d=n&t=highlands");
+  // overhang; saved since generator 0.10.29, D148, so a land change moves none of it)
+  await openSaved(page, "s=1&z=96&d=n&t=highlands");
   await topDown(page);
   await setWaterSpeed(page, "faster");
 

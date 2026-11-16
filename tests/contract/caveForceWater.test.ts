@@ -9,10 +9,9 @@ import { MapSession } from "../../src/core/doc/session";
 import { DEFAULTS } from "../../src/core/forces/carve/run";
 import { STEPS_PER_SECOND } from "../../src/core/forces/force";
 import { canonicalSettle } from "../../src/core/sim/prefill";
-import { makeSpec } from "../../src/core/spec/mapspec";
 import { WET, type WaterView } from "../../src/render3d/model";
-import { runGenerate } from "../../src/worker/api";
 import * as ed from "../../src/worker/session";
+import { fixtureInEditor } from "../fixtureEditor";
 
 const W = 96;
 const N = W * W;
@@ -40,10 +39,9 @@ function origin(s: MapSession): [number, number] {
 
 async function open(): Promise<{ origin: [number, number]; ground: Uint8Array; water: number[] }> {
   ed.forceCancel();
-  const spec = makeSpec({ seed: 22, theme: "highlands", size: { x: W, y: W } });
-  spec.settings.terrain.verticality = 70;
-  await runGenerate(spec);
-  ed.refine();
+  // (a fixture since generator 0.10.29, D148: Highlands 96² seed 22 at Verticality 70, the land these cases were written
+  // on, tests/fixtures/projects; the dry washes' brush (0.10.29) left this seed's generated map without caves)
+  fixtureInEditor("highlands", W, 22, "vert70");
   ed.settleWater();
   const s = MapSession.open(decodeProject(ed.project().bytes));
   expect(s.built.waterModel.stacked, "the map has caves or overhangs").toBeTruthy();

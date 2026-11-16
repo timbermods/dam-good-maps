@@ -3,6 +3,9 @@
 // same on both at every entry while the water settles in the background. After the settle both hold
 // the same map: the same exported .timber bytes and the same project document. Each applied step's
 // record is checked against the map before and after it (patch, writes, touches).
+//
+// The maps are fixtures (tests/fixtures/projects, `mapProject` in collabFixtures.ts: Highlands 48² seeds 3, 5 and 10): the subject is collaborative editing, not the generator, so a land change
+// moves nothing here (D148).
 
 import { beforeAll, describe, expect, test } from "vitest";
 import { applyPatch, captureState, cloneState, recordFromJson, recordToJson, stateHash, type MapState } from "../../src/core/collab";

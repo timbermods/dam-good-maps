@@ -38,9 +38,12 @@ as every edit (`newFalls`) and would refuse it with D487's words; Erode never gi
 
 **Openings scaled to their cliff (the force audit's 11).** A click wears one opening at the nearest face within twice
 its Size (a dry foot beside a column 5 or more higher); a sweep one every 6 to 10 tiles along its line, each at the
-nearest face, of unequal size and never two within 5 tiles. An opening stands a share of its face's height (a quarter
-at Power 0, 40 % at 55, 70 % at 100, never under 2 blocks, always under a 3-block roof), is 3 to 8 wide along it and 2
-to 6 deep; a fin under 4 tiles thick with low ground beyond is cut through, an arch. `extent` (2 × Size + 12,
+nearest face, of unequal size and never two within 5 tiles. Each roll turns an opening with the seed: centred on the
+foot at its depth, then a step along the face (about 0.6 of its half-width, never nearer the next opening than its
+width allows) and 1.2 as deep, then a step the other way and 0.8 as deep, so Try another wears another stretch of the face: centred every time, a small face's opening filled
+all the room its roof and floor left it and two seeds wore the same voxels (#1198). An opening stands a share of its
+face's height (a quarter at Power 0, 40 % at 55, 70 % at 100, never under 2 blocks, always under a 3-block roof), is 3
+to 8 wide along it and 1.5 to 8 deep (2 to 6 by Power, turned by the roll); a fin under 4 tiles thick with low ground beyond is cut through, an arch. `extent` (2 × Size + 12,
 `erode.ts` `erodeExtent`) bounds every tile it changes, the collaboration band's reach.
 
 **A visible effect everywhere (D356), and no ponds (the audit's 24).** Where no face is in reach, running water scours

@@ -52,8 +52,17 @@ import { decodeSpecFragment, encodeSpecFragment, makeSpec, type MapSpec } from "
 // wash's banks in long treads, its dead stands in knots in their woods (a stand its ground holds short of 15 trees none),
 // a third of their trees young, its rolling and rises reweighed and its bend kept off the start, a new ground, D148; and
 // for the dead stands dense in their woods, each knot its own shape: its resources, D148; and for generator 0.10.21's
-// look round, D518: its ruin fields along their level's rim, a wash's banks jogging, the dead stands reading the dry land as the checks do, the version in its description, D148; and generator 0.10.22's version alone, the map otherwise 0.10.21's, D148)
-const SHA = "2350df0a01cf7cea30084f2b2e202b5ae7a01e2fa2f2415c8721c4b24f7b7a7a";
+// look round, D518: its ruin fields along their level's rim, a wash's banks jogging, the dead stands reading the dry land as the checks do, the version in its description, D148; and generator 0.10.22's version alone, the map otherwise 0.10.21's, D148;
+// and generator 0.10.23's version alone, its shown land kept for a rescue round moving only maps above 128², D148;
+// and generator 0.10.24's round forms (the look round: its outlands' knolls, mesas and cones never circles, the weathering
+// reaching in a disc), a new ground, D148;
+// and generator 0.10.25's version alone, its Lake Basin water settings moving no Canyon map, D148;
+// and generator 0.10.26's ruins to within a column, D527: its ruin fields hold the scrap asked to a column, D148;
+// and generator 0.10.27's version alone, the premise map otherwise 0.10.26's (D(new-leaks) moves the themes' land, not a premise's), D148;
+// and generator 0.10.29's version alone (#1186): at 0.10.27 the branch gives `7760e7be…` byte for byte, D148;
+// and generator 0.10.36's version alone (#1205): `93bb3867…` before it, and with the version set back to 0.10.29 the branch gives
+// `93bb3867…` byte for byte, the round forms at their meant size not reaching this premise's land, D148)
+const SHA = "c42349c0bce06aab7e00cbd1d52b6a3fbdfcc99c02736b5377224db746c8a347";
 
 // (a Hard map whose start lake parts as it falls: the single analytic reading stood 0.32 over the run there, PR #1040;
 // seed 5 for 7 since D518 with dev's ways out by a ramp's line (#1061), D148: seed 7's Hard lake stair holds no plan now

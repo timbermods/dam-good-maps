@@ -1174,7 +1174,9 @@ function districtCenter(): Model {
     }
   lathe(m, [[0.41, 3.78], [0.6, 3.84], [0.61, 3.9], [0.47, 4.1], [0.34, 4.21]], 12, shade(START.thatch, 1.03), [PATTERN.thatch, PATTERN_TILE.thatch]);
   lathe(m, [[0.34, 4.21], [0.26, 4.28], [0.2, 4.28]], 12, START.brown);
-  lathe(m, [[0.34, 4.18], [0, 4.18]], 12, START.crown);
+  // (its dark mouth as seen from above: a disc in the ring's throat at 4.26, above the fire's light at 4.24 as the Iron
+  // Teeth's cap is, so the light pointing down from the game's open top never lights a face the game has not there)
+  lathe(m, [[0.283, 4.26], [0, 4.26]], 12, START.crown);
   // the game's pictures on its wood: the dark planks on the walls and the tower, the pale wood's on the rest (and on
   // the brown, which is the same picture darker)
   return m.patternBy([
