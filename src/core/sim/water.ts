@@ -354,6 +354,11 @@ export interface SettleOptions {
    *  `stopped`, as one that plainly won't settle before its limit. The answer comes from the check alone, never a
    *  clock, so the same water always stops at the same check. */
   watch?: SettleWatch;
+  /** How many checks in a row must pass before it stops (default 1), unless a check is calm: no more than
+   *  `movedShare` of the tiles moved by over half `tol` either. The preview's (sim/preview.ts) takes 2: a surge
+   *  passing down a river rises by under `tol` between two checks on every tile, and one check that falls on its
+   *  crest stopped the preview there (#1181). */
+  passes?: number;
 }
 
 /** One check of a settle that has not settled, for `SettleOptions.watch`. */
@@ -498,6 +503,8 @@ export class SettleRun {
   private readonly movedShare: number;
   private readonly sealed: readonly number[] | null;
   private readonly watch: SettleWatch | null;
+  private readonly passes: number;
+  private passed = 0;
   private prev: Float64Array;
   private prevVol: number;
   private k = 0;
@@ -514,6 +521,7 @@ export class SettleRun {
     this.sealed = opts.sealed?.length ? opts.sealed : null;
     this.watch = opts.watch ?? null;
     this.every = opts.checkEvery ?? 128;
+    this.passes = opts.passes ?? 1;
     this.checks = Math.floor((maxDays * TICKS_PER_DAY) / this.every);
     this.prev = sim.D.slice();
     this.prevVol = sim.volume();
@@ -557,19 +565,25 @@ export class SettleRun {
       const dv = Math.abs(vol - this.prevVol) / Math.max(vol, 1e-9);
       let moved = 0;
       let moveSum = 0;
+      let stirred = 0;
       const D = sim.D;
       const prev = this.prev;
+      const half = this.tol / 2;
       for (let i = 0; i < sim.N; i++) {
         const m = Math.abs(D[i] - prev[i]);
         if (m > this.tol) {
           moved++;
           moveSum += m;
-        }
+        } else if (m > half) stirred++;
       }
       this.k++;
-      if (dv < 0.002 && moved <= this.movedShare * sim.N) this.result = { settled: true, ticks: sim.ticks };
+      const still = dv < 0.002 && moved <= this.movedShare * sim.N;
       // only sealed basins evaporating: the water has settled (D222, D413)
-      else if (this.sealed && steadyApartFromSealed(sim, prev, this.sealed, this.tol, this.movedShare)) this.result = { settled: false, ticks: sim.ticks, steadyTicks: sim.ticks };
+      const steady = !still && !!this.sealed && steadyApartFromSealed(sim, prev, this.sealed, this.tol, this.movedShare);
+      this.passed = still || steady ? this.passed + 1 : 0;
+      // (a pass where no more tiles than that share moved by over half `tol` either is calm: it needs no second)
+      const calm = still && moved + stirred <= this.movedShare * sim.N;
+      if (this.passed >= this.passes || calm) this.result = still ? { settled: true, ticks: sim.ticks } : { settled: false, ticks: sim.ticks, steadyTicks: sim.ticks };
       else if (this.k >= this.checks) this.result = { settled: false, ticks: sim.ticks };
       else if (this.watch && this.watch({ k: this.k, checks: this.checks, vol, dVol: vol - this.prevVol, moved, tol: this.tol, meanMove: moved ? moveSum / moved : 0, movedShare: this.movedShare, N: sim.N }))
         this.result = { settled: false, ticks: sim.ticks, stopped: true };

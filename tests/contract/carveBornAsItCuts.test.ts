@@ -10,10 +10,9 @@ import { decodeProject } from "../../src/core/doc/document";
 import { MapSession } from "../../src/core/doc/session";
 import { DEFAULTS } from "../../src/core/forces/carve/run";
 import { STEPS_PER_SECOND } from "../../src/core/forces/force";
-import { makeSpec } from "../../src/core/spec/mapspec";
 import { WET, type WaterView } from "../../src/render3d/model";
-import { runGenerate } from "../../src/worker/api";
 import * as ed from "../../src/worker/session";
+import { fixtureInEditor } from "../fixtureEditor";
 
 const W = 96;
 const N = W * W;
@@ -40,8 +39,8 @@ function farFromStart(s: MapSession): [number, number] {
 async function open(seed = 21): Promise<{ origin: [number, number]; ground: Uint8Array; water: number[]; roofed: Map<string, number> }> {
   // (a force an earlier test left at work, failing part way, goes first)
   ed.forceCancel();
-  await runGenerate(makeSpec({ seed, theme: "highlands", size: { x: W, y: W } }));
-  ed.refine();
+  // (a fixture since generator 0.10.29, D148: the land these cases were written on, tests/fixtures/projects, so the weathering's reach moving the generator's land moves nothing here)
+  fixtureInEditor("highlands", W, seed);
   ed.settleWater();
   const s = MapSession.open(decodeProject(ed.project().bytes));
   const ground = ed.terrainNow().heights.slice();
@@ -96,7 +95,8 @@ function wetCut(ground: Uint8Array, now: Uint8Array, depth: ArrayLike<number>): 
 
 describe("Carve's river is born as it cuts (D371)", () => {
   // (seed 22 has caves: a pool under a roof stays apart from the carve's water, checked on its own; #814. Seed 24 for 21
-  // since generator 0.10.19's dry washes, D517, D148: seed 21's channel holds no more water at the cut's end than halfway)
+  // since generator 0.10.19's dry washes, D517, D148: seed 21's channel holds no more water at the cut's end than halfway;
+  // seed 22 stays: generator 0.10.27's move (dev, D(new-leaks)) followed the generator's land; the fixture keeps 0.10.25's, where this holds)
   it.each([24, 22])("the water flows into the channel as it is cut, from the carve's source; kept, the map's water flows on from it (seed %i)", async (seed) => {
     const { origin, ground, water, roofed } = await open(seed);
     const st = ed.forceStart({ verb: "carve", settings: { ...DEFAULTS, power: 70 }, origin, cut: null });

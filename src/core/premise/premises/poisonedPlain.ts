@@ -25,16 +25,17 @@ import { frameAt, LANDMARK_FAR, LANDMARK_NEAR, openingCamera, VISTA_ZOOM } from 
 import { ORIENTATIONS, type Orientation } from "../../format/footprints";
 import { BED_FLOOR } from "../../land/genome";
 import { fbm } from "../../math/noise";
-import { atan2, cos, sin, tan } from "../../math/portable";
+import { atan2, cos, pow, sin, tan } from "../../math/portable";
 import { sillWidthFor } from "../../sim/sill";
 import { EDITOR_LEVEL, type MapSpec } from "../../spec/mapspec";
-import { FLOOR_MARGIN, START_FLOORS } from "../../validate/playability";
+import { FLOOR_MARGIN, rulesFor, START_FLOORS } from "../../validate/playability";
 import type { PlanOverlay } from "../diagram";
 import { premiseStream } from "../draw";
 import { FRAME } from "../frame";
 import { meander, sampled } from "../gateBrooks";
 import { dist, headingOf, pathDist, pathLength, pointAt } from "../geom";
 import { fail, nameOf, OK, PLAN_CHECKS } from "../planChecks";
+import { longestStraight } from "../raster/levee";
 import type { Body, Edge, Exit, Invariant, Link, Point, PremiseDef, PremisePlan, Region, Ridge, Source, Work } from "../types";
 import { STAIR_FLOW } from "./lakeStair";
 
@@ -45,9 +46,10 @@ export const PLAIN_ID = "poisonedPlain";
 /** Square maps, 128² to 256² (the design's §2: the plain needs a side of 128 or more; PREMISES ruling 7: squares only). */
 export const PLAIN_SIDE = [128, 256] as const;
 /** The green band's reach, `M`: how far the river's moisture crosses a levee one level over its water onto the plain
- *  (the design's §2, `gameMoistureReach` on the first land). The working value: step 2 measures it on the land and
- *  this constant takes the measure (under 6, the levee's low places are widened until the band's mean is 6). */
-export const M_REACH = 10;
+ *  (the design's §2). Step 2 measured it on the land with the core's soil rules (`plainBands`: the green band's tiles
+ *  over the river's length on the plain) on seeds 1 and 2 at 128², 192² and 256²: 5.9 to 8.8, a mean of 7.4. Its mean
+ *  is over 6, so the levee's low places are not widened. */
+export const M_REACH = 7;
 /** The dry band's least share of the plain and the backswamp together on day 1 (the design's §2). */
 export const DRY_LEAST = 0.3;
 /** Day 1's dead band's share of the floor (the design's §2, planning's ruling of 2026-11-15: 8 to 25 %). */
@@ -68,8 +70,9 @@ export const PLAIN = { dead: 9, share: [0.28, 0.36], long: [0.7, 0.85], floor: [
  *  that long, a sine's flank ran within `near` tiles of straight for longer than `longest`), with a little noise
  *  (`rough` tiles over `roughCell` of `P`); the floor's width in the mean over any `P` of its length `PLAIN.vary` of `P`
  *  (drawn inside `mean`, a wall drawn again up to `draws` times); no wall's foot within `near` tiles of one straight
- *  line for longer than `longest` of `P` (`wall.wanders`). */
-export const WALL = { out: [0.15, 0.3], len: [1.5, 3], rough: 1.5, roughCell: 0.5, mean: [0.83, 1.27], draws: 8, near: 2, longest: 1.2 } as const;
+ *  line for longer than `longest` of `P` (`wall.wanders`), nor, where its draws allow, within `near` + `slack` (the
+ *  land's warp, against a bend, reads it straighter on the ground), the straightest of them by that measure else. */
+export const WALL = { out: [0.15, 0.3], len: [1.5, 3], rough: 3, roughCell: 0.3, mean: [0.83, 1.27], draws: 32, near: 2, longest: 1.2, slack: 1.5 } as const;
 /** The least width the design's §2 asks of the plain. */
 export const plainLeast = (M: number = M_REACH): number => Math.ceil((M + PLAIN.dead) / (1 - DRY_LEAST));
 /** The plain's mean width's range on a side. */
@@ -87,33 +90,202 @@ export const RIVER_ROOM = { width: 8, share: 0.12 } as const;
  *  least every fifth of the river's length on the plain, which 2 to 4 low places alone cannot give). */
 export const LEVEE = { width: [3, 6], cell: [10, 16], low: [4, 8], lows: { small: [2, 3], large: [3, 4] }, apart: 12, crestCell: 11, hump: 0.4, humpLen: [4, 7], most: 0.2, mostAt1: 0.5 } as const;
 /** The plain falls a level down the valley every 40 to 60 tiles, at a riser that wanders across the floor: its wander
- *  `amp` tiles by noise over `cell` tiles across. None within `end` tiles of the plain's foot. */
-export const RISER = { every: [40, 60], amp: [3, 6], cell: [8, 14], end: 20 } as const;
+ *  `amp` tiles by noise over `cell` tiles across. A riser is the scar the river's old bends cut into the higher plain
+ *  (planning's verdict on round 2: steps follow the river's old lines, never a ruled line across the plain): a chain of
+ *  arcs `scar.len` tiles across each (wandering a third of that), each bowed `scar.bow` tiles up the valley at its middle,
+ *  meeting the next in a cusp. None within `end` tiles of the plain's foot. The water's ceiling
+ *  (`plainTop`) holds the Red Fall's 6 or 7 levels (D510) over the backswamp only with the plain's head low: so the
+ *  plain has as many risers as leave its head at `L` that room (`mostRisersUnder`), and on a longer plain they stand
+ *  farther apart (`riserEvery`). */
+export const RISER = { every: [40, 60], amp: [3, 6], cell: [8, 14], end: 20, scar: { len: [16, 30], bow: [3, 8] } } as const;
+/** The far wall stands this many levels or more over the plain wherever the first frame sees it (planning's verdict on
+ *  round 1 of the land, 2026-11-15); the near wall `NEAR_OVER` (its crest along the valley). */
+export const FAR_OVER = 8;
+export const NEAR_OVER = [4, 6] as const;
+/** The plain's least level at its head: the river's bed at the downstream end a level over the floor, two under it. */
+const PLAIN_LEAST = BED_FLOOR + 3;
+/** The plain's height budget (planning's verdict on step 3, round 2: the plain sits as high as its river's fall needs,
+ *  the rim and the Red Fall keeping their drop above it): its head `L` stands `PLAIN_LEAST` plus a level for each riser
+ *  (the river steps down with the plain) plus `JOIN.levels` where the red stream joins the river (the river at the join
+ *  falls under the red stream's bed, so the red water drops into it), and no higher than leaves the Red Fall's least
+ *  height and the gulch's least rise under `top - 2`, where the Red Spring may stand (the shared `plan.levels`). So the
+ *  risers are what that leaves: two on a map whose red stream leaves by its own exit, one where it joins the river. */
+export const mostRisersUnder = (top: number, join = false): number => Math.max(0, top - 2 - GULCH.rise[0] - GULCH.h[0] + 1 - PLAIN_LEAST - (join ? JOIN.levels : 0));
+/** The risers' spacing on a plain whose risers may run `span` tiles (its head to `RISER.end` above its foot), `most`
+ *  of them at most: 40 to 60 tiles, or evenly farther apart where `most` cannot reach its foot so. */
+export function riserEvery(span: number, most: number): [number, number] {
+  const even = span / (most + 1);
+  return even * 1.15 <= RISER.every[1] ? [RISER.every[0], RISER.every[1]] : [Math.max(RISER.every[0], even * 0.95), even * 1.15];
+}
+/** The river's stage on its bed (planning's verdict on step 3, round 1: a longer river needs more fall, so its bed steps
+ *  down a level at natural riffles, as many as its length and flow need; its width follows its flow, never its length).
+ *  Measured on the settle (step 3, seeds 3 and 4 at 256², 15.7 a second on a bed 5 wide): the water stands `lip` deep
+ *  over a step's lip (or the map's edge) and `slope` deeper for each tile up the reach from it; both by the flow a tile
+ *  of width carries over `q`'s to the 2/3 (a channel's critical depth). The water stands `margin` under its ceiling
+ *  everywhere: the plain beside the river (a levee's crest a level over the plain holds a badtide only over water no
+ *  higher than the plain, §2), and at the red stream's join the red stream's bed, two under the plain (round 3: the red
+ *  water falls into the river, `JOIN.drop`, and the river's cannot back up it). The red stream joins
+ *  `join` tiles below a step (a yazoo: it keeps beside the river until the river has dropped): its mouth (its
+ *  half-width and the cut a tile past it) wholly below the step and two tiles of the river between (round 3: red water
+ *  at the step's foot climbed its first tile, 3e-2 as the file holds it, where the mouth met the foot). That step falls
+ *  `fall` levels: the river's water stands 1.5 deep or more, so under a step of one level it still reaches over the
+ *  reach above's bed and the settle's eddies carry traces of the red water up it (step 3, round 2: 1e-12 to 1e-152 up
+ *  to 95 tiles); under two it stands below that bed. */
+export const RIVER_STAGE = { lip: 1.6, slope: 0.0055, q: 15.7 / 5, margin: 0.15, join: [5, 9], fall: 1 } as const;
+/** The river's stage over a flow `flow` on a bed `width` wide: how deep over a step's lip, and how much deeper a tile up
+ *  the reach. */
+export function riverStage(flow: number, width: number): { lip: number; slope: number } {
+  const k = pow(flow / width / RIVER_STAGE.q, 2 / 3);
+  return { lip: RIVER_STAGE.lip * k, slope: RIVER_STAGE.slope * k };
+}
+
+/** The river's riffles along a (local) path: the middles of the segments where its bends cross over (the sign of its
+ *  turning changes, over three segments), at least `from` tiles along it and `end` short of its end. */
+export function riffles(path: readonly Point[], from: number, end: number): number[] {
+  const at: number[] = [0];
+  for (let k = 1; k < path.length; k++) at.push(at[k - 1] + dist(path[k - 1], path[k]));
+  const turn: number[] = [];
+  for (let k = 1; k + 1 < path.length; k++) {
+    const a: Point = [path[k][0] - path[k - 1][0], path[k][1] - path[k - 1][1]];
+    const b: Point = [path[k + 1][0] - path[k][0], path[k + 1][1] - path[k][1]];
+    turn.push(a[0] * b[1] - a[1] * b[0]);
+  }
+  // (turn[j] at vertex j + 1, smoothed over three vertices; a change of sign between vertices j + 1 and j + 2)
+  const sm = turn.map((_, j) => (turn[j - 1] ?? 0) + turn[j] + (turn[j + 1] ?? 0));
+  const out: number[] = [];
+  for (let j = 1; j < sm.length; j++) {
+    if (!(sm[j - 1] * sm[j] < 0)) continue;
+    const mid = (at[j] + at[j + 1]) / 2;
+    if (mid >= from && mid <= at[at.length - 1] - end) out.push(mid);
+  }
+  return out;
+}
+
+/** The river's steps (`RIVER_STAGE`): from its head's bed down, each reach as long as its water stands under its
+ *  ceiling, a step at the farthest riffle that allows (the fewest steps), and one `RIVER_STAGE.join` above the red
+ *  stream's join; the steps' places and the bed at each of the path's points (a level less past each step), or null
+ *  where a reach finds no riffle to end at, the join none above it, or the bed would fall under `floor`.
+ *  `ceiling(s)`, `flow(s)`: the water's ceiling and the river's flow `s` tiles along it. */
+export function riverSteps(o: { path: readonly Point[]; head: number; floor: number; width: number; riffles: readonly number[]; ceiling: (s: number) => number; flow: (s: number) => number; join: number | null }): { at: number[]; bed: number[] } | null {
+  const at: number[] = [0];
+  for (let k = 1; k < o.path.length; k++) at.push(at[k - 1] + dist(o.path[k - 1], o.path[k]));
+  const S = at[at.length - 1];
+  const n = Math.floor(S) + 1;
+  const ceil: number[] = [];
+  const stage: { lip: number; slope: number }[] = [];
+  for (let s = 0; s < n; s++) {
+    ceil.push(o.ceiling(s));
+    stage.push(riverStage(o.flow(s), o.width));
+  }
+  // (a reach from p to t on bed b: its water under its ceiling at every tile)
+  const holds = (p: number, t: number, b: number): boolean => {
+    for (let s = Math.ceil(p); s < t && s < n; s++) if (b + stage[s].lip + stage[s].slope * (t - s) >= ceil[s] - RIVER_STAGE.margin) return false;
+    return true;
+  };
+  // (a straight run's riffle where no bend's crossing serves: any segment's middle)
+  const mids: number[] = [];
+  for (let k = 0; k + 1 < at.length; k++) if (at[k + 1] - at[k] > 0.5 && (at[k] + at[k + 1]) / 2 >= (o.riffles[0] ?? 0)) mids.push((at[k] + at[k + 1]) / 2);
+  let forced: number | null = null;
+  if (o.join !== null) {
+    const j = o.join;
+    const inJoin = (r: number) => r >= j - RIVER_STAGE.join[1] && r <= j - RIVER_STAGE.join[0];
+    forced = o.riffles.filter(inJoin).pop() ?? mids.filter(inJoin).pop() ?? null;
+    if (forced === null) return null;
+  }
+  const steps: number[] = [];
+  let p = 0;
+  let b = o.head;
+  for (;;) {
+    const owed = forced !== null && forced > p;
+    if (!owed && holds(p, S, b)) break;
+    // (owed the join's step: there where the reach holds to it, else short of it)
+    let t = owed && holds(p, forced!, b) ? forced! : -1;
+    const before = owed ? forced! : Infinity;
+    if (t < 0) for (const r of o.riffles) if (r > p && r < before && holds(p, r, b)) t = r;
+    if (t < 0) for (const r of mids) if (r > p && r < before && holds(p, r, b)) t = r;
+    if (t < 0) return null;
+    // (the join's step falls `RIVER_STAGE.fall` levels: the water under it stands below the reach above's bed, so none
+    // of the red stream's runs back up it)
+    const n = t === forced ? RIVER_STAGE.fall : 1;
+    for (let j = 0; j < n; j++) steps.push(t);
+    p = t;
+    b -= n;
+    if (b < o.floor) return null;
+  }
+  return { at: steps, bed: at.map((s) => o.head - steps.filter((t) => t < s).length) };
+}
 /** The start's terrace at the plain's head (the design's §5): its length down the valley holds the start's bench
  *  (`frame.bench`) `room` times over beside the brook, which crosses it `brookAt` tiles from its upstream end; the start
- *  stands `lip` tiles back from its downstream lip, `across` of the way from the river's room to the far wall. */
+ *  stands `lip` tiles back from its downstream lip, `across` of the way from the river's room to the far wall, and is
+ *  taken only where its brook already runs within its walk (planning's verdict on step 3, round 2: found, not laid). */
 export const TERRACE = { len: [26, 56], room: 1.2, brookAt: 9, lip: 4, across: [1 / 3, 1 / 2], rise: 2 } as const;
 /** The search window on the far wall (the design's §3 and §5, planning's ruling of 2026-11-15): from the badwater
  *  distance down the valley from the start (searched nearest-first from there, so the Red Fall stays in the vista
  *  frame) to `to` of the plain's length; the least run of it the vista frame shows around the gulch's mouth, tiles (the
  *  lip's widest and a tile either side); how far past the nearest framed place the mouth may be drawn. */
 export const WINDOW = { to: 0.75, framed: 9, past: 3 } as const;
-/** The gulch (the Stain): its floor over the backswamp at its mouth (the Red Fall's height there), its width, its
+/** The gulch (the Stain): its floor over the backswamp at its mouth (the Red Fall's height there: 6 or 7, D510), its width, its
  *  length into the far wall, its narrows (where in its lower half, how wide), how far its floor rises to its head; the
  *  col over the narrows' floor; the Dry Fork's fall from the col to its edge. */
-export const GULCH = { h: [3, 5], width: [4, 7], len: [18, 30], slant: 0.4, narrowsAt: [0.2, 0.45], narrows: [2, 3], rise: [1, 3], colOver: 2, colOut: [7, 11], forkFall: [3, 6] } as const;
+export const GULCH = { h: [6, 7], width: [4, 7], len: [18, 30], slant: 0.4, narrowsAt: [0.2, 0.45], narrows: [2, 3], rise: [1, 3], colOver: 2, colOut: [7, 11], forkFall: [3, 6] } as const;
+/** How far pure badwater poisons the soil on the level (the design's §2, the game's soil rule: `sim/soil3d.ts`): the
+ *  shared gate's `start.badwater` reads contaminated ground as badwater, so the start keeps its badwater distance and
+ *  this from the red water (step 3, round 3: a Red Pool 15 tiles off left its dead soil 11 to 13 from the start). */
+export const BAD_SOIL = 7;
 /** The red source's strength as a share of the river's by the Badwater setting (the design's §4, planning's ruling of
  *  2026-11-15: a fifth, a quarter, a third). */
 export const RED_SHARE = { low: 1 / 5, normal: 1 / 4, high: 1 / 3 } as const;
+/** The red stream's bed (the design's §4, step 3): a level under the backswamp, as wide as its flow needs for its water
+ *  to stand under the backswamp's floor (`depth` deep at most), so the stream keeps to its bed and its water's ceiled
+ *  surface is the backswamp's level, which poisons the whole strip (§2). `carry`: the flow a tile of its width carries
+ *  for each level of depth on its gently falling bed, measured on the settle (step 3: a bed 2 wide ran 1.07 deep with
+ *  3.5 a second and flooded the backswamp, 3 wide 0.65; the table's `WATER.channelCarry` is a steeper brook's).
+ *  `depth` is the Red Pool's water over its sill, the stream's head bed (`Body.sill`: 0.1 to 0.6): at 0.7, 3 wide,
+ *  the pool stood 0.62 to 0.83 over it, deeper the longer the stream's first flat reach, and the Red Fall fell short
+ *  of its height less the veil's half level on 12 of 36 maps; 4 wide, 0.43 to 0.67 (step 3, round 3). */
+export const RED_BED = { carry: 1.8, depth: 0.6, least: 3 } as const;
+/** The red stream's half-width for its flow (`RED_BED`). */
+export const redHalf = (flow: number): number => Math.max(RED_BED.least, Math.ceil(flow / (RED_BED.carry * RED_BED.depth))) / 2;
 /** The start's brook: one small spring (under the Gate's brook springs, 2.0 to 2.6, for a brook 2 wide). */
 export const BROOK_SPRING = [1.5, 2.0] as const;
 /** The red stream's join, as a share of the river's length (the design's §4: in its last 30 %, D476, D498); how far
  *  down the valley its way across the plain runs for each tile across (`slant`); the least run along the backswamp
  *  below the Red Fall before it turns; how far before the turn its course may leave the backswamp (the meander's axis
- *  rounds the turn over 6 tiles, `BROOK_MEANDER.axis`). */
-export const JOIN = { at: [0.72, 0.94], slant: [0.15, 0.4], swamp: 15, bend: 8 } as const;
-/** The sloughs (the design's §1, planning's ruling of 2026-11-15): one from the plain-side low place nearest the
- *  plain's middle third; at 192² and over a second from a low place `apart` of the plain's length or more from the
+ *  rounds the turn over 6 tiles, `BROOK_MEANDER.axis`); the levels the plain's budget keeps for the join
+ *  (`mostRisersUnder`); and its last reach (planning's verdict on step 3, round 2: short, and it falls): its bed a
+ *  level under the backswamp to within `drop` tiles of the river's middle, through the levee, then down to the river's
+ *  bed, a level or more under it, so the red water falls into the river and the river's water, standing under the red
+ *  stream's bed (`riverSteps`' ceiling there), cannot back up it. */
+export const JOIN = { at: [0.72, 0.94], slant: [0.15, 0.4], swamp: 15, bend: 8, levels: 1, drop: 4 } as const;
+
+/** How far the red stream's own water keeps from the river's, less a tile's bank between: under 0, they touch. Read
+ *  along the red course where it runs outside the river's water, each point by the river's point nearest it, against
+ *  two rules (step 3, round 3): away from its end (the two half-widths and a tile) it touches the river nowhere (stage 1
+ *  parts two waters that touch where no link joins them, and the river gave up its tiles across its width: a dam), and
+ *  within it touches no reach of the river at its bed or higher (whose water stands over the red bed, which it backs
+ *  up: a stream turning along the river into its join met it a step up; a reach's bed the one at its upper end, as a
+ *  tile between two beds may take either). */
+export function redClear(river: readonly Point[], riverBed: readonly number[], riverHalf: number, red: readonly Point[], redBed: readonly number[], redHalf: number): number {
+  const all: { p: Point; bed: number }[] = [];
+  for (let i = 0; i + 1 < river.length; i++)
+    for (const q of walk([river[i], river[i + 1]], 0.5)) all.push({ p: q.p, bed: riverBed[i] });
+  const end = red[red.length - 1];
+  let least = Infinity;
+  for (let k = 0; k + 1 < red.length; k++)
+    for (const q of walk([red[k], red[k + 1]], 0.5)) {
+      let near = all[0];
+      let d = Infinity;
+      for (const w of all) {
+        const e = dist(q.p, w.p);
+        if (e < d) [d, near] = [e, w];
+      }
+      if (d < riverHalf || (dist(q.p, end) <= riverHalf + redHalf + 1 && near.bed < redBed[k])) continue;
+      least = Math.min(least, d - riverHalf - redHalf - 1);
+    }
+  return least;
+}
+/** The sloughs (the design's §1, planning's ruling of 2026-11-15): one from a plain-side low place in the levee's
+ *  middle third along the river (its upper half where the red stream joins the river); at 192² and over a second from a low place `apart` of the plain's length or more from the
  *  first; 2 or 3 wide; drawn as a meander `bend` times its width (the design's bend every 6 to 10 widths). `room`: the
  *  red stream turns off the backswamp this far below the lowest slough's mouth. */
 export const SLOUGH = { width: [2, 3], bend: 1.6, apart: 1 / 3, slant: [0.3, 0.6], room: 6 } as const;
@@ -212,6 +384,11 @@ export interface PlainNumbers {
   flow: { river: number; red: number; brook: number };
   /** The badwater distance the start keeps (D469, D85). */
   badwater: number;
+  /** Stage 2's search (`plainLand.ts`): the side valley found for the gulch (its index among the relief's), the tiles the
+   *  mend changed, how far over the narrows the col stood before the mend, and where the plan as drawn looked for the
+   *  gulch and how long it drew it (the far wall's side valleys are drawn from there, the gulch's that long, before and
+   *  after the re-siting). Absent on the plan as drawn. */
+  found?: { valley: number; changed: number; over: number; anchor: number; anchorLen: number };
 }
 
 export type PlainPlan = Omit<PremisePlan, "premise"> & { premise: typeof PLAIN_ID; plain: PlainNumbers };
@@ -228,10 +405,6 @@ const I = PLAIN_IDS;
 const plainTop = (spec: MapSpec) => Math.min(spec.settings.terrain.highestTerrain, EDITOR_LEVEL);
 /** The badwater distance the start keeps (as the shared gate reads it: `validate/playability.ts`). */
 const badwaterOf = (spec: MapSpec) => spec.settings.hazards.badwaterDistance;
-/** The most risers a plain of this side can hold. */
-const mostRisers = (N: number) => Math.max(0, Math.floor((PLAIN.long[1] * N - RISER.end) / RISER.every[0]));
-/** The plain's least level: the river's bed at the downstream end a level over the floor, the Red Fall's pool on it. */
-const leastL = (N: number) => BED_FLOOR + 3 + mostRisers(N);
 
 export function poisonedPlainEligible(spec: MapSpec): string | null {
   const { x, y } = spec.size;
@@ -241,14 +414,15 @@ export function poisonedPlainEligible(spec: MapSpec): string | null {
   if (spec.settings.hazards.badwater === "off") return "The poisoned floodplain is a red stream's story, and Badwater is Off";
   if (spec.settings.water.rivers === 0) return "The poisoned floodplain needs its river, and Rivers is 0";
   // the Red Fall's spring under the water's ceiling: the plain's lowest level, the backswamp under it, the fall over it
-  if (leastL(x) - 1 + GULCH.h[0] + GULCH.rise[0] > plainTop(spec) - 2) return `Highest terrain ${spec.settings.terrain.highestTerrain} is too low for the plain's levels and the Red Fall`;
+  if (PLAIN_LEAST - 1 + GULCH.h[0] + GULCH.rise[0] > plainTop(spec) - 2) return `Highest terrain ${spec.settings.terrain.highestTerrain} is too low for the plain's levels and the Red Fall`;
+  if (PLAIN_LEAST + FAR_OVER + 1 > spec.settings.terrain.highestTerrain) return `Highest terrain ${spec.settings.terrain.highestTerrain} is too low for the far wall over the plain`;
   return null;
 }
 
 // ------------------------------------------------------------------------------------------------- the turn
 
 /** The local frame onto the map: `k` quarter turns, `m` u mirrored first (as the Gate's `Turn`). */
-interface Turn {
+export interface Turn {
   k: number;
   m: boolean;
   N: number;
@@ -266,7 +440,7 @@ function turnFor(k: number, m: boolean, N: number, angle: number): Turn {
   return { k, m, N, c: cos(a), s: sin(a), U: boxOf(N, angle) };
 }
 
-function toMap(T: Turn, [u, v]: Point): Point {
+export function toMap(T: Turn, [u, v]: Point): Point {
   const N = T.N;
   const du = u - T.U / 2;
   const dv = v - T.U / 2;
@@ -276,7 +450,7 @@ function toMap(T: Turn, [u, v]: Point): Point {
   return T.k === 0 ? [x, y] : T.k === 1 ? [y, N - x] : T.k === 2 ? [N - x, N - y] : [N - y, x];
 }
 
-function toLocal(T: Turn, [px, py]: Point): Point {
+export function toLocal(T: Turn, [px, py]: Point): Point {
   const N = T.N;
   let [x, y]: Point = T.k === 0 ? [px, py] : T.k === 1 ? [N - py, px] : T.k === 2 ? [N - px, N - py] : [py, N - px];
   if (T.m) x = N - x;
@@ -286,13 +460,13 @@ function toLocal(T: Turn, [px, py]: Point): Point {
 }
 
 /** Whether a local point lies on the map, `margin` tiles inside its edges. */
-function onMap(T: Turn, q: Point, margin = 0): boolean {
+export function onMap(T: Turn, q: Point, margin = 0): boolean {
   const [x, y] = toMap(T, q);
   return x >= margin && x <= T.N - margin && y >= margin && y <= T.N - margin;
 }
 
 /** The map edge a map point stands on (or nearest): S at y = 0, N at y = N (`planChecks.ts` `plan.graph`). */
-function edgeAt(N: number, [x, y]: Point): Edge {
+export function edgeAt(N: number, [x, y]: Point): Edge {
   const d = [y, N - x, N - y, x];
   const k = d.indexOf(Math.min(...d));
   return (["S", "E", "N", "W"] as const)[k];
@@ -329,7 +503,7 @@ function dirToMap(T: Turn, d: Point): Point {
   return [b[0] - a[0], b[1] - a[1]];
 }
 
-const turnOf = (plan: PremisePlan, p: PlainNumbers): Turn => turnFor(p.turn, p.mirror, plan.W, p.angle);
+export const turnOf = (plan: PremisePlan, p: PlainNumbers): Turn => turnFor(p.turn, p.mirror, plan.W, p.angle);
 const r2 = (v: number) => Math.round(v * 100) / 100;
 const rp = (p: Point): Point => [r2(p[0]), r2(p[1])];
 
@@ -340,8 +514,17 @@ export function lineAt(line: readonly number[], step: number, u: number): number
   return line[k] + (line[k + 1] - line[k]) * (f - k);
 }
 
-/** Where a riser crosses the floor at v (u). */
-export const riserAt = (r: Riser, v: number): number => r.at + r.amp * fbm(r.seed, 0, v, r.cell, 2);
+/** Where a riser crosses the floor at v (u): its wander, less its scar's arc there (`RISER.scar`; each arc's length
+ *  and bow by noise of the riser's own seed, so the plan's draws are untouched). */
+export const riserAt = (r: Riser, v: number): number => r.at + r.amp * fbm(r.seed, 0, v, r.cell, 2) - scarAt(r, v);
+function scarAt(r: Riser, v: number): number {
+  const { len, bow } = RISER.scar;
+  const mean = (len[0] + len[1]) / 2;
+  const t = (v + (mean / 3) * fbm(r.seed ^ 0x2c1b3c6d, 0, v, mean, 1)) / mean;
+  const k = Math.floor(t);
+  const b = bow[0] + (bow[1] - bow[0]) * (0.5 + 0.5 * fbm(r.seed ^ 0x51ed270b, k * 7.31 + 0.37, 0.53, 1, 1));
+  return b * sin(Math.PI * (t - k));
+}
 
 /** The plain's level at a local point: L, a level less past each riser. */
 export function plainLevel(p: Pick<PlainNumbers, "L" | "risers">, u: number, v: number): number {
@@ -390,12 +573,12 @@ export function walk(path: readonly Point[], step: number): { p: Point; s: numbe
 
 /** The river's path in local, sampled every half tile, with each point's arc length along it and the unit normal
  *  toward the plain (+v). */
-function riverLocal(T: Turn, path: readonly Point[]): { p: Point; s: number; n: Point }[] {
+export function riverLocal(T: Turn, path: readonly Point[]): { p: Point; s: number; n: Point }[] {
   return riverWalk(path.map((q) => toLocal(T, q)));
 }
 
 /** A local path sampled every half tile, with each point's arc length and its unit normal toward +v. */
-function riverWalk(path: readonly Point[]): { p: Point; s: number; n: Point }[] {
+export function riverWalk(path: readonly Point[]): { p: Point; s: number; n: Point }[] {
   return walk(path, 0.5).map(({ p, s, dir }) => {
     const n: Point = [-dir[1], dir[0]];
     return { p, s, n: n[1] >= 0 ? n : [-n[0], -n[1]] };
@@ -404,7 +587,7 @@ function riverWalk(path: readonly Point[]): { p: Point; s: number; n: Point }[] 
 
 /** The plain-side levee's foot (v) at each whole u, 0 to the local box's side `N` (−Infinity where the river does not
  *  pass). */
-function leveeFoot(p: PlainNumbers, N: number, half: number, river: ReturnType<typeof riverLocal>): Float64Array {
+export function leveeFoot(p: PlainNumbers, N: number, half: number, river: ReturnType<typeof riverLocal>): Float64Array {
   N = Math.ceil(N);
   const out = new Float64Array(N + 1).fill(-Infinity);
   for (const q of river) {
@@ -445,31 +628,43 @@ export function widthMeans(widths: readonly number[], P: number): number[] {
 }
 
 /** The longest run, tiles, of a wall's foot (a line sampled every `step` of u, from `from` to `to`, where it stands on
- *  the map) that stays within `WALL.near` tiles of one straight line. */
-function wallStraight(T: Turn, line: readonly number[], step: number, from: number, to: number): number {
-  const pts: (Point | null)[] = [];
+ *  the map) that stays within `WALL.near` tiles of one straight line: every start, the longest chord the foot stays
+ *  within `WALL.near` of (`longestStraight`: a chord that strays does not end the search from its start). */
+export function wallStraight(T: Turn, line: readonly number[], step: number, from: number, to: number, near: number = WALL.near): number {
+  const pts: Point[] = [];
   for (let k = Math.max(0, Math.ceil(from / step)); k < line.length && k * step <= to; k++) {
     const q: Point = [k * step, line[k]];
-    pts.push(onMap(T, q) ? q : null);
+    pts.push(onMap(T, q) ? q : [NaN, NaN]);
   }
-  let best = 0;
-  for (let i = 0; i < pts.length; i++) {
-    const a = pts[i];
-    if (!a) continue;
-    for (let j = i + 1; j < pts.length; j++) {
-      const b = pts[j];
-      if (!b) break;
-      const len = dist(a, b);
-      let ok = true;
-      for (let m = i + 1; m < j && ok; m++) {
-        const q = pts[m]!;
-        if (Math.abs((b[0] - a[0]) * (a[1] - q[1]) - (a[0] - q[0]) * (b[1] - a[1])) / len > WALL.near) ok = false;
-      }
-      if (!ok) break;
-      best = Math.max(best, len);
-    }
+  return longestStraight(pts, near);
+}
+
+/** The runs of the far wall's foot (whole u from `w0` to `w1`) that the vista frame from `start` shows: each u whose
+ *  foot stands `LANDMARK_NEAR` to `LANDMARK_FAR` from the start and inside the frame at the backswamp's level and
+ *  `over` above it (inside by the lip's half-width and its water: its ends stand up to 4.5 tiles either way along the
+ *  wall). */
+export function framedRuns(T: Turn, p: Pick<PlainNumbers, "far" | "swamp" | "step" | "L" | "risers" | "plainFrom">, start: { x: number; y: number; z: number; orientation: Orientation }, w0: number, w1: number, over: number): [number, number][] {
+  const vista = openingCamera(start, VISTA_ZOOM);
+  const vF = (u: number) => lineAt(p.far, p.step, u);
+  const vB = (u: number) => vF(u) - lineAt(p.swamp, p.step, u);
+  const lv = (u: number, v: number) => (u < p.plainFrom ? p.L : plainLevel(p, u, v));
+  const shown = (u: number) => {
+    const q = toMap(T, [u, vF(u)]);
+    const d = dist([start.x + 0.5, start.y + 0.5], q);
+    if (d < LANDMARK_NEAR || d > LANDMARK_FAR) return false;
+    const lvl = lv(u, vB(u) + 1) - 1;
+    const inside = (f: { u: number; v: number } | null) => !!f && Math.abs(f.u) <= FRAME.uSide - 0.1 && Math.abs(f.v) <= FRAME.vTop - 0.05;
+    return inside(frameAt(vista, q[0], q[1], lvl + over)) && inside(frameAt(vista, q[0], q[1], lvl));
+  };
+  const runs: [number, number][] = [];
+  for (let u = Math.ceil(w0); u <= Math.floor(w1); u++) {
+    if (!shown(u)) continue;
+    let e = u;
+    while (e + 1 <= Math.floor(w1) && shown(e + 1)) e++;
+    runs.push([u, e]);
+    u = e;
   }
-  return best;
+  return runs;
 }
 
 // ------------------------------------------------------------------------------------------------- the layout
@@ -489,8 +684,12 @@ function layout(spec: MapSpec, attempt: number, t: number): Laid {
   const top = plainTop(spec);
   const sky = spec.settings.terrain.highestTerrain;
   const flow = STAIR_FLOW[spec.settings.water.riverFlow];
+  // (the red stream's end by its own draw: the river's width follows the most it carries, below a join its own and the
+  // red stream's)
+  const endJoin = premiseStream(spec, "premise.plan", attempt, "plain", t, "end").float() < 0.5;
   // the river's width by flow, as the lake stair's gorge: 5 wide carries about 13 a level deep, 6 wide the lush 22
-  const half = flow > 18 ? 3 : 2.5;
+  const carried = flow + BROOK_SPRING[1] + (endJoin ? flow * (RED_SHARE[spec.settings.hazards.badwater as keyof typeof RED_SHARE] ?? RED_SHARE.normal) : 0);
+  const half = carried > 18 ? 3 : 2.5;
   const dBw = badwaterOf(spec);
 
   // ---- the valley on the map: its axis off the grid, with one or two gentle bends
@@ -554,13 +753,21 @@ function layout(spec: MapSpec, attempt: number, t: number): Laid {
   };
   const axis: number[] = [];
   for (let k = 0; k <= K; k++) axis.push(r2(axisRaw[k * step] + shift));
+  // (each wall drawn, where a draw allows, with no run of `longest` of P within `near` + `slack` tiles of a line, the
+  // straightest of its draws by that measure else: the land's warp moves the foot a tile or two either way, and where
+  // it moves against the line's bend it reads straighter on the ground than drawn)
+  const most = WALL.longest * P;
   let near: number[] = [];
-  for (let d = 0; d <= WALL.draws; d++) {
-    if (d === WALL.draws) return { why: "the near wall runs straight" };
+  let nearRun = Infinity;
+  for (let d = 0; d < WALL.draws; d++) {
     const off = wallLine();
-    near = axis.map((c, k) => r2(c + off[k]));
-    if (wallStraight(T, near, step, 0, K * step) <= WALL.longest * P) break;
+    const line = axis.map((c, k) => r2(c + off[k]));
+    if (wallStraight(T, line, step, 0, K * step) > most) continue;
+    const run = wallStraight(T, line, step, 0, K * step, WALL.near + WALL.slack);
+    if (run < nearRun) [near, nearRun] = [line, run];
+    if (run <= most) break;
   }
+  if (!near.length) return { why: "the near wall runs straight" };
   const vN = (u: number) => lineAt(near, step, u);
   // where the floor's middle leaves the map: the plain's foot; its head `Lp` up the valley; the terrace above it
   const midLine = (u: number): Point => [u, vN(u) + toFoot + P / 2];
@@ -588,16 +795,20 @@ function layout(spec: MapSpec, attempt: number, t: number): Laid {
   const footW = rng.range(PLAIN.foot[0], PLAIN.foot[1]);
   const ramp = (u: number) => head + (footW - head) * smooth(Math.max(0, Math.min(1, (u - plainFrom) / Lp)));
   let far: number[] = [];
-  for (let d = 0; d <= WALL.draws; d++) {
-    if (d === WALL.draws) return { why: "the far wall cannot wander and keep the floor's width" };
+  let farRun = Infinity;
+  for (let d = 0; d < WALL.draws; d++) {
     const off = wallLine();
     const raw = axis.map((c, k) => c + toFoot + P * ramp(k * step) + off[k]);
     const w0 = floorWidths(near, raw, step, toFoot, plainFrom, plainTo);
     const lift = P - w0.reduce((a, b) => a + b, 0) / w0.length;
-    far = raw.map((v) => r2(v + lift));
-    const means = widthMeans(floorWidths(near, far, step, toFoot, plainFrom, plainTo), P);
-    if (Math.min(...means) >= WALL.mean[0] * P && Math.max(...means) <= WALL.mean[1] * P && wallStraight(T, far, step, terrace[0], plainTo) <= WALL.longest * P) break;
+    const line = raw.map((v) => r2(v + lift));
+    const means = widthMeans(floorWidths(near, line, step, toFoot, plainFrom, plainTo), P);
+    if (Math.min(...means) < WALL.mean[0] * P || Math.max(...means) > WALL.mean[1] * P || wallStraight(T, line, step, terrace[0], plainTo) > most) continue;
+    const run = wallStraight(T, line, step, terrace[0], plainTo, WALL.near + WALL.slack);
+    if (run < farRun) [far, farRun] = [line, run];
+    if (run <= most) break;
   }
+  if (!far.length) return { why: "the far wall cannot wander and keep the floor's width" };
   const swamp: number[] = [];
   const swampW = { seed: seedOf() };
   for (let k = 0; k <= K; k++) swamp.push(r2(Math.max(SWAMP.least, Math.min(swampMost(N), swampMean + SWAMP.wander * fbm(swampW.seed, k * step, 0, SWAMP.cell, 2)))));
@@ -605,10 +816,14 @@ function layout(spec: MapSpec, attempt: number, t: number): Laid {
   const vB = (u: number) => vF(u) - lineAt(swamp, step, u);
 
   // ---- down the valley: the plain's risers, its level
+  // (the height budget, `mostRisersUnder`: a level for each riser and, where the red stream joins the river, one for
+  // the join; a level more by the draw where the budget leaves it)
   const risers: Riser[] = [];
-  for (let u = plainFrom + rng.range(RISER.every[0], RISER.every[1]); u < plainTo - RISER.end; u += rng.range(RISER.every[0], RISER.every[1]))
+  const mostR = mostRisersUnder(top, endJoin);
+  const every = riserEvery(plainTo - RISER.end - plainFrom, mostR);
+  for (let u = plainFrom + rng.range(every[0], every[1]); u < plainTo - RISER.end && risers.length < mostR; u += rng.range(every[0], every[1]))
     risers.push({ at: r2(u), amp: r2(rng.range(RISER.amp[0], RISER.amp[1])), cell: r2(rng.range(RISER.cell[0], RISER.cell[1])), seed: seedOf() });
-  const L = BED_FLOOR + 3 + risers.length + (draw() < 0.5 ? 1 : 0);
+  const L = PLAIN_LEAST + risers.length + (endJoin ? JOIN.levels : 0) + (draw() < 0.5 && risers.length < mostR ? 1 : 0);
   const lv = (u: number, v: number) => (u < plainFrom ? L : plainLevel({ L, risers }, u, v));
 
   // ---- the start on the terrace's lip at the plain's head, a third to a half of the way across from the river,
@@ -630,27 +845,7 @@ function layout(spec: MapSpec, attempt: number, t: number): Laid {
   const w1 = plainFrom + WINDOW.to * Lp;
   if (w1 - w0 < WINDOW.framed) return { why: "the badwater distance leaves no search window" };
   const hMid = (GULCH.h[0] + GULCH.h[1]) / 2;
-  const runsFor = (orientation: Orientation): [number, number][] => {
-    const vista = openingCamera({ x: sx, y: sy, z, orientation }, VISTA_ZOOM);
-    const shown = (u: number) => {
-      const p = toMap(T, [u, vF(u)]);
-      const d = dist([sx + 0.5, sy + 0.5], p);
-      if (d < LANDMARK_NEAR || d > LANDMARK_FAR) return false;
-      const lvl = lv(u, vB(u) + 1) - 1;
-      // (inside by the lip's half-width and its water: its ends stand up to 4.5 tiles either way along the wall)
-      const inside = (f: { u: number; v: number } | null) => !!f && Math.abs(f.u) <= FRAME.uSide - 0.1 && Math.abs(f.v) <= FRAME.vTop - 0.05;
-      return inside(frameAt(vista, p[0], p[1], lvl + hMid)) && inside(frameAt(vista, p[0], p[1], lvl));
-    };
-    const runs: [number, number][] = [];
-    for (let u = Math.ceil(w0); u <= Math.floor(w1); u++) {
-      if (!shown(u)) continue;
-      let e = u;
-      while (e + 1 <= Math.floor(w1) && shown(e + 1)) e++;
-      runs.push([u, e]);
-      u = e;
-    }
-    return runs;
-  };
+  const runsFor = (orientation: Orientation) => framedRuns(T, { far, swamp, step, L, risers, plainFrom }, { x: sx, y: sy, z, orientation }, w0, w1, hMid);
   let orientation: Orientation = ORIENTATIONS[0];
   let framed: [number, number][] = [];
   let run: [number, number] | undefined;
@@ -723,8 +918,9 @@ function layout(spec: MapSpec, attempt: number, t: number): Laid {
   if (!riverCut) return { why: "the river does not reach the map's edge" };
   const riverL = riverCut.map(rp);
   for (const q of riverL.slice(0, -1)) if (q[1] - vN(q[0]) < room[0] - 1 || q[1] - vN(q[0]) > room[1] + 1) return { why: "the river leaves the near third" };
+  // (its bed, stepping down at riffles, once the red stream's join is known: `riverSteps`)
   let low = Infinity;
-  const riverBed = riverL.map((q) => (low = Math.min(low, lv(q[0], q[1]) - 2)));
+  let riverBed: number[] = [];
   const S = pathLength(riverL);
   const riverAt = (s: number) => pointAt(riverL, s);
   // (the river a point a tile, for the searches along it)
@@ -733,9 +929,11 @@ function layout(spec: MapSpec, attempt: number, t: number): Laid {
   const sPlain = rs.find((q) => q.p[0] >= plainFrom)?.s ?? 0;
 
   const redFlow = r2(flow * (RED_SHARE[spec.settings.hazards.badwater as keyof typeof RED_SHARE] ?? RED_SHARE.normal));
-  const endJoin = rng.float() < 0.5;
-  const walls = { near: Math.min(sky - 2, L + rng.int(5, 8)), far: 0 };
-  walls.far = Math.min(sky, Math.max(walls.near + 2, crest + rise + 4));
+  // (the draw the red stream's end once took, kept so the draws after it stand)
+  rng.float();
+  const walls = { near: Math.min(sky - 2, L + rng.int(NEAR_OVER[0] + 1, NEAR_OVER[1] + 1)), far: 0 };
+  walls.far = Math.min(sky, Math.max(walls.near + 2, crest + rise + 4, L + FAR_OVER + 1));
+  if (walls.far < L + FAR_OVER) return { why: "the far wall cannot stand 8 over the plain under the highest ground" };
   if (walls.far < colLevel + 2) return { why: "the far wall stands under the col" };
 
   // ---- the levees: width by noise, the low places, the crest runs; the sloughs from the low places to the backswamp
@@ -758,13 +956,21 @@ function layout(spec: MapSpec, attempt: number, t: number): Laid {
   };
   const lows: { side: "plain" | "near"; mid: number; len: number; slough?: number }[] = [];
   const free = (m: number, len: number) => m - len / 2 > sPlain + 6 && m + len / 2 < S - 6 && lows.every((o) => Math.abs(o.mid - m) > (o.len + len) / 2 + LEVEE.apart);
-  // (the first, the river in's, from a low place in the plain's middle third; a second a third of the plain's length
-  // or more from it, up the valley or down it where there is room)
+  // (the first, the river in's, from a low place in the levee's middle third (along the river); a second a third of
+  // the plain's length or more from it, up the valley or down it where there is room)
   // (in its upper half where the red stream joins the river, the join below the sloughs' mouths, a second slough then
   // above it)
-  const firstLeast = endJoin && nSlough > 1 ? SLOUGH.apart + 19 / Lp : 1 / 3 + 0.02;
-  const first = plainFrom + Lp * rng.range(firstLeast, endJoin ? 1 / 2 : 2 / 3 - 0.02);
+  // (where a second slough must stand above the first, the first is drawn where the river has passed the room for the
+  // second's low place above it: `upRoom` below holds one)
   const apart = SLOUGH.apart * Lp;
+  let firstLeast = 1 / 3 + 0.02;
+  if (endJoin && nSlough > 1) {
+    const want = plainFrom + 14 + apart + 1 + 4;
+    while (firstLeast < 1 / 2 && riverAt(sPlain + (S - sPlain) * firstLeast).p[0] < want) firstLeast += 0.005;
+    if (firstLeast >= 1 / 2) return { why: "no room for a second slough a third of the plain above the first" };
+  }
+  const firstS = sPlain + (S - sPlain) * rng.range(firstLeast, endJoin ? 1 / 2 : 2 / 3 - 0.02);
+  const first = riverAt(firstS).p[0];
   const upRoom: [number, number] = [plainFrom + 14, first - apart - 1];
   const downRoom: [number, number] = [first + apart + 1, plainTo - RISER.end];
   const ups = upRoom[1] - upRoom[0] >= 4;
@@ -775,7 +981,7 @@ function layout(spec: MapSpec, attempt: number, t: number): Laid {
     const span = ups && (!downs || endJoin || draw() < 0.65) ? upRoom : downRoom;
     if (k > 0 && !ups && (!downs || endJoin)) return { why: "no room for a second slough a third of the plain from the first" };
     const u = k === 0 ? first : span[0] + (span[1] - span[0]) * draw();
-    const m = sOfU(u);
+    const m = k === 0 ? firstS : sOfU(u);
     if (!free(m, len)) return { why: "no room for a slough's low place" };
     lows.push({ side: "plain", mid: m, len, slough: k });
   }
@@ -883,7 +1089,43 @@ function layout(spec: MapSpec, attempt: number, t: number): Laid {
   const swampV = (u: number) => vB(u) + (vF(u) - vB(u)) * along;
   let joinS = 0;
   let joinP: Point = [0, 0];
+  let approach: Point = [0, 0];
   let swampTo = U;
+  // (the river's steps for a join at `join` whose red stream leaves the backswamp at `turn` (u), or none: its water
+  // under the plain beside it, the lowest level within its levees' reach, and at the join under the red stream's bed, a
+  // level under the backswamp it runs from and under the plain it crosses to the river, so the red water falls into the
+  // river: `JOIN.drop`)
+  const rif = riffles(riverL, POOL_R.springs + 1, 4);
+  const besideOf = (s: number) => {
+    const q = rs[Math.max(0, Math.min(rs.length - 1, Math.round(s)))];
+    const n: Point = [-q.dir[1], q.dir[0]];
+    let m = Infinity;
+    for (let o = -(half + 7); o <= half + 7; o++) m = Math.min(m, lv(q.p[0] + n[0] * o, q.p[1] + n[1] * o));
+    return m;
+  };
+  const beside: number[] = rs.map((q) => besideOf(q.s));
+  const redOver = (join: number, turn: number): number => {
+    // (the red stream's bed on its way across the plain: two under the lowest ground from its turn to the river)
+    const a: Point = [turn, swampV(turn)];
+    const b = riverAt(join).p;
+    let m = lv(a[0], a[1]);
+    const n = Math.ceil(dist(a, b));
+    for (let k = 1; k <= n; k++) m = Math.min(m, lv(a[0] + ((b[0] - a[0]) * k) / n, a[1] + ((b[1] - a[1]) * k) / n));
+    return m - 2;
+  };
+  const stepsFor = (join: number | null, turn: number) => {
+    const swamp = join === null ? Infinity : Math.min(redOver(join, turn), besideOf(join));
+    return riverSteps({
+      path: riverL,
+      head: lv(riverL[0][0], riverL[0][1]) - 2,
+      floor: BED_FLOOR,
+      width: 2 * half,
+      riffles: rif,
+      ceiling: (s) => (join !== null && s >= join - 1 && s <= join + 3 ? Math.min(swamp, beside[Math.min(beside.length - 1, s)]) : beside[Math.min(beside.length - 1, s)]),
+      flow: (s) => flow + BROOK_SPRING[1] + (join !== null && s >= join ? redFlow : 0),
+      join,
+    });
+  };
   const redCourse: Point[] = [[uM + POOL_R.foot, swampV(uM + POOL_R.foot)]];
   if (endJoin) {
     // (it turns off the backswamp below the Red Fall and the sloughs' mouths, so the river in runs the old red bed
@@ -894,14 +1136,36 @@ function layout(spec: MapSpec, attempt: number, t: number): Laid {
     let s0 = JOIN.at[0] * S;
     while (s0 < JOIN.at[1] * S && turnsAt(riverAt(s0).p) < need) s0 += 1;
     if (s0 >= JOIN.at[1] * S) return { why: "no room for the red stream's join below the sloughs" };
-    joinS = s0 + (JOIN.at[1] * S - s0) * draw();
+    // (just below one of the river's steps: of the joins whose river holds its water under its ceilings with the fewest
+    // steps, one by the draw)
+    const fits: { s: number; bed: number[]; n: number }[] = [];
+    for (let j = Math.ceil(s0); j <= JOIN.at[1] * S; j++) {
+      if (turnsAt(riverAt(j).p) < need) continue;
+      const st = stepsFor(j, turnsAt(riverAt(j).p));
+      if (st) fits.push({ s: j, bed: st.bed, n: st.at.length });
+    }
+    const least = Math.min(...fits.map((f) => f.n));
+    const best = fits.filter((f) => f.n === least);
+    const pick = best[Math.min(best.length - 1, Math.floor(draw() * best.length))];
+    if (!pick) return { why: "the river finds no riffle above the red stream's join for the fall its length needs" };
+    joinS = pick.s;
+    riverBed = pick.bed;
     joinP = riverAt(joinS).p;
     swampTo = turnsAt(joinP);
     if (swampTo < need) return { why: "the red stream's join comes too soon below the Red Fall" };
     for (let u = uM + POOL_R.foot + 4; u < swampTo; u += 4) redCourse.push([u, swampV(u)]);
     redCourse.push([swampTo, swampV(swampTo)]);
-    redCourse.push(joinP);
+    // (its last way square across the river's bank from the plain's side, the two half-widths and two tiles: its water
+    // meets the river's at its end only, `redClear`)
+    const d = riverAt(joinS).dir;
+    const side: Point = d[0] >= 0 ? [-d[1], d[0]] : [d[1], -d[0]];
+    const A = half + redHalf(redFlow) + 2;
+    approach = [joinP[0] + side[0] * A, joinP[1] + side[1] * A];
+    redCourse.push(approach);
   } else {
+    const st = stepsFor(null, 0);
+    if (!st) return { why: "the river finds no riffles for the fall its length needs" };
+    riverBed = st.bed;
     let off = 0;
     for (let u = uM + POOL_R.foot + 4; off < 2; u += 4) {
       redCourse.push([u, swampV(u)]);
@@ -914,7 +1178,9 @@ function layout(spec: MapSpec, attempt: number, t: number): Laid {
   let redL: Point[];
   if (endJoin) {
     redL = sampled(redM, 3).path.map(rp);
-    redL[redL.length - 1] = rp(joinP);
+    redL[redL.length - 1] = rp(approach);
+    const n = Math.ceil(dist(approach, joinP) / 3);
+    for (let k = 1; k <= n; k++) redL.push(rp([approach[0] + ((joinP[0] - approach[0]) * k) / n, approach[1] + ((joinP[1] - approach[1]) * k) / n]));
   } else {
     const cut = cutAtEdge(T, sampled(redM, 3).path);
     if (!cut) return { why: "the red stream does not reach the map's edge" };
@@ -924,8 +1190,17 @@ function layout(spec: MapSpec, attempt: number, t: number): Laid {
   low = Infinity;
   const redBed = redL.map((q) => (low = Math.min(low, lv(q[0], q[1]) - 2)));
   if (endJoin) {
-    const rb = riverBed[Math.max(0, riverL.findIndex((q, k) => k > 0 && pathLength(riverL.slice(0, k + 1)) >= joinS) - 1)];
-    redBed[redBed.length - 1] = Math.min(redBed[redBed.length - 2] ?? rb, rb);
+    // (its last reach short, and it falls, `JOIN.drop`: its bed a level under the backswamp to its last point but one,
+    // within `drop` of the river's middle, then the river's bed there, below its step)
+    let run = 0;
+    let k = 0;
+    while (k + 1 < riverL.length && run < joinS) run += dist(riverL[k], riverL[++k]);
+    const rb = riverBed[k];
+    const m = redL.length - 1;
+    if (m < 2 || dist(redL[m - 1], redL[m]) > JOIN.drop) return { why: "the red stream's last reach into the river is long" };
+    if (redBed[m - 1] - rb < 1) return { why: "the red stream does not fall into the river at its join" };
+    redBed[m] = rb;
+    if (redClear(riverL, riverBed, half, redL, redBed, redHalf(redFlow)) < 0) return { why: "the red stream runs beside the river where the river stands over its bed" };
   }
 
   // ---- the start's brook: a spring in the far wall's slope over the terrace, across it into the river
@@ -940,13 +1215,28 @@ function layout(spec: MapSpec, attempt: number, t: number): Laid {
   const bSpan = dist(bStart, brookEnd);
   const bn = Math.max(3, Math.ceil(bSpan / 4));
   for (let j = 0; j <= bn; j++) bc.push([bStart[0] + ((brookEnd[0] - bStart[0]) * j) / bn, bStart[1] + ((brookEnd[1] - bStart[1]) * j) / bn]);
-  const bm = meander(bc, 2, draw, { levels: 3, from: Math.max(0, bSpan - 9), to: 1 }, (p) => Math.abs(p[0] - uB) < 6, 2, false);
+  // (down its three levels in its last 9 tiles, or from 2 short of where it leaves the terrace for the river's room,
+  // the plain a level under its bed there)
+  const offTerrace = bSpan * Math.max(0, Math.min(1, (bStart[1] - (vN(uB) + room[1] + half)) / Math.max(1e-9, bStart[1] - brookEnd[1])));
+  const bm = meander(bc, 2, draw, { levels: 3, from: Math.max(0, Math.min(bSpan - 9, offTerrace - 2)), to: 1 }, (p) => Math.abs(p[0] - uB) < 6, 2, false);
   const brookL = bm.path.length > 2 ? sampled(bm, 3).path.map(rp) : bc.map(rp);
   brookL[brookL.length - 1] = rp(brookEnd);
   const bAlong = sampled(bm, 3).along;
   const brookBed = brookL.map((_, j) => L + 1 - bm.drops.filter((d) => d <= (bAlong[j] ?? bm.length)).length);
   brookBed[brookBed.length - 1] = Math.min(brookBed[brookBed.length - 1], L - 2);
   if (Math.abs(uS - uB) < 10) return { why: "the brook crosses the start's ground" };
+  // (the start's own clean water within its walk, D515: from its middle to the brook's bank over the level terrace,
+  // a walk of 1 a tile and √2 a diagonal (`analysis/walk.ts`), on the map's grid; a start whose brook runs farther is
+  // not taken, the layout drawn again)
+  let toBrook = Infinity;
+  for (const q of brookL) {
+    if (q[1] < vRoom) continue;
+    const m = toMap(T, q);
+    const dx = Math.abs(m[0] - (sx + 0.5));
+    const dy = Math.abs(m[1] - (sy + 0.5));
+    toBrook = Math.min(toBrook, Math.max(dx, dy) + (Math.SQRT2 - 1) * Math.min(dx, dy) - 1);
+  }
+  if (toBrook > rulesFor(spec).waterWithin) return { why: "the start's brook runs beyond its walk" };
 
   // ---- on the map
   const map = (p: Point) => rp(toMap(T, p));
@@ -980,7 +1270,10 @@ function layout(spec: MapSpec, attempt: number, t: number): Laid {
     { id: I.springs, kind: "pool", sill: L - 1, arms: [[[springsC[0], springsC[1], POOL_R.springs]]], meadow: 0, deep: 1, dry: false, region: "wet" },
     { id: I.well, kind: "pool", sill: L + TERRACE.rise + 1, arms: [[[...map(wellC), POOL_R.well]]], meadow: 0, deep: 1, dry: false, region: "home" },
     { id: I.redSpring, kind: "pool", sill: crest + rise, arms: [[[...map(gHead), POOL_R.red]]], meadow: 0, deep: 1, dry: false, region: "top" },
-    { id: I.redPool, kind: "pool", sill: swampLevel, arms: [[[...map(footC), POOL_R.foot]]], meadow: 0, deep: 1, dry: false, region: "low" },
+    // (the Red Pool's sill the red stream's head bed, a level under the backswamp: a pool's rim stands at its sill, and
+    // at the backswamp's own level its water stood over the floor and ran out across it, step 3, round 3; the Red Fall's
+    // height is to its sill, a level more than the landmark's drop on the ground, the gulch's mouth over the backswamp)
+    { id: I.redPool, kind: "pool", sill: swampLevel - 1, arms: [[[...map(footC), POOL_R.foot]]], meadow: 0, deep: 1, dry: false, region: "low" },
   ];
   const exits: Exit[] = [{ id: I.out, edge: outEdge, at: riverM[riverM.length - 1] }];
   if (!endJoin) exits.push({ id: I.redOut, edge: redEdge, at: redM2[redM2.length - 1] });
@@ -998,9 +1291,9 @@ function layout(spec: MapSpec, attempt: number, t: number): Laid {
       wet: true,
       gates: [],
       rows: [],
-      fall: { height: crest - swampLevel, crest, width: lipW, face: headingOf(faceDir[0], faceDir[1]), lip, notch: 0, piers: 0, breach: 0 },
+      fall: { height: crest - swampLevel + 1, crest, width: lipW, face: headingOf(faceDir[0], faceDir[1]), lip, notch: 0, piers: 0, breach: 0 },
     },
-    { id: I.red, from: I.redPool, to: endJoin ? I.out : I.redOut, kind: "channel", path: redM2, half: 1, bed: redBed, wet: true, gates: [], rows: [], wander: 0, ...(endJoin ? { joins: { link: I.river, at: r2(joinS) } } : {}) },
+    { id: I.red, from: I.redPool, to: endJoin ? I.out : I.redOut, kind: "channel", path: redM2, half: redHalf(redFlow), bed: redBed, wet: true, gates: [], rows: [], wander: 0, ...(endJoin ? { joins: { link: I.river, at: r2(joinS) } } : {}) },
   ];
 
   // ---- the ladder (the design's §6): each rung where the land offers its site
@@ -1120,7 +1413,7 @@ function layout(spec: MapSpec, attempt: number, t: number): Laid {
     regions,
     ridges,
     edges,
-    frame: { start, landmark: I.redFall, lipAhead: r2((ahead[0] + ahead[1]) / 2), bench: benchAim, benchTo: map([Math.max(terrace[0] + 4, uS - 12), vS + 4]) },
+    frame: { start, landmark: I.redFall, lipAhead: r2((ahead[0] + ahead[1]) / 2), bench: benchAim, benchTo: map([Math.max(terrace[0] + 4, uS - 12), vS + 4]).map(Math.floor) as Point },
     works,
     setPieces: [],
     names,
@@ -1131,10 +1424,14 @@ function layout(spec: MapSpec, attempt: number, t: number): Laid {
 
 // ------------------------------------------------------------------------------------------------- what the plan predicts
 
-/** Day 1's shares of the valley floor (the plain and the backswamp, from the river's plain-side levee foot to the far
- *  wall's foot, down the plain) by the plan's arithmetic (the design's §2): dead where the red stream runs (the
- *  backswamp below the Red Fall, and 7 tiles each side of its way across the plain to a join), green within `M` of the
- *  levee's foot, dry the rest; and the floor's share of the map. A tile a step, on the map only. */
+/** Day 1's shares of the valley floor (from the near wall's foot to the far wall's, down the plain, but the river's and
+ *  the red stream's water: the floor the ground's bands read, `plainLand.ts` `plainBands`) by the plan's arithmetic
+ *  (the design's §2): dead where the red stream's poison reaches
+ *  (`BAD_SOIL` past its bed's edge: the backswamp below the Red Fall, its water standing at the backswamp's level, and
+ *  its way across the plain to a join; round 3: the plan counted the red stream's own bed and the backswamp past its
+ *  reach dead, and left the river's side out, 11 % where the ground gave 7 %), green within `M` of the plain-side
+ *  levee's foot and on the river's side of it, dry the rest; and the share of the map from that foot to the far wall's
+ *  (`plain.width`). A tile a step, on the map only. */
 export function plainShares(plan: PremisePlan): { dead: number; dry: number; green: number; floor: number; plain: number } | null {
   const p = plainOf(plan);
   const river = plan.links.find((l) => l.id === I.river);
@@ -1144,31 +1441,49 @@ export function plainShares(plan: PremisePlan): { dead: number; dry: number; gre
   const N = plan.W;
   const foot = leveeFoot(p, T.U, river.half ?? 2.5, riverLocal(T, river.path));
   const redL = red.path.map((q) => toLocal(T, q));
+  const riverL = river.path.map((q) => toLocal(T, q));
+  const redHalfW = red.half ?? 1.5;
+  const reach = BAD_SOIL + redHalfW;
   const cross = p.red.end === "join" ? redL.filter((q) => q[0] >= p.red.swampTo - 1) : [];
-  const crossFrom = cross.length ? Math.min(...cross.map((q) => q[0])) - 7 : Infinity;
-  const crossTo = cross.length ? Math.max(...cross.map((q) => q[0])) + 7 : -Infinity;
+  const crossFrom = cross.length ? Math.min(...cross.map((q) => q[0])) - reach : Infinity;
+  const crossTo = cross.length ? Math.max(...cross.map((q) => q[0])) + reach : -Infinity;
   let dead = 0;
   let dry = 0;
   let green = 0;
+  // (the floor's share of the map, `plain.width`: from the plain-side levee's foot to the far wall's, every tile)
+  let region = 0;
   let swampTiles = 0;
   for (let u = Math.ceil(p.plainFrom); u < foot.length; u++) {
     const f = foot[u];
     if (!Number.isFinite(f)) continue;
     const fv = lineAt(p.far, p.step, u + 0.5);
     const bv = fv - lineAt(p.swamp, p.step, u + 0.5);
-    for (let v = Math.ceil(f); v < fv; v++) {
+    for (let v = Math.ceil(lineAt(p.near, p.step, u + 0.5)); v < fv; v++) {
       if (!onMap(T, [u + 0.5, v + 0.5])) continue;
       const inSwamp = v + 0.5 >= bv;
-      if (inSwamp) swampTiles++;
-      const nearCross = cross.length > 1 && u + 0.5 >= crossFrom && u + 0.5 <= crossTo && pathDist(u + 0.5, v + 0.5, cross).d <= 7;
-      if ((inSwamp && u + 0.5 >= p.gulch.mouth && u + 0.5 <= p.red.swampTo) || nearCross) dead++;
+      if (v >= Math.ceil(f)) {
+        region++;
+        if (inSwamp) swampTiles++;
+      }
+      // (the river's water and the red stream's are not floor; the river's side of the levee's foot is its green)
+      if (pathDist(u + 0.5, v + 0.5, riverL).d <= (river.half ?? 2.5)) continue;
+      const toRed = pathDist(u + 0.5, v + 0.5, redL).d;
+      if (toRed <= redHalfW) continue;
+      if (v < f) {
+        green++;
+        continue;
+      }
+      const nearCross = cross.length > 1 && u + 0.5 >= crossFrom && u + 0.5 <= crossTo && pathDist(u + 0.5, v + 0.5, cross).d <= reach;
+      // (its water stands at the backswamp's level: the poison reaches 5 tiles less a level up, the game's soil rule)
+      const up = inSwamp ? 0 : Math.max(0, plainLevel(p, u + 0.5, v + 0.5) - (plainLevel(p, u + 0.5, bv + 0.5) - 1));
+      if ((u + 0.5 >= p.gulch.mouth - reach && u + 0.5 <= p.red.swampTo && toRed <= reach - 5 * up) || nearCross) dead++;
       else if (v + 0.5 - f < p.M) green++;
       else dry++;
     }
   }
   const all = dead + dry + green;
   if (!all) return null;
-  return { dead: dead / all, dry: dry / all, green: green / all, floor: all / (N * N), plain: (all - swampTiles) / (N * N) };
+  return { dead: dead / all, dry: dry / all, green: green / all, floor: region / (N * N), plain: (region - swampTiles) / (N * N) };
 }
 
 // ------------------------------------------------------------------------------------------------- the invariants
@@ -1190,7 +1505,8 @@ function longestRun(runs: readonly CrestRun[]): number {
 }
 
 /** `plain.levels` (the design's §1 and §7): the levels by number. The plain at `L` falling a level at each riser 40 to
- *  60 apart; the river's bed two under the plain where it runs (two under `L` above the plain), the river's springs a
+ *  60 apart; the river's bed two under `L` at its head, falling a level at a time at its riffles (two at the red stream's join,
+ *  `riverSteps`) and never over two under the plain beside it nor under the floor, the river's springs a
  *  level under `L`; the levees a level over the plain for most of the river's length on the plain, level with it at 2
  *  to 4 low places 4 to 8 long, and no run of the crest at one height over a fifth of that length; the backswamp a
  *  level under the plain and the red stream's bed one under it; the terrace two over `L`; the Red Fall from the gulch's
@@ -1211,20 +1527,26 @@ const plainLevels: Invariant = {
     };
     if (p.terraceLevel !== p.L + TERRACE.rise) return fail(`The terrace stands at ${p.terraceLevel}, not ${TERRACE.rise} over the plain (${p.L + TERRACE.rise})`);
     let last = p.plainFrom;
+    const mostR = mostRisersUnder(plan.top, p.red.end === "join");
+    const every = riserEvery(p.plainTo - RISER.end - p.plainFrom, mostR);
+    if (p.risers.length > mostR) return fail(`The plain has ${p.risers.length} risers (${mostR} at most under the water's ceiling, ${plan.top})`);
     for (const r of p.risers) {
       const gap = r.at - last;
-      if (gap < RISER.every[0] - 0.01 || gap > RISER.every[1] + 0.01) return fail(`A riser of the plain stands ${gap.toFixed(1)} tiles below the last (${RISER.every.join(" to ")})`);
+      if (gap < every[0] - 0.01 || gap > every[1] + 0.01) return fail(`A riser of the plain stands ${gap.toFixed(1)} tiles below the last (${every.map((e) => e.toFixed(0)).join(" to ")})`);
       if (r.amp < RISER.amp[0] - 0.01) return fail(`A riser of the plain wanders ${r.amp} tiles (a straight step)`);
       last = r.at;
     }
-    if (p.plainTo - last > RISER.every[1] + RISER.end + 0.01) return fail(`The plain runs ${(p.plainTo - last).toFixed(0)} tiles to its foot without a riser`);
+    if (p.plainTo - last > every[1] + RISER.end + 0.01) return fail(`The plain runs ${(p.plainTo - last).toFixed(0)} tiles to its foot without a riser`);
     const river = linkOf(plan, I.river);
     const springs = bodyOf(plan, I.springs);
     if (!river?.path || !Array.isArray(river.bed) || !springs) return fail("The plan has no river from its springs");
     if (springs.sill !== p.L - 1) return fail(`${nameOf(plan, I.springs)} stand at ${springs.sill}, not a level under the plain (${p.L - 1})`);
+    if (river.bed[0] !== p.L - 2) return fail(`${nameOf(plan, I.river)}'s bed stands at ${river.bed[0]} at its head, not two under the plain (${p.L - 2})`);
     for (let k = 0; k < river.path.length; k++) {
-      const want = lv(river.path[k]) - 2;
-      if (river.bed[k] > want || river.bed[k] < want - 1) return fail(`${nameOf(plan, I.river)}'s bed stands at ${river.bed[k]} at point ${k}, not two under the plain there (${want})`);
+      const most = lv(river.path[k]) - 2;
+      if (river.bed[k] > most) return fail(`${nameOf(plan, I.river)}'s bed stands at ${river.bed[k]} at point ${k}, over two under the plain there (${most})`);
+      if (river.bed[k] < BED_FLOOR) return fail(`${nameOf(plan, I.river)}'s bed stands at ${river.bed[k]} at point ${k}, under the floor (${BED_FLOOR})`);
+      if (k && (river.bed[k] > river.bed[k - 1] || river.bed[k] < river.bed[k - 1] - RIVER_STAGE.fall)) return fail(`${nameOf(plan, I.river)}'s bed goes from ${river.bed[k - 1]} to ${river.bed[k]} at point ${k}, not down by steps`);
     }
     // the levees
     const len = p.levee.to - p.levee.from;
@@ -1249,11 +1571,12 @@ const plainLevels: Invariant = {
     if (!red?.path || !Array.isArray(red.bed) || !pool || !fall?.fall || !Array.isArray(fall.bed) || !spring) return fail("The plan has no red stream from the Red Fall");
     const lm = plainLevel(p, p.gulch.mouth, lineAt(p.far, p.step, p.gulch.mouth) - lineAt(p.swamp, p.step, p.gulch.mouth) + 1);
     const swamp = lm - 1;
-    for (let k = 0; k + 1 < red.path.length; k++) {
+    // (where it joins the river, its last point in the river at the river's bed: `stream.join`, `JOIN.drop`)
+    for (let k = 0; k + (red.joins ? 1 : 0) < red.path.length; k++) {
       const want = lv(red.path[k]) - 2;
       if (red.bed[k] > want || red.bed[k] < want - 1) return fail(`${nameOf(plan, I.red)}'s bed stands at ${red.bed[k]} at point ${k}, not a level under the backswamp there (${want})`);
     }
-    if (pool.sill !== swamp) return fail(`${nameOf(plan, I.redPool)} stands at ${pool.sill}, not on the backswamp (${swamp})`);
+    if (pool.sill !== swamp - 1) return fail(`${nameOf(plan, I.redPool)} stands at ${pool.sill}, not a level under the backswamp (${swamp}) at its stream's head`);
     const f = fall.fall;
     if (p.gulch.h < GULCH.h[0] || p.gulch.h > GULCH.h[1] || p.gulch.crest !== swamp + p.gulch.h || f.crest !== p.gulch.crest) return fail(`${nameOf(plan, I.redFall)} falls from ${f.crest}, not ${GULCH.h.join(" to ")} over the backswamp (${swamp}) at the gulch's mouth`);
     if (f.crest - f.height !== pool.sill) return fail(`${nameOf(plan, I.redFall)} does not fall onto ${nameOf(plan, I.redPool)}`);
@@ -1397,6 +1720,10 @@ const streamJoin: Invariant = {
         let k = 0;
         while (k + 1 < river.path.length && pathLength(river.path.slice(0, k + 2)) <= j.at) k++;
         if (Math.abs(own[own.length - 1] - rb[k]) > 1) return fail(`${nameOf(plan, I.red)}'s bed meets ${nameOf(plan, I.river)}'s ${Math.abs(own[own.length - 1] - rb[k])} levels apart`);
+        // (its last reach short, and it falls into the river: `JOIN.drop`)
+        const m = red.path.length - 1;
+        const last = m > 0 ? dist(red.path[m - 1], red.path[m]) : Infinity;
+        if (last > JOIN.drop + 0.01 || !(own[m - 1] - rb[k] >= 1)) return fail(`${nameOf(plan, I.red)}'s last reach runs ${last.toFixed(1)} tiles and falls ${own[m - 1] - rb[k]} into ${nameOf(plan, I.river)} (${JOIN.drop} at most, and a level or more)`);
       }
       return OK;
     }
@@ -1412,7 +1739,7 @@ const streamJoin: Invariant = {
  *  end and its lip, on the plain's side of the river, a third to a half of the way across from the river's room to the
  *  far wall), the search window starting the badwater distance or more down the
  *  valley from it, the gulch's mouth inside the window, and no red water (the Red Spring, the gulch, the Red Fall's
- *  pool, the red stream) within the badwater distance of the start. */
+ *  pool, the red stream, the river below the red stream's join) within the badwater distance of the start. */
 const startBadwater: Invariant = {
   id: "start.badwater",
   at: "plan",
@@ -1443,20 +1770,25 @@ const startBadwater: Invariant = {
       const l = linkOf(plan, id);
       if (l?.path) for (const q of walk(l.path, 1)) red.push(q.p);
     }
+    // (the river below the red stream's join carries its red water on)
+    const rj = linkOf(plan, I.red)?.joins;
+    if (rj?.link === I.river) for (const q of walk(river.path, 1)) if (q.s >= rj.at - 0.5) red.push(q.p);
     for (const id of [I.redSpring, I.redPool]) {
       const b = bodyOf(plan, id);
       if (b) red.push([b.arms[0][0][0], b.arms[0][0][1]]);
     }
-    for (const q of red) if (dist(q, st) < d) return fail(`Red water stands ${dist(q, st).toFixed(0)} tiles from the start, inside the badwater distance (${d})`);
+    // (the shared gate reads the soil the red water poisons as badwater too: the poison reaches `BAD_SOIL` on the level)
+    for (const q of red) if (dist(q, st) < d + BAD_SOIL) return fail(`Red water stands ${dist(q, st).toFixed(0)} tiles from the start, inside the badwater distance (${d}) and the ${BAD_SOIL} tiles its soil's poison reaches`);
     return OK;
   },
 };
 
 /** `frame.fall` (the design's §5): the Red Fall is the landmark, a fall of 3 to 5 onto the backswamp, its lip's ends
  *  and its foot inside the opening camera's vista frame (`VISTA_ZOOM`: the first frame at the default zoom reaches under
- *  20 tiles, the fall stands across the plain), between `LANDMARK_NEAR` and `LANDMARK_FAR` of the start; the gulch's
- *  mouth found nearest-first: in the first run of the search window the frame shows that is `WINDOW.framed` tiles or
- *  more, within `WINDOW.past` of the nearest place its lip fits. */
+ *  20 tiles, the fall stands across the plain), between `LANDMARK_NEAR` and `LANDMARK_FAR` of the start; the frame
+ *  showing a run of the search window `WINDOW.framed` tiles or more, and the gulch's mouth where a run it shows holds
+ *  its lip. (The plan draws its target at the nearest such place; stage 2's search keeps the nearest side valley that
+ *  holds, `gulch.found`, and turns the start to frame it.) */
 const frameFall: Invariant = {
   id: "frame.fall",
   at: "plan",
@@ -1465,7 +1797,9 @@ const frameFall: Invariant = {
     const fall = linkOf(plan, plan.frame.landmark);
     if (!p || !fall?.fall || plan.frame.landmark !== I.redFall) return fail(`The landmark is not ${nameOf(plan, I.redFall)}`);
     const pool = bodyOf(plan, fall.to);
-    if (fall.fall.height < GULCH.h[0] || fall.fall.height > GULCH.h[1]) return fail(`${nameOf(plan, I.redFall)} drops ${fall.fall.height} (${GULCH.h.join(" to ")})`);
+    // (its drop over the backswamp: its height is to the Red Pool's sill, a level under the backswamp)
+    const drop = fall.fall.height - 1;
+    if (drop < GULCH.h[0] || drop > GULCH.h[1]) return fail(`${nameOf(plan, I.redFall)} drops ${drop} over the backswamp (${GULCH.h.join(" to ")})`);
     const s = plan.frame.start;
     const cam = openingCamera(s, VISTA_ZOOM);
     const st: Point = [s.x + 0.5, s.y + 0.5];
@@ -1482,7 +1816,7 @@ const frameFall: Invariant = {
     const first = p.window.framed.find(([a, b]) => b - a >= WINDOW.framed);
     if (!first) return fail(`The vista frame shows no run of the search window ${WINDOW.framed} tiles or more`);
     const lipHalf = WINDOW.framed / 2;
-    if (p.gulch.mouth < first[0] + lipHalf - 0.01 || p.gulch.mouth > Math.min(first[0] + lipHalf + WINDOW.past, first[1] - lipHalf) + 0.01) return fail("The gulch's mouth is not the nearest place the frame shows in its window");
+    if (!p.window.framed.some(([a, b]) => p.gulch.mouth >= a + lipHalf - 0.01 && p.gulch.mouth <= b - lipHalf + 0.01)) return fail("The gulch's mouth is not where the vista frame shows its lip in the search window");
     return OK;
   },
 };
@@ -1526,6 +1860,9 @@ const poisonedLadder: Invariant = {
     const slough = p.sloughs[0];
     const low = slough && p.levee.low.find((o) => o.id === slough.low);
     if (!slough || !low || low.side !== "plain") return fail("No slough from a low place on the plain's side");
+    const share = ((low.from + low.to) / 2 - p.levee.from) / (p.levee.to - p.levee.from);
+    const most = p.red.end === "join" ? 1 / 2 : 2 / 3;
+    if (share < 1 / 3 - 0.01 || share > most + 0.01) return fail(`${nameOf(plan, slough.id)} leaves the levee ${Math.round(100 * share)} % along it, not in its middle third${p.red.end === "join" ? "'s upper half (the red stream joins the river)" : ""}`);
     const want = plan.W >= 192 ? 2 : 1;
     if (p.sloughs.length !== want) return fail(`${p.sloughs.length} sloughs (${want} at ${plan.W}²)`);
     if (!inn || inn.rung !== "large" || inn.kind !== "raisedSill" || inn.on !== I.river || inn.needs.length) return fail("The river in is not a weir on the river on the large rung, needing nothing");

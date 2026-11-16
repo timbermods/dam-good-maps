@@ -10,6 +10,7 @@ import { makeSpec } from "../../src/core/spec/mapspec";
 import { ORIENTATION_NAMES } from "../../src/render3d/model";
 import { runGenerate } from "../../src/worker/api";
 import * as ed from "../../src/worker/session";
+import { fixtureInEditor } from "../fixtureEditor";
 
 const W = 96;
 const steps = () => ed.sessionView().info.history.filter((h) => h.applied).length;
@@ -118,17 +119,17 @@ describe("placed objects fit the land (D328)", () => {
     // (seeds from 5 since generator 0.10.20's mends (wash treads and dead-stand knots, D518), D148: on seed 4 the first 3-level
     // slope for a ruin is now at (12, 22), and its cut steepens the cliff foot at (11, 26) from 8 to 9 levels, a step the land
     // had and the placement made larger; seed 5's slope keeps every rule, as do 34 of the 36 seeds 4–39 (seeds 4 and 23 are the two
-    // that steepen a cliff beside the ruin by one level))
-    for (let seed = 5; seed < 16 && !spot; seed++) {
-      await fresh(seed);
-      g = groundNow();
-      try {
-        spot = slopedSpot(g, cover(template), null, 3, 3, true);
-      } catch {
-        spot = null;
-      }
+    // that steepen a cliff beside the ruin by one level); on a saved project of seed 5 as generator 0.10.25 made it (#1163's
+    // fixtures, planning on #236, 2026-11-15: a test that places on generated land opens the land it was written on): 0.10.26's
+    // ruin fields move what stands on seed 5's slope, and the placement there is its own case, #1188)
+    fixtureInEditor("riverValley", W, 5);
+    g = groundNow();
+    try {
+      spot = slopedSpot(g, cover(template), null, 3, 3, true);
+    } catch {
+      spot = null;
     }
-    if (!spot) throw new Error("no 3-level slope for a ruin on any of the seeds");
+    if (!spot) throw new Error("no 3-level slope for a ruin on seed 5's saved land");
     const [x, y] = spot;
     const before = heightsNow();
     const r = place(template, x, y);
@@ -150,8 +151,9 @@ describe("placed objects fit the land (D328)", () => {
           expect(Math.abs(after[i] - after[j]), `step at ${tx},${ty}`).toBeLessThanOrEqual(Math.max(2, wasStep));
         }
       }
-    // the water re-settles: nothing the placement did leaves a wet tile above where it was
-    ed.refine();
+    // the water re-settles: nothing the placement did leaves a wet tile above where it was (the placed map's own settle; this
+    // was `refine()`, which reopened the generated map and so measured the land before the placement, D148)
+    ed.settleWater();
     const now = groundNow();
     let wetBefore = 0;
     let wetNow = 0;

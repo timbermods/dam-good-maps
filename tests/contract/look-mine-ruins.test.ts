@@ -88,8 +88,20 @@ import * as ed from "../../src/worker/session";
 // `52341eab…` before generator 0.10.23's shown land kept for a rescue round, which moves only maps above 128²: the version
 // in the file alone, D148);
 // `36ed64bf…` before generator 0.10.24's round forms (the look round: no mesa, plateau, butte, cone or knoll is a circle, and
-// the weathering reaches in a disc, so no ring round one has square corners: a new land, D148)
-const LIVE_SHA = "ca3cf458b65043713b4c3ea287ae269b163a222a0dedcebbc92367e34aed2b2d";
+// the weathering reaches in a disc, so no ring round one has square corners: a new land, D148);
+// `ca3cf458…` before generator 0.10.25 (the Lake Basin water settings, D527): the version in the file alone, D148);
+// `e59d652e…` before generator 0.10.26's ruins to within a column (D527: its last field gives back the columns it grew past
+// the scrap asked: its ruins moved, D148);
+// `7084a1df…` before generator 0.10.27, D(new-leaks): a course's water leaves only by its own way, so its land is new: made
+// on its first attempt instead of its third, every check passing, D148);
+// `4a6c66b0…` before generator 0.10.29 (#1186): not the version alone (at 0.10.27 the branch gives `93e7ebed…`): the
+// weathering's disc of the square's area and the washes' brush and swing move its land, made on its first attempt, every
+// check passing, D148);
+// `c58f6dbd…` before generator 0.10.36's round forms at their meant size (#1205: their lobes swing about the radius, so mesas,
+// buttes, cones and knolls are a sixth wider, and the dead stands' floor pass: not the version alone, at 0.10.29's version the
+// branch gives `0ce281af…`, D148); `841215d6…` before generator 0.10.37's version alone (the Nightly of 2026-11-16: with the
+// version set back to 0.10.36 the branch gives it byte for byte, D148)
+const LIVE_SHA = "64928c3753d64b6fe6cae7c58aae420ab99fbdde7c8783bf90d35690b52c0d51";
 const spec = () => makeSpec({ seed: 4242, size: { x: 128, y: 128 }, theme: "riverValley", designedFor: "normal" });
 
 describe("mine sites and ruins, models of our own", () => {

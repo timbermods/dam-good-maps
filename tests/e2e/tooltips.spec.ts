@@ -91,8 +91,9 @@ async function open(page: Page) {
   // distance became a rule and River Valley's main river stays clean; seed 6 for 0.8.1's maps, D148: seed 4's land has no open, level, dry spot since the badwater
   // ditches follow the land; seed 4 since D385, D148: seed 9's land changed when its water from nowhere
   // went; its one flat spot is a plateau by the map's edge, where the placed source's water runs over the
-  // uneven ground the mine site needs levelled, and "the water is in the way")
-  await openEditor(page, "s=1&z=96&d=n&t=riverValley");
+  // uneven ground the mine site needs levelled, and "the water is in the way"; seed 3 since generator 0.10.27,
+  // D148: seed 1's land has one open, level, dry spot, seed 3's has two, 23,23 and 38,69)
+  await openEditor(page, "s=3&z=96&d=n&t=riverValley");
   await topDown(page);
   await page.waitForTimeout(500);
 }

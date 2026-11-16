@@ -195,12 +195,18 @@ export function dayOneWater(plan: PremisePlan, w: StageWater, heights: Uint8Arra
  *  frame, and the bench (the side network only takes ground from it, and `buildBench` builds it the same on both).
  *  The water's depth in the frame and the moist land are left to the full land (side water adds both), and so is the
  *  walkable land (the build's own slopes add to it: the works', the water rule's), so an early refusal never turns
- *  down a layout the full map would pass. */
+ *  down a layout the full map would pass. `zoom`: the first camera's zoom the landmark is read at (`openingCamera`; the
+ *  opening's own by default, the vista's for a premise whose landmark stands across a floor, the poisoned floodplain's
+ *  §5). `shallow: false`: the frame's water depth is reported, neither refused nor its beds raised (a premise whose
+ *  water stands under its bodies' sills, set by its own water stage: the poisoned floodplain's Red Pool, its water at
+ *  its red stream's head a level under the backswamp, which the raise read at the sill's and filled, steps 2 and 3). */
 export interface FrameNeeds {
   bench: number;
   moist: number;
   reach: number;
   early?: boolean;
+  zoom?: number;
+  shallow?: boolean;
 }
 
 /** Stage 3 (PREMISES §2.2): the start placed for the first frame on the land stage 2 made. Every lip and foot tile of
@@ -239,7 +245,7 @@ export function checkFrame(plan: PremisePlan, w: StageWater, heights: Uint8Array
         if (heights[i] !== z) return { ...out, reason: `the start's 5 × 5 is not level at ${z}` };
       }
     if (!levelDoorTurns(heights, W, H, x, y, z).some((t) => t.o === s0.orientation)) return { ...out, reason: "the start's door is not level" };
-    const cam = openingCamera(start);
+    const cam = openingCamera(start, needs.zoom);
     const inside = (i: number, h: number, low: boolean, edge = 0) => {
       const p = frameAt(cam, (i % W) + 0.5 - edge * Math.sign(cam.look[0]), Math.floor(i / W) + 0.5 - edge * Math.sign(cam.look[1]), h);
       return !!p && Math.abs(p.u) <= FRAME.uSide && p.v <= FRAME.vTop && (!low || p.v >= -1);
@@ -277,8 +283,8 @@ export function checkFrame(plan: PremisePlan, w: StageWater, heights: Uint8Array
       if (d <= most + 1e-9) shallow++;
     }
     out.shallow = all ? shallow / all : 1;
-    out.raise = raise;
-    if (out.shallow < START.shallowShare) return { ...out, reason: `${Math.round(100 * out.shallow)} % of the first frame's water is 1.2 deep or less (${100 * START.shallowShare} % asked)` };
+    out.raise = needs.shallow === false ? [] : raise;
+    if (needs.shallow !== false && out.shallow < START.shallowShare) return { ...out, reason: `${Math.round(100 * out.shallow)} % of the first frame's water is 1.2 deep or less (${100 * START.shallowShare} % asked)` };
     const walk = walkDistance(heights, W, H, null, [], { x, y });
     for (let i = 0; i < N; i++) if (!wet[i] && moist[i] > 0 && reachAt(walk, W, H, i) <= START.near) out.moist++;
     if (out.moist < needs.moist) return { ...out, reason: `${out.moist} tiles of moist land within ${START.near} tiles' walk of the start, for its farms and a forester (at least ${needs.moist})` };

@@ -23,6 +23,7 @@ import { runGenerate } from "../../src/worker/api";
 import { pieceTiles, startMiddle, startProblem } from "../../src/core/doc/start";
 import type { StartFeature } from "../../src/core/features/schema";
 import * as ed from "../../src/worker/session";
+import { fixtureSession } from "../fixtureProjects";
 
 /** Dry ground far from the start (and a little high), for a force to act on. */
 function farFromStart(b: { W: number; H: number; heights: Uint8Array; water: ArrayLike<number>; start?: { x: number; y: number } }): [number, number] {
@@ -253,8 +254,8 @@ describe("the forces in the document (breakage rule)", () => {
   it("forces, brushes and placements share one history: undo and redo in any order give the same maps, the project file reopens them, and the export is the same bytes", () => {
     // (seed 4 on M9b's maps, D148: seed 3's start sits near the east edge, so the brush row 8 to 14 tiles east of it runs off the map)
     // (seed 5 for seed 4, D148: D518's mends moved the land; seed 4's start now sits 9 tiles from the south edge, so its brush row runs off the map)
-    const r = generate(makeSpec({ seed: 5, theme: "highlands", size: { x: 96, y: 96 } }));
-    const s = MapSession.fromGenerated(r, r.file);
+    // (opens Highlands 96² seed 5 as a saved fixture, the land it was written on (D148, the #1163 pattern, #1205): the generated land moves with the generator, and at 0.10.36 seed 5's start sits at the east edge, so the brush row runs off the map)
+    const s = fixtureSession("highlands", 96, 5);
     s.setWaterMode("defer");
     const maps: Uint8Array[] = [s.built.heights.slice()];
     const st = s.built.start!;

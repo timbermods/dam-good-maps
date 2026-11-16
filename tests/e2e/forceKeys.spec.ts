@@ -5,9 +5,10 @@
 // ring: Carve's and Glaciate's band their width, a fault's or a fissure's a narrow line. A4:
 // Esc while a line is still being drawn cancels it and nothing starts; a painted Lift being drawn goes
 // back at once. (Esc and undo at every moment of a force at work are forceEsc.test's.)
+// Its maps are saved (`openSaved`): the page's own map of each fragment, as generator 0.10.26 made it.
 
 import { expect, test, type Page } from "@playwright/test";
-import { openEditor, topDown } from "./open";
+import { openSaved, topDown } from "./open";
 
 const info = (page: Page) => page.evaluate(() => window.dgmEditor!.info());
 const idle = (page: Page) => page.evaluate(() => window.dgmEditor!.idle());
@@ -23,7 +24,7 @@ const note = (page: Page) => page.locator(".shape-note");
 const noteWords = (page: Page) => page.evaluate(() => document.querySelector(".shape-note")?.textContent ?? "");
 
 async function openTopDown(page: Page, hash = "s=4242&z=96&d=n&t=highlands") {
-  await openEditor(page, hash);
+  await openSaved(page, hash);
   await topDown(page);
 }
 

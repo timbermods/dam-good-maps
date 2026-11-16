@@ -55,6 +55,8 @@ export interface Outline {
   k2: number;
   p2: number;
   a2: number;
+  /** The waves only cut in, so the form stays inside its radius (`Genome.formsInward`: Generous buildable land). */
+  inward?: boolean;
 }
 
 export function outlineOf(s: number): Outline {
@@ -63,8 +65,8 @@ export function outlineOf(s: number): Outline {
 }
 
 /** How far a round form reaches from its middle, in radii, at the most `FORM_ROUGH` roughness: `formDistance` is 1 or
- *  more past it (the roughness and the warp at their extremes, the lobes at none). */
-export const FORM_REACH = 2;
+ *  more past it (the roughness, the warp and the lobes at their extremes: 1.21 × 1.6 + 0.25). */
+export const FORM_REACH = 2.25;
 /** The most roughness a form's radius takes (a share of it, by noise). */
 export const FORM_ROUGH = 0.6;
 
@@ -79,7 +81,11 @@ function formDistance(x: number, y: number, cx: number, cy: number, r: number, s
   const dx = x - cx + 0.25 * r * fbm(s + 11, x, y, cell, 2);
   const dy = y - cy + 0.25 * r * fbm(s + 12, x, y, cell, 2);
   const t = pseudoAngle(dx, dy);
-  const lobes = 1 - o.a1 * (0.5 + 0.5 * sinDet(TWO_PI * (o.k1 * t + o.p1))) - o.a2 * (0.5 + 0.5 * sinDet(TWO_PI * (o.k2 * t + o.p2)));
+  // (the waves swing about the radius, out at the points as far as in at the bays: 0.10.36; waves that only cut in left
+  // every form a sixth narrower, and the mesas and buttes a high Verticality raises stood in fewer cliffs)
+  const lobes = o.inward
+    ? 1 - o.a1 * (0.5 + 0.5 * sinDet(TWO_PI * (o.k1 * t + o.p1))) - o.a2 * (0.5 + 0.5 * sinDet(TWO_PI * (o.k2 * t + o.p2)))
+    : 1 - 0.5 * o.a1 * sinDet(TWO_PI * (o.k1 * t + o.p1)) - 0.5 * o.a2 * sinDet(TWO_PI * (o.k2 * t + o.p2));
   const n = fbm(s + 13, x, y, Math.max(4, r * 0.55), 3);
   return portable.sqrt(dx * dx + dy * dy) / (r * lobes * (1 + rough * n));
 }
@@ -99,7 +105,7 @@ function pseudoAngle(dx: number, dy: number): number {
 }
 
 /** One part added to the uplift. */
-function addPart(U: Float64Array, p: Part, seed: number, W: number, H: number, k: number): void {
+function addPart(U: Float64Array, p: Part, seed: number, W: number, H: number, k: number, inward = false): void {
   const cx = p.at[0] * (W - 1);
   const cy = p.at[1] * (H - 1);
   const s = hash32(seed, "part", k, p.kind);
@@ -272,7 +278,7 @@ function addPart(U: Float64Array, p: Part, seed: number, W: number, H: number, k
       }, round(0.5 * p.size));
       top += p.height;
       // (the blob is 0 from `FORM_REACH` radii and half its softness out)
-      const o = outlineOf(s);
+      const o: Outline = { ...outlineOf(s), inward };
       each((x, y, i) => {
         const m = blob(x, y, cx, cy, p.size, s, p.soft, o);
         if (m <= 0) return;
@@ -297,7 +303,7 @@ function addPart(U: Float64Array, p: Part, seed: number, W: number, H: number, k
         for (let y = Math.max(0, Math.floor(my - rad)); y <= Math.min(H - 1, Math.ceil(my + rad)); y++)
           for (let x = Math.max(0, Math.floor(mx - rad)); x <= Math.min(W - 1, Math.ceil(mx + rad)); x++) top = Math.max(top, U[y * W + x]);
         top += h;
-        const o = outlineOf(ms);
+        const o: Outline = { ...outlineOf(ms), inward };
         const reach = FORM_REACH * rad + 0.5 * Math.max(0.5, p.soft);
         for (let y = Math.max(0, Math.floor(my - reach)); y <= Math.min(H - 1, Math.ceil(my + reach)); y++)
           for (let x = Math.max(0, Math.floor(mx - reach)); x <= Math.min(W - 1, Math.ceil(mx + reach)); x++) {
@@ -397,7 +403,7 @@ function addPart(U: Float64Array, p: Part, seed: number, W: number, H: number, k
     }
     case "cone": {
       // (its rings are its outline's, never a circle's: a cone's rings read as drawn, the look round)
-      const o = outlineOf(s);
+      const o: Outline = { ...outlineOf(s), inward };
       each((x, y, i) => {
         const d = formDistance(x, y, cx, cy, p.size, s, o, 0.3);
         if (d < 1) U[i] += p.height * (1 - d);
@@ -415,7 +421,7 @@ function addPart(U: Float64Array, p: Part, seed: number, W: number, H: number, k
         const h = p.height * (0.5 + rng.float());
         // (each knoll its own outline, the look round: a round knoll's ring or two drew a small square)
         const ks = hash32(s, "knoll", j);
-        const o = outlineOf(ks);
+        const o: Outline = { ...outlineOf(ks), inward };
         const reach = FORM_REACH * rad;
         for (let y = Math.max(0, Math.floor(ky - reach)); y <= Math.min(H - 1, Math.ceil(ky + reach)); y++)
           for (let x = Math.max(0, Math.floor(kx - reach)); x <= Math.min(W - 1, Math.ceil(kx + reach)); x++) U[y * W + x] += h * bump(formDistance(x, y, kx, ky, rad, ks, o, 0.5));
@@ -500,7 +506,7 @@ export function uplift(g: Genome, seed: number, W: number, H: number): Float64Ar
       U[y * W + x] = h;
     }
   const ps = ls;
-  g.parts.forEach((p, k) => addPart(U, p, ps, W, H, k));
+  g.parts.forEach((p, k) => addPart(U, p, ps, W, H, k, !!g.formsInward));
   return U;
 }
 
@@ -566,20 +572,25 @@ export function erodeHard(U: Float64Array, hard: Float64Array, W: number, H: num
   return h;
 }
 
-/** The least value within `r` tiles of each tile: a disc, not a square (the look round: the square's corners drew a
- *  square ring on every butte's shoulder, where the weathering's reach ran out). The least over each row within each
- *  half-width the disc needs, then the least of those down the column, exact. */
+/** The least value within reach `r` of each tile: a disc, not a square (the look round: the square's corners drew a
+ *  square ring on every butte's shoulder, where the weathering's reach ran out), of the square's area (0.10.29: a disc
+ *  of radius `r` read three quarters of its ground, and the caprock weathered at a high Verticality stood in fewer
+ *  cliffs). The least over each row within each half-width the disc needs, then the least of those down the column,
+ *  exact. */
 function minFilter(v: Float64Array, W: number, H: number, r: number): Float64Array {
   const N = W * H;
-  // (the disc's half-width at each row offset: the widest run of whole tiles within the radius)
+  // (the disc's half-width at each row offset: the widest run of whole tiles within it. Its area is the square's,
+  // (2r + 1)², so the weathering reaches as much ground as it did: x² + y² ≤ (2r + 1)² / π, π as 22 / 7, exact)
+  const R = 7 * (2 * r + 1) * (2 * r + 1);
   const half: number[] = [];
-  for (let dy = 0; dy <= r; dy++) {
+  for (let dy = 0; 22 * dy * dy <= R; dy++) {
     let w = 0;
-    while ((w + 1) * (w + 1) + dy * dy <= r * r) w++;
+    while (22 * ((w + 1) * (w + 1) + dy * dy) <= R) w++;
     half.push(w);
   }
+  const reach = half.length - 1;
   const rows: Float64Array[] = [];
-  for (let w = 0; w <= r; w++) {
+  for (let w = 0; w <= half[0]; w++) {
     const tmp = new Float64Array(N);
     for (let y = 0; y < H; y++)
       for (let x = 0; x < W; x++) {
@@ -596,7 +607,7 @@ function minFilter(v: Float64Array, W: number, H: number, r: number): Float64Arr
   for (let y = 0; y < H; y++)
     for (let x = 0; x < W; x++) {
       let m = Infinity;
-      for (let dy = -r; dy <= r; dy++) {
+      for (let dy = -reach; dy <= reach; dy++) {
         const yy = y + dy;
         if (yy < 0 || yy >= H) continue;
         const u = rows[half[dy < 0 ? -dy : dy]][yy * W + x];
