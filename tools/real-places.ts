@@ -76,7 +76,7 @@ import { namedFile } from "../src/core/gen/pack";
 import { relaxEdges } from "../src/core/land/levels";
 import { EDITOR_LEVEL } from "../src/core/spec/mapspec";
 import { edgeLip } from "../src/core/water/edgeLip";
-import { placeSprings } from "../src/core/places/spring";
+import { aboveStart, placeSprings } from "../src/core/places/spring";
 import { placeRuins } from "../src/core/places/ruins";
 import { placeStartSpots, startTiles } from "../src/core/places/start";
 import { thumbnailRgba } from "../src/core/render/shade";
@@ -620,16 +620,25 @@ function feedsFor(libraryId: string, place: PlaceData): { place: PlaceData; note
   const settle = (p: PlaceData) => buildPlace(p, settles).settle.depth;
   // D245's water floor for a place with no real water: the springs by its start a lone spring may be (src/core/places/spring.ts),
   // placed on the place's land with no water
+  // (the one spring is the start's, planning's ruling of 2026-11-16: the start then has water within its walk, a spring
+  // above the start first, `aboveStart`)
+  const dryLand = buildPlace({ ...place, sources: [] }, settles);
   const springs = () => {
     const dry = { ...place, sources: [] as [number, number, number][] };
-    const b = buildPlace(dry, settles);
-    return SPRING_TRIES.flatMap(([rule, tries]) => placeSprings(dry, b.heights, b.settle.depth, { rule, tries, key: seedKey(place) }));
+    const at = (above: boolean) => SPRING_TRIES.flatMap(([rule, tries]) => placeSprings(dry, dryLand.heights, dryLand.settle.depth, { rule, tries, key: seedKey(place), above }));
+    const seen = new Set<string>();
+    return [...at(true), ...at(false)].filter((g) => {
+      const k = JSON.stringify(g);
+      return !seen.has(k) && !!seen.add(k);
+    });
   };
-  let r = searchFeeds(place, real, settle, keep, { springs });
+  const served = (p: PlaceData) => !buildChecked(p).strictFails.includes("start.water");
+  const above = (s: readonly [number, number, number][]) => s.every(([x, y]) => aboveStart(place, dryLand.heights, y * place.W + x));
+  let r = searchFeeds(place, real, settle, keep, { springs, served, above });
   // no place ends with more water over real dry land (planning): one whose search did is searched again with no step
   // raising it
   const again = r.after.dry > r.before.dry ? ` (searched again: real dry land ${r.before.dry} → ${r.after.dry} the first time)` : "";
-  if (again) r = searchFeeds(place, real, settle, keep, { dryNotUp: true, springs });
+  if (again) r = searchFeeds(place, real, settle, keep, { dryNotUp: true, springs, served, above });
   // the floor-0 sheet is information (planning), but a search whose sheet over real dry land grew while the water over
   // real dry land did not fall keeps the springs the place had
   const sheetDry = (p: PlaceData) => {
