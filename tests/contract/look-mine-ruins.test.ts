@@ -99,8 +99,9 @@ import * as ed from "../../src/worker/session";
 // check passing, D148);
 // `c58f6dbd…` before generator 0.10.36's round forms at their meant size (#1205: their lobes swing about the radius, so mesas,
 // buttes, cones and knolls are a sixth wider, and the dead stands' floor pass: not the version alone, at 0.10.29's version the
-// branch gives `0ce281af…`, D148)
-const LIVE_SHA = "841215d63a736d7f371df0df8ea1590ad6d59594d8509bb1553920d6876d046e";
+// branch gives `0ce281af…`, D148); `841215d6…` before generator 0.10.37's version alone (the Nightly of 2026-11-16: with the
+// version set back to 0.10.36 the branch gives it byte for byte, D148)
+const LIVE_SHA = "64928c3753d64b6fe6cae7c58aae420ab99fbdde7c8783bf90d35690b52c0d51";
 const spec = () => makeSpec({ seed: 4242, size: { x: 128, y: 128 }, theme: "riverValley", designedFor: "normal" });
 
 describe("mine sites and ruins, models of our own", () => {

@@ -283,6 +283,12 @@ export interface Genome {
   plugLake?: boolean;
   /** Item 47's second district close to the start, behind debris on its ramps. */
   districtBehind?: boolean;
+  /** Buildable land above the theme's own: every round form's lobes only cut in, so it stays inside its radius
+   *  (`field.ts` `formDistance`, set by `leanGenome`). */
+  formsInward?: boolean;
+  /** A late rescue round's gentle land on a map under 128² (D471, `DrawOptions.ownScale`): its parts in proportion
+   *  to its area and its levels' spread to its narrower side, set by `drawGenome`, read by `leanGenome`. */
+  ownScale?: boolean;
   hazards: { badwater: "none" | "pit" | "stream"; ratio: number; thorns: boolean };
   resources: { forest: number; bushes: number; ruins: number; grove: "scattered" | "normal" | "bigWoods" };
   /** What kind of place the settler looks for first: weights over a lake shore, a river bank, a
@@ -645,6 +651,9 @@ export interface DrawOptions {
   intentions?: IntentionId[] | null;
   /** D143: a sibling of the map (1, 2, …): the same draws, nudged, over different land. */
   variation?: number;
+  /** A late rescue round's gentle land (D471, from the eighth): under 128² the land at the map's own scale, its parts
+   *  in proportion to its area and its levels' spread to its narrower side (`Genome.ownScale`). */
+  ownScale?: boolean;
 }
 
 /** The Verticality the map is drawn with: the setting, jittered at high Variety, and now and then
@@ -837,8 +846,10 @@ export function drawGenome(theme: ThemeId, seed: number, W: number, H: number, a
   })();
   g.relief = g.top - g.base;
   if (g.hydro.inflows === 0 && g.hydro.springs === 0) g.hydro.springs = 2;
-  // parts: counts per 128² map, in proportion to the area (the same detail per tile)
-  const n = Math.max(1, Math.round((d(p.partCount) + 0.5) * Math.max(1, areaK)));
+  // parts: counts per 128² map, in proportion to the area (the same detail per tile); under 128² a 128²'s count, but
+  // for a late rescue round's gentle land, at the map's own scale (`ownScale`)
+  const n = Math.max(1, Math.round((d(p.partCount) + 0.5) * (o.ownScale ? areaK : Math.max(1, areaK))));
+  if (o.ownScale && areaK < 1) g.ownScale = true;
   for (let k = 0; k < n; k++) g.parts.push(randomPart(rng, pickPart(rng, p.parts, vy), W, H, vy, tallK));
   // extra lakes: basins beyond the parts, so water spans the workshop's range
   const lakes = Math.max(0, Math.round(d(p.lakes) * Math.max(1, portable.sqrt(areaK))));
@@ -1581,6 +1592,11 @@ export function leanGenome(g: Genome, s: Settings, W: number, H: number, seed: n
     g.ramps = clamp(g.ramps + 0.3 * bl, 0.1, 1);
     g.terrace.share = clamp(g.terrace.share + 0.2 * bl, 0, 1);
     g.top = Math.max(g.base + 4, g.top - 1.5 * bl);
+    // (the round forms keep inside their radius, their lobes cutting in only: at their meant size since 0.10.36, a
+    // sixth wider, the mesas, buttes, cones and knolls of a Generous map's level benches stood ringed in cliffs its walk
+    // could not climb, and its walkable land fell back toward Tight's: River Valley 96², seeds 1–8, Generous 3,386
+    // against Tight's 2,930 at 0.10.36, 4,223 with its forms kept in)
+    g.formsInward = true;
   } else if (bl < 0) {
     g.terrace.step = Math.max(g.terrace.step, 2);
     g.grade.roll *= 1 - 0.15 * bl;
@@ -1615,6 +1631,9 @@ export function leanGenome(g: Genome, s: Settings, W: number, H: number, seed: n
   const ceiling = g.tall ? g.top : Math.min(EDITOR_TOP, cap);
   g.base += BED_FLOOR;
   g.top = Math.min(g.top + BED_FLOOR, ceiling);
+  // (a late rescue round's gentle land on a map under 128², D471: the levels' spread Relief asks is a 128²'s, and on 48
+  // tiles its gentle land still stood 10–12 levels; there it spreads in proportion to the map's narrower side)
+  if (g.ownScale) g.top = g.base + (g.top - g.base) * Math.min(1, Math.min(W, H) / 128);
   g.relief = g.top - g.base;
   // terracing: the benched share
   const dt = (s.terrain.terracing - p.terracing) / 100;
