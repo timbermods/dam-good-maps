@@ -22,7 +22,9 @@ says are the core's (D342).
 - `api.ts`: a generation (`runGenerate`), D329's background search (`runFindVersion`) and the page's view of a
   built map (`responseOf`; the map card's facts are `core/validate/facts.ts` `mapFacts`).
 - `session.ts`: the editor's open map: opening, edits, undo, the live water (D133, D197), weather runs
-  (`core/sim/weather.ts` `HazardRun`) and the drought line read from the drought's last day (`watchDroughtLine`),
+  (`core/sim/weather.ts` `HazardRun`) with each held day's soil and withered plants (`core/sim/withering.ts`, by each
+  plant's level and tile; on a map with caves or overhangs the day soil, per run top, is worked out here a day at a time,
+  a press stopping it, elsewhere in `daySoil.worker.ts`) and the drought line read from the drought's last day (`watchDroughtLine`),
   the instant and background checks, export, the forces' runs.
 - `collab.ts`: collaborative editing's side in the worker (`api.collab`): the core's `CollabPeer` beside the open map, the water's background settle paced between messages, the page told what changed. It reaches the map only through `session.ts` `collabSession`, `collabOpen`, `collabChanged` (no preview water runs beside the peer's own settle) and `collabGate` (a direct edit is refused while the session says the map is read-only). The page's client is `src/collab/client.ts`.
 - `showcase.worker.ts`: Showcase mode's search (`core/gen/showcase.ts`) in a worker of its own; its messages are `showcaseApi.ts`'s, the page starts it with `platform/index.ts` `createShowcase`.

@@ -1556,7 +1556,7 @@ Make a valley, drop a source, and there's a river.
   badwater lies, so Day 0 to the last day turns green land to dry earth and veins). Any
   edit while a hazard is shown ends the view at once (D269). The game's weather rules, unchanged. Each runs from the
   water the map shows (an unedited import's own), on every map, caves and overhangs included (#391; there a day's soil
-  is worked out per run top, and no plant withers yet). **An Unstable Core's
+  is worked out per run top, and each plant withers by its own ground's, below). **An Unstable Core's
   moment** (D339): with a hazard held, a quiet line under the water row says where each core on the map goes off against
   that cycle's hazard ("Unstable core: goes off 2 to 7 days before cycle 6's drought or badtide": a range, because a cycle's
   temperate days are drawn), lit on the days it may go off on; the picture is the map as it is, never after the explosion
@@ -1590,7 +1590,10 @@ Two looks (Map look 2, D147, D242, D250, D284):
   D201's amendment, 2026-10-29; its rough water below falls with D334's water terms, 2026-11-07). Visible seasons (D250, D286 (4)): on a held Drought or Badtide day, in every look (D242 as amended 2026-10-29), the
   plants the game would surely have killed by then are drawn withered: dry for 1.1 x the species' `DaysToDieDry` in a row
   (the run resets when moisture returns; succulents exempt), or on contaminated soil for two days running; dead for good once
-  dead (`core/sim/withering.ts`, given to the page with the held day). A living plant whose cause of death runs on the ground shown is drawn dying, as the game's `#Dying` model is (D242 as amended 2026-10-29), on Day 0 as on any held day: dry ground for a land plant, moist ground for a succulent, contamination, or water over its base outside its band (`withering.ts` `dyingCause`, read by the renderer from the soil and water it shows; `render3d/dying.ts` makes the forms). A held drought or badtide day turns the haze to
+  dead (`core/sim/withering.ts`, given to the page with the held day). Each plant reads the ground it stands on: on a map
+  with caves or overhangs a plant on a cave's floor or a ledge under a roof reads that run top's soil, never its roof's
+  (`withering.ts` `plantGround`, the renderer's `objectSoilAt` the same rule), and a dead plant is named by its level and
+  tile, so of two plants on one tile only the one that died is drawn dead. A living plant whose cause of death runs on the ground shown is drawn dying, as the game's `#Dying` model is (D242 as amended 2026-10-29), on Day 0 as on any held day: dry ground for a land plant, moist ground for a succulent, contamination, or water over its base outside its band (`withering.ts` `dyingCause`, read by the renderer from the soil and water it shows; `render3d/dying.ts` makes the forms). A held drought or badtide day turns the haze to
   the game's fog colour for it, in both looks (`Sun.blueprint`, `high/seasons.ts` `FOG`; the map's own haze is its
   temperate fog), as the game does and nothing more: its ground dries by the day's soil like any dry tile (D250 as
   amended 2026-10-29). Day 0 shows the map as it is.

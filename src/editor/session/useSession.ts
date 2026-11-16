@@ -242,7 +242,8 @@ export interface SessionSlice {
   showWater: (w: WaterView, soon?: boolean, held?: boolean) => void;
   toggleWeather: (hazard: Hazard) => void;
   showSoil: (soil: SoilView, withered?: Int32Array, day?: number) => void;
-  showWithered: (tiles: Int32Array) => void;
+  /** The withered plants' cells (level × W × H + tile, the worker's `withered`), passed to the renderer as they come. */
+  showWithered: (cells: Int32Array) => void;
   applyUpdate: (u: SessionUpdate) => void;
   applyView: (v: ViewUpdate) => void;
   /** The edit queue (core/doc/editQueue.ts, #922): every edit, stroke, undo, redo and History jump is a ticket in it; the
@@ -811,8 +812,8 @@ export function useSession(ed: Ed, props: EditorProps): SessionSlice {
     if (h) askWeatherDay(h, heldDay.current);
   }
   /** The soil's colours during a weather run (the map's own soil stays the page's copy). */
-  function showWithered(tiles: Int32Array) {
-    renderer.current?.setWithered(tiles);
+  function showWithered(cells: Int32Array) {
+    renderer.current?.setWithered(cells);
   }
   function showSoil(soil: SoilView, withered?: Int32Array, day = 1) {
     endFlip();
