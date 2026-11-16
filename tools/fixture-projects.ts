@@ -27,7 +27,7 @@ const LIST: Entry[] = [
   ["highlands", 96, 3, "noforms"],
   ["highlands", 96, 57, "noforms"],
   ["highlands", 96, 4],
-  ...[1, 3, 7, 26, 28].map((seed): Entry => ["highlands", 128, seed]),
+  ...[1, 3, 4, 7, 26, 28].map((seed): Entry => ["highlands", 128, seed]),
   // River Valley
   ...[11, 12].map((seed): Entry => ["riverValley", 48, seed]),
   ...[1, 2, 3, 4, 5, 7, 11, 13, 22, 29].map((seed): Entry => ["riverValley", 64, seed]),
