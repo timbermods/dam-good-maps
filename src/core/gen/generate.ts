@@ -767,11 +767,12 @@ function attemptRound(specIn: MapSpec, optsIn: GenerateOptions, t0: number, roun
       const drawn = round * ROUND_GENOMES + genomes;
       // (a late rescue round draws its land nearer the theme's settings, D471)
       const asked = easedSettings(specIn.settings, specIn.theme, opts.ease ?? 0);
-      // (and from the eighth, its gentle land at a small map's own scale, `DrawOptions.ownScale`: a 48² map drew a
-      // 128²'s parts and spread of levels, so even its gentle land stood 10–12 levels on 48 tiles, and a starved start's
-      // waterside place walked to 30–300 tiles where its rescue asks 468; Highlands 48² Hard seed 3 made no map in
-      // 1,960 attempts, and a gentle round on its land made one 1 time in 20, now 15)
-      const g = drawGenome(specIn.theme, seed, W, H, drawn, { vt: asked.terrain.verticality, intentions: keep, variety: opts.variety ?? asked.terrain.variety, ...(specIn.variation ? { variation: specIn.variation } : {}), ...(W * H < 128 * 128 ? { ownScale: (opts.ease ?? 0) >= 8 ? "side" : "root" } : {}) });
+      // (a map under 128² at its own scale, `DrawOptions.ownScale`: its parts by area, its levels' spread and its rivers'
+      // incision by the root of its side's ratio to 128 from the first round, by the ratio itself from the eighth, its
+      // gentle land; a 48² map drew a 128²'s parts and 13 levels, and took 40 attempts, 8 now. Highlands keeps a 128²'s
+      // land until the eighth: its promise is height, four levels over its water, and at its own scale it held on 2 maps
+      // in 12 at 64², against 7, and took more attempts, not fewer)
+      const g = drawGenome(specIn.theme, seed, W, H, drawn, { vt: asked.terrain.verticality, intentions: keep, variety: opts.variety ?? asked.terrain.variety, ...(specIn.variation ? { variation: specIn.variation } : {}), ...(W * H < 128 * 128 && ((opts.ease ?? 0) >= 8 || specIn.theme !== "highlands") ? { ownScale: (opts.ease ?? 0) >= 8 ? "side" : "root" } : {}) });
       leanGenome(g, asked, W, H, seed, drawn, specIn.designedFor);
       // (Lake Basin round 2, D453, D458: one valley basin in a stronger radial catchment, on every
       // Lake Basin map, whatever its settings, intentions or siblings: Kyler, 2026-10-03)

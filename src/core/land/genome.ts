@@ -847,15 +847,16 @@ export function drawGenome(theme: ThemeId, seed: number, W: number, H: number, a
   })();
   g.relief = g.top - g.base;
   if (g.hydro.inflows === 0 && g.hydro.springs === 0) g.hydro.springs = 2;
-  // parts: counts per 128² map, in proportion to the area (the same detail per tile); under 128² a 128²'s count, but
-  // for a late rescue round's gentle land, at the map's own scale (`ownScale`)
+  // parts: counts per 128² map, in proportion to the area (the same detail per tile); under 128² a 128²'s count, but at
+  // the map's own scale (`ownScale`) by its area too
   const n = Math.max(1, Math.round((d(p.partCount) + 0.5) * (o.ownScale ? areaK : Math.max(1, areaK))));
   if (o.ownScale && areaK < 1) {
     const r = Math.min(W, H) / 128;
     g.ownScale = o.ownScale === "side" ? r : portable.sqrt(r);
   }
   for (let k = 0; k < n; k++) g.parts.push(randomPart(rng, pickPart(rng, p.parts, vy), W, H, vy, tallK));
-  // extra lakes: basins beyond the parts, so water spans the workshop's range
+  // extra lakes: basins beyond the parts, so water spans the workshop's range (at its own scale by the root of the area:
+  // a 48² map drew a 128²'s five basins of 12 to 32 tiles, and its land was hollows)
   const lakes = Math.max(0, Math.round(d(p.lakes) * (o.ownScale ? portable.sqrt(areaK) : Math.max(1, portable.sqrt(areaK)))));
   for (let k = 0; k < lakes; k++) g.parts.push(randomPart(rng, "basin", W, H, vy, tallK));
   // a radial slope falls toward the first bowl when there is one
@@ -1635,8 +1636,10 @@ export function leanGenome(g: Genome, s: Settings, W: number, H: number, seed: n
   const ceiling = g.tall ? g.top : Math.min(EDITOR_TOP, cap);
   g.base += BED_FLOOR;
   g.top = Math.min(g.top + BED_FLOOR, ceiling);
-  // (a late rescue round's gentle land on a map under 128², D471: the levels' spread Relief asks is a 128²'s, and on 48
-  // tiles its gentle land still stood 10–12 levels; there it spreads in proportion to the map's narrower side)
+  // (a map under 128² at its own scale: the levels' spread Relief asks is a 128²'s, and on 48 tiles even a late rescue
+  // round's gentle land stood 10–12 levels; there it spreads by `ownScale`, and the rivers' incision and the hanging
+  // valleys' drop with it: cut a 128²'s 4 to 5 levels into 2.6 levels of land, Highlands 48² Hard seed 3's river ran in
+  // a straight-walled slot below the whole map)
   if (g.ownScale) {
     const k = Math.min(1, g.ownScale);
     g.top = g.base + (g.top - g.base) * k;
