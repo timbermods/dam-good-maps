@@ -60,6 +60,8 @@ const LIST: Entry[] = [
   ["riverValley", 96, 5],
   ["canyon", 128, 2],
   ["highlands", 96, 22, "vert70"],
+  // generator 0.10.27's land (written from dev at 12661aca), where forcePower's seed 4 was chosen; scenario-riverValley-128-4 holds 0.10.22's
+  ["riverValley", 128, 4, "v0.10.27"],
 ];
 
 // The browser specs' maps (tests/e2e, `openSaved`): each the map the page made of its fragment, saved with the generator

@@ -21,6 +21,8 @@ import { runGenerate } from "../../src/worker/api";
 import * as ed from "../../src/worker/session";
 import { strFromU8, unzipSync } from "fflate";
 import { fixture } from "./forceFixtures";
+import { fixtureInEditor } from "../fixtureEditor";
+import { fixtureSession } from "../fixtureProjects";
 
 type P = { x: number; y: number };
 
@@ -252,9 +254,9 @@ function cliffFeet(m: FullForceMap, drop: number): { foot: number; face: number 
 }
 
 describe("on generated maps (D281)", () => {
+  // (Highlands 128² seed 3 opens a saved fixture of the land it was written on (D148, the #1163 pattern); the generated land moves with the generator; Canyon's is generated)
   const mapOf = (theme: "canyon" | "highlands", seed: number) => {
-    const r = generate(makeSpec({ seed, theme, size: { x: 128, y: 128 } }));
-    const s = MapSession.fromGenerated(r);
+    const s = theme === "highlands" ? fixtureSession(theme, 128, seed) : MapSession.fromGenerated(generate(makeSpec({ seed, theme, size: { x: 128, y: 128 } })));
     return [theme, fullForceMapOf(s.built, { rockLayers: geology(s.openedHeights), lava: null, down: new Map(), usedIds: new Set() })] as const;
   };
   const maps = (["canyon", "highlands"] as const).map((theme) => mapOf(theme, 3));
@@ -356,8 +358,9 @@ const voxelsOf = (bytes: Uint8Array) => decodeWorld(strFromU8(unzipSync(bytes)["
 
 describe("Erode as an operation (D342)", () => {
   it("keeps the frame shown, undoes and redoes exactly, reopens and exports its voxels; Try another rolls again, each roll exact", async () => {
-    await runGenerate(makeSpec({ seed: 21, theme: "highlands", size: { x: 96, y: 96 } }));
-    ed.refine();
+    // (Highlands 96² seed 21: opens a saved fixture of the land it was written on (D148, the #1163 pattern); the generated land moves with the generator)
+    fixtureInEditor("highlands", 96, 21);
+    ed.settleWater();
     const before = ed.terrainNow();
     expect(before.terrain.columns.length).toBe(0);
     const W = 96;
