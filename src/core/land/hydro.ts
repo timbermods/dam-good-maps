@@ -674,8 +674,14 @@ function planHydroSingle(E: Float64Array, h: Uint8Array, g: Genome, seed: number
     }
     if (q0 < 0) return undefined;
     if (q0 === 0) return null;
+    for (let q = 10; q < q0; q++) if (borderDist(cells[q]) < 4) return undefined;
     for (let q = q0; q < Math.min(end, q0 + BESIDE.run); q++) {
       const c = cells[q];
+      // (the course kept and the tile joined stand 4 tiles off the map's edge too, as the link does and as a course's
+      // middle must: its last cells, spared for a course that ends by the edge, ended beside it here, and a tributary
+      // run down the edge into an inflow's mouth let the inflow's water back out by its edge; River Valley 256² seed 1's
+      // first map refused, 1 → 3 attempts)
+      if (q >= 10 && borderDist(c) < 4) return undefined;
       const o = src[c];
       const top = h[c];
       if (h[o] > top) continue;
@@ -692,7 +698,7 @@ function planHydroSingle(E: Float64Array, h: Uint8Array, g: Genome, seed: number
         if (h[i] > top || borderDist(i) < 4) { ok = false; break; }
         if (link[link.length - 1] !== i) link.push(i);
       }
-      if (!ok) continue;
+      if (!ok || borderDist(at) < 4) continue;
       return { cells: [...cells.slice(0, q + 1), ...link, at], joins: owner[at] };
     }
     return undefined;
@@ -700,7 +706,7 @@ function planHydroSingle(E: Float64Array, h: Uint8Array, g: Genome, seed: number
   const trace = (hd: Head, alongUp = false, mustJoin = natural && heads.length > 0): boolean => {
     if (heads.length >= maxHeads) return false;
     const k = heads.length;
-    let cells: number[] = [];
+    const cells: number[] = [];
     let c = hd.cell;
     let joins = -1;
     const guard = new Set<number>();
@@ -721,6 +727,36 @@ function planHydroSingle(E: Float64Array, h: Uint8Array, g: Genome, seed: number
       c = dr.rcv[c];
     }
     if (cells.length < (alongUp ? 8 : 12)) return false;
+    const take = (cells: number[], joins: number, toSea: boolean): boolean => {
+      // A default valley trunk crosses the land; a short corner course cannot stand for it.
+      if (natural && g.theme === "riverValley" && !g.hydro.exactInflows && !g.hydro.noInflows && !g.intentions.includes("upper-lower") && heads.length === 0) {
+        if (hd.kind !== "edge") return false;
+        let x0 = W, y0 = H, x1 = 0, y1 = 0;
+        for (const i of cells) { const x = i % W, y = Math.floor(i / W); x0 = Math.min(x0, x); x1 = Math.max(x1, x); y0 = Math.min(y0, y); y1 = Math.max(y1, y); }
+        if (Math.max(x1 - x0, y1 - y0) < 0.5 * side) return false;
+      }
+      if (mustJoin && (joins < 0 || cells.length < minTributary)) return false;
+      // M9b: a head below the spill of its own way down (a low point of an edge behind a ridge, or a
+      // spring below the rim of a hollow on its way) would have its channel cut up through the rise,
+      // and the water beyond would stand higher than where it begins: it could never flow that way
+      // (an inflow's water runs back out by the edge beside its mouth)
+      // (D357: down a long map a head may stand a level under the rise ahead of it, which its channel cuts through:
+      // the land falls the length of the map a level in a few dozen tiles, and a level's bump a few tiles in
+      // stopped every inflow at its edge, so the long map had no long river)
+      const rise = lengthwise ? 1 : 0;
+      if (drH && (dr.filled[hd.cell] - Er[hd.cell] > 0.5 + rise || drH.filled[hd.cell] > h[hd.cell] + rise)) return false;
+      // (a hollow on the way fills to its spill: above the head, its water would stand over the head)
+      if (spillAll) for (const c of cells) if (spillAll[c] > h[hd.cell] + rise) return false;
+      // (the Rivers setting's relaxed search: a shorter path, and one along an upstream edge, which
+      // does not drain)
+      for (let q = 10; q < cells.length - 10; q++) if ((alongUp ? drainDist(cells[q]) : borderDist(cells[q])) < 4) return false;
+      // (M9b: an inflow heads inland from its mouth, never along its edge first)
+      if (natural && hd.kind === "edge") for (let q = 1; q <= Math.min(8, cells.length - 1); q++) if (borderDist(cells[q]) < q >> 1) return false;
+      heads.push(hd);
+      for (const i of cells) if (owner[i] < 0) owner[i] = k;
+      traced.push({ k, head: hd, cells, joins, toSea });
+      return true;
+    };
     // (ruled water, planning's ruling of 2026-11-15: a course that runs beside one already traced, within `BESIDE.near`
     // tiles of it for `BESIDE.run` cells, joins it where that stretch begins, so the streams on one plain gather as a
     // land's do; River Valley 256² seed 9's three springs ran side by side down its floor like drawn lines)
@@ -728,40 +764,13 @@ function planHydroSingle(E: Float64Array, h: Uint8Array, g: Genome, seed: number
     if (natural && !g.seaLayout && heads.length > 0) {
       const met = besideJoin(cells);
       if (met === null) return false;
-      if (met) {
-        cells = met.cells;
-        joins = met.joins;
-        toSea = false;
-      }
+      // (a join the course's own rules refuse, a tributary cut under its length or a link along the edge, leaves the course
+      // as it ran: refused for the join, the head was lost and another taken in its place, and on Any 256² seed 6 one
+      // between the two systems led the second's water out by the first's edge, a leak; dev's first map refused, 2 → 4
+      // attempts)
+      if (met && take(met.cells, met.joins, false)) return true;
     }
-    // A default valley trunk crosses the land; a short corner course cannot stand for it.
-    if (natural && g.theme === "riverValley" && !g.hydro.exactInflows && !g.hydro.noInflows && !g.intentions.includes("upper-lower") && heads.length === 0) {
-      if (hd.kind !== "edge") return false;
-      let x0 = W, y0 = H, x1 = 0, y1 = 0;
-      for (const i of cells) { const x = i % W, y = Math.floor(i / W); x0 = Math.min(x0, x); x1 = Math.max(x1, x); y0 = Math.min(y0, y); y1 = Math.max(y1, y); }
-      if (Math.max(x1 - x0, y1 - y0) < 0.5 * side) return false;
-    }
-    if (mustJoin && (joins < 0 || cells.length < minTributary)) return false;
-    // M9b: a head below the spill of its own way down (a low point of an edge behind a ridge, or a
-    // spring below the rim of a hollow on its way) would have its channel cut up through the rise,
-    // and the water beyond would stand higher than where it begins: it could never flow that way
-    // (an inflow's water runs back out by the edge beside its mouth)
-    // (D357: down a long map a head may stand a level under the rise ahead of it, which its channel cuts through:
-    // the land falls the length of the map a level in a few dozen tiles, and a level's bump a few tiles in
-    // stopped every inflow at its edge, so the long map had no long river)
-    const rise = lengthwise ? 1 : 0;
-    if (drH && (dr.filled[hd.cell] - Er[hd.cell] > 0.5 + rise || drH.filled[hd.cell] > h[hd.cell] + rise)) return false;
-    // (a hollow on the way fills to its spill: above the head, its water would stand over the head)
-    if (spillAll) for (const c of cells) if (spillAll[c] > h[hd.cell] + rise) return false;
-    // (the Rivers setting's relaxed search: a shorter path, and one along an upstream edge, which
-    // does not drain)
-    for (let q = 10; q < cells.length - 10; q++) if ((alongUp ? drainDist(cells[q]) : borderDist(cells[q])) < 4) return false;
-    // (M9b: an inflow heads inland from its mouth, never along its edge first)
-    if (natural && hd.kind === "edge") for (let q = 1; q <= Math.min(8, cells.length - 1); q++) if (borderDist(cells[q]) < q >> 1) return false;
-    heads.push(hd);
-    for (const i of cells) if (owner[i] < 0) owner[i] = k;
-    traced.push({ k, head: hd, cells, joins, toSea });
-    return true;
+    return take(cells, joins, toSea);
   };
   // edge inflows: low points of the upstream edges with long paths inland. When the player set the
   // Rivers setting, that many rivers enter (PLAN §5.3): if the first search finds too few, shorter
