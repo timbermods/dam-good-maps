@@ -91,7 +91,7 @@ Read this index, then [how-we-work.md](how-we-work.md), then only the topic file
 
 ## [The generator](generator.md)
 
-- D(water-tree): Above 128² the water is a tree: a few larger rivers, the water split by drained area, heads where water gathers, wider below each join
+- D(water-tree): Above 128² the water is a tree: dev's water re-ordered, each course as wide as its water and wider below each join
 - D(ruled-water): No course runs beside another: it joins the one it would run beside; Delta's arms step diagonally
 - D(new-leaks): A course's water leaves only by its own way: pools only inside banks that hold them, never a raised lip; nothing beside a course lowered under its water; Delta courses join the fan by plan; no channel left under its reach downstream
 - D527: Every move of a generator control changes the next map, or the control is greyed with its reason

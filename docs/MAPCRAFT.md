@@ -186,28 +186,21 @@ a premise or one still to come, may carry its own, lower playability floor.
   curving shore still counts as straight under an 8-tile strip, so the share is a relative measure, not a limit; the
   game's own maps have not been run.
 - **The water tree** (D(water-tree), planning's ruling of 2026-11-15): `tools/water-tree.ts` reads each map's drainage
-  as a tree: courses (heads that bring water), joins and whether the course below is a tile or more wider than both
-  arms (medians over 4–20 tiles; a head on another's water, or a join under 4 tiles from a way out, is not read),
-  courses alone to the edge or the sea, the wet share on day 1, irrigable dry (dry land within a 24-tile canal of a
-  course's clean water and at most 2 levels above it) and width by order. `--json` writes the rows;
-  `tools/water-tree-sheet.py` lays before and after out with the start's numbers first, on `tools/ruled-water.ts
-  --frames --plain` frames. Round 2 also reads joins through a lake (the paths ending in one lake against its outlet's
-  stretch below it) and the start's own water (trunk, tributary, lake, sea or other). The 42 maps at 256² and River
-  Valley 9, 0.10.28 → 0.10.30: courses 8.8 → 5.3, wider below 39 → 76 %, wet 30.2 → 24.2 %, irrigable dry 8.2 →
-  6.8 %, attempts 173 → 132, leaks 38 → 27. Irrigable dry comes mostly from courses 4 tiles wide or less (56 % of it
-  before the tree), the courses the tree removes: at most 6, 7 and 8 courses it reads 6.9, 7.2 and 7.3 % (8.7 % before,
-  seeds 1–3), so the course count (rule 3) and irrigable dry (rule 5) pull against each other. Round 3 (rule 5 wins;
-  rule 3 is order) adds brooks 2 wide toward the land farthest from the water and reads order (trunks, tributaries,
-  brooks) and the sea only where a lake runs along a quarter of the border. Against dev 0.10.25, generator 0.10.31:
-  irrigable dry 8.5 → 8.5 %, alone (not Islands) 5 → 1, attempts 209 → 224, leaks 40 → 43, `plants.drought` 13 → 26:
-  the brooks buy irrigable dry with attempts and the start's drought. Round 4 (0.10.32) takes a brook's water out of its
-  basin's budget, keeps the start on dry land that stays moist through the drought, and gives a basin with no course one
-  of its own; the tool reads the total source strength and Delta's fan. Pools sit where the water makes them, 5 to 7
-  channel widths apart. Against dev 0.10.27 (0.10.33): irrigable dry 9.2 → 8.4 %, attempts 200 → 176, leaks 10 → 18,
-  `plants.drought` 13 → 14, Delta's fan 6 of 6. Round 5 (0.10.34) re-orders dev's water without redistributing it: dev's
-  heads and flows, a course wider below a join by the water it brings (2 tiles more where one half as wide or more
-  joins); the tree's own heads and water are `TREE_PARTS.springs` (off), its pools `TREE_PARTS.pools` (on). Against dev
-  0.10.27: wet 31.2 → 30.7 %, irrigable dry 9.2 → 9.2 %, attempts 200 → 152, leaks 10 → 10, `plants.drought` 13 → 7.
+  as a tree: courses (heads that bring water), joins and whether the course below is a tile or more wider than both arms
+  (medians over 4–20 tiles; a head on another's water, or a join under 4 tiles from a way out, is not read), courses
+  alone to the edge or the sea, the wet share on day 1, irrigable dry (dry land within a 24-tile canal of a course's
+  clean water and at most 2 levels above it) and width by order. `--json` writes the rows; `tools/water-tree-sheet.py`
+  lays before and after out with the start's numbers first, on `tools/ruled-water.ts --frames --plain` frames. Round 2
+  also reads joins through a lake (the paths ending in one lake against its outlet's stretch below it) and the start's
+  own water (trunk, tributary, lake, sea or other); round 3 reads order (trunks, tributaries, and brooks at a median
+  width of 2.5 or less) and the sea only where a lake runs along a quarter of the border; round 4 the total source
+  strength and Delta's fan (the most border ways out of one system, its mouths left out). The tree on dev is the order
+  alone: dev's heads and flows, each course as wide as its water and wider below each join (2 tiles more where one half
+  as wide or more joins), measured once against dev with D(ruled-water) in. Its own heads and water (rounds 1–4: fewer
+  heads seated where water gathers, the split by drained area, brooks toward the land farthest from the water), its
+  pools and its rough wide banks come later on branch `gen/water-tree-parts`: they showed that the heads' count and
+  irrigable dry pull against each other (at most 6 courses read 6.9 % irrigable dry against 8.7 %, the courses 4 tiles
+  wide or less holding 56 % of it), and the brooks bought it back with attempts and the start's drought.
 
 **Land first, story second** (planning's ruling of 2026-11-11, for every path: themes, premises, hand maps). Every
 landform is one geology makes, shaped by the shared natural relief. A premise is found in or cut into natural land by a

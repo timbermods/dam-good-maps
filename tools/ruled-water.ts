@@ -524,8 +524,6 @@ export interface MapRecord {
   refusals: string[][];
   ruledLand: string;
   start: Record<string, { value: number; limit: number; ok: boolean }>;
-  /** On the water tree, the pools' spacing along each level reach, in channel widths (D(water-tree) round 4). */
-  poolGaps?: number[];
 }
 
 function genOne(theme: ThemeId, seed: number, size: number, out: string): void {
@@ -551,7 +549,6 @@ function genOne(theme: ThemeId, seed: number, size: number, out: string): void {
     refusals: r.failures.map((f) => f.failed),
     ruledLand: ruled ? `${ruled.ok ? "pass" : "FAIL"} ${ruled.message}` : "",
     start,
-    ...(r.info.hydro?.poolGaps ? { poolGaps: r.info.hydro.poolGaps } : {}),
   };
   writeFileSync(join(out, `${theme}-${seed}.timber`), r.bytes);
   writeFileSync(join(out, `${theme}-${seed}.json`), JSON.stringify(rec));

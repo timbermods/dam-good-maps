@@ -64,7 +64,7 @@ import { edgeLip, LIP_REACH } from "../water/edgeLip";
 import { springCandidates } from "../water/springSites";
 import { orientationOf, orientDir, orientField, orientXY, type Orientation as LandOrientation } from "../land/orient";
 import { mapShape, startAlong } from "../land/shape";
-import { planHydro, TREE_PARTS, type Hydro } from "../land/hydro";
+import { planHydro, type Hydro } from "../land/hydro";
 import { ACTIVE, checkIntention, INTENTION_TEXT, type IntentionId } from "../land/intentions";
 import type { FormPlan, FormsWanted } from "../land/forms3d";
 import { carveOutlets, widenOutlets, unreachedLakes, cleanPitsAndSpikes, contourField, fillDryHollows, footComponents, mergeSmallRegions, naturalRamps, relaxEdges, snapLevels } from "../land/levels";
@@ -234,9 +234,8 @@ export interface GenerationInfo {
   /** The shown land's outcomes read on the water its rivers were planned with (the theme's promise,
    *  a readable water story), before its water settled: what the land-stage screen judged. */
   planned?: { promise: boolean; water: boolean; island?: number };
-  /** Rivers, lakes, falls, splits and deltas the hydrology planned; on the water tree the pools' spacing along each level
-   *  reach, in channel widths (D(water-tree) round 4). */
-  hydro: { rivers: number; lakes: number; falls: number; splits: number; deltas: number; poolGaps?: number[] } | null;
+  /** Rivers, lakes, falls, splits and deltas the hydrology planned. */
+  hydro: { rivers: number; lakes: number; falls: number; splits: number; deltas: number } | null;
   start: StartPick | null;
   /** The longest straight channel bank and canal (D209). */
   straight: { run: number; canal: number; wave: number } | null;
@@ -1852,7 +1851,7 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
     genomes: 0,
     genome: g,
     settles: 0,
-    hydro: { rivers: hy.rivers.length, lakes: hy.lakes.length, falls: hy.falls.length, splits: hy.arms.filter((a) => a.kind === "split").length, deltas: hy.arms.filter((a) => a.kind === "mouth").length, ...(hy.poolGaps?.length ? { poolGaps: hy.poolGaps } : {}) },
+    hydro: { rivers: hy.rivers.length, lakes: hy.lakes.length, falls: hy.falls.length, splits: hy.arms.filter((a) => a.kind === "split").length, deltas: hy.arms.filter((a) => a.kind === "mouth").length },
     start: null,
     straight: null,
     storage: null,
@@ -2039,7 +2038,7 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
     const lengthwise = mapShape(W, H).long;
     const prefer = lengthwise ? (x: number, y: number, L: number, w: number) => intended(x, y, L, w) + SHAPE_PULL * startAlong(spec.theme, x, y, W, H) : intended;
     const rng = stream(seed, "settler2", attempt, salt);
-    return pickStart(h, W, H, { depth: D, contamination: C, moisture: M }, hy, g.settler, rng, stageRule, { prepared, avoid, kept, drought: policy, prefer, foodFirst: !!hy.tree && TREE_PARTS.springs, foot, minFoot, footWant, moistWalk: { min: moistWant }, room, bench, benchMin, storage, near, level: allowLevel, ...(ease >= 2 ? { levelReach: Math.min(3, 1 + Math.floor(ease / 2)) } : {}), ...(ease >= 3 ? { margin: Math.max(5, Math.round(Math.min(W, H) * 0.08)) } : {}), ...(ease >= 1 ? { waterExact: true } : {}), ...(stageEasy ? { easy: stageEasy } : {}) });
+    return pickStart(h, W, H, { depth: D, contamination: C, moisture: M }, hy, g.settler, rng, stageRule, { prepared, avoid, kept, drought: policy, prefer, foot, minFoot, footWant, moistWalk: { min: moistWant }, room, bench, benchMin, storage, near, level: allowLevel, ...(ease >= 2 ? { levelReach: Math.min(3, 1 + Math.floor(ease / 2)) } : {}), ...(ease >= 3 ? { margin: Math.max(5, Math.round(Math.min(W, H) * 0.08)) } : {}), ...(ease >= 1 ? { waterExact: true } : {}), ...(stageEasy ? { easy: stageEasy } : {}) });
   };
   const levelStart = (p: StartPick) => {
     if (!p.levelled) return;
