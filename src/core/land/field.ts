@@ -63,8 +63,8 @@ export function outlineOf(s: number): Outline {
 }
 
 /** How far a round form reaches from its middle, in radii, at the most `FORM_ROUGH` roughness: `formDistance` is 1 or
- *  more past it (the roughness and the warp at their extremes, the lobes at none). */
-export const FORM_REACH = 2;
+ *  more past it (the roughness, the warp and the lobes at their extremes: 1.21 × 1.6 + 0.25). */
+export const FORM_REACH = 2.25;
 /** The most roughness a form's radius takes (a share of it, by noise). */
 export const FORM_ROUGH = 0.6;
 
@@ -79,7 +79,9 @@ function formDistance(x: number, y: number, cx: number, cy: number, r: number, s
   const dx = x - cx + 0.25 * r * fbm(s + 11, x, y, cell, 2);
   const dy = y - cy + 0.25 * r * fbm(s + 12, x, y, cell, 2);
   const t = pseudoAngle(dx, dy);
-  const lobes = 1 - o.a1 * (0.5 + 0.5 * sinDet(TWO_PI * (o.k1 * t + o.p1))) - o.a2 * (0.5 + 0.5 * sinDet(TWO_PI * (o.k2 * t + o.p2)));
+  // (the waves swing about the radius, out at the points as far as in at the bays: 0.10.36; waves that only cut in left
+  // every form a sixth narrower, and the mesas and buttes a high Verticality raises stood in fewer cliffs)
+  const lobes = 1 - 0.5 * o.a1 * sinDet(TWO_PI * (o.k1 * t + o.p1)) - 0.5 * o.a2 * sinDet(TWO_PI * (o.k2 * t + o.p2));
   const n = fbm(s + 13, x, y, Math.max(4, r * 0.55), 3);
   return portable.sqrt(dx * dx + dy * dy) / (r * lobes * (1 + rough * n));
 }
