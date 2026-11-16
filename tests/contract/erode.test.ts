@@ -282,8 +282,8 @@ describe("on generated maps (D281)", () => {
   /** Highlands 4's map with a fin raised on it, as a player raises one: six levels over a dry, level strip three tiles
    *  thick and nine long, nothing standing on or beside it. */
   const finMap = () => {
-    const r = generate(makeSpec({ seed: 4, theme: "highlands", size: { x: 128, y: 128 } }));
-    const s = MapSession.fromGenerated(r);
+    // (opens Highlands 128² seed 4 as a saved fixture of the land it was written on (D148, the #1163 pattern, #1205): the generated land moves with the generator)
+    const s = fixtureSession("highlands", 128, 4);
     const { W, H, heights: h, water } = s.built;
     const near = new Set<number>();
     for (const e of s.built.entities) for (let dy = -2; dy <= 2; dy++) for (let dx = -2; dx <= 2; dx++) near.add((e.y + dy) * W + e.x + dx);

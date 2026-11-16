@@ -17,7 +17,7 @@ import { bottomRunTop, ColumnTerrain, isPlainMask, terrainColumns } from "../../
 const sha = (b: Uint8Array) => createHash("sha256").update(b).digest("hex");
 
 let made: ReturnType<typeof generate> | null = null;
-/** Canyon 96² seed 2 at Verticality 80, made once. (Seed 2 since generator 0.10.27, D(new-leaks): a course's water leaves only
+/** Canyon 96² seed 3 at Verticality 80, made once. (Seed 2 → 3 at generator 0.10.36: spring caves and the arch gone from 2's land (#1205); of seeds 1–16 seeds 3, 4, 9, 11 and 12 keep both, seed 3 the first.) (Seed 2 since generator 0.10.27, D(new-leaks): a course's water leaves only
  *  by its own way, so the land moved, D148: seed 9 keeps its spring caves but no arch; of seeds 1–16 seeds 2, 8 and 11 keep spring
  *  caves and an arch and pass the whole file, seed 2 the first.) (Seed 9 since generator 0.10.22, the settings keeping their promises, D148:
  *  Verticality away from the theme's own leans the grade, sheerer at 80, and seed 2 keeps its spring caves but no arch; of
@@ -30,14 +30,14 @@ let made: ReturnType<typeof generate> | null = null;
  *  that keeps both, arches kept on 3 of them (5, 6 and 8), 4 in all; seed 6 as it was.) */
 function canyonForms(): ReturnType<typeof generate> {
   if (made) return made;
-  const spec = makeSpec({ seed: 2, theme: "canyon", size: { x: 96, y: 96 } });
+  const spec = makeSpec({ seed: 3, theme: "canyon", size: { x: 96, y: 96 } });
   spec.settings.terrain.verticality = 80;
   made = generate(spec);
   return made;
 }
 
 describe("a generated map's 3D forms (D488)", () => {
-  it("Canyon 96² seed 2 at Verticality 80: spring caves and an arch, stacked water, the project reopens to the same file", () => {
+  it("Canyon 96² seed 3 at Verticality 80: spring caves and an arch, stacked water, the project reopens to the same file", () => {
     const r = canyonForms();
     expect(r.report.passed).toBe(true);
     const kept = r.intentions.filter((x) => x.ok && FORMS.includes(x.id as FormId)).map((x) => x.id);
@@ -146,7 +146,7 @@ describe("a generated map's 3D forms (D488)", () => {
   });
 
   it("at Verticality 0 the same map grows none", () => {
-    const spec = makeSpec({ seed: 2, theme: "canyon", size: { x: 96, y: 96 } });
+    const spec = makeSpec({ seed: 3, theme: "canyon", size: { x: 96, y: 96 } });
     spec.settings.terrain.verticality = 0;
     const r = generate(spec);
     expect(r.intentions.filter((x) => FORMS.includes(x.id as FormId))).toEqual([]);

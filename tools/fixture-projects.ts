@@ -27,7 +27,7 @@ const LIST: Entry[] = [
   ["highlands", 96, 3, "noforms"],
   ["highlands", 96, 57, "noforms"],
   ["highlands", 96, 4],
-  ...[1, 3, 7, 26, 28].map((seed): Entry => ["highlands", 128, seed]),
+  ...[1, 3, 4, 7, 26, 28].map((seed): Entry => ["highlands", 128, seed]),
   // River Valley
   ...[11, 12].map((seed): Entry => ["riverValley", 48, seed]),
   ...[1, 2, 3, 4, 5, 7, 11, 13, 22, 29].map((seed): Entry => ["riverValley", 64, seed]),
@@ -97,6 +97,7 @@ const PAGE: string[] = [
   "s=8&z=128&d=n&t=canyon",
   "s=1&z=96&d=n&t=islands",
   "s=7&z=128&d=n&t=islands",
+  "v=0.10.5&s=740973&t=riverValley&z=64x256&d=n&vt=69", // succulentPaint.test.ts: a 64x256 map (land written from dev at 664754403, generator 0.10.29)
 ];
 
 /** Each fixture: its file's name, and the map's spec and whether it has 3D forms. */
