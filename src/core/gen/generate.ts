@@ -371,7 +371,7 @@ interface Land {
   settles: number;
   /** The last plan on it joined a course to one beside it, or refused one (ruled water, hydro.ts `BESIDE`). */
   joined?: boolean;
-  /** Plan its water without the joins, as before them. */
+  /** Plan its water without the joins (on the genome as the refused plan left it). */
   joinsOff?: boolean;
 }
 
@@ -800,10 +800,12 @@ function attemptRound(specIn: MapSpec, optsIn: GenerateOptions, t0: number, roun
     let shownJoined = false;
     let a = attemptOnce(specIn, land, attempt, { ...opts, maxAttempts: max, onLand: l => { shownJoined = true; lands++; opts.onLand?.(l); } }, t0, null, screened);
     // (ruled water: a join never costs a land. A plan whose joins the land refuses, on any check, is planned again on the
-    // same land without them, as before the joins: a joined course took a land's water another way, and the land refused
+    // same land without them: a joined course took a land's water another way, and the land refused
     // drew another, whose start, water and irrigable land were the draw's; Any 256² seed 4's first lands that passed before
     // it settled no more (8 → 13 attempts, two of the five more refused as leaks), Canyon 5's and Highlands 4's missed a
-    // promise or their start. The second plan's screening and settles stand as before it. A land once shown stays the map,
+    // promise or their start. The second plan's screening count and dry tally are put back as they were before the first;
+    // its genome is the one the first left, so a Canyon whose joined plan missed its promise is planned again already
+    // incised a level deeper on a lower floor (the promise screen's own step), not as dev plans it. A land once shown stays the map,
     // D348: its later failures are planned again on it as any land's)
     if (!a.passed && land.joined && !shownJoined) {
       screened.count = screenedAt.count;
