@@ -35,9 +35,12 @@ const N = W * W;
  *  and 12 have it; seed 1's glaciate leaves a jump in its water and seed 6's crater draws no cave water; seed 9 is the first that passes here. The caves map was seed 2 since generator 0.10.21's look round (D518: the land's long straight steps jog, the dead stands read the dry land as the checks do), D148: seed 1's glaciate leaves a jump in the water under its rock; of seeds 2–12 seeds 2, 6, 7, 9, 10 and 12 pass, seed 2 the first. Seed 3 for 4242 since generator 0.10.17's start floors (D515), D148: seed 4242's map has caves now, and the
  *  first dry spot beside its river, (32, 54), is a roof, where the game keeps no source; of seeds 1–12, seeds 3, 5–10 and 12
  *  have no caves and a spot that takes one, seed 3's at (66, 54).) */
+// (the caves map: seed 2 → 8 at 0.10.29 (#1186), D148: the disc's land (the weathering's disc of the square's area, the washes' brush and swing) leaves seed 2's crater no
+// cave water to draw; of seeds 1 and 3–12 at verticality 70, 1 and 3–7 have no stacked water, the craters of 9–12 draw no cave
+// water, and seed 8 passes)
 async function open(caves = false): Promise<{ river: [number, number]; ground: Uint8Array }> {
   ed.forceCancel();
-  const spec = makeSpec({ seed: caves ? 2 : 3, theme: "riverValley", size: { x: W, y: W } });
+  const spec = makeSpec({ seed: caves ? 8 : 3, theme: "riverValley", size: { x: W, y: W } });
   if (caves) spec.settings.terrain.verticality = 70;
   await runGenerate(spec);
   ed.refine();

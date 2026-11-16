@@ -93,8 +93,11 @@ import * as ed from "../../src/worker/session";
 // `e59d652e…` before generator 0.10.26's ruins to within a column (D527: its last field gives back the columns it grew past
 // the scrap asked: its ruins moved, D148);
 // `7084a1df…` before generator 0.10.27, D(new-leaks): a course's water leaves only by its own way, so its land is new: made
-// on its first attempt instead of its third, every check passing, D148)
-const LIVE_SHA = "4a6c66b0a42d0c188b9c143f313c6777e6138848a84bd2d9cde43612dd2ffa02";
+// on its first attempt instead of its third, every check passing, D148);
+// `4a6c66b0…` before generator 0.10.29 (#1186): not the version alone (at 0.10.27 the branch gives `93e7ebed…`): the
+// weathering's disc of the square's area and the washes' brush and swing move its land, made on its first attempt, every
+// check passing, D148)
+const LIVE_SHA = "c58f6dbdefb8776fdc39ed9f5c5d357f7c9fb82cd30187cafaf97c1df59e541d";
 const spec = () => makeSpec({ seed: 4242, size: { x: 128, y: 128 }, theme: "riverValley", designedFor: "normal" });
 
 describe("mine sites and ruins, models of our own", () => {

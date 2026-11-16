@@ -33,8 +33,9 @@ describe("picking a first-visit map", () => {
 });
 
 describe("the deploy's checks on a first-visit map", () => {
-  // (seed 5 on M9b's maps, D148: canyon seeds 1, 3, 4, 9 and 10 miss one of the three outcomes there; 5 meets them all, and 2, the map it must not reopen as, is another)
-  const r = generate(makeSpec({ seed: 5, theme: "canyon", size: { x: 96, y: 96 } }));
+  // (seed 5 on M9b's maps, D148: canyon seeds 1, 3, 4, 9 and 10 miss one of the three outcomes there; 5 meets them all, and 2, the map it must not reopen as, is another;
+  // seed 5 → 6 at 0.10.29 (#1186), D148: the disc's land (the weathering's disc of the square's area, the washes' brush and swing) misses Canyon 5's promise; seed 6, the nearest, meets all three, as do 3 and 7–10 of seeds 1–10)
+  const r = generate(makeSpec({ seed: 6, theme: "canyon", size: { x: 96, y: 96 } }));
   // (the project file as the tool writes it: with the map stored, so it opens without rebuilding, D367)
   const project = MapSession.fromGenerated(r).project();
 
