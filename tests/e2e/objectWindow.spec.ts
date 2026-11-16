@@ -4,7 +4,7 @@
 // the Badwater caption shows its colours as swatches.
 
 import { expect, test, type Page } from "@playwright/test";
-import { openEditor, topDown } from "./open";
+import { openEditor, openSaved, topDown } from "./open";
 
 const info = (page: Page) => page.evaluate(() => window.dgmEditor!.info());
 const idle = (page: Page) => page.evaluate(() => window.dgmEditor!.idle());
@@ -80,7 +80,9 @@ test("the object window has sliders with their values and segmented choices, nev
 });
 
 test("trees, bushes and thorns have Size and Density, a tree an Age, and none a Turn; a drag follows them", async ({ page }) => {
-  await openEditor(page, "s=1&z=96&d=n&t=riverValley");
+  // (saved since generator 0.10.36, D148: on its land the stroke's ground already held as many pines as a sparse stroke asks
+  // for, so it planted none; the saved map keeps the ground this was written on)
+  await openSaved(page, "s=1&z=96&d=n&t=riverValley");
   await topDown(page);
   const shelf = page.getByRole("navigation", { name: "Place" });
   const names = async (what: string) => page.getByRole("group", { name: what }).locator(".ow-name").allTextContents();
