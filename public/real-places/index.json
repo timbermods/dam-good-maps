@@ -155,8 +155,8 @@
    "metres": 30,
    "data": "data/colca-canyon.json.gz",
    "image": "cards/colca-canyon.jpg",
-   "bytes": 192337,
-   "sha256": "7c622076570068d0750c01f1d37440e6b47ed244801502548b848123676eabfc",
+   "bytes": 161260,
+   "sha256": "b3a9dfbb9aed3c9a6a272fdb968c22dc2fa95d02f758ba072bbcbc021671ec82",
    "faults": []
   },
   {
@@ -257,11 +257,9 @@
    "metres": 120,
    "data": "data/death-valley.json.gz",
    "image": "cards/death-valley.jpg",
-   "bytes": 215129,
-   "sha256": "3c971425c6f8b1c6d02f88546684e504973066f7765c9d0616234d0032a92afb",
-   "faults": [
-    "water.source_in_flow"
-   ]
+   "bytes": 132782,
+   "sha256": "6e1b90e135445329d533fa0ad103a4ab11e5308ea5a37ac9d0b1644ccc0939e6",
+   "faults": []
   },
   {
    "id": "geirangerfjord",
@@ -317,11 +315,9 @@
    "metres": 120,
    "data": "data/phong-nha.json.gz",
    "image": "cards/phong-nha.jpg",
-   "bytes": 209832,
-   "sha256": "7a637e3251f06171d3b290984056ce415a90b7640e12a732b3216eb53d935220",
-   "faults": [
-    "water.source_in_flow"
-   ]
+   "bytes": 206840,
+   "sha256": "9dc8c7b27a24e74aeff97df430fcb4e86bb69e4fc7c4b86eb0da3e261fa69d87",
+   "faults": []
   },
   {
    "id": "english-lake-district",
@@ -333,11 +329,9 @@
    "metres": 60,
    "data": "data/english-lake-district.json.gz",
    "image": "cards/english-lake-district.jpg",
-   "bytes": 192792,
-   "sha256": "80f4d73ad62dafb9165cd78003d32f71d13c9bc2b23096cae53b53157c23ae46",
-   "faults": [
-    "start.water"
-   ]
+   "bytes": 195662,
+   "sha256": "2ba8054a8a329e890fd513e47d6e0576b797fdc1f9b4597fcff4b3a65fd9cff3",
+   "faults": []
   },
   {
    "id": "uvac-river",
@@ -409,8 +403,8 @@
    "metres": 30,
    "data": "data/drumheller.json.gz",
    "image": "cards/drumheller.jpg",
-   "bytes": 98297,
-   "sha256": "b61c8b4e234bef7567c4f5487a565e6f2f93342ceda9ddcc4fbd409317a539d3",
+   "bytes": 78846,
+   "sha256": "01ad0f5b207a279f6af9975009e1adf5c45fe620e919d1c418dc1d32f0f61473",
    "faults": []
   },
   {
@@ -996,8 +990,8 @@
    "metres": 30,
    "data": "data/blue-mountains-jamison.json.gz",
    "image": "cards/blue-mountains-jamison.jpg",
-   "bytes": 106698,
-   "sha256": "b40899d56404afdd96ced56f1184503be3f94f1208cb4c0afc7175be1ada3455",
+   "bytes": 138759,
+   "sha256": "ff83abe1b0ac5947982731f23f82a1860a2572b0bbc199a3e7994bc9b0d964ce",
    "faults": []
   },
   {
@@ -1024,8 +1018,8 @@
    "metres": 30,
    "data": "data/atacama-fan.json.gz",
    "image": "cards/atacama-fan.jpg",
-   "bytes": 107436,
-   "sha256": "98fc8a014bb8d91980fc4066cfc01a9f428ed953262ce2ba25b668de8b6f353b",
+   "bytes": 106313,
+   "sha256": "7add1d2d0f27f36b021c3037c770fcecc323f50d300ba842c79fe6bc9c7ab049",
    "faults": []
   },
   {
@@ -1070,8 +1064,8 @@
    "metres": 30,
    "data": "data/todgha-gorge.json.gz",
    "image": "cards/todgha-gorge.jpg",
-   "bytes": 113650,
-   "sha256": "267312873e210cbff0697b27b6beb38035aba42b549ddf6d80d57826131399a2",
+   "bytes": 113790,
+   "sha256": "fca486d69ba94d9f370729366406ba1b4e525e63057d572e6eca5dafad2fdf60",
    "faults": []
   },
   {
@@ -1193,8 +1187,8 @@
    "metres": 30,
    "data": "data/mount-taranaki.json.gz",
    "image": "cards/mount-taranaki.jpg",
-   "bytes": 167778,
-   "sha256": "bfc0cf5e7bc14913f36ead502f1c55edb0d836a20fdfc404c7f6951af1d88e01",
+   "bytes": 162648,
+   "sha256": "c3e745021632fa68df8aca2a9572885eec83c77c7030874b5da7936c36aa735c",
    "faults": []
   },
   {
@@ -1221,8 +1215,8 @@
    "metres": 60,
    "data": "data/iguazu-falls.json.gz",
    "image": "cards/iguazu-falls.jpg",
-   "bytes": 253512,
-   "sha256": "d3cb31001a04cd082587af2876f263f18b6c436e1a2f26ea1a0f46a4ad786c2e",
+   "bytes": 270742,
+   "sha256": "1742abe230ead524ce4f7a3c7cc3c2da0996af081e07a7d02cd3f6ccdbcf2af4",
    "faults": [
     "water.source_in_flow"
    ]
@@ -1311,8 +1305,8 @@
    "metres": 30,
    "data": "data/capitol-reef.json.gz",
    "image": "cards/capitol-reef.jpg",
-   "bytes": 120789,
-   "sha256": "7ce04e0d3d12986ae56238a60dd17b92e81d8444261ecec9ef848d99612b6b9a",
+   "bytes": 122205,
+   "sha256": "187fdef9591c4d809de149a2d0857aa68a2c8bfa57c0cb1bddafa2fc28678ef6",
    "faults": []
   },
   {

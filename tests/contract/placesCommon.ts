@@ -48,9 +48,8 @@ export const PLACES_WATER_KEEPS_MOVING = new Set([
  *  sources with no head within 20 tiles and merges that move the depth below too far.
  *  The list only shrinks. */
 export const PLACES_SOURCES_IN_FLOW = new Set([
-  "chocolate-hills", "geirangerfjord", "glencoe", "iguazu-falls", "kenai-aialik-bay", "lofoten",
-  "mamore-river", "mount-fuji", "niagara-falls", "roaring-river-fan", "sete-cidades", "taklimakan-kunlun-fan",
-  "twelve-apostles",
+  "chocolate-hills", "geirangerfjord", "glencoe", "iguazu-falls", "kenai-aialik-bay", "lofoten", "mamore-river",
+  "mount-fuji", "niagara-falls", "roaring-river-fan", "sete-cidades", "taklimakan-kunlun-fan", "twelve-apostles",
 ]);
 
 /** A mine site on every map (Kyler, 2026-09-25): the places as converted for real-places-done have
@@ -71,8 +70,8 @@ export const PLACES_LACK_BADWATER = true;
  *  works), and these fall below the floor (`start.wood_floor`, the same). Real places 2 plants for
  *  both, in varied, natural ways (D229), and empties the lists. */
 export const PLACES_SHORT_OF_WOOD = new Set([
-  "alaknanda-and-bhagirathi", "brahmaputra-near-majuli", "chocolate-hills", "colorado-plateau",
-  "godavari-delta", "kenai-aialik-bay", "li-river-yangshuo",
+  "alaknanda-and-bhagirathi", "brahmaputra-near-majuli", "chocolate-hills", "colorado-plateau", "godavari-delta",
+  "kenai-aialik-bay", "li-river-yangshuo",
 ]);
 export const PLACES_BELOW_THE_FLOOR = new Set([
   "alaknanda-and-bhagirathi", "brahmaputra-near-majuli", "colorado-plateau", "godavari-delta",
@@ -89,8 +88,7 @@ export const PLACES_BELOW_THE_FLOOR = new Set([
  *  and one that had water on the sealed land got a spring by it (tools/real-places.ts). Real places
  *  2 gives the rest their water (D300) and empties the list. */
 export const PLACES_START_WITHOUT_FED_WATER = new Set([
-  "cliffs-of-moher", "deccan-plateau", "english-lake-district", "fish-river-canyon", "glencoe", "iguazu-falls",
-  "ngorongoro", "niagara-falls", "phong-nha", "twelve-apostles", "yosemite-valley",
+  "fish-river-canyon", "glencoe", "ngorongoro", "twelve-apostles", "yosemite-valley",
 ]);
 
 /** Plants that die (D385): the conversion planted these places' trees and bushes on ground the
