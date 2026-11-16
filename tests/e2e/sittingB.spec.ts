@@ -5,7 +5,7 @@
 // and every thing's hover readout (B11).
 
 import { expect, test, type Page } from "@playwright/test";
-import { openEditor } from "./open";
+import { openSaved } from "./open";
 
 const info = (page: Page) => page.evaluate(() => window.dgmEditor!.info());
 const idle = (page: Page) => page.evaluate(() => window.dgmEditor!.idle());
@@ -14,7 +14,8 @@ const client = (page: Page, x: number, y: number) => page.evaluate(([a, b]) => w
 
 async function open(page: Page, hash = "s=9&z=96&d=n&t=riverValley") {
   await page.setViewportSize({ width: 1400, height: 900 });
-  await openEditor(page, hash);
+  // (saved, D148: generator 0.10.29's land moved ROOMY's flat, dry ground; the saved map keeps the land these were written on)
+  await openSaved(page, hash);
   await page.waitForTimeout(600);
 }
 
