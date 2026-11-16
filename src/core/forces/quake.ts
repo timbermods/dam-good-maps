@@ -4,7 +4,8 @@
 // faults notch the crest); Slide carries the chosen side 3–20 tiles along the fault's own direction where
 // each part of it lies (a straight fault's one heading; a curved one's, bending with it) while the
 // other bank stays (where level ground slides along level ground and nothing would show, the ground
-// splits along the fault instead, a level up and down, D356), and
+// splits along the fault instead, a level up and down, D356, as it does under a Lift on the map's edge whose
+// raised side lies off the map: any quake that changes fewer than 9 tiles), and
 // a river that crossed the fault is joined again along it. Power sets the throw and how far past the drawn line
 // it reaches (`liftReach`, quakeMargin); Sheer or Stepped scarp; Try another (another personality: the tilt, the crack's roughness).
 // Objects ride with the land (a rigid one on flat ground of its own), trees on the fault fall, it

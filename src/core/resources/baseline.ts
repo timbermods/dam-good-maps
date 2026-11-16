@@ -464,6 +464,14 @@ export interface RuinFieldOptions {
   /** Fields follow the land (D518, the look round): each lies in a band along its level's rim (a contour, a rise's
    *  edge or a shore), 2 to 4 tiles wide, ragged, with gaps, never an ellipse's filled blob. */
   follow?: boolean;
+  /** When the dry ground has no room for the scrap asked, lay the rest on the moist ground too (D(new-ruins): a real
+   *  place keeps the scrap it had, and its own land decides where its dry ground lies). The generator's fields never
+   *  do: its land is made with room for them. */
+  moistWhenShort?: boolean;
+  /** The levels a field keeps to and whose rims it follows (the ground's own heights when not given): a real place's
+   *  land with its tile-scale speckle taken out (places/ruins.ts `fieldLevels`), whose contours its fields follow. Each
+   *  column still stands on its own tile's ground. */
+  levels?: ArrayLike<number>;
   /** The scrap no new field takes (less than a field's least size, or no room left for another) grows the fields
    *  placed, and the last field gives back what it grew past the scrap asked (D527: every 5 % step of Ruins and scrap
    *  moves the ruins); else the remainder is left over and the overshoot kept. */
@@ -572,12 +580,17 @@ export function planRuinFields(g: BaselineGround, scrap: number, o: RuinFieldOpt
   const eligible = o.topUp ? ruinFree.slice() : null;
   const fields: RuinField[] = [];
   const centres: [number, number][] = [];
-  const rim = o.follow ? rimDistance(g, RUIN_BAND.width[1] + 1) : null;
+  const lv = o.levels ?? g.heights;
+  const rim = o.follow ? rimDistance(o.levels ? { ...g, heights: o.levels } : g, RUIN_BAND.width[1] + 1) : null;
+  // (the tiles round the fields laid, which no later field takes: a second pass on the moist ground keeps them)
+  const moat = new Uint8Array(N);
   let left = scrap;
   // (`topUp`, D527: where the fields placed have no room left to grow, new fields come at half the spacing, and then on
-  // moist ground too, each pass's fields grown in turn, until the scrap is placed or the land holds no more)
-  for (let pass = 0; pass < (eligible ? 3 : 1) && left > 0; pass++) {
-    const spacing = (o.spacing ?? 18) / (pass ? 2 : 1);
+  // moist ground too, each pass's fields grown in turn, until the scrap is placed or the land holds no more;
+  // `moistWhenShort`, D(new-ruins): a second pass on the moist ground, the fields laid and their moats kept)
+  for (let pass = 0; pass < (eligible ? 3 : o.moistWhenShort ? 2 : 1) && left > 0; pass++) {
+    const spacing = (o.spacing ?? 18) / (pass && eligible ? 2 : 1);
+    if (pass && !eligible) for (let i = 0; i < N; i++) ruinFree[i] = freeAt(g, i) && !nearWater[i] && far(i) && !moat[i] ? 1 : 0;
     if (pass === 2 && eligible) {
       const owner = new Uint8Array(N);
       markRing(owner, fields.flatMap((f) => f.tiles), W, H, 1);
@@ -606,7 +619,7 @@ export function planRuinFields(g: BaselineGround, scrap: number, o: RuinFieldOpt
         const width = RUIN_BAND.width[0] + o.rng.int(0, RUIN_BAND.width[1] - RUIN_BAND.width[0] + 1);
         const gaps = RUIN_BAND.gaps[0] + (RUIN_BAND.gaps[1] - RUIN_BAND.gaps[0]) * o.rng.float();
         const want = Math.floor(size / (1 - gaps));
-        const level0 = g.heights[s];
+        const level0 = lv[s];
         const band = new Uint8Array(N);
         let reach = 6;
         let have = 0;
@@ -616,7 +629,7 @@ export function planRuinFields(g: BaselineGround, scrap: number, o: RuinFieldOpt
           for (let y = Math.max(0, sy - reach); y <= Math.min(H - 1, sy + reach); y++)
             for (let x = Math.max(0, sx - reach); x <= Math.min(W - 1, sx + reach); x++) {
               const i = y * W + x;
-              if (ruinFree[i] && g.heights[i] === level0 && rim[i] >= 1 && rim[i] <= width) {
+              if (ruinFree[i] && lv[i] === level0 && rim[i] >= 1 && rim[i] <= width) {
                 band[i] = 1;
                 have++;
               }
@@ -643,7 +656,10 @@ export function planRuinFields(g: BaselineGround, scrap: number, o: RuinFieldOpt
             for (let dx = -1; dx <= 1; dx++) {
               const xx = x + dx;
               const yy = y + dy;
-              if (xx >= 0 && xx < W && yy >= 0 && yy < H) ruinFree[yy * W + xx] = 0;
+              if (xx >= 0 && xx < W && yy >= 0 && yy < H) {
+                ruinFree[yy * W + xx] = 0;
+                moat[yy * W + xx] = 1;
+              }
             }
           g.taken[i] = 1;
         }
@@ -656,13 +672,13 @@ export function planRuinFields(g: BaselineGround, scrap: number, o: RuinFieldOpt
       const areaTiles = size / L.fieldFill / 0.85;
       const major = portable.sqrt((areaTiles * aspect) / Math.PI);
       const minor = portable.sqrt(areaTiles / (aspect * Math.PI));
-      const level = g.heights[s];
+      const level = lv[s];
       const allowed = new Uint8Array(N);
       const r = Math.ceil(major) + 1;
       for (let y = Math.max(0, sy - r); y <= Math.min(H - 1, sy + r); y++)
         for (let x = Math.max(0, sx - r); x <= Math.min(W - 1, sx + r); x++) {
           const i = y * W + x;
-          if (!ruinFree[i] || g.heights[i] !== level) continue;
+          if (!ruinFree[i] || lv[i] !== level) continue;
           const dx = x - sx;
           const dy = y - sy;
           const u = (dx * ax + dy * ay) / major;
@@ -687,7 +703,10 @@ export function planRuinFields(g: BaselineGround, scrap: number, o: RuinFieldOpt
           for (let dx = -1; dx <= 1; dx++) {
             const xx = x + dx;
             const yy = y + dy;
-            if (xx >= 0 && xx < W && yy >= 0 && yy < H) ruinFree[yy * W + xx] = 0;
+            if (xx >= 0 && xx < W && yy >= 0 && yy < H) {
+              ruinFree[yy * W + xx] = 0;
+              moat[yy * W + xx] = 1;
+            }
           }
         g.taken[i] = 1;
       }

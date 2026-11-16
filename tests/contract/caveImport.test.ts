@@ -165,13 +165,16 @@ describe("an imported map with caves or overhangs", () => {
     }
   });
 
-  it("the worker: a held Drought day comes with its own soil, every run top's too, and no plant withers yet", async () => {
+  // (until 2026-11-16 no plant withered on a map with caves, and the day came with an empty list; now its list follows it, D148)
+  it("the worker: a held Drought day comes with its own soil, every run top's too, and its withered plants follow it", async () => {
     ed.openTimber(T3, "T3.timber");
     ed.setAutoWater(false);
     type Day = Extract<ed.EditorEvent, { kind: "weather" }>;
     let day: Day | null = null;
+    let withered: Int32Array | null = null;
     ed.listen((e) => {
       if (e.kind === "weather" && e.phase === "day" && e.day === 2) day = e;
+      if (e.kind === "withered" && e.day === 2) withered = e.tiles;
     });
     try {
       ed.showWeatherDay("drought", 2);
@@ -181,7 +184,10 @@ describe("an imported map with caves or overhangs", () => {
       expect(d, "day 2 came").not.toBeNull();
       expect(d!.water!.count).toBeGreaterThan(0);
       expect(d!.soil!.runs!.tile.length, "the soil under the roofs").toBeGreaterThan(0);
-      expect(d!.withered).toEqual(new Int32Array(0));
+      // (day 1's soil is worked out after the day is shown; a drought's two days kill nothing)
+      expect(d!.withered).toBeUndefined();
+      while (!withered && performance.now() < end) await new Promise((r) => setTimeout(r, 5));
+      expect(withered).toEqual(new Int32Array(0));
     } finally {
       ed.listen(null);
       ed.stopWeather();

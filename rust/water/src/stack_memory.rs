@@ -21,6 +21,10 @@ pub struct Session {
     /// was handed out since (a run then skips checking it again; every result is checked before it is read,
     /// by `saturation`).
     trusted: bool,
+    /// The emitters' parameters are known to be well formed: no view of them (field 15) was handed out since the
+    /// state was last trusted. A badtide sets its clean sources' share through that view before each tick, so a
+    /// run or an advance then checks only the parameters, not the whole state again (#1210).
+    params_trusted: bool,
     /// A block of rows handed out (field 21, a copy) and one taken in (field 22): the multi-core settle's
     /// strips (stackParallel.ts).
     rows_out: Vec<f64>,
@@ -64,6 +68,7 @@ impl Session {
             engine: None,
             sat: Vec::new(),
             trusted: false,
+            params_trusted: false,
             rows_out: Vec::new(),
             rows_in: Vec::new(),
             count: Vec::new(),
@@ -174,6 +179,7 @@ impl Session {
         }
         self.engine = Some(engine);
         self.trusted = true;
+        self.params_trusted = true;
         Ok(())
     }
     /// 0 build (a 0 game, 1 port; b 1 the stacked rules even on an open field: a strip of a map with caves);
@@ -201,6 +207,8 @@ impl Session {
                 }
                 if !self.trusted {
                     e.validate()?;
+                } else if !self.params_trusted {
+                    e.validate_params()?;
                 }
                 e.run_valid(a as u64, b)?;
             }
@@ -225,6 +233,8 @@ impl Session {
                 }
                 if !self.trusted {
                     e.validate()?;
+                } else if !self.params_trusted {
+                    e.validate_params()?;
                 }
                 e.advance_valid(a as u64)?;
             }
@@ -271,6 +281,7 @@ impl Session {
         // handing rows out or in leaves it as known as it was)
         if !matches!(op, 7 | 9 | 10) {
             self.trusted = true;
+            self.params_trusted = true;
         }
         Ok(())
     }
@@ -285,7 +296,8 @@ impl Session {
     /// 23 the columns wet at any substep's start or end since the state was last set u8 (stacked; read only).
     /// 24 emitting u8 per column (a running emitter gives water there), 25 allowed u8 per edge (read-only).
     /// 26 the columns the settle's end stored as a basin levelled to rest u8 (stacked; read only).
-    /// A view of the state (6..10, 15) makes the next run check the whole state again.
+    /// A view of the state (6..10) makes the next run check the whole state again; a view of the emitters'
+    /// parameters (15) makes it check those again.
     /// Lengths are element counts, never byte counts. Flat momentum remains four per tile.
     pub fn field(&mut self, which: u32) -> Option<(*mut u8, usize)> {
         macro_rules! view {
@@ -323,7 +335,14 @@ impl Session {
             24 => view!(self.emitting),
             25 => view!(self.allowed),
             6..=10 | 15 => {
-                self.trusted = false;
+                // (a view of the emitters' parameters alone leaves the water trusted: the next run or advance checks
+                // only them; a badtide sets its clean sources' share before each tick, and checking the whole state
+                // again each time cost more than the tick, #1210)
+                if which == 15 {
+                    self.params_trusted = false;
+                } else {
+                    self.trusted = false;
+                }
                 let e = self.engine.as_mut()?;
                 match &mut e.flow {
                     Flow::Flat(s) => match which {
