@@ -2274,7 +2274,7 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
         screened.count++;
         return fail("drought reserve (planned)", null, false);
       }
-      // (D348, planning's ruling on #236, 2026-11-15: a land whose own water floods past its theme's line,
+      // (D530, D348, planning's ruling on #236, 2026-11-15: a land whose own water floods past its theme's line,
       // `water.no_flood`, is drawn again here, before its start, its badwater and its settle, never shown and then
       // failed on every attempt: Any 256² seed 4's lakes stood over 61% of the map against 55%, on six attempts.
       // Read on the pre-fill of its rivers and lakes alone, the water the settle starts from, which its basins hold
