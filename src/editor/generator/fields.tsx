@@ -162,19 +162,7 @@ export function genFields(p: SettingsProps): Record<FieldKey, JSX.Element> {
     falls: pick("falls", "Waterfalls", s.water.waterfalls, opts(FALLS, "Waterfalls"), (v) => set((c) => (c.water.waterfalls = v)), "waterfalls"),
     sources: pick("sources", "Sources", s.water.sources ?? "placed", opts(SOURCES, "Sources"), (v) => set((c) => (c.water.sources = v)), "sources"),
     badwater: pick("badwater", "Badwater", s.hazards.badwater, opts(BADWATER, "Badwater", { off: "Off" }), (v) => set((c) => (c.hazards.badwater = v)), "badwater"),
-    badwaterDistance: num(
-      "badwater-distance",
-      "Badwater distance",
-      s.hazards.badwaterDistance,
-      8,
-      60,
-      (v) =>
-        set((c) => {
-          c.hazards.badwaterDistance = v;
-          c.start.rules.badwaterWithin = v;
-        }),
-      { unit: " tiles", bandKey: "badwaterDistance" },
-    ),
+    badwaterDistance: num("badwater-distance", "Badwater distance", s.hazards.badwaterDistance, 8, 60, (v) => set((c) => (c.hazards.badwaterDistance = v)), { unit: " tiles", bandKey: "badwaterDistance" }),
     thorns: pick("thorns", "Thorn belts", s.hazards.thornBelts, opts(OFF_SOME, "Thorn belts"), (v) => set((c) => (c.hazards.thornBelts = v)), "thornBelts"),
     cores: pick("cores", "Unstable cores", s.hazards.unstableCores, opts(CORES, "Unstable cores"), (v) => set((c) => (c.hazards.unstableCores = v)), "unstableCores"),
     forest: num("forest", "Forest density", s.resources.forestDensity, 50, 200, (v) => set((c) => (c.resources.forestDensity = v)), { step: 5, unit: "%", bandKey: "forestDensity" }),

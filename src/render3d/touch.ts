@@ -2,7 +2,8 @@
 // type, so the mouse and the pen keep every path they had (renderer.ts); this is what a finger adds:
 // - two fingers move the camera in one gesture: dragged they pan, pinched they zoom about the ground under their
 //   middle (it stays under it, as the wheel's does), twisted they turn the view about that ground, and dragged up or
-//   down together side by side they tilt it; let go moving, the view glides on and slows to a stop;
+//   down together side by side they tilt it (`settle` tells which, on a hand's evidence); let go moving, the view glides
+//   on and slows to a stop;
 // - a second finger down during a one-finger press (a brush's stroke, a drag) cancels that press, nothing applied and
 //   no step in the history, and becomes the camera's gesture; the rest of that touch is the camera's;
 // - a two-finger tap is Undo, a three-finger tap Redo.
@@ -36,8 +37,6 @@ export const TAP_MS = 350;
 /** A second tap this soon (ms) and this near (CSS px) to the first is a double tap. */
 export const DOUBLE_TAP_MS = 300;
 export const DOUBLE_TAP_PX = 30;
-/** How far a finger moves (CSS px) before a two-finger gesture decides whether it tilts. */
-export const DECIDE_PX = 10;
 /** Tilt per pixel the fingers move up or down (the mouse's orbit drag: renderer.ts). */
 export const TILT_PER_PX = 0.005;
 /** Fingers nearer than this (CSS px) turn nothing: their angle is all noise. */
@@ -59,20 +58,112 @@ const sub = (a: Point, b: Point): Point => ({ x: a.x - b.x, y: a.y - b.y });
 const len = (p: Point): number => Math.hypot(p.x, p.y);
 const mid = (a: Point, b: Point): Point => ({ x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 });
 
-/** Decide a two-finger gesture's way from where its fingers went down (`start`) and are now: null until a finger has
- *  moved `DECIDE_PX`. It tilts when the view can tilt and the two fingers, side by side (the line between them nearer
- *  level than upright), both moved mostly up or mostly down, the same way, keeping their gap; otherwise it is free. */
-export function decide(start: readonly [Point, Point], now: readonly [Point, Point], canTilt: boolean): Mode | null {
+// How a two-finger gesture settles its way (Kyler on an iPhone: a hand's two fingers never move as a test's do). A
+// finger's place wobbles a few px, its first moves' direction is mostly that wobble, the two fingers of a hand start a
+// few events apart (iOS tells a finger's first move only past its own ~10 px slop, so the second can read 0 px while the
+// first has gone 10 px and its lead) and drift in their gap; a deliberate move is tens of px. So the gesture waits, nothing moving, until
+// the evidence is clear one way, and every rule asks a distance well past a finger's noise.
+/** A finger that moved less than this (CSS px) has hardly moved: its wobble. */
+export const STILL_PX = 4;
+/** A deliberate move (CSS px, one finger): each finger's travel a tilt needs, and a mostly sideways one's that pans. */
+export const REAL_PX = 8;
+/** Both fingers past this (CSS px), going opposite ways (over 120° apart), pinch or twist. */
+export const OPPOSE_PX = 6;
+/** Past this (CSS px) a finger's direction is its own, no longer its first moves' wobble: outside the cone, it pans. */
+export const CONE_PX = 16;
+/** One finger this far (CSS px), the other still (`STILL_PX`): a pivot or a one-finger-led drag, past a tilt's lead
+ *  (iOS's 10 px slop and a hand's lead of up to 25). */
+export const LEAD_PX = 36;
+/** Past this (CSS px, the farther finger) a gesture nothing has settled is free: a tilt is clear long before. */
+export const SETTLE_BY_PX = 40;
+/** A tilt's fingers each go within this of straight up or down (radians, 35°: a wobble of 3 px in 8 is 21°). */
+export const TILT_CONE = (35 * Math.PI) / 180;
+/** A finger past `REAL_PX` this far from upright (radians, 60°) is going sideways: a pan, at once. */
+export const SIDEWAYS = (60 * Math.PI) / 180;
+/** Fingers whose line lies within this of level (radians, 55°) are side by side: a hand's slanted pair is. */
+export const SIDE_SLANT = (55 * Math.PI) / 180;
+/** The gap's change that is a pinch, both fingers moving and not as a tilt's, a share of the gap (a tilt's lead may
+ *  change it twice this)... */
+export const PINCH_SHARE = 0.15;
+/** ...and never under this (CSS px), however near the fingers: below it the gap's change is their wobble. */
+export const PINCH_PX = 6;
+/** The line's turn that is a twist (radians, 15°) with both fingers moving, opposite ways up and down; a tilt's
+ *  same-way lead turns it up to twice this. Only with the fingers `TURN_MIN_GAP` apart. */
+export const TWIST = (15 * Math.PI) / 180;
+
+/** Why a gesture settled as it did (the `?viewport=on` readout shows it). */
+export type Why = "tilt" | "top-down view" | "one above the other" | "pinch" | "twist" | "opposite ways" | "sideways" | "diagonal" | "one finger led" | "no tilt by then";
+
+/** How a two-finger gesture settled: its way, the rule, and at that moment each finger's travel (CSS px), the gap's
+ *  change (CSS px, + apart) and the line's turn (radians, clockwise +). */
+export interface Decision {
+  mode: Mode;
+  why: Why;
+  a: number;
+  b: number;
+  gap: number;
+  turn: number;
+}
+
+/** The `?viewport=on` readout's slot for the last decision (ui/viewportReadout.ts): there only while the readout shows. */
+declare global {
+  interface Window {
+    dgmTouchDecided?: (d: Decision) => void;
+  }
+}
+
+/** A finger's move's angle from straight up or down (radians, 0 to π/2). */
+const offUpright = (d: Point): number => Math.atan2(Math.abs(d.x), Math.abs(d.y));
+
+/** Settle a two-finger gesture's way from where its fingers went down (`start`) and are now: null while the evidence is
+ *  not clear. It tilts when the view can tilt and the two fingers, side by side (`SIDE_SLANT`), have each moved
+ *  `REAL_PX` within `TILT_CONE` of upright, the same way, their gap and their line kept within twice a pinch's
+ *  (`PINCH_SHARE`) and a twist's (`TWIST`), which a lead changes; it is free at a pinch or a twist (both fingers moving,
+ *  not as a tilt's), fingers going opposite ways, a finger going sideways or diagonally, one finger leading
+ *  alone (`LEAD_PX`), or nothing settled by `SETTLE_BY_PX`. Pure. */
+export function settle(start: readonly [Point, Point], now: readonly [Point, Point], canTilt: boolean): Decision | null {
   const da = sub(now[0], start[0]);
   const db = sub(now[1], start[1]);
-  const moved = Math.max(len(da), len(db));
-  if (moved < DECIDE_PX) return null;
-  if (!canTilt) return "free";
-  const side = Math.abs(start[1].x - start[0].x) > Math.abs(start[1].y - start[0].y);
-  const upright = (d: Point) => Math.abs(d.y) > 2 * Math.abs(d.x) && Math.abs(d.y) >= DECIDE_PX / 2;
+  const ta = len(da);
+  const tb = len(db);
+  const lead = Math.max(ta, tb);
+  const lag = Math.min(ta, tb);
+  const line0 = sub(start[1], start[0]);
+  const line1 = sub(now[1], now[0]);
+  const g0 = len(line0);
+  const g1 = len(line1);
+  const turnable = g0 >= TURN_MIN_GAP && g1 >= TURN_MIN_GAP;
+  let turn = turnable ? Math.atan2(line1.y, line1.x) - Math.atan2(line0.y, line0.x) : 0;
+  if (turn > Math.PI) turn -= 2 * Math.PI;
+  if (turn < -Math.PI) turn += 2 * Math.PI;
+  const note = (mode: Mode, why: Why): Decision => ({ mode, why, a: ta, b: tb, gap: g1 - g0, turn });
+  // (a view that cannot tilt, or fingers one above the other, has no tilt to tell from a pan: a deliberate move pans)
+  if (!canTilt) return lead >= REAL_PX ? note("free", "top-down view") : null;
+  if (Math.atan2(Math.abs(line0.y), Math.abs(line0.x)) > SIDE_SLANT) return lead >= REAL_PX ? note("free", "one above the other") : null;
+  const gap = Math.abs(g1 - g0);
+  const pinchAt = Math.max(PINCH_PX, PINCH_SHARE * g0);
   const together = Math.sign(da.y) === Math.sign(db.y);
-  const gapKept = Math.abs(len(sub(now[1], now[0])) - len(sub(start[1], start[0]))) < moved / 2;
-  return side && upright(da) && upright(db) && together && gapKept ? "tilt" : "free";
+  // (both fingers going up or down the same way, as a tilt's do: one ahead of the other changes their gap, at a slant,
+  // and turns their line, up to twice a pinch's and a twist's; that is a lead, no pinch and no twist)
+  const upright = offUpright(da) <= TILT_CONE && offUpright(db) <= TILT_CONE && together;
+  if (ta >= REAL_PX && tb >= REAL_PX && upright && gap < 2 * pinchAt && Math.abs(turn) < 2 * TWIST) return note("tilt", "tilt");
+  // (a finger still, or past its slop and not yet told, says nothing of a pinch or a twist: both must be moving)
+  const both = lag >= STILL_PX;
+  if (gap >= pinchAt && both && !upright) return note("free", "pinch");
+  if (Math.abs(turn) >= TWIST && both && !together) return note("free", "twist");
+  if (ta >= OPPOSE_PX && tb >= OPPOSE_PX && da.x * db.x + da.y * db.y < -0.5 * ta * tb) return note("free", "opposite ways");
+  for (const [d, t] of [[da, ta], [db, tb]] as const) {
+    if (t >= REAL_PX && offUpright(d) > SIDEWAYS) return note("free", "sideways");
+    if (t >= CONE_PX && offUpright(d) > TILT_CONE) return note("free", "diagonal");
+  }
+  if (lead >= LEAD_PX && lag < STILL_PX) return note("free", "one finger led");
+  if (lead >= SETTLE_BY_PX) return note("free", "no tilt by then");
+  return null;
+}
+
+/** A two-finger gesture's way (`settle`'s), or null while it is unsettled. */
+export function decide(start: readonly [Point, Point], now: readonly [Point, Point], canTilt: boolean): Mode | null {
+  return settle(start, now, canTilt)?.mode ?? null;
 }
 
 /** One step of a two-finger gesture, from the fingers' last places (`a0`, `b0`) to their places now: the middle's move
@@ -172,6 +263,8 @@ export interface TouchHost {
   fingers(n: 2 | 3): void;
   /** The view can tilt (the angled view; the top-down one looks straight down). */
   canTilt(): boolean;
+  /** A two-finger gesture settled its way (the `?viewport=on` readout's line). */
+  decided?(d: Decision): void;
   /** The viewer prefers reduced motion: no glide. */
   still(): boolean;
   /** A timer: run `fn` after `ms`; its id, for `clear`. */
@@ -186,8 +279,6 @@ interface Pair {
   mode: Mode | null;
   /** Each finger's last move's time (the touch's: both fingers' moves in one touch share it). */
   seen: [number, number];
-  /** The decision waited once for the other finger's move. */
-  waited: boolean;
 }
 
 /** The fingers on the view, and the camera's gesture once there are two. */
@@ -244,30 +335,9 @@ export class Touches {
     if (!s.camera) return false;
     const pr = this.pair;
     if (pr && pr.ids.includes(ev.pointerId)) {
-      const cur: [Point, Point] = [this.fingers.get(pr.ids[0])!, this.fingers.get(pr.ids[1])!];
       const mine = pr.ids[0] === ev.pointerId ? 0 : 1;
-      const other = 1 - mine;
-      const theirs = pr.seen[other] === ev.timeStamp;
+      const theirs = pr.seen[1 - mine] === ev.timeStamp;
       pr.seen[mine] = ev.timeStamp;
-      if (!pr.mode) {
-        const canTilt = this.host.canTilt();
-        const mode = decide(pr.start, cur, canTilt);
-        // (undecided, nothing moves yet; decided, the first step carries the whole move so far)
-        if (!mode) return true;
-        // (one touch moves both fingers, but the browser tells it a finger at a time, each at the touch's time: where
-        // moves pile up behind a slow frame, the first finger's tells the whole of a two-finger tilt before the other's
-        // has come; when the other going the same way would make it a tilt, the decision waits for the other's move)
-        if (mode === "free" && canTilt && !theirs && !pr.waited) {
-          const d = sub(now, was);
-          const both: [Point, Point] = [cur[0], cur[1]];
-          both[other] = { x: cur[other].x + d.x, y: cur[other].y + d.y };
-          if (decide(pr.start, both, true) === "tilt") {
-            pr.waited = true;
-            return true;
-          }
-        }
-        pr.mode = mode;
-      }
       // (one touch moves both fingers, told a finger at a time: the first finger's move waits for the other's of the
       // same touch, so the fingers' middle never steps aside and back between them, which a view held at the map's edge
       // could not undo; the other finger still, the step goes once the touch's events are all in)
@@ -373,7 +443,16 @@ export class Touches {
     const pr = this.pair;
     const a = pr && this.fingers.get(pr.ids[0]);
     const b = pr && this.fingers.get(pr.ids[1]);
-    if (!pr?.mode || !a || !b) return;
+    if (!pr || !a || !b) return;
+    if (!pr.mode) {
+      // (settled only where the touch's events are all in, never on one finger's move told before the other's; a hand's
+      // second finger a few events behind its first is no evidence against a tilt, so nothing waits for it here)
+      const d = settle(pr.start, [a, b], this.host.canTilt());
+      // (unsettled, nothing moves yet; settled, the first step carries the whole move so far)
+      if (!d) return;
+      pr.mode = d.mode;
+      this.host.decided?.(d);
+    }
     const { motion, at } = twoStep(pr.last[0], pr.last[1], a, b, pr.mode);
     pr.last = [a, b];
     this.apply(motion, at, this.waitingT);
@@ -383,7 +462,7 @@ export class Touches {
   private pairUp(): void {
     const [a, b] = [...this.fingers.entries()];
     if (!a || !b) return;
-    this.pair = { ids: [a[0], b[0]], start: [{ ...a[1] }, { ...b[1] }], last: [{ ...a[1] }, { ...b[1] }], mode: null, seen: [-Infinity, -Infinity], waited: false };
+    this.pair = { ids: [a[0], b[0]], start: [{ ...a[1] }, { ...b[1] }], last: [{ ...a[1] }, { ...b[1] }], mode: null, seen: [-Infinity, -Infinity] };
   }
 }
 

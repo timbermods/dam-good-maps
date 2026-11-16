@@ -2,15 +2,19 @@
 // at the tile whose wall the pointer is on, so the brush lies there, under the pointer, and a click changes the ground
 // round that tile. It once lay where the ray crossed the tile's top level, in front of the wall toward the camera,
 // tiles away from the pointer (with a target, its plane a pale veil across the view), and the stroke landed there.
+// Its maps are saved (`openSaved`): the page's own map of each fragment, as generator 0.10.26 made it.
 
 import { expect, test } from "@playwright/test";
-import { openEditor } from "./open";
+import { openSaved } from "./open";
 
 test("a brush on a cliff's face lies on that cliff, under the pointer, and its stroke changes the ground there", async ({ page }) => {
   const errors: string[] = [];
   page.on("pageerror", (e) => errors.push(String(e)));
   await page.setViewportSize({ width: 1400, height: 900 });
-  await openEditor(page, "s=7&z=128&d=n&t=canyon");
+  // (seed 8 since generator 0.10.24's round forms, D148: the first cliff seed 7's aim finds, at (30, 45), now shows at the
+  // view's top, 95 px down, under the bar over the map, so the pointer there never reaches the map; seeds 8, 6, 5 and 4
+  // stage it)
+  await openSaved(page, "s=8&z=128&d=n&t=canyon");
   await page.keyboard.press("2");
 
   // a cliff facing south, seen from just above its top, a little way off: its face just under the top under the pointer

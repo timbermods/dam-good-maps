@@ -4,7 +4,9 @@
 // strip below holds moist ground on generator 0.10.7's map, D502, D148; moved from 57,13–63,39 to 57,78–63,104 since
 // generator 0.10.16's ground with grade, D148: the old strip has no moist dry ground left, and the new one, the same
 // columns further south, holds 20 moist dry tiles; moved to 57,143–63,169 since generator 0.10.20's contour edges, D518,
-// D148: the old strip has no moist dry ground left, and the new one holds 41 moist dry tiles where a stroke plants 20).
+// D148: the old strip has no moist dry ground left, and the new one holds 41 moist dry tiles where a stroke plants 20; moved to
+// 57,142–63,168 at 0.10.29 (#1186), D148: the disc's land (the weathering's disc of the square's area, the washes' brush and swing) leaves the old strip's 5 moist dry tiles
+// all under objects, so a stroke there has no moist ground alone to refuse; the strip a row north, the nearest, holds 9, 4 of them clear).
 
 import { describe, expect, it } from "vitest";
 import { applyPaintObjects, paintDying, planPaintObjects } from "../../src/core/doc/paint";
@@ -12,9 +14,11 @@ import type { PaintParams } from "../../src/core/doc/paintParams";
 import { footprintCheck, planEntity, planMoveEntity } from "../../src/core/doc/placing";
 import { diesOnSoil } from "../../src/core/doc/plantSoil";
 import { MapSession } from "../../src/core/doc/session";
+import { decodeProject } from "../../src/core/doc/document";
 import { generate } from "../../src/core/gen/generate";
 import { tilesToRuns } from "../../src/core/math/grid";
-import { decodeSpecFragment, makeSpec } from "../../src/core/spec/mapspec";
+import { makeSpec } from "../../src/core/spec/mapspec";
+import { pageFixtureProject } from "../fixtureProjects";
 
 const FRAGMENT = "v=0.10.5&s=740973&t=riverValley&z=64x256&d=n&vt=69";
 
@@ -24,16 +28,16 @@ const rect = (x0: number, y0: number, x1: number, y1: number, W: number): number
   return t;
 };
 
+// (opens a saved fixture of the land it was written on: generator 0.10.29's, written from dev (D148, the #1163 pattern, #1205); the strip below sits on moist ground alone on 0.10.36's generated land)
 function session(): MapSession {
-  const r = generate(decodeSpecFragment(FRAGMENT)!.spec);
-  return MapSession.fromGenerated(r, r.file);
+  return MapSession.open(decodeProject(pageFixtureProject(FRAGMENT)));
 }
 
 describe("painted succulents stand only on ground where they survive (D235)", () => {
   it("none lands where plants.survive would flag it, and moist tiles are left empty", () => {
     const s = session();
     const W = s.size.x;
-    const tiles = rect(57, 143, 63, 169, W);
+    const tiles = rect(57, 142, 63, 168, W);
     const params: PaintParams = { kind: "succulents", template: "Succulent", area: tilesToRuns(tiles, W), density: 0.3, seed: 11 };
     const ground = { moisture: s.built.moisture, contamination: s.built.soilContamination, depth: s.built.water };
     // (the region holds moist ground, or this proves nothing)
@@ -55,7 +59,7 @@ describe("painted succulents stand only on ground where they survive (D235)", ()
     const W = s.size.x;
     const b = s.built;
     const taken = new Set(b.entities.map((e) => e.y * W + e.x));
-    const moist = rect(57, 143, 63, 169, W).filter((i) => b.moisture[i] > 0 && !(b.water[i] > 0.05) && !taken.has(i));
+    const moist = rect(57, 142, 63, 168, W).filter((i) => b.moisture[i] > 0 && !(b.water[i] > 0.05) && !taken.has(i));
     expect(moist.length).toBeGreaterThan(0);
     const p = planPaintObjects(s, { kind: "succulents", template: "Succulent", area: tilesToRuns([moist[0]], W), density: 1, seed: 1 });
     expect(p.ok).toBe(false);

@@ -12,7 +12,7 @@
 import { expect, test, type Page } from "@playwright/test";
 import { legendEntries, objectLegend } from "../../src/render3d/palette";
 import { openLayoutMap as openEditor, settle } from "./helpers";
-import { hitTargets, phoneClipped, phoneControls } from "./phone";
+import { applyInsets, hitTargets, phoneClipped, phoneControls, phoneFaults } from "./phone";
 
 // (its tests stand alone: they run in parallel, so the browser shards and their two workers share them; one worker
 // running them all in a row took a shard past its 30 minutes)
@@ -928,6 +928,249 @@ for (const phone of PHONES) {
   });
 }
 
+// ---- a real phone's insets (#1074; Kyler's iPhone 16 Pro Max on its side, 2026-11-14: the Size card cut at the notch's
+// inset, the rail's first and last tools cut at rest). The specs above run with no safe areas; here the browser gives the
+// page a phone's own (`env(safe-area-inset-*)`, phone.ts `applyInsets`), and every tool is taken up in turn, its settings
+// in one row and pulled up: no control or setting's card cut, covered or under an inset at rest, none past its plate, no
+// word cut short or laid over another (phone.ts `phoneFaults`).
+
+const INSET_ROOMS = [
+  { name: "a big phone on its side", viewport: { width: 956, height: 440 }, insets: { top: 0, right: 62, bottom: 21, left: 62 } },
+  { name: "a phone on its side", viewport: { width: 844, height: 390 }, insets: { top: 0, right: 47, bottom: 21, left: 47 } },
+  { name: "a phone upright", viewport: { width: 390, height: 844 }, insets: { top: 59, right: 0, bottom: 34, left: 0 } },
+];
+
+for (const room of INSET_ROOMS) {
+  test.describe(`${room.name} with its insets`, () => {
+    test.use({ viewport: room.viewport, deviceScaleFactor: 2, isMobile: true, hasTouch: true, reducedMotion: "reduce" });
+
+    test(`at ${room.viewport.width}×${room.viewport.height}: every tool's settings, in one row and pulled up, whole and clear of the insets`, async ({ page }) => {
+      test.setTimeout(240_000);
+      await applyInsets(page, room.insets);
+      await openEditor(page);
+      const found: string[] = [];
+      const measure = async (state: string) => {
+        await page.waitForFunction(() => window.dgmEditor!.roomSettled(), null, { timeout: 10_000 });
+        await page.evaluate(() => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r))));
+        for (const f of await phoneFaults(page, room.insets)) found.push(`${state}: ${f}`);
+      };
+      await measure("at rest");
+      const tools = await page.locator(".tool-dock > .tool-bar button.icon-button:not(.objects-button)").evaluateAll((bs) => bs.map((b) => b.getAttribute("aria-label")!));
+      expect(tools.length, "the tools found").toBeGreaterThan(10);
+      // (each picked as a tap picks it, from wherever the row was left: the row brings it whole into view)
+      const pick = (label: string) => page.locator(`.tool-dock > .tool-bar button[aria-label="${label}"]`).evaluate((b: HTMLElement) => b.click());
+      for (const tool of tools) {
+        const name = tool.replace(/ \(.*/, "");
+        await pick(tool);
+        await expect(page.locator(".tool-dock > .tool-settings.sheet")).toBeVisible();
+        await measure(`${name} in hand`);
+        const handle = page.locator(".sheet-handle");
+        if (await handle.count()) {
+          await handle.evaluate((b: HTMLElement) => b.click());
+          await expect(page.locator(".tool-settings.sheet.tall")).toBeVisible();
+          await measure(`${name} pulled up`);
+        }
+        await pick(tool);
+        if (name === "Select") await page.keyboard.press("Escape");
+      }
+      expect(found).toEqual([]);
+    });
+  });
+}
+
+// ---- the browser's own bar over the page (#1074; iOS 26 Safari's floating address bar lay over the tool row on Kyler's
+// iPhone, 2026-11-15): with the visual viewport ending above the root (stubbed, as Safari's bar would leave it), the
+// tools stand at or above the visual viewport's foot, their band running on under the bar, and a tool's sheet above
+// them; with no bar, the row stands where it always has. With the home bar's inset as well, the larger of the two.
+
+test.describe("a phone upright under a browser's own bar", () => {
+  test.use({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 2, isMobile: true, hasTouch: true });
+
+  test("at 390×844: the tools clear of the bar, and where they always were without one", async ({ page }) => {
+    test.setTimeout(120_000);
+    await applyInsets(page, { top: 59, right: 0, bottom: 34, left: 0 });
+    // (the visual viewport `__bar` px shorter than the layout viewport, as Safari's floating bar would leave it)
+    await page.addInitScript(() => {
+      const real = Object.getOwnPropertyDescriptor(VisualViewport.prototype, "height")!;
+      Object.defineProperty(VisualViewport.prototype, "height", {
+        configurable: true,
+        get(this: VisualViewport) {
+          return real.get!.call(this) - ((window as unknown as { __bar?: number }).__bar ?? 0);
+        },
+      });
+    });
+    await openEditor(page);
+    const bar = (px: number) =>
+      page.evaluate(async (px) => {
+        (window as unknown as { __bar?: number }).__bar = px;
+        window.visualViewport!.dispatchEvent(new Event("resize"));
+        await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
+      }, px);
+    const foot = () =>
+      page.evaluate(() => {
+        const vv = window.visualViewport!;
+        const row = document.querySelector(".tool-dock > .tool-bar")!.getBoundingClientRect();
+        const tools = [...document.querySelectorAll(".tool-dock > .tool-bar button.icon-button")].map((b) => b.getBoundingClientRect());
+        const sheet = document.querySelector(".tool-dock > .tool-settings.sheet")?.getBoundingClientRect();
+        return {
+          barB: getComputedStyle(document.documentElement).getPropertyValue("--bar-b").trim(),
+          visible: vv.offsetTop + vv.height,
+          rowTop: row.top,
+          rowBottom: row.bottom,
+          toolsBottom: Math.max(...tools.map((r) => r.bottom)),
+          toolsH: Math.min(...tools.map((r) => r.height)),
+          sheetBottom: sheet?.bottom ?? null,
+        };
+      });
+
+    // no bar: the row as it always stood, its tools above the home bar's 34px inset
+    const before = await foot();
+    expect(before.barB).toBe("0px");
+    expect(before.rowBottom).toBe(844);
+    expect(before.toolsBottom).toBe(844 - 34 - 4);
+
+    // a bar 75px over the page's foot: the tools at or above the visual viewport's foot, still 44px and more; the row's
+    // band runs on to the root's foot under the bar
+    await bar(75);
+    const under = await foot();
+    expect(under.barB).toBe("75px");
+    expect(under.visible).toBe(844 - 75);
+    expect(under.toolsBottom).toBeLessThanOrEqual(under.visible);
+    expect(under.toolsBottom).toBe(844 - 75 - 4);
+    expect(under.toolsH).toBeGreaterThanOrEqual(44);
+    expect(under.rowBottom).toBe(844);
+    // a tool's sheet stands on the lifted row
+    await page.locator(".tool-bar button[aria-label^='Raise']").first().tap();
+    await expect(page.locator(".tool-settings.sheet")).toBeVisible();
+    const held = await foot();
+    expect(held.sheetBottom!).toBeLessThanOrEqual(held.rowTop + 0.5);
+    expect(held.sheetBottom!).toBeLessThanOrEqual(held.visible);
+
+    // a bar shorter than the home bar's inset: the inset keeps its room
+    await bar(20);
+    expect((await foot()).toolsBottom).toBe(844 - 34 - 4);
+
+    // a reading past the cap (140px, or a quarter of the room) is not a browser's bar: the last good one holds
+    await bar(75);
+    await bar(200);
+    expect((await foot()).barB, "a 200px reading ignored").toBe("75px");
+    await bar(120);
+    expect((await foot()).barB, "a 120px reading taken").toBe("120px");
+    await bar(75);
+    const start = await foot();
+    expect(start.barB).toBe("75px");
+
+    // a field takes the focus and a keyboard comes up (the visual viewport shorter, by less than the cap, so only the hold
+    // keeps it out), then the field lets the focus go with the keyboard still up: the row never moves, before the viewport
+    // is restored or after it
+    const keyboard = await page.evaluate(async () => {
+      const w = window as unknown as { __bar?: number };
+      const vv = window.visualViewport!;
+      const moved = () => vv.dispatchEvent(new Event("resize"));
+      const at = () => ({
+        barB: getComputedStyle(document.documentElement).getPropertyValue("--bar-b").trim(),
+        toolsBottom: Math.max(...[...document.querySelectorAll(".tool-dock > .tool-bar button.icon-button")].map((b) => b.getBoundingClientRect().bottom)),
+      });
+      const field = document.createElement("input");
+      document.body.append(field);
+      field.focus();
+      const focused = at();
+      w.__bar = 75 + 60;
+      moved();
+      const typing = at();
+      field.blur();
+      const blurred = at();
+      await new Promise((r) => setTimeout(r, 150));
+      const keyboardStillUp = at();
+      w.__bar = 75;
+      moved();
+      field.remove();
+      const restored = at();
+      return { focused, typing, blurred, keyboardStillUp, restored };
+    });
+    const still = { barB: "75px", toolsBottom: start.toolsBottom };
+    expect(keyboard).toEqual({ focused: still, typing: still, blurred: still, keyboardStillUp: still, restored: still });
+    await page.waitForTimeout(1200);
+    expect({ barB: (await foot()).barB, toolsBottom: (await foot()).toolsBottom }, "the viewport settled: where it started").toEqual(still);
+
+    // the bar gone: back where it was
+    await bar(0);
+    const after = await foot();
+    expect({ rowTop: after.rowTop, rowBottom: after.rowBottom, toolsBottom: after.toolsBottom }).toEqual({ rowTop: before.rowTop, rowBottom: 844, toolsBottom: 844 - 34 - 4 });
+  });
+});
+
+// ---- the tool row under a finger (#1074): it moves only with the finger and comes to rest on a whole tool by itself only
+// once no finger is on it; once scrolled away from the tool in hand it stays there until the tool or the room changes.
+
+for (const phone of PHONES) {
+  test.describe(`a phone ${phone.name}, its tool row`, () => {
+    test.use({ viewport: phone.viewport, deviceScaleFactor: 2, isMobile: true, hasTouch: true });
+
+    test(`at ${phone.viewport.width}×${phone.viewport.height}: a finger paused mid-pan keeps the row where it put it, and a re-render leaves a row scrolled away from the tool in hand`, async ({ page }) => {
+      test.setTimeout(120_000);
+      await openEditor(page);
+      const bar = page.locator(".tool-dock > .tool-bar");
+      await page.locator('.tool-dock > .tool-bar button[aria-label^="Raise"]').evaluate((b: HTMLElement) => b.click());
+      await expect(page.locator(".tool-dock > .tool-settings.sheet")).toBeVisible();
+      const side = phone.viewport.width > phone.viewport.height;
+      const pos = () => bar.evaluate((b) => (b.scrollWidth > b.clientWidth + 1 ? b.scrollLeft : b.scrollTop));
+      const idle = () => page.evaluate(() => new Promise((r) => setTimeout(r, 500)));
+      await idle();
+
+      // a pan that pauses: the row stays under the finger, however long it rests there
+      const box = (await bar.boundingBox())!;
+      const from = side ? { x: box.x + box.width / 2, y: box.y + box.height - 40 } : { x: box.x + box.width - 40, y: box.y + box.height / 2 };
+      const cdp = await page.context().newCDPSession(page);
+      // (each event a frame after the one before on its own clock, as a finger sends them: without times Chrome takes no pan)
+      let clock = Date.now() / 1000;
+      const touch = (type: "touchStart" | "touchMove" | "touchEnd", p?: { x: number; y: number }) =>
+        cdp.send("Input.dispatchTouchEvent", { type, touchPoints: p ? [{ x: p.x, y: p.y, id: 1, radiusX: 4, radiusY: 4, force: 1 }] : [], timestamp: (clock += 0.016) });
+      const was = await pos();
+      await touch("touchStart", from);
+      for (let k = 1; k <= 12; k++) {
+        await touch("touchMove", side ? { x: from.x, y: from.y - 6 * k } : { x: from.x - 6 * k, y: from.y });
+        await page.evaluate(() => new Promise((r) => requestAnimationFrame(r)));
+      }
+      await page.evaluate(() => new Promise((r) => setTimeout(r, 60)));
+      const put = await pos();
+      expect(Math.abs(put - was), "the finger moved the row").toBeGreaterThan(10);
+      await page.evaluate(() => new Promise((r) => setTimeout(r, 400)));
+      expect(Math.abs((await pos()) - put), "the row moved under a finger at rest on it").toBeLessThan(1);
+      await touch("touchEnd");
+      await idle();
+
+      // scrolled away from the tool in hand: a change that is neither the tool nor the room leaves it there
+      const end = await bar.evaluate((b) => {
+        const across = b.scrollWidth > b.clientWidth + 1;
+        const max = across ? b.scrollWidth - b.clientWidth : b.scrollHeight - b.clientHeight;
+        b.scrollTo({ [across ? "left" : "top"]: max, behavior: "instant" });
+        return max;
+      });
+      await idle();
+      expect(Math.abs((await pos()) - end)).toBeLessThan(1);
+      const inView = () =>
+        bar.evaluate((b) => {
+          const r = b.querySelector('button[aria-label^="Raise"]')!.getBoundingClientRect();
+          const q = b.getBoundingClientRect();
+          return r.right > q.left && r.left < q.right && r.bottom > q.top && r.top < q.bottom;
+        });
+      expect(await inView(), "Raise scrolled out of the row").toBe(false);
+      const size = page.locator(".tool-settings input.set-range").first();
+      const before = await size.inputValue();
+      await size.evaluate((el: HTMLInputElement) => {
+        const set = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")!.set!;
+        set.call(el, String(Number(el.value) === Number(el.min) ? Number(el.value) + 1 : Number(el.value) - 1));
+        el.dispatchEvent(new Event("input", { bubbles: true }));
+        el.dispatchEvent(new Event("change", { bubbles: true }));
+      });
+      await expect(size).not.toHaveValue(before);
+      await idle();
+      expect(Math.abs((await pos()) - end), "a setting moved pulled the row back to the tool in hand").toBeLessThan(1);
+    });
+  });
+}
+
 // ---- tablets (#1074 slices 5 and 6): a tablet is a big phone, not a small desktop (planning, 2026-11-14). At an iPad's
 // sizes upright and on its side (DPR 2): the header and the dock of tools stay, every control at least 44px and none off
 // the screen, the page neither scrolled nor wider than the screen; Show and the objects fold to the phone's buttons and
@@ -1238,6 +1481,9 @@ for (const phone of PHONES) {
       await expect(page.locator(".first-run")).toBeVisible();
       const clear = async (state: string) => {
         await page.waitForTimeout(400);
+        // (the room measured once the editor has taken in the sheet: on a loaded machine 400 ms came before it, and the
+        // room's middle was still the whole screen's)
+        await page.waitForFunction(() => window.dgmEditor!.roomSettled(), null, { timeout: 10_000 });
         const { x, y } = await roomNow(page);
         const card = await page.evaluate(() => {
           const e = document.querySelector<HTMLElement>(".first-run");

@@ -186,17 +186,25 @@ place of its bottom rule.
   while anything is selected each tap selects or clears a tile, opening none; the heading row says how many are selected,
   with **Done** to clear them. Delete asks once, as above.
 - **Phones** (#1074, slice 2; amends D185; `editor/view/phoneLayout.ts`, `usePhone.ts`, `src/styles/phone.css`;
-  `tests/e2e/layout.spec.ts` at 393×852 and 852×393). The layout goes by the room, never by the device: under 600 CSS px
+  `tests/e2e/layout.spec.ts` at 393×852 and 852×393, and with a phone's own safe-area insets at 956×440, 844×390 and
+  390×844). The layout goes by the room, never by the device: under 600 CSS px
   wide the phone held upright, under 500 tall the phone on its side; anything else keeps the layout
   above (a tablet takes this layout's Show, objects and pages, below). One editor: the same controls and operations (D342), only placed for a finger. **Upright:** one slim bar at the
   top: a menu (**Map Generator**, **Real places**, **Your maps**, **History**, **Help and keys**, then File's entries),
   the map's name (two lines at most), Undo, Redo, the checks' dot (a tap opens the checks under the bar) and **Save**
   (Save to Timberborn's or Download .timber's call). The view fills the rest. At the foot the tools in one row that
-  scrolls sideways, icon over name, 56px tall: Select, **Objects**, the brushes, Block, the forces. The tool in hand's
+  scrolls sideways, icon over name, 56px tall: Select, **Objects**, the brushes, Block, the forces. **At rest the row
+  stands on whole tools** (Kyler's phone, 2026-11-14): as many as it holds at 64px, each grown to fill it exactly
+  (`TopBar.tsx` `fitToolRow`), the row snapping to each, a fade at an end where more tools lie; the tool in hand is
+  brought whole into view, clear of that fade. The tool in hand's
   settings stand in a sheet above the row with a grab handle: one row by default (Size and the tool's main choice, the
-  first two settings of its first row), every setting in up to half the screen when the handle is tapped or pulled up,
+  first two settings of its first row; where the sheet is too narrow for both, the second under the first, never a row
+  that scrolls sideways unannounced), every setting in up to half the screen when the handle is tapped or pulled up,
   one row again when pulled down; a pulled-up sheet too short for every setting ends after a whole one (the rest scroll
-  up into view). Tapping the tool in hand puts it down. Select rests in hand with its sheet closed; a tap on it opens
+  up into view), its foot fading while more lie under it. **Every setting's card has one layout:** its name and value on one line at its top, its control (the
+  slider or the choices, each option 44px, wrapping rather than cut) under them the card's width, and Auto at the end
+  of that control's line, so the names and the sliders of two cards side by side stand level; Select's shapes four to
+  a line (Whole map two cells), its words under them. Tapping the tool in hand puts it down. Select rests in hand with its sheet closed; a tap on it opens
   Select's settings, a tap again puts them and any selection down. **Show**, a button at the view's top right, opens a
   sheet of what the map shows, at most 40 % of the view so the map changes above it, ending after a whole row (the rest
   scroll up into view): under small headings, each an even grid of chips, **What to show** (the Show row's toggles,
@@ -235,12 +243,28 @@ place of its bottom rule.
   layout viewport's own size (`documentElement.clientWidth`, `roomNow`), never `innerWidth`, which grows to fit
   anything wider than the screen (a desktop bar drawn at a phone's size made it 1,047 and the page lost the phone layout
   for a moment); the editor's loading frame takes the phone layout too, so nothing desktop-wide is drawn first. **On its side:** the same bar; the tools
-  in a rail down the left edge; a tool's settings, Show and the objects in a panel at the right, at most 40 % of the
-  width (320px), clear of Show's button at the bottom right; the menu in columns, the panels and Help in the first,
+  in a rail down the left edge, ending at the home bar's inset, standing on whole tools as the row does; a tool's
+  settings, Show and the objects in a panel at the right hanging from the bar, at most 40 % of the width (320px; a
+  tool's settings 264px and the right inset), clear of Show's button at the bottom right, the panel's room starting at
+  its own edge (the far side's inset is the rail's). A tool's settings stand **in one column the panel's width**, each
+  card as above (a button setting shares its line with the next: Up 1 beside Down 1): the main two at rest, every one
+  when the handle is tapped or pulled down (the panel hangs from the bar, so it is pulled out downwards; pushed up, the
+  main two again), the panel as tall as they need up to the room and scrolling inside past it; the menu in columns, the panels and Help in the first,
   all of it in view; the hints in the room's left half at rest, stepping aside while a sheet or the panel is open.
   **Everywhere on a phone:** every control at least 44px, none off the screen, the page never zoomed or scrolled (the
-  editor is the dynamic viewport's height and clips what would spill), the notch and the home bar kept clear (safe
-  areas, `viewport-fit=cover`), fields 16px so the browser never zooms on focus. A long press on a control shows its
+  editor fills the box the browser pins fixed elements to and clips what would spill), the notch and the home bar kept clear (safe
+  areas, `viewport-fit=cover`). **The foot keeps clear of the browser's own bar** (iOS 26 Safari's floating address bar
+  lay over the tool row, 2026-11-15): the root is `position: fixed`, inset 0, never a viewport unit's height, and what
+  read the viewport's height reads that box's (`--room-h`); should the box still reach under a bar, `--bar-b` is how far
+  its foot lies below the visual viewport's (`ui/phoneRoot.ts`; it keeps its last value while a field has the focus,
+  until the viewport has settled after one lets it go, while the page is pinch-zoomed, and for a reading past 140px or
+  a quarter of the room, so a keyboard never lifts the foot), and the foot's room is the larger of it and the home bar's inset (a tablet's root ends at the bar
+  instead). `?viewport=on` shows the measures behind it in a box mid-screen, for a screenshot from a phone. Fields 16px so the browser never zooms on focus. A long press's tooltip shows its phrase without the key caps, which name keys a
+  finger has none of, until a key is pressed on the page (a tablet with a keyboard). **Nothing cut at rest:** every control
+  and card whole inside the room less its insets and inside its panel; a row or page that scrolls may show its next item
+  in part only at an end where more lies and that is not a safe-area edge, or where it fades (a page of cards fades out
+  over the home bar and a little above it); a row of tools stands on whole tools (`tests/e2e/phone.ts` `phoneFaults`,
+  measured with Chrome's own safe-area insets in `layout.spec.ts` for every tool, one row and pulled up). A long press on a control shows its
   tooltip (D351) and is not a tap. With a tool's one-row sheet open the view keeps 66 % of the screen upright and 63 %
   on its side (the spec holds 60 %).
 - **Tablets** (#1074, slices 5 to 7; `src/styles/tablet.css`, `view/usePhone.ts`, `view/phoneLayout.ts`;
@@ -267,7 +291,7 @@ place of its bottom rule.
   (Glaciate's Benches at 820), never cut off; in the dock's narrow cells a setting's name keeps its whole words, wrapping between them, its value and
   Auto going under it where the line has no room, so no name is ever cut short. Under 1,280 wide the dock takes the view's
   whole width (its cells shrink to 44px, never narrower than a tool's word whatever the font; where the row can't hold
-  them it scrolls sideways, as a phone's does, the tool in hand scrolled into view; Select's shapes alike) and the editor is the dynamic viewport's height; under
+  them it scrolls sideways, as a phone's does, the tool in hand scrolled into view; Select's shapes alike) and the editor fills the box the browser pins fixed elements to (as a phone's, above); under
   1,100 the header takes two lines. Every control at least 44px, fields 16px, no iOS callout on a long press but in a
   field or a link, the same gestures (§7, "Touch").
 - **Together** (D362, D431, D486; `docs/COLLAB-BRIEF.md`; part 6a): two players edit one map through a relay and a
@@ -684,7 +708,9 @@ on one shared forces core, `src/core/forces/` (D203, D206, D220; see its README)
   it changed nothing round a tile by more than a level the tidying never moves that tile more than two: the land's
   own one-tile ledge goes back to where it stood, and the corner of its own two-tile ridge, with the ground of its
   level round it, to where the force put it, or where the force's rounding would leave that one tile wide to where it
-  stood, never down its cliff and never leaving ground one tile wide. Craterize, Erupt, Rift and Deposit end with it, and Glaciate's walls; Quake adopts it next.
+  stood, never down its cliff and never leaving ground one tile wide (the land's own ground that was one tile wide
+  before the force, where it still stands, holds no corner down: the tidying may not widen such a ledge by dropping
+  the ridge above it). Craterize, Erupt, Rift and Deposit end with it, and Glaciate's walls; Quake adopts it next.
 - **Esc skips, undo takes it back** (D344, A4): while a gesture is still being drawn, Esc cancels it and nothing of
   it lands; once a force plays, Esc (or Skip, for a finger: #1074 slice 3) skips it to its end, its final land kept as
   one step; Ctrl+Z (or Z, or Revert) takes all of it back at any moment, and nothing lands afterwards (D341). The row's
@@ -938,7 +964,13 @@ on one shared forces core, `src/core/forces/` (D203, D206, D220; see its README)
   (`tests/contract/glaciateFloor.test.ts`, `glaciatePowerSize.test.ts`). **One U-shaped trough** (#914; its last
   stage, `rust/forces/src/trough.rs`): the line is the stations rounded into a smooth curve that wanders a little
   either side of the drawn one, so nothing in the trough runs ruled; its edge wanders too, and it closes at both ends,
-  the cirque's headwall and the snout's lip rising from the floor as its walls do. The floor is one level across the
+  the cirque's headwall and the snout's lip rising from the floor as its walls do, except where the line runs to the
+  map's edge: there the trough runs on off the map open, its floor and channel out over the edge and its water leaving
+  by them, so the edge's ground never holds every Power's floor at one height (#1198), and at its full width: no
+  station is held back from the edge its route runs off, so the U reaches it whole, never a slot, yet no wider than
+  the route is long on the map, the glacier never wider than it is long (#1204). Whether a route runs off the map is
+  one test for its width and its open end alike (its last point within 3.5 tiles of an edge, heading into it). The floor is
+  one level across the
   trough (the valley's low dry ground near the line less Power's cut, 1 level at Power 0 to 11 at 100, easing off over
   the last third) and steps down the route in uneven treads, never rising down it; a tread longer than twice its
   length steps down part way. The river runs in one channel a level below the floor, two or three tiles wide,
@@ -1025,7 +1057,10 @@ on one shared forces core, `src/core/forces/` (D203, D206, D220; see its README)
   rock that wore least comes back as ragged remnants wherever a roof would hang. Openings are scaled to their cliff
   (the force audit's 11): a click's at the nearest face within twice its Size, a sweep's one every 6 to 10 tiles of
   unequal size; 40 % of the face high at Power 55, 70 % at 100, 3 to 8 wide; a fin under 4 tiles is cut through, an
-  arch. Where no face is in reach (D356, the audit's 24) it scours rills a level deep down a slope's fall line, or on
+  arch. Each roll turns an opening with the seed (centred on the foot at its depth, then a step along the face and
+  deeper, then a step the other way and shallower), so Try another wears another stretch of the face, never the same
+  pocket of a small face again (#1198). Where no face is in reach (D356, the audit's 24) it scours rills a level deep
+  down a slope's fall line, or on
   level ground one scour toward lower ground, keeping only what drains: never a pond, never below the water beside it,
   never under water. Every tile it changes lies within `erodeExtent` (2 × Size + 12) of its gesture. Sheet
   `docs/sheets/force-erode.jpg`. Its
@@ -1136,7 +1171,8 @@ on one shared forces core, `src/core/forces/` (D203, D206, D220; see its README)
   with Strength, varying along the cliff where the noise says), its edges wandering: the top pulls back and
   the foot becomes an apron that runs out in lobes, the scree building up at the foot from what the top
   loses, so the top comes down no more than its foot rises (a cliff standing in water keeps its top, the
-  water taking what it sheds; above a stream the whole cliff pulls back); it sheds only so far round the cliff (taller cliffs farther, unevenly), only where the stroke
+  water taking what it sheds; above farmland or a stream, where its foot may not rise, the whole cliff pulls back a
+  tread, its height kept, the ground behind left as it is, so it adds no terrace); it sheds only so far round the cliff (taller cliffs farther, unevenly), only where the stroke
   presses, narrowing into the cliff beside it, and a slope once shed is left as it is; old land has fewer
   terraces: a narrow stretch of a terrace joins the level it borders most, whole, where that takes away more
   edges than it adds (a Size 64, Strength 10 stroke leaves no more level edges than there were); flat tops
@@ -1678,8 +1714,12 @@ Craterize, Erupt, Rift, Quake, Deposit, Glaciate and Erode. M turns Markers on o
   desktop's). A finger is a pointer of its own type, so the mouse, the pen (its pressure) and the keys keep everything
   above. **Two fingers** move the camera in one gesture: dragged they pan, pinched they zoom about the ground under their
   middle (it stays under it, as the wheel's does), twisted they turn the view about that ground, and two fingers side by
-  side dragged up or down together tilt it (in the top-down view that drag pans). A browser tells one touch a finger at
-  a time, so the gesture takes a touch's move whole: one step once both fingers' moves are in (`Touches`), never a
+  side (a hand's slanted pair too; not one clearly above the other) dragged up or down together tilt it (in the top-down
+  view that drag pans). The gesture moves nothing until its way is clear on a hand's evidence, not a test's (`settle`:
+  each finger's travel past its wobble, a lead of up to 25 px past iOS's 10 px slop, a drifting gap; a sideways pan is
+  clear at 8 px, a pinch or a twist of both fingers at 6, a pivot about a held finger at 36, a tilt once both fingers
+  have gone 8 px up or down; `?viewport=on` shows how the last one settled). A browser tells one touch a finger at a
+  time, so the gesture takes a touch's move whole: one step once both fingers' moves are in (`Touches`), never a
   step aside and back that a view held at the map's edge could not undo. Let go moving, the view glides on and
   slows to a stop (none with reduced motion). **One finger with nothing in hand** (the resting Select with nothing
   selected) pans; a **tap** reads the tile (the readout stays once the finger is gone) and is a click (an object, a
@@ -2166,7 +2206,7 @@ checks dot counts; every other row is information under Good to know, worded as 
     whose source its maker removed) is the map's own, a stored lake like a Fill (`features/build.ts`
     `importedWater`), so the live water and the export keep it alike and the game evaporates it in its own time;
     Remove unfed water can still take it. D420 is unchanged for generated maps and Real places.
-  - **Speed:** after an edit the preview re-settles from its previous state; the target is ≤ 2 s for a local edit
+  - **Speed:** after an edit the preview re-settles from its previous state (the warm start, `sim/preview.ts`: only the tiles whose floor, dam or emitters changed and the dry tiles within 2 tiles of them start again; a wet tile beside the edit keeps its water and momentum, so a flowing river carries on as it ran, D(new-preview)); the target is ≤ 2 s for a local edit
     on 256² (measured 1.3–1.4 s in Chrome on the slowest themes, at most 1.75 s in Node, D99). A full re-settle
     runs in the background with progress, past the first game day while the water still moves, up to the canonical
     settle's days (`PREVIEW_JOB_DAYS`), so the dot leaving "Settling…" means it. Speed belongs to the day strip alone (D268; §5).

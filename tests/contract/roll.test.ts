@@ -18,6 +18,7 @@ import { makeSpec } from "../../src/core/spec/mapspec";
 import { runGenerate } from "../../src/worker/api";
 import * as ed from "../../src/worker/session";
 import { fixture } from "./forceFixtures";
+import { fixtureInEditor } from "../fixtureEditor";
 import { areaDepth } from "../../src/core/features/raster/brush";
 
 type P = { x: number; y: number };
@@ -192,8 +193,9 @@ describe("Roll as an operation (D342)", () => {
   });
 
   test("keeps the frame shown, undoes, and reopens with the same land", async () => {
-    await runGenerate(makeSpec({ seed: 22, theme: "highlands", size: { x: 96, y: 96 } }));
-    ed.refine();
+    // (Highlands 96² seed 22: opens a saved fixture of the land it was written on (D148, the #1163 pattern); the generated land moves with the generator)
+    fixtureInEditor("highlands", 96, 22);
+    ed.settleWater();
     const before = ed.terrainNow().heights.slice();
     expect(ed.forceStart({ verb: "roll", settings: { ...ROLL_DEFAULTS, power: 80 }, path: [{ x: 30, y: 30 }, { x: 60, y: 60 }], cut: null }).errors).toEqual([]);
     let shown = before;

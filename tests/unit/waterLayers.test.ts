@@ -17,6 +17,7 @@ import { meshWaterChunk, type WaterMeshData } from "../../src/render3d/waterMesh
 import { changedColumnChunks, needsLayers, plainLayers, waterLayers } from "../../src/render3d/waterLayers";
 import { openTimber } from "../../src/worker/session";
 import { heightfieldWaterChunk, type HeightfieldWaterMesh } from "../fixtures/heightfieldWaterMesher";
+import { fixtureSession } from "../fixtureProjects";
 
 const bytes = (a: ArrayBufferView) => Buffer.from(a.buffer, a.byteOffset, a.byteLength);
 
@@ -26,20 +27,22 @@ function same(a: HeightfieldWaterMesh, b: WaterMeshData, at: string): void {
 }
 
 describe("water on maps without terrain above terrain", () => {
-  const maps: [ThemeId, number, number][] = [
+  const maps: [ThemeId, number, number, "saved"?][] = [
     ["any", 96, 1],
     ["riverValley", 128, 2],
     // (seed 1 for seed 7 since generator 0.10.16's ground with grade, D148: seed 7's water has no fall now; seed 1's has,
     // as 9 of seeds 1–16 do, 10 of them before; seed 2 for seed 1 since the D518 mends (compact hills, no broad wash flats),
-    // D148: seed 1's water has no fall now; of seeds 1–13 seeds 2, 5, 6, 7, 8, 10 and 12 have one, seed 2 with 10 fall quads)
-    ["canyon", 128, 2],
+    // D148: seed 1's water has no fall now; of seeds 1–13 seeds 2, 5, 6, 7, 8, 10 and 12 have one, seed 2 with 10 fall quads;
+    // a fixture since generator 0.10.29, D148: generator 0.10.25's land, tests/fixtures/projects, its falls the mesher's, so the
+    // weathering's reach moving the generator's land moves nothing here)
+    ["canyon", 128, 2, "saved"],
     ["highlands", 96, 4],
     ["lakeBasin", 128, 5],
     ["islands", 96, 2],
     ["delta", 256, 7],
   ];
-  it.each(maps)("%s %i² seed %i: the same mesh as the heightfield water mesher, and through the per-column path", (theme, size, seed) => {
-    const b = generate(makeSpec({ seed, theme, size: { x: size, y: size } })).built;
+  it.each(maps)("%s %i² seed %i: the same mesh as the heightfield water mesher, and through the per-column path", (theme, size, seed, saved) => {
+    const b = saved ? fixtureSession(theme, size, seed).built : generate(makeSpec({ seed, theme, size: { x: size, y: size } })).built;
     const { W, H, heights } = b;
     const view = waterFromDepth(heights, b.water, b.contamination);
     const out = outflowsOf(view, W, H, b.settle.out);

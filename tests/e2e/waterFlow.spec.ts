@@ -3,9 +3,10 @@
 // ends exactly at the water the map has (the worker's, the export's); a drought drains the map and
 // brings the water back, and a badtide turns the clean water to badwater and washes out, each ending
 // at the map's water again.
+// Its maps are saved (`openSaved`): the page's own map of each fragment, as generator 0.10.26 made it.
 
 import { expect, test, type Page } from "@playwright/test";
-import { openEditor, topDown } from "./open";
+import { openSaved, topDown } from "./open";
 
 const idle = (page: Page) => page.evaluate(() => window.dgmEditor!.idle());
 const wet = (page: Page) =>
@@ -48,7 +49,7 @@ test("the water's journey plays over a few seconds, pauses, skips, replays, and 
   await page.setViewportSize({ width: 1400, height: 900 });
   // (seed 2 since generator 0.10.17, D515, D148: on seed 4242's map the source's water now spreads over some 40 tiles, too few
   // for four frames on a slow machine; on seed 2's over some 320)
-  await openEditor(page, "s=2&z=96&d=n&t=riverValley");
+  await openSaved(page, "s=2&z=96&d=n&t=riverValley");
   await topDown(page);
   const bar = page.getByRole("toolbar", { name: "Water time" });
   await expect.poll(() => page.evaluate(() => window.dgmEditor!.waterSettled()), { timeout: 30_000 }).toBe(true);
@@ -212,7 +213,10 @@ test("an Unstable Core's moment shows under the water row while a hazard is held
   const errors: string[] = [];
   page.on("pageerror", (e) => errors.push(String(e)));
   await page.setViewportSize({ width: 1400, height: 900 });
-  await openEditor(page, "s=4242&z=96&d=n&t=riverValley&bw=0&uc=1");
+  // (seed 7 since generator 0.10.24's round forms (the look round), D148: the land moved the cores' draws, and seed 4242's
+  // map now holds one core, in cycle 8, so its note stands alone; of seeds 1 to 8, seed 7's alone holds exactly two, each
+  // with a moment of its own, cycles 7 and 6 (seeds 5 and 8 one, the others three or four))
+  await openSaved(page, "s=7&z=96&d=n&t=riverValley&bw=0&uc=1");
   await expect.poll(() => page.evaluate(() => window.dgmEditor!.waterSettled()), { timeout: 30_000 }).toBe(true);
   const bar = page.getByRole("toolbar", { name: "Water time" });
   const notes = bar.getByRole("note").locator("span");
@@ -220,7 +224,8 @@ test("an Unstable Core's moment shows under the water row while a hazard is held
   const cores = notes.filter({ hasText: /^Unstable core/ });
   await expect(notes).toHaveCount(0);
   await bar.getByRole("button", { name: "Badtide" }).click();
-  // (this map's two cores start their countdowns in cycles 7 and 12 since generator 0.10.20's contour edges and their mends,
+  // (this map's two cores start their countdowns in cycles 7 and 6 since generator 0.10.24 (seed 7, above); seed 4242's in
+  // cycles 7 and 12 since generator 0.10.20's contour edges and their mends,
   // D518, D148: the land moved the cores' draws; cycles 12 and 11 since generator 0.10.17's start floors, D515, D148: the
   // land moved the cores' draws; cycles 9 and 8 since generator 0.10.16's ground with grade, D148: the
   // land moved the cores' draws; cycles 12 and 7 since 0.10.13, D507: the start frames
@@ -228,7 +233,7 @@ test("an Unstable Core's moment shows under the water row while a hazard is held
   // the hazard)
   await expect(cores).toHaveText([
     "Unstable core: goes off 2 to 7 days before cycle 7's drought or badtide",
-    "Unstable core: goes off 2 to 7 days before cycle 12's drought or badtide",
+    "Unstable core: goes off 2 to 7 days before cycle 6's drought or badtide",
   ]);
   // (the row never changes shape for it)
   const box = await bar.boundingBox();

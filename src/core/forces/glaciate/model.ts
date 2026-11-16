@@ -2,8 +2,10 @@
 // investigation/glaciate round 4, #69). A glacier follows the valleys already there (Flow: a click on
 // high ground) or grinds through ridges the way it was dragged (Aim); the map's own drainage, never the
 // variation seed, chooses a mountain route, and on flat ground a seeded choice of lower ground or an edge
-// gives Try another somewhere else to go. Planned in Rust (rust/forces, D381; run.ts); the TypeScript
-// planner it replaced is tag `ts-forces-final`.
+// gives Try another somewhere else to go. A glacier whose way runs to the map's edge carves on off the map,
+// its trough open there and its water leaving by it, as wide and as deep as anywhere along it but never wider than
+// its way on the map is long (#1198, #1204); one test says whether it runs off, for its width and its open end alike.
+// Planned in Rust (rust/forces, D381; run.ts); the TypeScript planner it replaced is tag `ts-forces-final`.
 
 import type { SourcesRule } from "../clear";
 import { forceSettingsProblem, GLACIATE_SIZE_MAX, GLACIATE_SIZE_MIN } from "../settings";

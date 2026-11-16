@@ -238,7 +238,9 @@ pub(super) fn whole(surface: &[f64], ground: &[f64], before: &[u8], w: usize, h:
     // round it, which the tidying may have moved by less, so it stands in a square; and it stays only
     // where that leaves nothing one tile wide that the tidying had left at least two wide: else that
     // ground goes back where it stood, or the corner alone does, or failing that it keeps what the
-    // tidying gave it)
+    // tidying gave it. The land's own ground one tile wide, standing where it stood, counts for none of
+    // this: the tidying may widen a ledge at the foot of a cliff by dropping the corner of the ridge
+    // above it, but the ledge was one tile wide before the force, and the corner goes back)
     let tidied = land.clone();
     let narrowed = |land: &[u8], tiles: &[usize]| {
         tiles.iter().any(|&i| {
@@ -246,7 +248,9 @@ pub(super) fn whole(surface: &[f64], ground: &[f64], before: &[u8], w: usize, h:
             let mut any = false;
             for ny in y.saturating_sub(1)..=(y + 1).min(h - 1) {
                 for nx in x.saturating_sub(1)..=(x + 1).min(w - 1) {
-                    any = any || (wide(&tidied, w, h, nx, ny) && !wide(land, w, h, nx, ny));
+                    let j = ny * w + nx;
+                    let own = land[j] == before[j] && !wide(before, w, h, nx, ny);
+                    any = any || (wide(&tidied, w, h, nx, ny) && !wide(land, w, h, nx, ny) && !own);
                 }
             }
             any

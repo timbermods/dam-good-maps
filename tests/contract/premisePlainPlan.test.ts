@@ -11,7 +11,7 @@ import { failing, firstPlan } from "../../src/core/premise/draw";
 import { pathLength } from "../../src/core/premise/geom";
 import { PREMISES } from "../../src/core/premise/premises";
 import { DEV_PREMISES } from "../../src/core/premise/premises/dev";
-import { PLAIN_ID, plainOf, plainOverlays, plainShares, poisonedPlain, poisonedPlainEligible } from "../../src/core/premise/premises/poisonedPlain";
+import { onMap, PLAIN_ID, plainOf, riffles, riverStage, riverSteps, RIVER_STAGE, plainOverlays, plainShares, poisonedPlain, poisonedPlainEligible, toLocal, toMap, turnOf, WALL, wallStraight } from "../../src/core/premise/premises/poisonedPlain";
 import type { PremisePlan } from "../../src/core/premise/types";
 import { BED_FLOOR } from "../../src/core/land/genome";
 import { makeSpec, PREMISE_CHOICES, PREMISE_IDS, type MapSpec } from "../../src/core/spec/mapspec";
@@ -127,6 +127,11 @@ describe("Broken poisoned-floodplain plans fail their invariants", () => {
       const bed = link(plan, "river").bed as number[];
       bed[bed.length - 1] = bed[0] + 1;
     }],
+    ["plain.levels", "the river's bed falling two levels at one step", (plan) => {
+      const bed = link(plan, "river").bed as number[];
+      const k = bed.findIndex((v, j) => j > 0 && v < bed[j - 1]);
+      for (let j = k; j < bed.length; j++) bed[j] -= 1;
+    }],
     ["plan.floor", "the Red Fall's pool dug under the floor", (plan) => {
       // (its bed dug a level under the floor, wherever the backswamp stands)
       const pool = body(plan, "redPool");
@@ -181,6 +186,16 @@ describe("Broken poisoned-floodplain plans fail their invariants", () => {
       const red = link(plan, "red");
       red.joins!.at = pathLength(link(plan, "river").path!) / 2;
     }, () => joined],
+    ["stream.join", "the red stream's last reach flat: its bed at the river's bed the reach before it joins", (plan) => {
+      const bed = link(plan, "red").bed as number[];
+      bed[bed.length - 2] = bed[bed.length - 1];
+    }, () => joined],
+    ["stream.join", "the red stream's last reach long: its last point but one drawn 8 tiles back up its course", (plan) => {
+      const path = link(plan, "red").path!;
+      const [a, b] = [path[path.length - 2], path[path.length - 1]];
+      const d = Math.hypot(a[0] - b[0], a[1] - b[1]);
+      path[path.length - 2] = [b[0] + ((a[0] - b[0]) * 8) / d, b[1] + ((a[1] - b[1]) * 8) / d];
+    }, () => joined],
     ["stream.join", "a red stream said to leave by its own exit that joins the river", (plan) => {
       link(plan, "red").joins = { link: "river", at: pathLength(link(plan, "river").path!) * 0.8 };
     }, () => own],
@@ -208,6 +223,69 @@ describe("Broken poisoned-floodplain plans fail their invariants", () => {
     expect([...new Set(broken.map(([id]) => id))].sort()).toEqual([...ids].sort());
   });
 
+  // the near wall's foot ruled over 1.5 P from 8 tiles down the valley (a chord between its points there), and the
+  // same with every point between standing 1.9 tiles either side of the chord in turn; on seed 6, whose river keeps to
+  // the floor's near third with its wall ruled (seed 2's leaves it since step 3's round 2, D148)
+  const ruledS = spec(6, 192);
+  const ruledPlan = planOf(ruledS);
+  const ruleNear = (plan: PremisePlan, zig: number) => {
+    const q = p(plan);
+    const n = Math.ceil((1.5 * q.P) / q.step);
+    const k0 = Math.round(8 / q.step);
+    const [a, b] = [q.near[k0], q.near[k0 + n]];
+    for (let k = 1; k < n; k++) q.near[k0 + k] = a + ((b - a) * k) / n + zig * (k % 2 ? 1 : -1);
+  };
+
+  it("wall.wanders alone: the near wall's foot ruled over 1.5 P fails it and nothing else", () => {
+    const plan = copy(ruledPlan);
+    ruleNear(plan, 0);
+    expect(fails(ruledS, plan)).toEqual(["wall.wanders"]);
+  });
+
+  it("wall.wanders by its longest run truly: a zigzag about a ruled line, every short chord straying, fails it", () => {
+    // (the measure before: from each start, the longest chord until the first that strays; this one's chords from
+    // every start stray within a few points, so it read the run as short)
+    const before = (line: readonly number[], step: number, T: ReturnType<typeof turnOf>) => {
+      const pts = line.map((v, k): [number, number] | null => (onMap(T, [k * step, v]) ? [k * step, v] : null));
+      let best = 0;
+      for (let i = 0; i < pts.length; i++)
+        for (let j = i + 1; j < pts.length; j++) {
+          const [a, b] = [pts[i], pts[j]];
+          if (!a || !b) break;
+          const len = Math.hypot(b[0] - a[0], b[1] - a[1]);
+          let ok = true;
+          for (let m = i + 1; m < j && ok; m++) ok = Math.abs((b[0] - a[0]) * (a[1] - pts[m]![1]) - (a[0] - pts[m]![0]) * (b[1] - a[1])) / len <= WALL.near;
+          if (!ok) break;
+          best = Math.max(best, len);
+        }
+      return best;
+    };
+    const plan = copy(ruledPlan);
+    ruleNear(plan, 1.9);
+    const q = p(plan);
+    const T = turnOf(plan, q);
+    expect(before(q.near, q.step, T)).toBeLessThanOrEqual(WALL.longest * q.P);
+    expect(wallStraight(T, q.near, q.step, 0, T.U)).toBeGreaterThan(WALL.longest * q.P);
+    expect(fails(ruledS, plan)).toEqual(["wall.wanders"]);
+  });
+
+  it("start.badwater reads the river below the red stream's join as red water", () => {
+    // (a point of the river just below the join led 4 tiles down the valley from the start: the river there carries
+    // the red stream's water)
+    const plan = copy(joined.plan);
+    const q = p(plan);
+    const T = turnOf(plan, q);
+    const river = link(plan, "river").path!;
+    const at = link(plan, "red").joins!.at;
+    let k = 1;
+    while (k < river.length - 1 && pathLength(river.slice(0, k + 1)) <= at) k++;
+    const [u, v] = toLocal(T, [plan.frame.start.x + 0.5, plan.frame.start.y + 0.5]);
+    river[k] = toMap(T, [u + 4, v]);
+    const f = failing(poisonedPlain.invariants, "plan", { spec: joined.sp, plan }).find((x) => x.id === "start.badwater");
+    expect(fails(joined.sp, joined.plan)).toEqual([]);
+    expect(f?.reason).toMatch(/Red water stands [0-9]+ tiles from the start/);
+  });
+
   for (const [id, what, breakIt, base] of broken)
     it(`${id}: ${what}`, () => {
       const { sp, plan: from } = base ? base() : { sp: s, plan: good };
@@ -216,4 +294,47 @@ describe("Broken poisoned-floodplain plans fail their invariants", () => {
       breakIt(plan);
       expect(fails(sp, plan)).toContain(id);
     });
+});
+
+describe("The river's steps (step 3, round 2)", () => {
+  // a straight river 200 tiles long, a riffle every 20, under a plain 10 over its head's bed
+  const path: [number, number][] = [];
+  for (let x = 0; x <= 200; x += 2) path.push([x, 0]);
+  const rif = Array.from({ length: 9 }, (_, k) => 20 * (k + 1));
+  const steps = (o: { ceiling?: number; join?: number | null; floor?: number; flow?: number }) =>
+    riverSteps({ path, head: 6, floor: o.floor ?? 3, width: 5, riffles: rif, ceiling: () => o.ceiling ?? 9, flow: () => o.flow ?? 15.7, join: o.join ?? null });
+
+  it("stand deeper for more flow and less width, by the measured stage", () => {
+    expect(riverStage(15.7, 5).lip).toBeCloseTo(RIVER_STAGE.lip, 6);
+    expect(riverStage(30, 5).lip).toBeGreaterThan(riverStage(15.7, 5).lip);
+    expect(riverStage(15.7, 6).lip).toBeLessThan(riverStage(15.7, 5).lip);
+  });
+
+  it("need no step where the whole reach stands under its ceiling, and step at the farthest riffle that holds", () => {
+    expect(steps({ ceiling: 9 })!.at).toEqual([]);
+    // (6 + 1.6 + 0.0055 × 200 = 8.7 over the ceiling 8.5 less the margin: one step, at the farthest riffle that holds)
+    const one = steps({ ceiling: 8.5 })!;
+    expect(one.at.length).toBe(1);
+    expect(rif).toContain(one.at[0]);
+    expect(one.bed[0]).toBe(6);
+    expect(one.bed[one.bed.length - 1]).toBe(5);
+    for (let k = 1; k < one.bed.length; k++) expect(one.bed[k - 1] - one.bed[k]).toBeLessThanOrEqual(1);
+  });
+
+  it("step just above the red stream's join, and refuse where no riffle serves or the bed would fall under its floor", () => {
+    const j = steps({ ceiling: 9, join: 105 })!;
+    expect(j.at.length).toBe(1);
+    expect(j.at[0]).toBeGreaterThanOrEqual(105 - RIVER_STAGE.join[1]);
+    expect(j.at[0]).toBeLessThanOrEqual(105 - RIVER_STAGE.join[0]);
+    expect(steps({ ceiling: 7.5 })).toBeNull();
+    expect(steps({ ceiling: 8.5, floor: 6 })).toBeNull();
+  });
+
+  it("find riffles where the bends cross over", () => {
+    const wave: [number, number][] = [];
+    for (let x = 0; x <= 120; x += 3) wave.push([x, 6 * Math.sin(x / 10)]);
+    const r = riffles(wave, 4, 4);
+    expect(r.length).toBeGreaterThan(2);
+    for (const s of r) expect(Math.abs(Math.cos(s / 10))).toBeGreaterThan(0.5);
+  });
 });

@@ -265,7 +265,7 @@ log(area) between small (50–100²), medium (128²), large (192²) and max (256
 | Setting | Range | Default | Maps to |
 |---|---|---|---|
 | Badwater | No badwater, Low, Normal, High | Normal (Highlands and Islands: Low) | Every map has at least one badwater source, a late-game resource like the mine site, unless the player picks **No badwater** (a peaceful map: none is placed, badtides still turn every source bad; the share link `bw=0` and the description record it, D200). Sources and strength are the official maps' for the size (`official-baselines.json`: 1 / 2 / 4 / 3.5 sources and 1.25 / 3.5 / 5.5 / 6.5 strength for small / medium / large / max, joined in ln(area)), moved within the official typical range by the seed, then × 0.5 / 1 / 1.5 (sources) and × 0.5 / 1 / 1.75 (strength) for Low / Normal / High; each source 1–3 strong, a BadwaterSource 3×3 in a side basin (§9.5). Where fewer hollows fit than the budget asks, the ones placed share its total, each up to 3. |
-| Badwater distance | 8 – 60 | 15 (Easy 30, Hard 8) (D85) | Distance from the start to badwater or contaminated soil the generator aims for. A hollow aims at the distance + 11 tiles from where the start is expected; the start is chosen, among the places nearly as good as the best, nearest there, and the hollows are planned again from the real start when their badwater lands within the distance or more than 26 tiles beyond it (D200 (2)). The start rule "No badwater within" (§5.6) is the same value: the panel sets both, and validation uses the larger. For a generated map it is a rule: a start with badwater or contaminated soil nearer, on the water as the file holds it or as its badwater comes to rest (run on up to six days where water near the start carries some), is never kept; another start is found on the same land (Kyler, 2026-10-05, #265). On an edited or imported map, an advisory warning (D85). |
+| Badwater distance | 8 – 60 | 15 (Easy 30, Hard 8) (D85) | Distance from the start to badwater or contaminated soil the generator aims for. A hollow aims at the distance + 11 tiles from where the start is expected; the start is chosen, among the places nearly as good as the best, nearest there, and the hollows are planned again from the real start when their badwater lands within the distance or more than 26 tiles beyond it (D200 (2)). It is also the start rule "No badwater within" (§5.6): one value, `hazards.badwaterDistance`, link key `bd` (D527: the start rule was a second copy, and the generator kept the larger, so one moved alone below the other changed nothing; a link or project file from before D527 that gives the start rule, `sx`, opens with the larger of the two as Badwater distance). Every step of its range changes the next map on some seeds: at 96², seeds 1–2, the six themes' maps change from 8 to 9 and from 59 to 60 on at least one seed each; on a seed whose badwater already stands farther, a lower distance is a limit the map already meets (D527). For a generated map it is a rule: a start with badwater or contaminated soil nearer, on the water as the file holds it or as its badwater comes to rest (run on up to six days where water near the start carries some), is never kept; another start is found on the same land (Kyler, 2026-10-05, #265). On an edited or imported map, an advisory warning (D85). |
 | Thorn belts | Off, Some | Some (Highlands, River Valley) | 1–3 belts of 13–40 thorns, each across the way from the start to a relic or a geothermal field, 5–8 tiles in front of it, 9–17 tiles across and 2–3 deep, every thorn 22+ tiles from the start; a belt that would cut the colony's land in two is left out. |
 | Unstable cores | Off, On | Off | Advanced. 1–4 cores, 40+ tiles from the start, countdown in cycle 5–12 (10.5 days in, the official value), radius 2–3, never within radius + 2 of each other or of a dam site. |
 
@@ -278,7 +278,7 @@ log(area) between small (50–100²), medium (128²), large (192²) and max (256
 | Species mix | weights for Pine, Birch, Oak, Succulent | 47 / 27 / 20 / 6 | The only species that load for both factions and in the editor. Succulents go on dry soil only. |
 | Berries near start | 20 – 100 | by difficulty (Easy 40, Normal 48, Hard 60) | The generation target, never below Minimum starting bushes (§5.6): living bushes within 20 tiles' walk of the start, in 2–3 patches beside water, grown within the colony's walk first (D97). |
 | Berry bushes elsewhere | 50% – 300% | 100% | Bushes per 10k tiles, size-aware (small 265, medium 92, large 40, max 44), each map within the official typical range (×0.98–1.07), in a few patches of about 44 along the banks. |
-| Ruins and scrap | 25% – 300% | 100% | Scrap per 1k tiles, size-aware (small 840, medium 705, large 236, max 235), each map within the official typical range (×0.75–1.41). |
+| Ruins and scrap | 25% – 300% | 100% | Scrap per 1k tiles, size-aware (small 840, medium 705, large 236, max 235), each map within the official typical range (×0.75–1.41). Placed to within a column, so every 5% step moves the ruins (D527, §9.7). |
 | Relics | Off, Some | Some | 1–3 small (13–70 tiles out), 1–2 medium (40–140) from 128² (0–1 below), one large (140+) from 192². |
 | Geothermal fields | Off, Some | Some | 30–120 tiles out, flat, dry, outside flood reach: 1 / 2 / 3 by size (under 128², from 128², from 192²). |
 | Mine sites | 2 – 4 | 2 / 2 / 3 / 3 by size | Every map has at least two the colony reaches from its start without crossing water or climbing a cliff, at least 24 tiles out (item 47, D325, D363; old links with 0 or 1 open with 2); maps under 80² need only one reached (D333 (7)). Flat 5×5 with a level ring, dry, 60+ tiles out where there is room (official 24–173, median 89), their ground levelled while the land is shaped (D363, `land/minePads.ts`). |
@@ -320,7 +320,7 @@ advisory warning when a map misses one.
 | Target | Easy | Normal | Hard | Source |
 |---|---|---|---|---|
 | Berries near start (§5.5) | 40 | 48 | 60 | Official median 47; never below Minimum starting bushes. |
-| No badwater within | 30 | 15 | 8 | Official maps' nearest badwater median 14.8, p25 10 (D85). |
+| No badwater within | 30 | 15 | 8 | Official maps' nearest badwater median 14.8, p25 10 (D85). Badwater distance (§5.4) is this rule. |
 | No ruins within | 20 | 15 | 12 | Official p10 22. |
 | Drought sized for | 4 days, 40 beavers | 9 days, 50 beavers | 30 days, 50 beavers | Game mode durations. |
 | Stored water needed near start | 86 | 253 | 1,174, at 3+ deep | §11.4 formula. |
@@ -760,7 +760,13 @@ where the land's own processes make them. The builder's limits still fix what a 
 ### 9.7 Ruin fields
 
 - **Totals:** scrap follows the ruins setting × the size-aware median, each map within the official typical range for
-  the size (`src/core/resources/baseline.ts`); at most 5% of columns stand outside fields. **Shape:** fields of about
+  the size (`src/core/resources/baseline.ts`); at most 5% of columns stand outside fields. **To within a column**
+  (D527): the scrap no new field takes, less than a field's least size of 10 or no room left for one, grows the fields
+  already placed a column at a time in turn, on their own level and band with a band's gaps; where they have no room,
+  new fields come at half the spacing, then on moist ground too, until the land holds no more (every theme at 96²
+  holds all of 300%, seeds 1–2); moist ground within twice the ruins' distance of the start stays clear (D515); fields
+  grown keep their moat from later fields; the last field placed gives back the columns
+  it grew past the scrap asked. **Shape:** fields of about
   19 / 32 / 39 / 42 columns by size, grown in an ellipse of aspect 1–2 with 4–10% holes, one tile of moat between
   fields. **Heights:** each field has its own tallness (the official storey shares tilted so a field averages 2.4 to
   3.8 storeys), placed by a mildly clumped key (neighbours differ by about 2 storeys), so a few towers of 6+ stand
@@ -1108,7 +1114,7 @@ one step away (D336). Any `.timber` or project file opens in the editor.
 
 - **State in the URL fragment:** `#v=<generatorVersion>&s=<seed>&t=<theme>&z=<size>&d=<difficulty>` plus only the
   settings that differ from the theme preset (at the link's difficulty and size), in a fixed order with two-letter keys
-  (the table is `core/spec/codec.ts`, D65; start rules `sw`, `sl`, `sb`, `sx`, `sr`; enum values as one letter), then
+  (the table is `core/spec/codec.ts`, D65; start rules `sw`, `sl`, `sb`, `sr`, and `sx` read into `bd` before D527; enum values as one letter), then
   `a` archetype, `p` premise and `c` colonies (reserved for Timber Together, D5), each only when set. A value the
   decoder cannot use is reported and the preset's value kept. A link from before D462 may carry `sp` and `k` (set
   pieces and constraints, which no map read): they are ignored, and the link opens the same map.

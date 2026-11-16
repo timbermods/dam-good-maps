@@ -5,9 +5,10 @@
 // ring: Carve's and Glaciate's band their width, a fault's or a fissure's a narrow line. A4:
 // Esc while a line is still being drawn cancels it and nothing starts; a painted Lift being drawn goes
 // back at once. (Esc and undo at every moment of a force at work are forceEsc.test's.)
+// Its maps are saved (`openSaved`): the page's own map of each fragment, as generator 0.10.26 made it.
 
 import { expect, test, type Page } from "@playwright/test";
-import { openEditor, topDown } from "./open";
+import { openSaved, topDown } from "./open";
 
 const info = (page: Page) => page.evaluate(() => window.dgmEditor!.info());
 const idle = (page: Page) => page.evaluate(() => window.dgmEditor!.idle());
@@ -23,7 +24,7 @@ const note = (page: Page) => page.locator(".shape-note");
 const noteWords = (page: Page) => page.evaluate(() => document.querySelector(".shape-note")?.textContent ?? "");
 
 async function openTopDown(page: Page, hash = "s=4242&z=96&d=n&t=highlands") {
-  await openEditor(page, hash);
+  await openSaved(page, hash);
   await topDown(page);
 }
 
@@ -222,7 +223,10 @@ test("A3, A4: every drawn gesture is a band of its width along the line with no 
 });
 
 test("D361 (1): Power acts on every mode: ] while a Lift is painted lifts it higher at once, and Try another takes the row's Power as it is now", async ({ page }) => {
-  await openTopDown(page);
+  // (Highlands seed 4246 since generator 0.10.24's round forms, D148: seed 4242's map now has caves and overhangs, and its
+  // spot, (26, 62), stands on one, where the crater is refused, "A force leaves caves and overhangs as they are", so no
+  // crater is kept for Try another to take; of seeds 4242–4247, 4246's and 4247's maps have none)
+  await openTopDown(page, "s=4246&z=96&d=n&t=highlands");
   const at = await spot(page);
   const before = await heights(page);
   await page.keyboard.press("Shift+Digit5");

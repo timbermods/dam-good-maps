@@ -15,6 +15,7 @@ import type { ForceResultParams } from "../../src/core/forces/op";
 import { makeSpec } from "../../src/core/spec/mapspec";
 import { runGenerate } from "../../src/worker/api";
 import * as ed from "../../src/worker/session";
+import { fixtureInEditor } from "../fixtureEditor";
 
 const W = 96;
 const lastForce = (s: MapSession) => s.state.sculpts.filter((o) => o.op === "forceResult").at(-1)!.params as ForceResultParams;
@@ -24,8 +25,8 @@ describe("Carve's source group (D314)", () => {
     // (seed 4 for 3, D148: after D447's bank rule seed 3's highest ground away from the start stands
     // where a row has no room, and the carve's source stays single; seed 5 for 4 once 0.8.3's badwater courses
     // follow the land, D476, D148: seed 4's highest ground has no room for a row)
-    await runGenerate(makeSpec({ seed: 5, theme: "highlands", size: { x: W, y: W } }));
-    ed.refine();
+    // (a fixture since generator 0.10.29, D148: the land these cases were written on, tests/fixtures/projects, so the weathering's reach moving the generator's land moves nothing here)
+    fixtureInEditor("highlands", W, 5);
     const s0 = MapSession.open(decodeProject(ed.project().bytes));
     const st = s0.built.start!;
     const n0 = s0.built.entities.filter((e) => e.template === "WaterSource").length;

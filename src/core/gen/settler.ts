@@ -449,6 +449,8 @@ export function pickStart(
   const benchWant = opts.bench ?? 113;
   const walkWant = Math.max(2, Math.min(9, 0.45 * (waterRule - 5)));
   const reach = opts.levelReach ?? 1;
+  // (the walk the check allows from the start's middle, generate.ts `aim`)
+  const aimMid = opts.waterExact && waterRule < 7 ? waterRule : waterAim(waterRule);
   // (Easy start: dry ground two levels under each level to three over it, as summed-area tables: what a clearing
   // cut round a place there could take)
   const easy = opts.easy ?? null;
@@ -505,7 +507,12 @@ export function pickStart(
             w = Math.min(w, walk[(y + dy) * W + x + dx]);
             wa = Math.min(wa, walkAny[(y + dy) * W + x + dx]);
           }
-        const sameLevel = w <= waterAim3(waterRule, opts.waterExact);
+        // (under a rule of 7 the 3×3's estimate reaches past the check's aim by the step from the 3×3 to the middle the
+        // check walks from: there the middle's own walk on its level decides, and a place it leaves short is judged
+        // over the slopes, as one whose shore is on another level)
+        let mid = walk[i];
+        if (waterRule < 7) for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) mid = Math.min(mid, walk[(y + dy) * W + x + dx] + (dx && dy ? S2 : dx || dy ? 1 : 0));
+        const sameLevel = w <= waterAim3(waterRule, opts.waterExact) && (waterRule >= 7 || mid <= aimMid);
         if (!sameLevel && !(wa <= waterAim3(waterRule, opts.waterExact))) continue;
         if (!sameLevel) w = wa;
         // (Easy start: its water at the pond's distance, and room for its clearing)
@@ -584,7 +591,7 @@ export function pickStart(
         cands.push({ i, score, kind, walk: w, levelled: uneven, droughtOk, intent, sameLevel });
       }
     }
-  if (!cands.length) return opts.level === false || easy ? null : footed(bankStart(h, W, H, water, hydro, rng, margin, avoid, reach));
+  if (!cands.length) return opts.level === false || easy ? null : footed(bankStart(h, W, H, water, hydro, rng, margin, avoid, reach, aimMid));
   cands.sort((a, b) => b.score - a.score || a.i - b.i);
   // the best few, far enough apart that the choice matters
   const top: typeof cands = [];
@@ -607,7 +614,7 @@ export function pickStart(
     }
     top.push(c);
   }
-  if (!top.length) return opts.level === false || easy ? null : footed(bankStart(h, W, H, water, hydro, rng, margin, avoid, reach));
+  if (!top.length) return opts.level === false || easy ? null : footed(bankStart(h, W, H, water, hydro, rng, margin, avoid, reach, aimMid));
   // one of the best few, among those nearly as good as the best (the settings' preferences hold):
   // the one nearest where the start was expected, else one at random
   const good = top.filter((t) => t.score >= 0.7 * top[0].score);
@@ -728,7 +735,10 @@ export function dryStart(h: Uint8Array, W: number, H: number, D: ArrayLike<numbe
 
 /** The last resort, as the old generator did (D97): beside clean pumpable water, a 5×5 pad and a
  *  3-wide path to the shore, levelled one level above the water, on ground within two levels of it,
- *  where most ground round it stands at the pad's level. */
+ *  where most ground round it stands at the pad's level. The path ends at the first water on its line,
+ *  and that water is what the start's pump draws: a pad whose path meets a sheet too shallow or too
+ *  foul to pump first, or water out of the pump's reach from the pad's level, or whose shore stands
+ *  past the walk the water rule allows from the pad's middle (`aim`), is passed over. */
 function bankStart(
   h: Uint8Array,
   W: number,
@@ -739,6 +749,7 @@ function bankStart(
   margin: number,
   avoid: Uint8Array | null,
   reach = 1,
+  aim = Infinity,
 ): StartPick | null {
   // (a rescue round, D471, levels from further and nearer the water: a pad on ground within a level
   // more than the levelled 5×5 reaches, 4 to 6 tiles from it)
@@ -752,6 +763,20 @@ function bankStart(
   const wet = new Uint8Array(N);
   for (let i = 0; i < N; i++) if (D[i] > 0.001 || hydro.water[i] === 1 || hydro.water[i] === 2) wet[i] = 1;
   const dWet = distanceFrom(wet, W, H);
+  // (the last dry tile on the line from the pad's middle to its water, and the first wet one)
+  const shoreOn = (x: number, y: number, wx: number, wy: number): [number, number, number] => {
+    const steps = Math.max(Math.abs(wx - x), Math.abs(wy - y));
+    let sx = x;
+    let sy = y;
+    for (let k = 0; k <= steps; k++) {
+      const px = Math.round(x + ((wx - x) * k) / steps);
+      const py = Math.round(y + ((wy - y) * k) / steps);
+      if (wet[py * W + px]) return [sx, sy, py * W + px];
+      sx = px;
+      sy = py;
+    }
+    return [sx, sy, wy * W + wx];
+  };
   const cands: [number, number, number, number][] = [];
   for (let i = 0; i < N; i++) {
     if (!(D[i] >= 0.4 && C[i] < 0.03)) continue;
@@ -771,6 +796,13 @@ function bankStart(
           if (wet[j] || Math.abs(h[j] - L) > padReach) ok = false;
         }
       if (!ok) continue;
+      // (the water its path meets first, pumpable from the pad's level, and the shore within the rule's walk of the
+      // pad's middle along the levelled path)
+      const [sx, sy, f] = shoreOn(x, y, wx, wy);
+      const ax = Math.abs(sx - x);
+      const ay = Math.abs(sy - y);
+      if (Math.abs(ax - ay) + S2 * Math.min(ax, ay) > aim) continue;
+      if (!(D[f] >= 0.4 && C[f] < 0.03 && h[f] + D[f] >= L - PUMP_REACH && h[f] + D[f] <= L + 0.01)) continue;
       // ground at the pad's level round it: the colony's first land (a pad on a ledge joins little)
       let near = 0;
       for (let dy = -8; dy <= 8; dy++)
@@ -793,14 +825,6 @@ function bankStart(
   const o: Orientation = Math.abs(wx - x) > Math.abs(wy - y) ? (wx > x ? "Cw270" : "Cw90") : wy > y ? "Cw180" : "Cw0";
   // the shore point: the last dry tile before the water along the line
   const steps = Math.max(Math.abs(wx - x), Math.abs(wy - y));
-  let sx = x;
-  let sy = y;
-  for (let k = 0; k <= steps; k++) {
-    const px = Math.round(x + ((wx - x) * k) / steps);
-    const py = Math.round(y + ((wy - y) * k) / steps);
-    if (wet[py * W + px]) break;
-    sx = px;
-    sy = py;
-  }
+  const [sx, sy] = shoreOn(x, y, wx, wy);
   return { x, y, level: L, orientation: o, kind: "bank", shoreWalk: steps, levelled: true, shore: [sx, sy] };
 }

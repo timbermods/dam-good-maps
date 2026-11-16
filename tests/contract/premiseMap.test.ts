@@ -53,8 +53,18 @@ import { decodeSpecFragment, encodeSpecFragment, makeSpec, type MapSpec } from "
 // a third of their trees young, its rolling and rises reweighed and its bend kept off the start, a new ground, D148; and
 // for the dead stands dense in their woods, each knot its own shape: its resources, D148; and for generator 0.10.21's
 // look round, D518: its ruin fields along their level's rim, a wash's banks jogging, the dead stands reading the dry land as the checks do, the version in its description, D148; and generator 0.10.22's version alone, the map otherwise 0.10.21's, D148;
-// and generator 0.10.23's version alone, its shown land kept for a rescue round moving only maps above 128², D148)
-const SHA = "edfee293ea18a4d6fe5dd4c231f1ceaafaa813b3d85ce4629d80d72e1c2b94a6";
+// and generator 0.10.23's version alone, its shown land kept for a rescue round moving only maps above 128², D148;
+// and generator 0.10.24's round forms (the look round: its outlands' knolls, mesas and cones never circles, the weathering
+// reaching in a disc), a new ground, D148;
+// and generator 0.10.25's version alone, its Lake Basin water settings moving no Canyon map, D148;
+// and generator 0.10.26's ruins to within a column, D527: its ruin fields hold the scrap asked to a column, D148;
+// and generator 0.10.27's version alone, the premise map otherwise 0.10.26's (D(new-leaks) moves the themes' land, not a premise's), D148;
+// and generator 0.10.29's version alone (#1186): at 0.10.27 the branch gives `7760e7be…` byte for byte, D148;
+// and generator 0.10.36's version alone (#1205): `93bb3867…` before it, and with the version set back to 0.10.29 the branch gives
+// `93bb3867…` byte for byte, the round forms at their meant size not reaching this premise's land, D148;
+// and generator 0.10.37's version alone (the Nightly of 2026-11-16): with the version set back to 0.10.36 the branch gives
+// `c42349c0…` byte for byte, Generous's forms kept in and a small map's gentle rescue land not reaching this map, D148)
+const SHA = "a7b0b746860cc6895619f112a5d2b4d88d12d98212e4e9a2398aeb2c0a205e66";
 
 // (a Hard map whose start lake parts as it falls: the single analytic reading stood 0.32 over the run there, PR #1040;
 // seed 5 for 7 since D518 with dev's ways out by a ramp's line (#1061), D148: seed 7's Hard lake stair holds no plan now

@@ -12,10 +12,10 @@ import { markBrushTiles, type BrushParams } from "../../src/core/features/raster
 import { StrokePreview } from "../../src/core/features/raster/strokePreview";
 import { generate } from "../../src/core/gen/generate";
 import { tilesToRuns } from "../../src/core/math/grid";
-import { makeSpec } from "../../src/core/spec/mapspec";
 import { unsupportedVoxels } from "../../src/core/terrain/support";
 import { heldWords } from "../../src/editor/caveWords";
 import { CAVE_W as W, CAVE_H as H, caveSession } from "./caveMap";
+import { fixtureSession } from "../fixtureProjects";
 
 const tile = (x: number, y: number, w = W) => [4 * x + 2, 4 * y + 2].map((v) => Math.min(4 * w - 1, v));
 const at = (x: number, y: number) => y * W + x;
@@ -126,10 +126,11 @@ describe("strokes over a generated map's 3D form (D488)", () => {
   // 0.10.11, the D410 round, D148: seed 4242 has no 3D form now, and seed 4245's stands at (20–25, 46–49); at (42–45,
   // 77–83) since generator 0.10.16's ground with grade, D148)
   const G = 96;
-  const r = generate(makeSpec({ seed: 4249, theme: "highlands", size: { x: G, y: G } }));
+  // (a fixture since generator 0.10.29, D148: the land these cases were written on, tests/fixtures/projects, so the weathering's reach moving the generator's land moves nothing here)
+  const open = () => fixtureSession("highlands", G, 4249);
 
   it("a Flatten brush's square across the form's edge holds what holds its rock and flattens the rest", () => {
-    const s = MapSession.fromGenerated(r, r.file);
+    const s = open();
     s.setWaterMode("defer");
     const rock = s.rockHolds();
     expect(rock.length).toBeGreaterThan(0);
@@ -170,7 +171,7 @@ describe("strokes over a generated map's 3D form (D488)", () => {
   });
 
   it("Lower down to the bottom over the whole form keeps it standing, never refused", () => {
-    const s = MapSession.fromGenerated(r, r.file);
+    const s = open();
     s.setWaterMode("defer");
     const cols = [...s.columns.keys()];
     const xs = cols.map((i) => i % G);
