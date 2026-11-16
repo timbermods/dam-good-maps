@@ -8,7 +8,7 @@
 // 256², the numbers item 29 asks for (information, never a failure).
 
 import { expect, test, type Page } from "@playwright/test";
-import { openEditor, topDown } from "./open";
+import { openEditor, openSaved, topDown } from "./open";
 import { FAST_MS, GLACIATE_SHOW_MS, MIN_SHOW_MS, showMs, WATCH_FACTOR } from "../../src/editor/forceDriver";
 
 const info = (page: Page) => page.evaluate(() => window.dgmEditor!.info());
@@ -19,9 +19,12 @@ const status = (page: Page) => page.evaluate(() => window.dgmEditor!.force());
 const timing = (page: Page) => page.evaluate(() => window.dgmEditor!.forceTiming());
 const client = (page: Page, x: number, y: number) => page.evaluate(([a, b]) => window.dgmEditor!.tileToClient(a, b), [x, y] as [number, number]);
 
+/** Highlands, seed 4242: at 96² its saved map (`openSaved`, D148), so a generator's version moves none of its ground; the
+ *  timings' larger sizes (information only) generate theirs. */
 async function openTopDown(page: Page, size: number) {
   await page.goto("about:blank");
-  await openEditor(page, `s=4242&z=${size}&d=n&t=highlands`);
+  const hash = `s=4242&z=${size}&d=n&t=highlands`;
+  await (size === 96 ? openSaved(page, hash) : openEditor(page, hash));
   await topDown(page);
   await idle(page);
 }
