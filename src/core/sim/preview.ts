@@ -10,8 +10,8 @@
 // edit keeps its water and momentum (D(new-preview)), but only where a source, a stored lake or the
 // water kept away from the edit reaches it (D385): restarting a stretch of flowing river left a
 // step in its surface with no momentum, which sloshed on past the cap. Then the exact simulation
-// runs until the edit's water has found its level: checked every 64 ticks, the volume changes by
-// under 0.2% and at most 0.05% of the map moves by more than 0.05 (a local change reaches a whole
+// runs until the edit's water has found its level: checked every 64 ticks, two checks in a row find the
+// volume changed by under 0.2% and at most 0.05% of the map moved by more than 0.05 (a local change reaches a whole
 // lake or sea, whose level then
 // drifts by thousandths for a long time), with a cap of one game day. A sealed oxbow lake only
 // evaporating is not the water still moving (D222): the preview stops once everything else has. The
@@ -39,6 +39,11 @@
 // its flow starts again as unfed (`LOST_SHARE`). Ground that only turns a walk takes no water out; it
 // moves it, so only the tiles the flow left (under a tenth of it still there, `UNFED_SHARE`) are
 // unfed, and the rest keep their depth and momentum and adjust.
+// A pool a walk only crosses, where no walk ends, is unfed too once it loses flow (#1173,
+// `crossedPools`). And a pool the edit deepened (its rim raised, or a hollow the walk newly crosses)
+// starts full, as the canonical start has it (#1181, `deepenedPools`): the film kept there filled it
+// only by a trickle, long after the preview stopped. The preview stops when two checks in a row pass
+// (`PREVIEW_PASSES`): one check on the crest of a surge passing down a river stopped it there.
 
 import { drainUnfed, fedTiles, keptSeeds, withoutUnfed } from "./fed";
 import { flowThrough, prefill, type CanonicalWater } from "./prefill";
