@@ -309,6 +309,17 @@ function play(a: Point, b: Point, trace: Trace) {
   };
 }
 
+/** `trace` as iOS tells it: each finger's first event comes once it is 10 px from where it went down (its touch slop),
+ *  at its real place, so a lagging finger reads 0 px while the leader has gone 10 px and its lead. */
+function slop(trace: Trace, a: Point, b: Point): Trace {
+  const on = new Set<number>();
+  return trace.filter(([id, x, y]) => {
+    const from = id === 1 ? a : b;
+    if (Math.hypot(x - from.x, y - from.y) >= 10) on.add(id);
+    return on.has(id);
+  });
+}
+
 /** A hand's sideways wobble (CSS px), frame by frame: ±3 at most. */
 const WOBBLE = [0, 2, -1, -3, 1, 3, -2, 2, -3, 0, 1, -2, 3, -1, 2, -3, 0, 2, -2, 1];
 const wob = (k: number) => WOBBLE[k % WOBBLE.length];
@@ -361,6 +372,23 @@ describe("two fingers as a hand moves them, not a robot (Kyler on an iPhone: the
     tilted(play(a, b, hand(a, b, 20, (k) => (k > 2 ? P(wob(k) - 0.3 * k, 3.5 * (k - 2)) : null), (k) => P(-wob(k + 5) + 0.2 * k, 3.5 * k), 20)));
   });
 
+  it("iOS's slop: a finger told nothing until it has gone 10 px, then where it is, a lead of 5 to 25 px, at 60 to 100 px apart, level or slanted 30°, wobbling, is a tilt", () => {
+    for (const gap of [60, 70, 85, 100])
+      for (const slant of [0, Math.PI / 6])
+        for (const lead of [5, 10, 15, 20, 25])
+          for (const [v, dir, late] of [[4, -1, 0], [7, 1, 8]]) {
+            const a = P(160, 420);
+            const b = P(a.x + gap * Math.cos(slant), a.y - gap * Math.sin(slant));
+            const go = (k: number, behind: number, w: number) => {
+              const t = Math.max(0, v * k - behind);
+              return P(t > 0 ? (2 * wob(k + w)) / 3 : 0, dir * t);
+            };
+            const r = play(a, b, slop(hand(a, b, Math.ceil((60 + lead) / v), (k) => go(k, 0, 0), (k) => go(k, lead, 7), late), a, b));
+            expect([gap, slant, lead, v, r.decided.map((d) => `${d.mode} ${d.why}`)]).toEqual([gap, slant, lead, v, ["tilt tilt"]]);
+            tilted(r);
+          }
+  });
+
   /** It settled once, free, by `why`, the farther finger no farther than `by` (CSS px), and panned the middle's move. */
   const free = (r: ReturnType<typeof play>, why: string, by: number) => {
     expect(r.decided.map((d) => [d.mode, d.why])).toEqual([["free", why]]);
@@ -380,11 +408,20 @@ describe("two fingers as a hand moves them, not a robot (Kyler on an iPhone: the
     free(pinch, "pinch", OPPOSE_PX + 3);
     expect(pinch.zoom).toBeCloseTo(Math.log(70 / Math.hypot(130, wob(10) / 3)), 9);
     free(play(A, B, hand(A, B, 10, () => null, (k) => P(4 * k, 0))), "sideways", REAL_PX + 4);
-    // a twist about the middle: opposite ways; about one finger held still: past a turn of 15° or one finger led
+    // a slanted pair's pinch: its fingers go up and down, but along their line, never as a tilt's
+    const up30 = P(A.x + 70 * Math.cos(Math.PI / 6), A.y - 35);
+    const along = (s: number) => (k: number) => P(s * 3 * k * Math.cos(Math.PI / 6), -s * 1.5 * k);
+    free(play(A, up30, hand(A, up30, 10, along(-1), along(1))), "pinch", OPPOSE_PX + 3);
+    // a twist about the middle: opposite ways, or the line turned past 15° with both fingers moving opposite ways
     free(play(A, B, hand(A, B, 10, (k) => P(0, 3 * k), (k) => P(0, -3 * k))), "opposite ways", OPPOSE_PX + 3);
+    // (2° a frame about the middle, each finger told only past iOS's slop)
+    const round = (s: number) => (k: number) => P(s * 35 * Math.cos(0.035 * k) - s * 35, s * 35 * Math.sin(0.035 * k));
+    free(play(A, B, slop(hand(A, B, 12, round(-1), round(1)), A, B)), "twist", 12);
+    // about one finger held still: its turn is a tilt's lead's until the moving finger has gone LEAD_PX (36 px, against
+    // 20 to 24 before iOS's slop was counted); the first step still carries the whole of it
     const pivot = play(A, B, hand(A, B, 12, () => null, (k) => P(70 * Math.cos(-0.07 * k) - 70, 70 * Math.sin(-0.07 * k))));
-    expect(pivot.decided.map((d) => d.mode)).toEqual(["free"]);
-    expect(pivot.decided[0].b).toBeLessThanOrEqual(LEAD_PX + 5);
+    free(pivot, "one finger led", LEAD_PX + 5);
+    expect(pivot.decided[0].b).toBeGreaterThanOrEqual(LEAD_PX);
     // one finger leading alone, the other still: not a tilt's lead (fingers wide apart, where its line turns slowly)
     const wide = P(A.x + 120, A.y);
     free(play(A, wide, hand(A, wide, 12, (k) => P(wob(k) / 2, -4 * k), () => null)), "one finger led", LEAD_PX + 4);

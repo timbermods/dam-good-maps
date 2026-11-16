@@ -60,7 +60,8 @@ const mid = (a: Point, b: Point): Point => ({ x: (a.x + b.x) / 2, y: (a.y + b.y)
 
 // How a two-finger gesture settles its way (Kyler on an iPhone: a hand's two fingers never move as a test's do). A
 // finger's place wobbles a few px, its first moves' direction is mostly that wobble, the two fingers of a hand start a
-// few events apart and drift in their gap; a deliberate move is tens of px. So the gesture waits, nothing moving, until
+// few events apart (iOS tells a finger's first move only past its own ~10 px slop, so the second can read 0 px while the
+// first has gone 10 px and its lead) and drift in their gap; a deliberate move is tens of px. So the gesture waits, nothing moving, until
 // the evidence is clear one way, and every rule asks a distance well past a finger's noise.
 /** A finger that moved less than this (CSS px) has hardly moved: its wobble. */
 export const STILL_PX = 4;
@@ -70,8 +71,9 @@ export const REAL_PX = 8;
 export const OPPOSE_PX = 6;
 /** Past this (CSS px) a finger's direction is its own, no longer its first moves' wobble: outside the cone, it pans. */
 export const CONE_PX = 16;
-/** One finger this far (CSS px), the other still (`STILL_PX`): a pivot or a one-finger-led drag, not a tilt's lead. */
-export const LEAD_PX = 24;
+/** One finger this far (CSS px), the other still (`STILL_PX`): a pivot or a one-finger-led drag, past a tilt's lead
+ *  (iOS's 10 px slop and a hand's lead of up to 25). */
+export const LEAD_PX = 36;
 /** Past this (CSS px, the farther finger) a gesture nothing has settled is free: a tilt is clear long before. */
 export const SETTLE_BY_PX = 40;
 /** A tilt's fingers each go within this of straight up or down (radians, 35°: a wobble of 3 px in 8 is 21°). */
@@ -80,11 +82,13 @@ export const TILT_CONE = (35 * Math.PI) / 180;
 export const SIDEWAYS = (60 * Math.PI) / 180;
 /** Fingers whose line lies within this of level (radians, 55°) are side by side: a hand's slanted pair is. */
 export const SIDE_SLANT = (55 * Math.PI) / 180;
-/** The gap's change that is a pinch, a share of the gap (a tilt keeps its gap within it)... */
+/** The gap's change that is a pinch, both fingers moving and not as a tilt's, a share of the gap (a tilt's lead may
+ *  change it twice this)... */
 export const PINCH_SHARE = 0.15;
 /** ...and never under this (CSS px), however near the fingers: below it the gap's change is their wobble. */
 export const PINCH_PX = 6;
-/** The line's turn that is a twist (radians, 15°; a tilt keeps its line within it), the fingers `TURN_MIN_GAP` apart. */
+/** The line's turn that is a twist (radians, 15°) with both fingers moving, opposite ways up and down; a tilt's
+ *  same-way lead turns it up to twice this. Only with the fingers `TURN_MIN_GAP` apart. */
 export const TWIST = (15 * Math.PI) / 180;
 
 /** Why a gesture settled as it did (the `?viewport=on` readout shows it). */
@@ -113,8 +117,9 @@ const offUpright = (d: Point): number => Math.atan2(Math.abs(d.x), Math.abs(d.y)
 
 /** Settle a two-finger gesture's way from where its fingers went down (`start`) and are now: null while the evidence is
  *  not clear. It tilts when the view can tilt and the two fingers, side by side (`SIDE_SLANT`), have each moved
- *  `REAL_PX` within `TILT_CONE` of upright, the same way, keeping their gap (`PINCH_SHARE`) and their line (`TWIST`); it
- *  is free at a pinch, a twist, fingers going opposite ways, a finger going sideways or diagonally, one finger leading
+ *  `REAL_PX` within `TILT_CONE` of upright, the same way, their gap and their line kept within twice a pinch's
+ *  (`PINCH_SHARE`) and a twist's (`TWIST`), which a lead changes; it is free at a pinch or a twist (both fingers moving,
+ *  not as a tilt's), fingers going opposite ways, a finger going sideways or diagonally, one finger leading
  *  alone (`LEAD_PX`), or nothing settled by `SETTLE_BY_PX`. Pure. */
 export function settle(start: readonly [Point, Point], now: readonly [Point, Point], canTilt: boolean): Decision | null {
   const da = sub(now[0], start[0]);
@@ -135,12 +140,17 @@ export function settle(start: readonly [Point, Point], now: readonly [Point, Poi
   // (a view that cannot tilt, or fingers one above the other, has no tilt to tell from a pan: a deliberate move pans)
   if (!canTilt) return lead >= REAL_PX ? note("free", "top-down view") : null;
   if (Math.atan2(Math.abs(line0.y), Math.abs(line0.x)) > SIDE_SLANT) return lead >= REAL_PX ? note("free", "one above the other") : null;
+  const gap = Math.abs(g1 - g0);
   const pinchAt = Math.max(PINCH_PX, PINCH_SHARE * g0);
-  const pinched = Math.abs(g1 - g0) >= pinchAt;
-  const twisted = Math.abs(turn) >= TWIST;
-  if (ta >= REAL_PX && tb >= REAL_PX && offUpright(da) <= TILT_CONE && offUpright(db) <= TILT_CONE && Math.sign(da.y) === Math.sign(db.y) && !pinched && !twisted) return note("tilt", "tilt");
-  if (pinched) return note("free", "pinch");
-  if (twisted) return note("free", "twist");
+  const together = Math.sign(da.y) === Math.sign(db.y);
+  // (both fingers going up or down the same way, as a tilt's do: one ahead of the other changes their gap, at a slant,
+  // and turns their line, up to twice a pinch's and a twist's; that is a lead, no pinch and no twist)
+  const upright = offUpright(da) <= TILT_CONE && offUpright(db) <= TILT_CONE && together;
+  if (ta >= REAL_PX && tb >= REAL_PX && upright && gap < 2 * pinchAt && Math.abs(turn) < 2 * TWIST) return note("tilt", "tilt");
+  // (a finger still, or past its slop and not yet told, says nothing of a pinch or a twist: both must be moving)
+  const both = lag >= STILL_PX;
+  if (gap >= pinchAt && both && !upright) return note("free", "pinch");
+  if (Math.abs(turn) >= TWIST && both && !together) return note("free", "twist");
   if (ta >= OPPOSE_PX && tb >= OPPOSE_PX && da.x * db.x + da.y * db.y < -0.5 * ta * tb) return note("free", "opposite ways");
   for (const [d, t] of [[da, ta], [db, tb]] as const) {
     if (t >= REAL_PX && offUpright(d) > SIDEWAYS) return note("free", "sideways");
