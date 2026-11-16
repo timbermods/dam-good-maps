@@ -93,6 +93,7 @@ const PAGE: string[] = [
   "s=8&z=128&d=n&t=canyon",
   "s=1&z=96&d=n&t=islands",
   "s=7&z=128&d=n&t=islands",
+  "v=0.10.5&s=740973&t=riverValley&z=64x256&d=n&vt=69", // succulentPaint.test.ts: a 64x256 map (land written from dev at 664754403, generator 0.10.29)
 ];
 
 /** Each fixture: its file's name, and the map's spec and whether it has 3D forms. */
