@@ -46,7 +46,7 @@ import type { ImportReport } from "../core/format/normalize";
 import type { PremiseCard } from "../core/premise/card";
 import type { Feature } from "../core/features/schema";
 import { bakeLandforms } from "../core/doc/bake";
-import { HazardRun, hazardDays, hazardSoil, type Hazard, type HazardWater } from "../core/sim/weather";
+import { HazardRun, hazardDays, type Hazard, type HazardWater } from "../core/sim/weather";
 import { mapDroughtLine } from "../core/doc/droughtLine";
 import { emptyDroughtLine, type DroughtLine } from "../core/sim/droughtLine";
 import { BadDays, DryDays, type DayWater, type FirstDays } from "../core/sim/firstDays";
@@ -1634,7 +1634,7 @@ export function setSoilRunner(runner: SoilRunner | null): void {
 }
 
 /** The page is told the day it asked for: its water exactly as kept, and the ground's moisture and contamination
- *  worked out for it (off this worker on a heightfield, here with every run top's on a map with caves or overhangs; day 0:
+ *  worked out for it (off this worker, with every run top's on a map with caves or overhangs; day 0:
  *  the map's own water and soil). Withered plants, on every map: sent with the day when every earlier day's soil is cached
  *  (stepping on a day, or back), else after it, in a `withered` event. */
 async function sendWeatherDay(run: WeatherRun, day: number): Promise<void> {
@@ -1657,28 +1657,14 @@ async function sendWeatherDay(run: WeatherRun, day: number): Promise<void> {
   if (!ready) void witherLater(run, day);
 }
 
-/** A hazard day's soil on a map with caves or overhangs (core/sim/weather.ts `hazardSoil` on every column's water), with
- *  every run top's, as `withRuns` gives the map's own: the plants in a cave or under a roof wither by it
- *  (core/sim/withering.ts `plantGround`). Worked out on this worker (the soil worker reads a heightfield's water), a day at
- *  a time, the worker breathing between days (`witherLater`). */
-function caveDaySoil(s: MapSession, k: HazardWater): SoilView {
-  const g = hazardSoil(s.built.waterModel, s.built.heights, k, s.built.entities.map(toMapObject));
-  const soil = soilView(g.moisture, g.contamination);
-  if (g.runs && s.columns.size) {
-    const T = g.runs.runs.T;
-    soil.runs = runSoilView(s.columns, s.size.x * s.size.y, { slots: T, values: g.runs.moisture }, { slots: T, values: g.runs.contamination });
-  }
-  return soil;
-}
-
 function cachedUpTo(run: WeatherRun, day: number): boolean {
   for (let d = 0; d <= day; d++) if (!run.soils[d]) return false;
   return true;
 }
 
-/** Work out the soil of the days before `day` not cached yet, a day at a time (off this worker on a heightfield; on a map with
- *  caves or overhangs here, `caveDaySoil`), then tell the page which plants are dead, if it is still on that day. A press or a
- *  key (the prep token) stops it where it is, and the next `prepareWeather`, when Kyler is idle, takes it up again. */
+/** Work out the soil of the days before `day` not cached yet, off this worker, a day at a time, then tell the page which plants are
+ *  dead, if it is still on that day. A press or a key (the prep token) stops it where it is, and the next `prepareWeather`, when
+ *  Kyler is idle, takes it up again. */
 async function witherLater(run: WeatherRun, day: number): Promise<void> {
   const still = () => currentRun(run) && weatherShown === run.session && run.shown === day;
   // (the messages waiting go first)
@@ -1686,33 +1672,31 @@ async function witherLater(run: WeatherRun, day: number): Promise<void> {
   for (let d = 0; d <= day; d++) {
     if (!still()) return;
     if (pressed) return void (run.witherDue = day);
-    if (run.soils[d]) continue;
-    if (!(await soilOfDay(run, d))) return;
-    // (a day's soil worked out here, on a map with caves, is one whole-map pass: the messages that came meanwhile, a press
-    // among them, go before the next)
-    await breathe();
+    if (!run.soils[d] && !(await soilOfDay(run, d))) return;
   }
   if (!still()) return;
   if (pressed) return void (run.witherDue = day);
   listener?.({ kind: "withered", version: run.version, hazard: run.hazard, day, tiles: witheredCells(run, day) });
 }
 
-/** The soil of a kept day, worked out once: off this worker on a heightfield, here on a map with caves or overhangs
- *  (`caveDaySoil`; day 0: the map's own, cheap). */
+/** The soil of a kept day, worked out once and off this worker (day 0: the map's own, cheap): on a map with caves or overhangs
+ *  from every column's water, with every run top's (daySoil.ts), so a plant in a cave or under a roof withers by its own ground
+ *  (core/sim/withering.ts `plantGround`). */
 function soilOfDay(run: WeatherRun, day: number): Promise<SoilView | null> {
   const have = run.soils[day];
   if (have) return Promise.resolve(have);
   const s = run.session;
   const k = run.kept[day];
   if (!k || day === 0) return Promise.resolve((run.soils[day] = soilOf(s)));
-  // (every column's water: the soil worker reads a heightfield's)
-  if (k.stack) return Promise.resolve((run.soils[day] = caveDaySoil(s, k)));
   const going = run.soilJobs.get(day);
   if (going) return going;
   const { x: W, y: H } = s.size;
   // (the map the soil reads, sent to the soil worker once for the run: the game's soil takes Thorns and the soil per run top from its objects)
-  run.base ??= { W, H, heights: s.built.heights.slice(), objects: soilObjects(s.built.entities.map(toMapObject)) };
-  const job: SoilJob = { base: run.base, depth: k.depth, contamination: k.contamination };
+  // (and on a map with caves or overhangs its voxel masks and columns, what the soil per run top reads and is laid out by)
+  const stacked = s.built.waterModel.stacked;
+  run.base ??= { W, H, heights: s.built.heights.slice(), objects: soilObjects(s.built.entities.map(toMapObject)), ...(stacked ? { stacked: { mask: stacked.mask.slice(), columns: new Map(s.columns) } } : {}) };
+  // (every column's water on a map with caves or overhangs: only what the soil reads of it)
+  const job: SoilJob = { base: run.base, depth: k.depth, contamination: k.contamination, stack: k.stack ? { depth: k.stack.depth, contamination: k.stack.contamination, sat: k.stack.sat, ticks: k.stack.ticks } : null };
   const p = (async () => {
     let soil: SoilView;
     try {

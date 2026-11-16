@@ -1,5 +1,5 @@
 // The plants a held Drought day has surely killed, as the session worker sends them (src/worker/session.ts, D250): each earlier
-// day's soil is worked out off the worker, a day at a time, and the dead plants' cells (level × W × H + tile) follow the day in a
+// day's soil is worked out off the worker, a day at a time (every column's water on a map with caves), and the dead plants' cells (level × W × H + tile) follow the day in a
 // `withered` event; a press or a key stops the work and the next idle moment takes it up. On a map with caves or overhangs each
 // plant withers by its own ground, a cave floor's run top, not its roof's (until #404's follow-up, 2026-11-16, such a map withered
 // nothing: its test is the cave map's below, D148).
@@ -102,7 +102,7 @@ it("on a map with caves a plant withers by its own ground: the birch on the cave
   const r = [...runs.tile].findIndex((t, k) => t === tile && runs.level[k] === 6);
   expect(runs.contamination[r], "the cave's floor is poisoned").toBeGreaterThan(0);
   expect(day.soil!.contamination[tile], "the roof's top is clean").toBe(0);
-  // (day 1's soil is not cached yet: the list follows the day, worked out on this worker a day at a time)
+  // (day 1's soil is not cached yet: the list follows the day, worked out off the worker a day at a time, every column's water and run top)
   expect(day.withered).toBeUndefined();
   expect(Array.from((await until(() => witheredEvent(2), "day 2's withered plants")).tiles)).toEqual([birch]);
   // day 1, cached now, comes with its list: one day of poison kills nothing yet
@@ -110,7 +110,7 @@ it("on a map with caves a plant withers by its own ground: the birch on the cave
   expect(Array.from((await until(() => dayEvent(1), "day 1")).withered!)).toEqual([]);
 });
 
-it("on a map with caves, where the days' soil is worked out on this worker, a press or a key stops that work, and the next idle moment takes it up again", async () => {
+it("on a map with caves a press or a key stops the work, and the next idle moment takes it up again", async () => {
   ed.closeSession();
   ed.openTimber(caveMap(), "cave.timber");
   ed.setAutoWater(false);
