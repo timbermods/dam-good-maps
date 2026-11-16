@@ -3321,8 +3321,11 @@ impl Crater {
         let tile = clamp(round(y), 0.0, self.h - 1.0) as usize * m.w + clamp(round(x), 0.0, self.w - 1.0) as usize;
         // (the land gives way to the crater's own ground inside the bowl; land that lies lower gives
         // way out past the rim too, so the rim stands whole, two tiles wide, beside a canyon or a lake and
-        // holds its bowl)
-        let mut plane = if (m.heights[tile] as f64) < self.ground(x, y) { 1.0 - smooth((r - 1.0 - 2.6 / self.radius) / 0.25) } else { 1.0 - smooth((r - 0.8) / 0.2) };
+        // holds its bowl. Only as far down as the crater's own relief reaches, its depth and its rim: land
+        // further below, the foot of a cliff a small crater strikes on its brink, keeps its shape, the bowl
+        // open over it and the rim and debris on the land as it lies)
+        let gap = self.ground(x, y) - m.heights[tile] as f64;
+        let mut plane = if gap > 0.0 { (1.0 - smooth((r - 1.0 - 2.6 / self.radius) / 0.25)) * (1.0 - smooth(gap - self.depth - self.rim)) } else { 1.0 - smooth((r - 0.8) / 0.2) };
         let add;
         let own;
         let mut lift = 0.0;

@@ -710,7 +710,9 @@ on one shared forces core, `src/core/forces/` (D203, D206, D220; see its README)
   level round it, to where the force put it, or where the force's rounding would leave that one tile wide to where it
   stood, never down its cliff and never leaving ground one tile wide (the land's own ground that was one tile wide
   before the force, where it still stands, holds no corner down: the tidying may not widen such a ledge by dropping
-  the ridge above it). Craterize, Erupt, Rift and Deposit end with it, and Glaciate's walls; Quake adopts it next.
+  the ridge above it). A tile no square reaches joins ground within two levels of its own before any further off,
+  so the corner of a cliff's foot waits for the low ground beside it and never climbs to the cliff's top. Craterize,
+  Erupt, Rift and Deposit end with it, and Glaciate's walls; Quake adopts it next.
 - **Esc skips, undo takes it back** (D344, A4): while a gesture is still being drawn, Esc cancels it and nothing of
   it lands; once a force plays, Esc (or Skip, for a finger: #1074 slice 3) skips it to its end, its final land kept as
   one step; Ctrl+Z (or Z, or Revert) takes all of it back at any moment, and nothing lands afterwards (D341). The row's
@@ -901,7 +903,9 @@ on one shared forces core, `src/core/forces/` (D203, D206, D220; see its README)
   left on Auto is this, a bowl or a flat floor, never a peak or a ring). The rim's crest is uneven all round and gone on one side, a gap (where the
   ground round it is lowest; the seed's side on level ground), so a lake in the bowl spills at the level of the
   ground round the crater. Beside lower land that is no slope (a canyon, a lake, a plateau's edge) the rim stands
-  whole on the crater's own ground and holds the bowl. Steep walls are a cliff. Terraced walls carry blocks slumped
+  whole on the crater's own ground and holds the bowl, as far down as the crater's own relief reaches (its depth and
+  its rim); land further below, a cliff's foot under a small crater on its brink, keeps its shape, the bowl open over
+  it and the rim on the land as it lies. Steep walls are a cliff. Terraced walls carry blocks slumped
   against the cliff: ovals lying along it, each turned its own way, at its own level, never its neighbour's, with gaps
   where the wall stands whole, so a bench is a short arc that pinches out within a quarter turn and none runs on round
   the bowl. The floor is level, with low hummocks on a large crater. A peak is a broad, low hill, never a tower, a plinth or a
