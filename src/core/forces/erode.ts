@@ -29,7 +29,8 @@ export const ERODE_BUCKETS = 24;
 /** Its Size across, in tiles, on Auto: what Power gives (rust/forces/src/erode.rs `auto_size`). */
 export const erodeSize = (power: number): number => 6 + 0.14 * clamp(power, 0, 100);
 /** How far from its gesture it may change a tile, in tiles, at its Size across (rust/forces/src/erode.rs
- *  `extent`): a click's opening at the nearest face within twice its Size, the opening's width and depth beside
+ *  `extent`): a click's opening at the nearest face within twice its Size (each roll a step along the face from its
+ *  foot, by the seed, so Try another wears another stretch of it, #1198), the opening's width and depth beside
  *  it, the rills it runs down a slope where no face can wear. The collaboration band declares it. */
 export const erodeExtent = (size: number): number => 2 * size + 12;
 /** How long it plays, in its own seconds: two at Power 0, four at 100 (D344: each force its own pace). */

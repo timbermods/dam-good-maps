@@ -14,9 +14,11 @@ import type { PaintParams } from "../../src/core/doc/paintParams";
 import { footprintCheck, planEntity, planMoveEntity } from "../../src/core/doc/placing";
 import { diesOnSoil } from "../../src/core/doc/plantSoil";
 import { MapSession } from "../../src/core/doc/session";
+import { decodeProject } from "../../src/core/doc/document";
 import { generate } from "../../src/core/gen/generate";
 import { tilesToRuns } from "../../src/core/math/grid";
-import { decodeSpecFragment, makeSpec } from "../../src/core/spec/mapspec";
+import { makeSpec } from "../../src/core/spec/mapspec";
+import { pageFixtureProject } from "../fixtureProjects";
 
 const FRAGMENT = "v=0.10.5&s=740973&t=riverValley&z=64x256&d=n&vt=69";
 
@@ -26,9 +28,9 @@ const rect = (x0: number, y0: number, x1: number, y1: number, W: number): number
   return t;
 };
 
+// (opens a saved fixture of the land it was written on: generator 0.10.29's, written from dev (D148, the #1163 pattern, #1205); the strip below sits on moist ground alone on 0.10.36's generated land)
 function session(): MapSession {
-  const r = generate(decodeSpecFragment(FRAGMENT)!.spec);
-  return MapSession.fromGenerated(r, r.file);
+  return MapSession.open(decodeProject(pageFixtureProject(FRAGMENT)));
 }
 
 describe("painted succulents stand only on ground where they survive (D235)", () => {
