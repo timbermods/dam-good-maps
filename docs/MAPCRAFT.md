@@ -200,7 +200,9 @@ a premise or one still to come, may carry its own, lower playability floor.
   irrigable dry 8.5 → 8.5 %, alone (not Islands) 5 → 1, attempts 209 → 224, leaks 40 → 43, `plants.drought` 13 → 26:
   the brooks buy irrigable dry with attempts and the start's drought. Round 4 (0.10.32) takes a brook's water out of its
   basin's budget, keeps the start on dry land that stays moist through the drought, and gives a basin with no course one
-  of its own; the tool reads the total source strength and Delta's fan.
+  of its own; the tool reads the total source strength and Delta's fan. Pools sit where the water makes them, 5 to 7
+  channel widths apart. Against dev 0.10.27 (0.10.33): irrigable dry 9.2 → 8.4 %, attempts 200 → 176, leaks 10 → 18,
+  `plants.drought` 13 → 14, Delta's fan 6 of 6.
 
 **Land first, story second** (planning's ruling of 2026-11-11, for every path: themes, premises, hand maps). Every
 landform is one geology makes, shaped by the shared natural relief. A premise is found in or cut into natural land by a
