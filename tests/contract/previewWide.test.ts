@@ -13,7 +13,8 @@
 //   keeps its water only where D385's rule finds a source reaching it. Before, a trench another river's walk still
 //   crossed with half the flow kept 1.79 in the preview against the settle's 0.
 // - A surge passing down a river after an edit rose by under 0.05 a check on every tile, so one check on its crest
-//   stopped the preview there; it now stops only when two checks in a row pass (`PREVIEW_PASSES`): seed 8's Ruins at
+//   stopped the preview there; it now stops only when two checks in a row pass (`PREVIEW_PASSES`), or one calm check
+//   (at most 0.05% of the map moved by over 0.025): seed 8's Ruins at
 //   72,56, 0.64 against 0.53 on the reach at 84–90,32–43.
 //
 // The land: River Valley 96² seeds 12, 8 and 9 of generator 0.10.27 (#1145's land, where these were found), saved once

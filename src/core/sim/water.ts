@@ -350,9 +350,10 @@ export interface SettleOptions {
    *  they lose to evaporation is not the water changing (D222, D413): the settle stops at the first
    *  check where only that still changed (`steadyApartFromSealed`). */
   sealed?: readonly number[];
-  /** How many checks in a row must pass before it stops (default 1). The preview's (sim/preview.ts) takes 2: a
-   *  surge passing down a river rises by under `tol` between two checks on every tile, and one check that
-   *  falls on its crest stopped the preview there (#1181). */
+  /** How many checks in a row must pass before it stops (default 1), unless a check is calm: no more than
+   *  `movedShare` of the tiles moved by over half `tol` either. The preview's (sim/preview.ts) takes 2: a surge
+   *  passing down a river rises by under `tol` between two checks on every tile, and one check that falls on its
+   *  crest stopped the preview there (#1181). */
   passes?: number;
 }
 
@@ -536,15 +537,23 @@ export class SettleRun {
       const vol = sim.volume();
       const dv = Math.abs(vol - this.prevVol) / Math.max(vol, 1e-9);
       let moved = 0;
+      let stirred = 0;
       const D = sim.D;
       const prev = this.prev;
-      for (let i = 0; i < sim.N; i++) if (Math.abs(D[i] - prev[i]) > this.tol) moved++;
+      const half = this.tol / 2;
+      for (let i = 0; i < sim.N; i++) {
+        const dd = Math.abs(D[i] - prev[i]);
+        if (dd > this.tol) moved++;
+        else if (dd > half) stirred++;
+      }
       this.k++;
       const still = dv < 0.002 && moved <= this.movedShare * sim.N;
       // only sealed basins evaporating: the water has settled (D222, D413)
       const steady = !still && !!this.sealed && steadyApartFromSealed(sim, prev, this.sealed, this.tol, this.movedShare);
       this.passed = still || steady ? this.passed + 1 : 0;
-      if (this.passed >= this.passes) this.result = still ? { settled: true, ticks: sim.ticks } : { settled: false, ticks: sim.ticks, steadyTicks: sim.ticks };
+      // (a pass where no more tiles than that share moved by over half `tol` either is calm: it needs no second)
+      const calm = still && moved + stirred <= this.movedShare * sim.N;
+      if (this.passed >= this.passes || calm) this.result = still ? { settled: true, ticks: sim.ticks } : { settled: false, ticks: sim.ticks, steadyTicks: sim.ticks };
       else if (this.k >= this.checks) this.result = { settled: false, ticks: sim.ticks };
       if (!this.result) {
         this.prev = D.slice();

@@ -11,7 +11,8 @@
 // water kept away from the edit reaches it (D385): restarting a stretch of flowing river left a
 // step in its surface with no momentum, which sloshed on past the cap. Then the exact simulation
 // runs until the edit's water has found its level: checked every 64 ticks, two checks in a row find the
-// volume changed by under 0.2% and at most 0.05% of the map moved by more than 0.05 (a local change reaches a whole
+// volume changed by under 0.2% and at most 0.05% of the map moved by more than 0.05 (one check will do
+// where at most that share moved by more than 0.025) (a local change reaches a whole
 // lake or sea, whose level then
 // drifts by thousandths for a long time), with a cap of one game day. A sealed oxbow lake only
 // evaporating is not the water still moving (D222): the preview stops once everything else has. The
@@ -43,7 +44,8 @@
 // `crossedPools`). And a pool the edit deepened (its rim raised, or a hollow the walk newly crosses)
 // starts full, as the canonical start has it (#1181, `deepenedPools`): the film kept there filled it
 // only by a trickle, long after the preview stopped. The preview stops when two checks in a row pass
-// (`PREVIEW_PASSES`): one check on the crest of a surge passing down a river stopped it there.
+// (`PREVIEW_PASSES`), or one that is calm: one check on the crest of a surge passing down a river
+// stopped it there.
 
 import { drainUnfed, fedTiles, keptSeeds, withoutUnfed } from "./fed";
 import { flowThrough, prefill, type CanonicalWater } from "./prefill";
@@ -64,8 +66,9 @@ export const PREVIEW_CHECK = 64;
 export const PREVIEW_MOVED = 0.0005;
 export const PREVIEW_TOL = 0.05;
 export const PREVIEW_DAYS = 1;
-/** Checks in a row the preview's test must pass (SettleRun `passes`): a surge passing down a river after
- *  an edit rises by under `PREVIEW_TOL` a check on every tile, and one check on its crest stopped the
+/** Checks in a row the preview's test must pass (SettleRun `passes`), unless one is calm (no more than
+ *  `PREVIEW_MOVED` of the map moved by over half `PREVIEW_TOL`): a surge passing down a river after an
+ *  edit rises by under `PREVIEW_TOL` a check on every tile, and one check on its crest stopped the
  *  preview there (#1181: River Valley 96² seed 8, an Underground Ruins at 72,56, 0.64 where the settle
  *  gives 0.53). */
 export const PREVIEW_PASSES = 2;
