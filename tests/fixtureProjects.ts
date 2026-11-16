@@ -24,8 +24,9 @@ import { GENERATOR_VERSION, type ThemeId } from "../src/core/spec/mapspec";
 export const FIXTURE_DIR = "tests/fixtures/projects";
 
 /** How the map was made beyond its theme, size and seed: `noforms`, generated without 3D forms (`generate`'s `forms: false`, D488), for the tests of a
- *  heightfield's own rules; `terr<N>`, with the Terracing setting at N (0 to 100). Joined by "-", in that order. */
-export type FixtureVariant = "noforms" | `terr${number}` | `noforms-terr${number}`;
+ *  heightfield's own rules; `terr<N>`, with the Terracing setting at N (0 to 100). Joined by "-", in that order. `v<version>`: the theme's own
+ *  settings, written by that generator version, where a test was written on that land and a fixture of the same name holds another's. */
+export type FixtureVariant = "noforms" | `terr${number}` | `noforms-terr${number}` | `vert${number}` | `v${number}.${number}.${number}`;
 
 export const fixtureName = (theme: ThemeId, size: number, seed: number, variant?: FixtureVariant): string => `scenario-${theme}-${size}-${seed}${variant ? `-${variant}` : ""}.damgoodmaps`;
 

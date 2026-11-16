@@ -47,9 +47,8 @@ const spec = (theme: ThemeId, size: number, seed: number, badwaterDistance?: num
 
 describe("the shown land's bounds (#236)", () => {
   it("above 128², a shown land failing the same way three times in a row ends its round, and is never dropped within it", () => {
-    // (Highlands 136², badwater distance 60, seed 5 since generator 0.10.28, D(new-ditch) and D(sea-steps): the badwater drains by
-    // gullies, so the lands moved, D148: seed 2 passes on its eighth attempt with no round ended by the bound; of seeds 1–8 only 5
-    // ends a round now, and none breaks the shown land's rules;
+    // (Highlands 136², badwater distance 60, seed 2 → 6 at 0.10.29 (#1186), D148: the disc's land (the weathering's disc of the square's area, the washes' brush and swing) gives seed 2 no
+    // round ended by the bound, it passing on land 5; of seeds 1 and 3–20 only 6, 14 and 16 end a round now, and none breaks the shown land's rules;
     // seed 2 since generator 0.10.27, D(new-leaks): a course's water leaves only by its own way,
     // so the land moved, D148: seed 1 passes on its first shown land now, with no round ended by the bound; of seeds 1–5, 8 and 10 only
     // 2 and 8 end a round now; seed 1 since generator 0.10.24's round forms, the look round, D148: seed 6 passes now
@@ -61,7 +60,7 @@ describe("the shown land's bounds (#236)", () => {
     // ends; seed 4 for generator 0.10.7, whose first shown land's start was within 60 tiles of its badwater on every
     // attempt, until D504's springs toward the far land changed its land: its shown land now fails once and passes, D148; of
     // seeds 1–8, 1 and 5 end a round; seed 15 for 1 since generator 0.10.20's contour edges, D518, D148: seed 1's attempts now fail as drawn lands, never three alike on a shown one, so no round ends by the bound, and of seeds 1–60 only 15, 19, 26, 30, 32, 43, 51, 54 and 57 end one)
-    const { steps, passed } = traced(spec("highlands", 136, 5, 60));
+    const { steps, passed } = traced(spec("highlands", 136, 6, 60));
     expect(passed).toBe(true);
     const at = JSON.stringify(steps);
     let ended = 0;

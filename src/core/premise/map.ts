@@ -159,6 +159,10 @@ export interface PremiseLand {
   /** Where the life stage lays one ruin group, on the top of a rise the land made for it (the gate's basin,
    *  `gateLand.ts` `BASIN_MARKS`): a map tile. */
   ruinsAt?: [number, number];
+  /** How far from the start (tiles) the life's fill stands keep, so the start's wood stays the planting's, whose fast
+   *  share the planting holds, and the groves within it stay as the planting laid them (the poisoned floodplain: the
+   *  start on a broad green, `start.wood_fast`); none without. */
+  standsOffStart?: number;
 }
 
 export function premiseLand(plan: PremisePlan, water: StageWater = waterByNumber(plan), style?: PremiseStyle, bench = 0, reach = 0): PremiseLand {
@@ -221,14 +225,24 @@ export function premiseBase(spec: MapSpec, plan: PremisePlan, land: PremiseLand 
   return { spec, plan, land, ladder, ...(style ? { style } : {}), features, field, settleCache, base, notes, ms: Math.round(performance.now() - t5) };
 }
 
-/** A premise map's life, its second build (the settle reused), its file and its checks, on its first build. */
-export function premiseFinish(p: PremiseBase): PremiseMap {
+/** A premise's own dress on its settled first build, planted after stage 6's life (the features so far given, life's
+ *  among them): the poisoned floodplain's dead band (`plainMap.ts` `deadBand`). Plants only: it moves no water. */
+export type PremiseDress = (base: BuildResult, features: readonly Feature[]) => { features: Feature[]; notes: string[] };
+
+/** A premise map's life, its second build (the settle reused), its file and its checks, on its first build; a
+ *  premise's own `dress` planted after the life. */
+export function premiseFinish(p: PremiseBase, dress?: PremiseDress): PremiseMap {
   const { spec, plan, land, ladder, style, features, field, settleCache, base, notes } = p;
   const { water, heights } = land;
   const t6 = performance.now();
-  const life = premiseLife(spec, plan, water, ladder, base, features, spec.accepted?.attempt ?? 0, style?.woods ?? null, land.washes ? bedMask(land.washes, plan.W * plan.H) : null, land.ruinsAt ?? null);
+  const life = premiseLife(spec, plan, water, ladder, base, features, spec.accepted?.attempt ?? 0, style?.woods ?? null, land.washes ? bedMask(land.washes, plan.W * plan.H) : null, land.ruinsAt ?? null, land.standsOffStart ?? 0);
   notes.push(...life.notes);
   features.push(...life.features);
+  if (dress) {
+    const more = dress(base, features);
+    notes.push(...more.notes);
+    features.push(...more.features);
+  }
   const built = buildMap({ W: plan.W, H: plan.H, seed: spec.seed, features, field }, { settleCache });
   life.report.ms = Math.round(performance.now() - t6);
   const t8 = performance.now();

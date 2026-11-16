@@ -14,15 +14,22 @@ import { QUAKE_DEFAULTS } from "../../src/core/forces/quake";
 import { fixture } from "./forceFixtures";
 import * as ed from "../../src/worker/session";
 import { openMap } from "./forceEverywhere";
+import { fixtureInEditor } from "../fixtureEditor";
+import { MapSession } from "../../src/core/doc/session";
+import { decodeProject } from "../../src/core/doc/document";
 
 const W = 128;
 let at: [number, number] = [W >> 1, W >> 1];
 const mid: [number, number] = [W >> 1, W >> 1];
 const fault = [{ x: 10, y: W * 0.4 }, { x: W - 10, y: W * 0.45 }];
 
-/** River Valley 128 at `seed`, and its highest dry ground (where Carve and Glaciate start). */
-async function open(seed: number) {
-  const b = await openMap("riverValley", W, seed);
+/** River Valley 128 at `seed` (`saved`: its saved fixture, shown as generated), and its highest dry ground (where Carve and Glaciate start). */
+async function open(seed: number, saved = false) {
+  if (saved) {
+    fixtureInEditor("riverValley", W, seed, "v0.10.27");
+    ed.settleWater();
+  }
+  const b = saved ? MapSession.open(decodeProject(ed.project().bytes)).built : await openMap("riverValley", W, seed);
   let best = -1;
   for (let y = 10; y < W - 10; y += 2)
     for (let x = 10; x < W - 10; x += 2) {
@@ -47,11 +54,9 @@ beforeAll(async () => {
   // gentlest glacier moving more than its share on the rest but seed 1, and the gentlest Carve on seeds 3, 6 and 8; seed 4
   // since generator 0.10.27, D(new-leaks): a course's water leaves only by its own way, so the land moved, D148: on seed 9 the
   // gentlest glacier moves 1,267 levels to Power 100's 3,924, over its quarter; of seeds 1 to 5 only seed 4 keeps every force's
-  // check, the gentlest glacier moving more than its share on the rest, the gentlest eruption on seed 1 and Carve on seed 3;
-  // seed 15 since generator 0.10.28, D(new-ditch) and D(sea-steps): the badwater drains by gullies, so the land moved, D148: on
-  // seed 4 the gentlest glacier moves 268 levels to Power 100's 606, over its quarter; of seeds 1 to 15 only seed 15 keeps every
-  // force's check, the gentlest glacier moving more than its share on the rest and the gentlest Carve on seeds 2 and 7 too)
-  await open(15);
+  // check, the gentlest glacier moving more than its share on the rest, the gentlest eruption on seed 1 and Carve on seed 3)
+  // (River Valley 128² seed 4, as generator 0.10.27 made it, opens a saved fixture of the land it was written on (D148, the #1163 pattern); the generated land moves with the generator)
+  await open(4, true);
 });
 
 /** Each force at its largest Size (Carve's widest), the page's way (nature drawing its details). */

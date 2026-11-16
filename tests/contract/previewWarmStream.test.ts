@@ -29,9 +29,8 @@
 // 363 wet tiles; and one edit that weakens a source and turns its walk takes each rule where it belongs.
 // Neither turned case fails with the old line (any fall over a tenth restarted the tile dry); the one that
 // does, seed 9's Ruins at 34,34 (0.105 against the settle, now 0.038), needs #1145's land and is held there.
-// Not held, for a ruling: a trench a river filled that a turned walk leaves, another walk still crossing it
-// with half the flow, keeps 1.90 in the preview against the settle's 0 (1.93 before: a pool tile is never
-// judged by its flow).
+// A trench a river filled that a turned walk leaves, another walk still crossing it with half the flow, is held in
+// previewWide.test.ts (#1173: a pool a walk only crosses, where no walk ends, is unfed).
 
 import { describe, expect, it } from "vitest";
 import { footprintTiles } from "../../src/core/format/footprints";

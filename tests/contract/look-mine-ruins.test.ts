@@ -94,9 +94,10 @@ import * as ed from "../../src/worker/session";
 // the scrap asked: its ruins moved, D148);
 // `7084a1df…` before generator 0.10.27, D(new-leaks): a course's water leaves only by its own way, so its land is new: made
 // on its first attempt instead of its third, every check passing, D148);
-// `4a6c66b0…` before generator 0.10.28, D(new-ditch) and D(sea-steps): its badwater drains by gullies (two, to the edge),
-// so its ground and water moved: still its first attempt, every check passing, D148)
-const LIVE_SHA = "3a97febf3e2eed3d379f39e8317ddd2ad7576816db1c66bcd676b4a83f1b137a";
+// `4a6c66b0…` before generator 0.10.29 (#1186): not the version alone (at 0.10.27 the branch gives `93e7ebed…`): the
+// weathering's disc of the square's area and the washes' brush and swing move its land, made on its first attempt, every
+// check passing, D148)
+const LIVE_SHA = "c58f6dbdefb8776fdc39ed9f5c5d357f7c9fb82cd30187cafaf97c1df59e541d";
 const spec = () => makeSpec({ seed: 4242, size: { x: 128, y: 128 }, theme: "riverValley", designedFor: "normal" });
 
 describe("mine sites and ruins, models of our own", () => {
