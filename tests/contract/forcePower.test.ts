@@ -158,6 +158,30 @@ describe("a glacier whose way runs off the map (#1198)", () => {
     expect(at).toEqual([26, 10]);
     gentleButVisible("glaciate");
   }, 120_000);
+
+  // (and it is never wider than it is long on the map: an open end's width is capped by the route's length on the map
+  // and the way on to the edge. On Size Auto it took the valley's width, 21 tiles, and Power 100 cut a box 14 tiles
+  // across the edge from a route 10 tiles long: #1204)
+  it("glaciate on Size Auto: the open end is no wider than its way from the click to the edge", async () => {
+    await open(4, "v0.10.29");
+    for (const power of [50, 100]) {
+      const before = ed.terrainNow().heights.slice();
+      const r = ed.forceStart({ ...request("glaciate", power), settings: { ...GLACIATE_DEFAULTS, power, size: null, benches: null, steps: null, tarn: null, scree: null } as never } as ed.ForceRequest);
+      expect(r.errors).toEqual([]);
+      let shown = r.frame?.heights ?? before;
+      for (let k = 0; k < 20000; k++) {
+        const f = ed.forceAdvance(64);
+        if (!f) break;
+        if (f.heights) shown = f.heights;
+        if (f.done) break;
+      }
+      ed.forceCancel();
+      let across = 0;
+      for (let x = 0; x < W; x++) if (before[x] - shown[x] >= 1) across++;
+      expect(across, `Power ${power}`).toBeGreaterThanOrEqual(3);
+      expect(across, `Power ${power}`).toBeLessThanOrEqual(at[1] + 2);
+    }
+  }, 120_000);
 });
 
 describe("Craterize's gentlest is gentle on any ground: seeds 1 to 10 (D361 (3))", () => {

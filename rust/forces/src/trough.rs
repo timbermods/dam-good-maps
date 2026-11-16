@@ -29,6 +29,7 @@
 // portable functions and the planner's own rounding: the same bytes natively and in WebAssembly.
 use super::*;
 
+#[derive(Clone, Copy)]
 struct Sample {
     x: f64,
     y: f64,
@@ -128,26 +129,28 @@ pub(super) fn trough(p: &mut GlacierPlan, before: &Map, s: &GlacierSettings, kee
     // them, as the valley's did. Closed by a lip a few tiles inside the edge, its floor could stand no lower than the
     // edge's own ground, at every Power alike: #1198, where Power 100's trough on a hilltop by the edge was no deeper
     // than Power 50's). Its width runs out to the edge too: the planner holds no station back from the edge it runs
-    // off (`glacier_once`'s `off`), so the trough keeps its U to the edge, never a slot)
-    let open = {
-        let e = line.last().unwrap();
-        let (dx, dy) = (e.ny, -e.nx);
-        let inside = |x: f64, y: f64| x >= 0.0 && y >= 0.0 && x < w as f64 && y < h as f64;
-        let near_edge = min(min(e.x, e.y), min(w as f64 - e.x, h as f64 - e.y)) < 3.5;
-        let mut k = 1usize;
-        while k <= 8 && inside(e.x + dx * k as f64 * 0.5, e.y + dy * k as f64 * 0.5) {
-            k += 1;
-        }
-        if near_edge && k <= 8 {
-            let (x0, y0, s0, r0, nx, ny) = (e.x, e.y, e.s, e.r, e.nx, e.ny);
+    // off, so the trough keeps its U to the edge, never a slot. Whether it runs off is `glacier_runs_off`'s one test
+    // on the stations, the planner's too, so the width freed and the end opened always go together: a slanted end
+    // near the edge once freed its width while its line, aimed along the edge, stayed closed. The line runs on along
+    // itself where that leaves the map within four tiles, else straight across the edge)
+    let route: Vec<Point> = p.path.iter().map(|q| Point { x: q.x, y: q.y }).collect();
+    let open = match glacier_runs_off(w, h, &route) {
+        Some(edge) => {
+            let e = *line.last().unwrap();
+            let inside = |x: f64, y: f64| x >= 0.0 && y >= 0.0 && x < w as f64 && y < h as f64;
+            let leaves = |dx: f64, dy: f64| (1..=8usize).find(|&k| !inside(e.x + dx * k as f64 * 0.5, e.y + dy * k as f64 * 0.5));
+            let across = [(-1.0, 0.0), (0.0, -1.0), (1.0, 0.0), (0.0, 1.0)][edge];
+            let (dx, dy, nx, ny, k) = match leaves(e.ny, -e.nx) {
+                Some(k) => (e.ny, -e.nx, e.nx, e.ny, k),
+                None => (across.0, across.1, -across.1, across.0, leaves(across.0, across.1).unwrap_or(8)),
+            };
             for j in 1..=k + 1 {
                 let d = j as f64 * 0.5;
-                line.push(Sample { x: x0 + dx * d, y: y0 + dy * d, s: s0 + d, r: r0, nx, ny });
+                line.push(Sample { x: e.x + dx * d, y: e.y + dy * d, s: e.s + d, r: e.r, nx, ny });
             }
             true
-        } else {
-            false
         }
+        None => false,
     };
     let length = max(line.last().unwrap().s, 1.0);
     let t = clamp(s.power, 0.0, 100.0) / 100.0;
