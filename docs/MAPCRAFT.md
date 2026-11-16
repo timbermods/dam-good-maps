@@ -196,7 +196,8 @@ a premise or one still to come, may carry its own, lower playability floor.
   width of 2.5 or less) and the sea only where a lake runs along a quarter of the border; round 4 the total source
   strength and Delta's fan (the most border ways out of one system, its mouths left out). The tree on dev is the order
   alone: dev's heads and flows, each course as wide as its water and wider below each join (2 tiles more where one half
-  as wide or more joins), measured once against dev with D(ruled-water) in. Its own heads and water (rounds 1–4: fewer
+  as wide or more joins), measured once against D(ruled-water)'s f490d239 on the 42 maps (leaks 9 → 18, attempts
+  151 → 169, irrigable dry 9.0 → 8.8 %, straight shore 61.3 → 68.4 %; D(water-tree)). Its own heads and water (rounds 1–4: fewer
   heads seated where water gathers, the split by drained area, brooks toward the land farthest from the water), its
   pools and its rough wide banks come later on branch `gen/water-tree-parts`: they showed that the heads' count and
   irrigable dry pull against each other (at most 6 courses read 6.9 % irrigable dry against 8.7 %, the courses 4 tiles

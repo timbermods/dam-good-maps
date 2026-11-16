@@ -62,8 +62,9 @@ import { decodeSpecFragment, encodeSpecFragment, makeSpec, type MapSpec } from "
 // and generator 0.10.29's version alone (#1186): at 0.10.27 the branch gives `7760e7be…` byte for byte, D148;
 // and generator 0.10.36's version alone (#1205): `93bb3867…` before it, and with the version set back to 0.10.29 the branch gives
 // `93bb3867…` byte for byte, the round forms at their meant size not reaching this premise's land, D148; and generator 0.10.37's
-// version alone (ruled water, D(ruled-water), moves none of this map): at 0.10.36 it gives `c42349c0…`, D148)
-const SHA = "a7b0b746860cc6895619f112a5d2b4d88d12d98212e4e9a2398aeb2c0a205e66";
+// version alone (ruled water, D(ruled-water), moves none of this map): at 0.10.36 it gives `c42349c0…`, D148; and generator
+// 0.10.38's version alone (the water tree, D(water-tree), above 128² only): `a7b0b746…` at 0.10.37, D148)
+const SHA = "966388376923fe804fbde2f18504b7062b5e3eb611adebcc1d51ba4b28b88eda";
 
 // (a Hard map whose start lake parts as it falls: the single analytic reading stood 0.32 over the run there, PR #1040;
 // seed 5 for 7 since D518 with dev's ways out by a ramp's line (#1061), D148: seed 7's Hard lake stair holds no plan now

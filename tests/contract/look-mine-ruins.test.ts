@@ -100,8 +100,9 @@ import * as ed from "../../src/worker/session";
 // `c58f6dbd…` before generator 0.10.36's round forms at their meant size (#1205: their lobes swing about the radius, so mesas,
 // buttes, cones and knolls are a sixth wider, and the dead stands' floor pass: not the version alone, at 0.10.29's version the
 // branch gives `0ce281af…`, D148; `841215d6…` before generator 0.10.37's ruled water (D(ruled-water), which moves none of this
-// map): the version in the file alone, at 0.10.36 the branch gives `841215d6…` byte for byte, D148)
-const LIVE_SHA = "64928c3753d64b6fe6cae7c58aae420ab99fbdde7c8783bf90d35690b52c0d51";
+// map): the version in the file alone, at 0.10.36 the branch gives `841215d6…` byte for byte, D148; `64928c37…` before generator
+// 0.10.38's water tree (D(water-tree), above 128² only): the version in the file alone, 0.10.37 gives `64928c37…`, D148)
+const LIVE_SHA = "9bd387881ad5212ccc93077d4e2c064624bed1d5eaa0837f63946bdd3b27991c";
 const spec = () => makeSpec({ seed: 4242, size: { x: 128, y: 128 }, theme: "riverValley", designedFor: "normal" });
 
 describe("mine sites and ruins, models of our own", () => {
