@@ -4,7 +4,8 @@
 // seen a little above the finger and applied only on its lift (slice 3). touch.spec drives real touch events.
 
 import { describe, expect, it } from "vitest";
-import { aimAt, decide, DECIDE_PX, FINGER_LIFT, FingerPress, flingFrom, HOLD_MS, flingStep, FLING_TAU, NO_MOTION, Speed, TAP_MS, TAP_SLOP, TILT_PER_PX, Touches, twoStep, type Motion, type Point, type PressHost, type PressMode } from "../../src/render3d/touch";
+import { decisionLine } from "../../src/ui/viewportReadout";
+import { aimAt, CONE_PX, decide, FINGER_LIFT, LEAD_PX, OPPOSE_PX, REAL_PX, settle, type Decision, FingerPress, flingFrom, HOLD_MS, flingStep, FLING_TAU, NO_MOTION, Speed, TAP_MS, TAP_SLOP, TILT_PER_PX, Touches, twoStep, type Motion, type Point, type PressHost, type PressMode } from "../../src/render3d/touch";
 
 const P = (x: number, y: number): Point => ({ x, y });
 
@@ -42,8 +43,10 @@ describe("twoStep", () => {
 
 describe("decide", () => {
   const side: [Point, Point] = [P(100, 300), P(220, 300)];
-  it("waits until a finger has moved far enough", () => {
-    expect(decide(side, [P(100, 300 - DECIDE_PX + 1), P(220, 300 - DECIDE_PX + 1)], true)).toBeNull();
+  it("waits until both fingers have moved far enough", () => {
+    expect(decide(side, [P(100, 300 - REAL_PX + 1), P(220, 300 - REAL_PX + 1)], true)).toBeNull();
+    // (one finger past the old instant of decision, 10 px, the other not yet moving: still unsettled, a hand's lead)
+    expect(decide(side, [P(100, 288), P(220, 300)], true)).toBeNull();
   });
   it("tilts for two fingers side by side dragged up or down together", () => {
     expect(decide(side, [P(102, 270), P(221, 268)], true)).toBe("tilt");
@@ -112,7 +115,7 @@ describe("the glide after a flick", () => {
 
 /** A touch layer with a host that records what it is asked. */
 function layer(canTilt = true) {
-  const log = { dropped: 0, moves: [] as Motion[], at: [] as Point[], fingers: [] as number[] };
+  const log = { dropped: 0, moves: [] as Motion[], at: [] as Point[], fingers: [] as number[], decided: [] as Decision[] };
   const timers = new Map<number, () => void>();
   let id = 0;
   const t = new Touches({
@@ -120,6 +123,7 @@ function layer(canTilt = true) {
     move: (m, at) => void (log.moves.push(m), log.at.push(at)),
     fingers: (n) => void log.fingers.push(n),
     canTilt: () => canTilt,
+    decided: (d) => void log.decided.push(d),
     still: () => true,
     later: (fn) => (timers.set(++id, fn), id),
     clear: (k) => void timers.delete(k),
@@ -196,9 +200,13 @@ describe("Touches", () => {
     expect(log.moves).toEqual([]);
     t.move(ev("pointermove", 1, 100, 290, 40));
     next();
+    // (finger 1 at 10 px, finger 2 at 6: a hand's lead, still unsettled)
+    expect(log.moves).toEqual([]);
+    t.move(ev("pointermove", 2, 220, 292, 41));
+    next();
     expect(log.moves.length).toBe(1);
-    // decided a tilt: finger 1's 10 px and finger 2's 6 px, the middle up 8 px
-    expect(log.moves[0].tilt).toBeCloseTo(-8 * TILT_PER_PX, 9);
+    // decided a tilt: finger 1's 10 px and finger 2's 8 px, the middle up 9 px
+    expect(log.moves[0].tilt).toBeCloseTo(-9 * TILT_PER_PX, 9);
     expect(log.moves[0].dy).toBe(0);
   });
 
@@ -253,6 +261,140 @@ describe("Touches", () => {
     t.up(ev("pointerup", 1, 160, 300, 70));
     expect(log.moves.at(-1)!.zoom).toBeLessThan(0);
     next();
+  });
+});
+
+/** Moves as a phone tells them: each finger's own pointer event, [finger, x, y, time (ms)]. */
+type Trace = [number, number, number, number][];
+
+/** A hand's two fingers (1 down at `a`, 2 at `b`), a frame (16 ms) apart: frame k moves finger 1 by `da(k)` and finger 2
+ *  by `db(k)` from where each went down (null: that finger still, no event). Finger 2's events come `late` ms after its
+ *  frame's (0: one touch, both told at its time, finger 1's first). */
+function hand(a: Point, b: Point, frames: number, da: (k: number) => Point | null, db: (k: number) => Point | null, late = 0): Trace {
+  const out: Trace = [];
+  for (let k = 1; k <= frames; k++) {
+    const pa = da(k);
+    const pb = db(k);
+    if (pa) out.push([1, a.x + pa.x, a.y + pa.y, 16 * k]);
+    if (pb) out.push([2, b.x + pb.x, b.y + pb.y, 16 * k + late]);
+  }
+  return out.sort((p, q) => p[3] - q[3]);
+}
+
+/** Plays `trace` on a touch layer whose fingers went down at `a` and `b`: each event's handler, then the page's next task
+ *  wherever the next event is another touch's (another time). How it settled, and the camera's moves summed. */
+function play(a: Point, b: Point, trace: Trace) {
+  const L = layer();
+  L.t.down(L.ev("pointerdown", 1, a.x, a.y, 0));
+  L.t.down(L.ev("pointerdown", 2, b.x, b.y, 1));
+  trace.forEach(([id, x, y, t], i) => {
+    L.t.move(L.ev("pointermove", id, x, y, t));
+    if (trace[i + 1]?.[3] !== t) L.next();
+  });
+  const sum = (k: keyof Motion) => L.log.moves.reduce((n, m) => n + m[k], 0);
+  const end = (id: number, from: Point) => {
+    const e = trace.filter((q) => q[0] === id).at(-1);
+    return e ? P(e[1], e[2]) : from;
+  };
+  const [ea, eb] = [end(1, a), end(2, b)];
+  return {
+    decided: L.log.decided,
+    tilt: sum("tilt"),
+    dx: sum("dx"),
+    dy: sum("dy"),
+    zoom: sum("zoom"),
+    /** How far the fingers' middle went, across and up or down, in all. */
+    midDx: (ea.x + eb.x) / 2 - (a.x + b.x) / 2,
+    midDy: (ea.y + eb.y) / 2 - (a.y + b.y) / 2,
+  };
+}
+
+/** A hand's sideways wobble (CSS px), frame by frame: ±3 at most. */
+const WOBBLE = [0, 2, -1, -3, 1, 3, -2, 2, -3, 0, 1, -2, 3, -1, 2, -3, 0, 2, -2, 1];
+const wob = (k: number) => WOBBLE[k % WOBBLE.length];
+
+describe("two fingers as a hand moves them, not a robot (Kyler on an iPhone: the tilt almost never came)", () => {
+  // (an index and a middle finger of one hand: about 70 px apart on a phone)
+  const A = P(160, 420);
+  const B = P(230, 420);
+
+  /** It settled once, a tilt, and the whole of the fingers' up-and-down move tilted, none of it panned. */
+  const tilted = (r: ReturnType<typeof play>) => {
+    expect(r.decided.map((d) => d.mode)).toEqual(["tilt"]);
+    expect(r.tilt).toBeCloseTo(r.midDy * TILT_PER_PX, 9);
+    expect(Math.abs(r.midDy)).toBeGreaterThan(40);
+    expect(r.dy).toBe(0);
+  };
+
+  it("one finger leading the other by three events is a tilt", () => {
+    tilted(play(A, B, hand(A, B, 18, (k) => P(0, -4 * k), (k) => (k > 3 ? P(0, -4 * (k - 3)) : null))));
+    // the other way round, down, and two events
+    tilted(play(A, B, hand(A, B, 18, (k) => (k > 2 ? P(0, 5 * (k - 2)) : null), (k) => P(0, 5 * k))));
+  });
+
+  it("each finger wobbling ±3 px sideways while going up is a tilt", () => {
+    tilted(play(A, B, hand(A, B, 16, (k) => P(wob(k), -4 * k), (k) => P(-wob(k + 3), -4 * k))));
+  });
+
+  it("the gap drifting 9 px over a 60 px drag is a tilt", () => {
+    tilted(play(A, B, hand(A, B, 15, (k) => P(-0.3 * k, -4 * k), (k) => P(0.3 * k, -4 * k))));
+    // drifting together as they go
+    tilted(play(A, B, hand(A, B, 15, (k) => P(0, -4 * k), (k) => P(-0.6 * k, -4 * k))));
+  });
+
+  it("a slanted pair (30° off level) is a tilt; one clearly above the other is not", () => {
+    const b = P(A.x + 100 * Math.cos(Math.PI / 6), A.y - 100 * Math.sin(Math.PI / 6));
+    tilted(play(A, b, hand(A, b, 16, (k) => (k > 2 ? P(0, -4 * (k - 2)) : null), (k) => P(0, -4 * k))));
+    const above = P(A.x + 30, A.y - 90);
+    const r = play(A, above, hand(A, above, 16, (k) => P(0, -4 * k), (k) => P(0, -4 * k)));
+    expect(r.decided.map((d) => [d.mode, d.why])).toEqual([["free", "one above the other"]]);
+  });
+
+  it("the two fingers' events interleaved one at a time, each at its own time, finger 2's up to a frame and a half behind, are a tilt", () => {
+    tilted(play(A, B, hand(A, B, 16, (k) => P(0, -4 * k), (k) => P(0, -4 * k), 8)));
+    tilted(play(A, B, hand(A, B, 16, (k) => P(0, -4 * k), (k) => P(0, -4 * k), 24)));
+  });
+
+  it("all of it at once (a slant, a lead, a wobble, a drifting gap, interleaved events) is a tilt", () => {
+    const a = P(140, 430);
+    const b = P(a.x + 80 * Math.cos(0.45), a.y - 80 * Math.sin(0.45));
+    tilted(play(a, b, hand(a, b, 20, (k) => (k > 2 ? P(wob(k) - 0.3 * k, 3.5 * (k - 2)) : null), (k) => P(-wob(k + 5) + 0.2 * k, 3.5 * k), 20)));
+  });
+
+  /** It settled once, free, by `why`, the farther finger no farther than `by` (CSS px), and panned the middle's move. */
+  const free = (r: ReturnType<typeof play>, why: string, by: number) => {
+    expect(r.decided.map((d) => [d.mode, d.why])).toEqual([["free", why]]);
+    expect(Math.max(r.decided[0].a, r.decided[0].b)).toBeLessThanOrEqual(by);
+    expect(r.tilt).toBe(0);
+    expect(r.dx).toBeCloseTo(r.midDx, 9);
+    expect(r.dy).toBeCloseTo(r.midDy, 9);
+  };
+
+  it("a sideways pan, a diagonal pan, a pinch, a twist and a one-finger-led drag are free, as soon as each is clear", () => {
+    // a sideways pan (wobbling up and down): once a finger has gone a deliberate move
+    free(play(A, B, hand(A, B, 12, (k) => P(4 * k, wob(k) / 2), (k) => P(4 * k, -wob(k + 3) / 2))), "sideways", REAL_PX + 1);
+    // a diagonal pan: once a finger's direction is its own, past the tilt's cone
+    free(play(A, B, hand(A, B, 12, (k) => P(3 * k, -3 * k), (k) => P(3 * k, -3 * k))), "diagonal", CONE_PX + 5);
+    // a pinch: the gap changed by a clear share, or one finger going sideways
+    const pinch = play(A, B, hand(A, B, 10, (k) => P(-3 * k, wob(k) / 3), (k) => P(3 * k, 0)));
+    free(pinch, "pinch", OPPOSE_PX + 3);
+    expect(pinch.zoom).toBeCloseTo(Math.log(70 / Math.hypot(130, wob(10) / 3)), 9);
+    free(play(A, B, hand(A, B, 10, () => null, (k) => P(4 * k, 0))), "sideways", REAL_PX + 4);
+    // a twist about the middle: opposite ways; about one finger held still: past a turn of 15° or one finger led
+    free(play(A, B, hand(A, B, 10, (k) => P(0, 3 * k), (k) => P(0, -3 * k))), "opposite ways", OPPOSE_PX + 3);
+    const pivot = play(A, B, hand(A, B, 12, () => null, (k) => P(70 * Math.cos(-0.07 * k) - 70, 70 * Math.sin(-0.07 * k))));
+    expect(pivot.decided.map((d) => d.mode)).toEqual(["free"]);
+    expect(pivot.decided[0].b).toBeLessThanOrEqual(LEAD_PX + 5);
+    // one finger leading alone, the other still: not a tilt's lead (fingers wide apart, where its line turns slowly)
+    const wide = P(A.x + 120, A.y);
+    free(play(A, wide, hand(A, wide, 12, (k) => P(wob(k) / 2, -4 * k), () => null)), "one finger led", LEAD_PX + 4);
+  });
+
+  it("the readout names how the last gesture settled", () => {
+    const d = settle([A, B], [P(160, 400), P(231, 398)], true)!;
+    expect(d.mode).toBe("tilt");
+    expect(decisionLine(d)).toBe("two fingers: tilt (tilt)  travel 20px 22px  gap +1px  turn -2°");
+    expect(decisionLine(null)).toBe("two fingers: none yet");
   });
 });
 
