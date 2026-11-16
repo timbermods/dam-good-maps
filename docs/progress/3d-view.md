@@ -4494,6 +4494,44 @@ pale stone, cracked, shaded where its ivy hangs over them; ours were flat beige 
   both looks, the ruins cropped (game | before | branch, both looks), the game's band beside our layer, and the shade
   under the ivy.
 
+## The seasons on maps with caves and overhangs (D133, D250, D242 as amended; `feat/cave-seasons`)
+
+A held Drought or Badtide day drew no withered plant on any map with caves or overhangs (`session.ts` `stackedMap`), so
+the seasons were missing on every generated map with a spring cave, an overhang or an arch (D488 (1)), the maps
+Showcase offers: on River Valley 256² seed 2 no plant of its 1,764 withered on a drought's day 20; 1,612 do now.
+
+- **Each plant on its own ground:** a plant on a run top below its tile's top (a cave's floor, a ledge under a roof)
+  reads that run top's moisture and contamination, a plant on the top reads the tile's (`core/sim/withering.ts`
+  `plantGround`; the game's timers as on a heightfield: 1.1 × `DaysToDieDry` dry, two days contaminated, dead for good,
+  succulents exempt from dry). The renderer's `runSoil.ts` `objectSoilAt` uses the same rule, so the dying form (D242)
+  already read the run top's soil of the held day, which carries `runs` on these maps; nothing changed there.
+- **Plant identity:** the worker names a dead plant by its cell, level × W × H + tile (`witheredCells`; the `withered`
+  event and a day's `withered` carry cells), and the renderer marks the plant whose `z` and tile match
+  (`setWithered`), so of two plants on one tile, one on the roof and one in the cave below, only the one that died is
+  drawn dead. `Forest.setState` works per object already.
+- **Off the session worker:** a cave map's day soil (every column's water, every run top) is worked out in the soil
+  worker as a heightfield's is (`daySoil.ts`: `stackedSoil` on the day's column water and the soil's objects), byte for
+  byte the soil the session worked out before (checked on 8 days of both hazards at 256²); it was 45 to 80 ms a day on
+  the session worker. The day is sent first and its withered plants after it; a press stops the work until idle.
+- **Timing** (River Valley 256² seed 2, Chrome, RTX 2070 SUPER; a cheap worker call every 10 ms measures what an edit
+  would wait for): Drought, day 20 typed from day 9: the day in 0.8 s, its 1,612 withered plants 0.57 s after it, the
+  worker's slowest answer meanwhile 17 ms (median 3 ms). Badtide from its button right after opening: day 8 in 23.9 s
+  (the stacked engine simulating its days, unchanged here), its 1,086 withered plants 0.83 s after it. Stepping back to
+  a day whose soil is kept sends its list with the day (11 ms in Node). The same withering on the session worker, as
+  first built, held it up to 81 ms a day.
+- **Tests:** `tests/unit/withering.test.ts` (a plant on a cave's floor by its run top, two plants on one tile, each way);
+  `tests/contract/sessionWithering.test.ts` (a built cave map: a badtide kills the birch on the cave's floor and not the
+  pine on the roof above it, on one tile; a press holds the work back); `caveImport.test.ts`'s held day updated (D148).
+- **Generated maps place no plant under a roof** (`land/forms3d.ts` grows forms only where no plant stands), so on them
+  the change is that every plant withers at all; plants under a roof come from the shelf (D491) or an import.
+- **Sheet** (local only): `C:\dgm-showcase\seasons-caves\sheet.png`, River Valley 256² seed 2 (generator 0.10.37) with
+  ten plants set from the shelf on the ledge under the overhang at (91–93, 121–126), level 11 under a roof at 15, and on
+  the spring cave's floor at level 4: Day 0, 0 of 1,764 withered (3 under roofs dying); Drought day 20,
+  1,612 withered, all 10 under roofs; Badtide day 8, 1,086 withered, the 10 under roofs dying, none dead; and the ledge
+  close on drought day 20.
+- **Falls short:** a Badtide held on a fresh 256² cave map takes about 24 s to simulate its 8 days on the stacked
+  engine before the day shows (the background works them out once Kyler is idle; not this change's).
+
 ## The rest of the step (next parts)
 
 Each reads the same column masks the mesher reads. The seams:
