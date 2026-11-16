@@ -178,10 +178,10 @@ a premise or one still to come, may carry its own, lower playability floor.
   `tools/ruled-water-sheet.py` lays before and after out with the start's numbers first; `tools/water-tree.ts` reads
   the drainage's hierarchy (courses, joins, wet share, width by order). The 42 maps at 256² (seven themes, seeds 1 to
   6, and River Valley 9), dev 6c354c47 (0.10.36) → generator 0.10.37: side by side within 6 tiles 253 → 116 (within
-  12: 1,094 → 895), straight shore 61.3 → 61.5 %, attempts 148 → 146, leaks 9 → 9. The mends: a course traced beside
+  12: 1,094 → 895), straight shore 61.3 → 61.3 %, attempts 148 → 152, leaks 9 → 9. The mends: a course traced beside
   one already traced, on the same plain (no ground between them more than a level over it), joins it (`hydro.ts`
-  `BESIDE`), never on a sea's map, and a plan whose joins its land refuses is planned again without them before the
-  land is shown; Delta's arms step diagonally; `src/core/land/README.md`. Lake shores laid on a noised
+  `BESIDE`), never on a sea's map, and a plan refused on a check that names or touches a joined course is planned
+  again without the joins before the land is shown; Delta's arms step diagonally; `src/core/land/README.md`. Lake shores laid on a noised
   contour were tried and dropped (they cost Highlands 4 its start): the shores wait for the water tree. A gently
   curving shore still counts as straight under an 8-tile strip, so the share is a relative measure, not a limit; the
   game's own maps have not been run.
