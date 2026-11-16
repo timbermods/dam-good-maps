@@ -101,7 +101,9 @@ import * as ed from "../../src/worker/session";
 // buttes, cones and knolls are a sixth wider, and the dead stands' floor pass: not the version alone, at 0.10.29's version the
 // branch gives `0ce281af…`, D148); `841215d6…` before generator 0.10.37's version alone (the Nightly of 2026-11-16: with the
 // version set back to 0.10.36 the branch gives it byte for byte, D148)
-const LIVE_SHA = "64928c3753d64b6fe6cae7c58aae420ab99fbdde7c8783bf90d35690b52c0d51";
+// and generator 0.10.38's version alone (the dead-stand cap): with the version set back to 0.10.37 the branch gives
+// `64928c37…` byte for byte, D148
+const LIVE_SHA = "9bd387881ad5212ccc93077d4e2c064624bed1d5eaa0837f63946bdd3b27991c";
 const spec = () => makeSpec({ seed: 4242, size: { x: 128, y: 128 }, theme: "riverValley", designedFor: "normal" });
 
 describe("mine sites and ruins, models of our own", () => {
