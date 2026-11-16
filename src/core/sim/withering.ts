@@ -11,7 +11,8 @@
 //   contaminated on two days running (a lower bound of a day, past the 0.3 longest), counted from day 1.
 // - Death is permanent: a plant dead on one day is dead on every later day, whatever the ground does after.
 //
-// Pure: it reads the soil each kept day gives (day 0 the map's own) and says which plants are dead on the last of them. The
+// Pure: it reads the soil each kept day gives (day 0 the map's own) and says which plants are dead on the last of them
+// (`witheredByDay`), or, seen one day after another, the day each died and why (`Withering`, the first ten cycles'). The
 // map, the water and the plants themselves are never touched; the view draws them withered.
 //
 // Which living plants are dying now (`dyingCause`), as the game shows them: each plant has three models, alive, dying and
@@ -102,25 +103,59 @@ export function waterAboveBase(z: number, floor: number, depth: number): number 
 /** The plants that are dead by the last of `days` (`days[0]` the map's own soil, day 0; `days[k]` the soil of day k):
  *  1 for each plant of `plants`, in its order, that is, else 0. Nothing is dead on day 0. */
 export function witheredByDay(days: readonly DaySoil[], plants: readonly Plant[]): Uint8Array {
-  const dead = new Uint8Array(plants.length);
-  const last = days.length - 1;
-  if (last < 1) return dead;
-  plants.forEach((p, n) => {
-    const limit = DAYS_TO_DIE_DRY[p.template] === undefined ? Infinity : SURELY_DEAD * DAYS_TO_DIE_DRY[p.template];
-    // the first sample of the dry run now running, and of the contaminated run (a lower bound of a run's length is the
-    // samples since its first)
-    let dryFrom = -1;
-    let badFrom = -1;
-    for (let k = 0; k <= last; k++) {
-      const soil = days[k];
-      if (k >= 1 && soil.contamination[p.tile] > 0) {
-        if (badFrom < 0) badFrom = k;
-        else if (k - badFrom >= 1) return void (dead[n] = 1);
-      } else badFrom = -1;
-      if (soil.moisture[p.tile] > 0) dryFrom = -1;
-      else if (dryFrom < 0) dryFrom = k;
-      if (dryFrom >= 0 && k - dryFrom >= limit) return void (dead[n] = 1);
+  const w = new Withering(plants);
+  for (const soil of days) w.see(soil);
+  return Uint8Array.from(w.day, (d) => (d > 0 ? 1 : 0));
+}
+
+/** Why a plant died: its ground dry too long, or contaminated. */
+export type DeathCause = "dry" | "contaminated";
+
+/** The plants the days kill, seen one day after another (`witheredByDay`'s rule, kept day by day for runs too long to
+ *  keep every day's soil: the first ten cycles, `cycles.ts`). The first `see` is Day 0, the map's own soil. */
+export class Withering {
+  /** Per plant, the day it died (1 or more), or 0 while it lives. */
+  readonly day: Int32Array;
+  /** Per plant, why it died (null while it lives). */
+  readonly cause: (DeathCause | null)[];
+  /** The days seen, Day 0 included (0: none yet). */
+  seen = 0;
+  // per plant, the first day of the dry run now running and of the contaminated run, or -1 (a lower bound of a run's
+  // length is the days since its first)
+  private readonly dryFrom: Int32Array;
+  private readonly badFrom: Int32Array;
+  private readonly limit: Float64Array;
+
+  constructor(readonly plants: readonly Plant[]) {
+    const n = plants.length;
+    this.day = new Int32Array(n);
+    this.cause = new Array<DeathCause | null>(n).fill(null);
+    this.dryFrom = new Int32Array(n).fill(-1);
+    this.badFrom = new Int32Array(n).fill(-1);
+    this.limit = Float64Array.from(plants, (p) => (DAYS_TO_DIE_DRY[p.template] === undefined ? Infinity : SURELY_DEAD * DAYS_TO_DIE_DRY[p.template]));
+  }
+
+  /** The next day's soil (Day `seen`). */
+  see(soil: DaySoil): void {
+    const k = this.seen++;
+    const { plants, day, dryFrom, badFrom } = this;
+    for (let n = 0; n < plants.length; n++) {
+      if (day[n]) continue;
+      const tile = plants[n].tile;
+      if (k >= 1 && soil.contamination[tile] > 0) {
+        if (badFrom[n] < 0) badFrom[n] = k;
+        else if (k - badFrom[n] >= 1) {
+          day[n] = k;
+          this.cause[n] = "contaminated";
+          continue;
+        }
+      } else badFrom[n] = -1;
+      if (soil.moisture[tile] > 0) dryFrom[n] = -1;
+      else if (dryFrom[n] < 0) dryFrom[n] = k;
+      if (dryFrom[n] >= 0 && k - dryFrom[n] >= this.limit[n]) {
+        day[n] = k;
+        this.cause[n] = "dry";
+      }
     }
-  });
-  return dead;
+  }
 }
