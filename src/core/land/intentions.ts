@@ -223,7 +223,7 @@ export function nudgeFor(id: IntentionId): (g: Genome, rng: Rng, W: number, H: n
         if (rng.float() < 0.8) part(g, rng, "mesa", 1.2);
         // (#1193: on a Delta the mesas and plateaus keep inside their radius, their lobes cutting in only, as before
         // 0.10.36: their points reaching past it took the lake on the heights, 13 of seeds 13–36 down to 8)
-        if (g.theme === "delta") g.formsInward = true;
+        if (g.theme === "delta") g.mesasInward = true;
         g.weathering = Math.min(1, g.weathering + 0.2);
       };
     case "meeting-waters":

@@ -55,8 +55,8 @@ export interface Outline {
   k2: number;
   p2: number;
   a2: number;
-  /** The waves only cut in, so the form stays inside its radius (`Genome.formsInward`: a high lake's mesas and plateaus
-   *  on a Delta). */
+  /** The waves only cut in, so the form stays inside its radius (`Genome.formsInward`: Buildable land above the theme's
+   *  own; `Genome.mesasInward`: a high lake's mesas and plateaus on a Delta). */
   inward?: boolean;
 }
 
@@ -110,7 +110,7 @@ function pseudoAngle(dx: number, dy: number): number {
 }
 
 /** One part added to the uplift. */
-function addPart(U: Float64Array, p: Part, seed: number, W: number, H: number, k: number, all: readonly Part[], inwardForms = false): void {
+function addPart(U: Float64Array, p: Part, seed: number, W: number, H: number, k: number, all: readonly Part[], inward = false, mesasInward = false): void {
   const cx = p.at[0] * (W - 1);
   const cy = p.at[1] * (H - 1);
   const s = hash32(seed, "part", k, p.kind);
@@ -283,7 +283,7 @@ function addPart(U: Float64Array, p: Part, seed: number, W: number, H: number, k
       }, round(0.5 * p.size));
       top += p.height;
       // (the blob is 0 from `FORM_REACH` radii and half its softness out)
-      const o: Outline = { ...outlineOf(s), inward: inwardForms };
+      const o: Outline = { ...outlineOf(s), inward: inward || mesasInward };
       each((x, y, i) => {
         const m = blob(x, y, cx, cy, p.size, s, p.soft, o);
         if (m <= 0) return;
@@ -308,7 +308,7 @@ function addPart(U: Float64Array, p: Part, seed: number, W: number, H: number, k
         for (let y = Math.max(0, Math.floor(my - rad)); y <= Math.min(H - 1, Math.ceil(my + rad)); y++)
           for (let x = Math.max(0, Math.floor(mx - rad)); x <= Math.min(W - 1, Math.ceil(mx + rad)); x++) top = Math.max(top, U[y * W + x]);
         top += h;
-        const o = outlineOf(ms);
+        const o: Outline = { ...outlineOf(ms), inward };
         const reach = FORM_REACH * rad + 0.5 * Math.max(0.5, p.soft);
         for (let y = Math.max(0, Math.floor(my - reach)); y <= Math.min(H - 1, Math.ceil(my + reach)); y++)
           for (let x = Math.max(0, Math.floor(mx - reach)); x <= Math.min(W - 1, Math.ceil(mx + reach)); x++) {
@@ -408,7 +408,7 @@ function addPart(U: Float64Array, p: Part, seed: number, W: number, H: number, k
     }
     case "cone": {
       // (its rings are its outline's, never a circle's: a cone's rings read as drawn, the look round)
-      const o = outlineOf(s);
+      const o: Outline = { ...outlineOf(s), inward };
       each((x, y, i) => {
         const d = formDistance(x, y, cx, cy, p.size, s, o, 0.3);
         if (d < 1) U[i] += p.height * (1 - d);
@@ -443,7 +443,7 @@ function addPart(U: Float64Array, p: Part, seed: number, W: number, H: number, k
         const h = p.height * (0.5 + rng.float());
         // (each knoll its own outline, the look round: a round knoll's ring or two drew a small square)
         const ks = hash32(s, "knoll", j);
-        const o = outlineOf(ks);
+        const o: Outline = { ...outlineOf(ks), inward };
         const reach = FORM_REACH * rad;
         // (a knoll on the line of the long cliff that splits the map raised its foot and broke the line: it stands
         // elsewhere at its own size and shape, its middle drawn again from a stream of its own, or after eight tries
@@ -542,7 +542,7 @@ export function uplift(g: Genome, seed: number, W: number, H: number): Float64Ar
       U[y * W + x] = h;
     }
   const ps = ls;
-  g.parts.forEach((p, k) => addPart(U, p, ps, W, H, k, g.parts, !!g.formsInward));
+  g.parts.forEach((p, k) => addPart(U, p, ps, W, H, k, g.parts, !!g.formsInward, !!g.mesasInward));
   return U;
 }
 

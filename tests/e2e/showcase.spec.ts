@@ -11,11 +11,9 @@ test("Showcase: start a search, see a card, stop, open a pick", async ({ page })
   const errors: string[] = [];
   page.on("pageerror", (e) => errors.push(String(e)));
   await page.setViewportSize({ width: 1920, height: 1080 });
-  // (seed 13 since generator 0.10.24's round forms (the look round), D148: the land moved, and seed 4242's search now
-  // offers its variation 1 under the name of the map on show, "Shelf Above Valley", so the waits below for the pick's name
-  // in the title and on the on-show card were met before the pick had opened, and the focus was read while the open was
-  // still under way, on the page's body; seed 13's first fourteen candidates never offer a card named as the map on show,
-  // "Lee Valley")
+  // (a search may offer a variation under the name of the map on show: seed 4242's "Shelf Above Valley" on generator 0.10.24's
+  // land, seed 13's "Lee Valley" on 0.10.36's. The open below is waited on as the picked card itself coming on show, never
+  // as its name, which the title and the on-show card already held, so the focus is never read while the open is under way)
   await openEditor(page, "s=13&z=96&d=n&t=riverValley");
   const panel = await openDrawer(page);
 
@@ -64,13 +62,16 @@ test("Showcase: start a search, see a card, stop, open a pick", async ({ page })
   // open a pick that isn't the map on show: it opens in the editor, and its card says it is the open map
   const openable = sheet.locator(".sc-card:not(.on-show):not(.empty)").first();
   const name = (await openable.locator(".sc-name").textContent())!;
-  await openable.getByRole("button", { name: "Open" }).click();
-  await expect(page.locator("header.editor-bar .editor-title")).toContainText(name, { timeout: 60_000 });
+  const card = sheet.getByRole("listitem", { name: (await openable.getAttribute("aria-label"))!, exact: true });
+  await card.getByRole("button", { name: "Open" }).click();
+  await expect(card).toHaveClass(/\bon-show\b/, { timeout: 60_000 });
+  await expect(page.locator("header.editor-bar .editor-title")).toContainText(name);
   await expect(sheet.locator(".sc-card.on-show .sc-name")).toHaveText(name);
   await expect(sheet.locator(".sc-card.on-show").getByRole("button", { name: "Open" })).toBeDisabled();
 
-  // Esc (or Settings) brings the settings back
-  expect(await sheet.evaluate((e) => e.contains(document.activeElement))).toBe(true);
+  // Esc (or Settings) brings the settings back: the focus is in the sheet once the pick is open (the editor opens the map
+  // anew, and the sheet takes the focus at its action as it comes up)
+  await expect.poll(() => sheet.evaluate((e) => e.contains(document.activeElement))).toBe(true);
   await page.keyboard.press("Escape");
   await expect(sheet).toBeHidden();
   await expect(panel.getByRole("region", { name: "Terrain", exact: true })).toBeVisible();

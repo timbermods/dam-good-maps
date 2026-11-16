@@ -5,8 +5,26 @@
 // open map without asking, edits or not; the replaced map stays in Your maps (D234) with its edits, and its row
 // opens it again.
 
-import { expect, test } from "@playwright/test";
+import { expect, test, type Page } from "@playwright/test";
 import { centreOn, generateButton, openDrawer, openEditor, openFileMenu, openYourMaps, pick, topDown, waitForEditor } from "./open";
+
+/** One edit, raising five tiles of a row to level 15, on ground with no cave or overhang and none holding one's roof (the
+ *  Select actions' held ground, `selectionHeld`), where the editor takes it on any land (generator 0.10.36's River Valley 4244
+ *  has a cave at X 44 · Y 40, where the raise at 40–44 was refused, so the map had no edit to keep); the edit made, waited on. */
+async function raiseOnOpenGround(page: Page): Promise<void> {
+  await page.evaluate(async () => {
+    const held = new Set(await window.dgmEditor!.worker.selectionHeld());
+    const W = window.dgmEditor!.info().W;
+    for (let y = 40; y < W - 8; y++)
+      for (let x = 40; x < W - 8; x++) {
+        if ([-1, 0, 1].some((dy) => [-1, 0, 1, 2, 3, 4, 5].some((dx) => held.has((y + dy) * W + x + dx)))) continue;
+        await window.dgmEditor!.edit({ op: "sculpt", params: { mode: "flatten", cells: [[y, x, x + 4]], level: 15 } } as never, "Raise a tile");
+        return;
+      }
+    throw new Error("no open ground for the raise");
+  });
+  await expect.poll(() => page.evaluate(() => window.dgmEditor!.info().edits)).toBe(1);
+}
 
 test("Generate on an edited map makes a new map that no edit touches, and the edited map stays in Your maps (D336)", async ({ page }) => {
   const errors: string[] = [];
@@ -79,7 +97,7 @@ test("Generate on an edited map makes a new map that no edit touches, and the ed
 test("the first-keep note shows once in a browser: a browser that has had it keeps the next map quietly", async ({ page }) => {
   await page.addInitScript(() => localStorage.setItem("dgm.keptNote", "1"));
   await openEditor(page, "s=4244&z=96&d=n&t=riverValley");
-  await page.evaluate(() => window.dgmEditor!.edit({ op: "sculpt", params: { mode: "flatten", cells: [[40, 40, 44]], level: 15 } } as never, "Raise a tile"));
+  await raiseOnOpenGround(page);
   await page.waitForFunction((v) => window.dgm!.kept!(v), (await page.evaluate(() => window.dgmEditor!.info())).version, { timeout: 60_000, polling: 200 });
   await expect(page.getByRole("status").filter({ hasText: "Kept in Your maps" })).toHaveCount(0);
 });
@@ -104,7 +122,7 @@ test("with storage writes failing, neither note claims the map is kept: not the 
   // (a browser that has never had the first-keep note: the tests' stored state marks it shown)
   await page.evaluate(() => localStorage.removeItem("dgm.keptNote"));
   const claim = page.getByRole("status").filter({ hasText: /Kept in Your maps|is in Your maps/ });
-  await page.evaluate(() => window.dgmEditor!.edit({ op: "sculpt", params: { mode: "flatten", cells: [[40, 40, 44]], level: 15 } } as never, "Raise a tile"));
+  await raiseOnOpenGround(page);
   await expect(page.getByRole("alert").filter({ hasText: /storage/i })).toBeVisible({ timeout: 60_000 });
   await page.getByRole("alert").getByRole("button", { name: "Dismiss" }).click();
   await expect(claim).toHaveCount(0);
