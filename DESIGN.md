@@ -243,8 +243,9 @@ Kyler's six notes on the preview (2026-10-02) and what the mockups propose for e
   settings) and [Share](docs/design/lamplight-v4-13-phone-share.jpg).
 - [Landscape](docs/design/lamplight-v4-14-phone-landscape.jpg): the bar becomes a rail on the right, clear of the
   camera island and the home bar; sheets come [from the right](docs/design/lamplight-v4-15-phone-landscape-tools.jpg).
-- Sizes come from `100dvh` and `env(safe-area-inset-*)`, with `viewport-fit=cover`, so the bars follow Safari's
-  moving toolbar and nothing sits under the island or the home bar.
+- Sizes come from the box the browser pins fixed elements to and `env(safe-area-inset-*)`, with `viewport-fit=cover`,
+  so the bars follow Safari's moving toolbar and nothing sits under the island, the home bar or iOS 26's floating
+  address bar (EDITOR_PLAN §3, "Phones").
 - **What a phone can do:** make a map, look round it (one finger turns, two move and zoom), turn the view's layers
   on, read the card, use the forces and the brushes with one finger while one is held, place objects with a tap,
   share the link, download the file. **What it can't:** Save to Timberborn (Safari has no folder access and the
