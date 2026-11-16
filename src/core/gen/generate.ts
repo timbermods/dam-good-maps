@@ -369,6 +369,10 @@ interface Land {
   h0: Uint8Array;
   /** Settles this genome has cost. */
   settles: number;
+  /** The last plan on it joined a course to one beside it, or refused one (ruled water, hydro.ts `BESIDE`). */
+  joined?: boolean;
+  /** Plan its water without the joins (on the genome as the refused plan left it). */
+  joinsOff?: boolean;
 }
 
 interface Attempt {
@@ -792,7 +796,27 @@ function attemptRound(specIn: MapSpec, optsIn: GenerateOptions, t0: number, roun
       // (round 6: Islands' sea's lip at the map's edge, a tile or two, D151's edge rule kept)
       if (g.seaLayout && g.theme === "islands") holdSeaLip(land.h0, W, H);
     } else replans++;
-    const a = attemptOnce(specIn, land, attempt, { ...opts, maxAttempts: max, onLand: l => { lands++; opts.onLand?.(l); } }, t0, null, screened);
+    const screenedAt = { ...screened };
+    let shownJoined = false;
+    let a = attemptOnce(specIn, land, attempt, { ...opts, maxAttempts: max, onLand: l => { shownJoined = true; lands++; opts.onLand?.(l); } }, t0, null, screened);
+    // (ruled water: a join never costs a land. A plan whose joins the land refuses, on any check, is planned again on the
+    // same land without them: a joined course took a land's water another way, and the land refused
+    // drew another, whose start, water and irrigable land were the draw's; Any 256² seed 4's first lands that passed before
+    // it settled no more (8 → 13 attempts, two of the five more refused as leaks), Canyon 5's and Highlands 4's missed a
+    // promise or their start. The second plan's screening count and dry tally are put back as they were before the first;
+    // its genome is the one the first left, so a Canyon whose joined plan missed its promise is planned again already
+    // incised a level deeper on a lower floor (the promise screen's own step), not as dev plans it. A land once shown stays the map,
+    // D348: its later failures are planned again on it as any land's)
+    if (!a.passed && land.joined && !shownJoined) {
+      screened.count = screenedAt.count;
+      screened.dry = screenedAt.dry;
+      land.joinsOff = true;
+      try {
+        a = attemptOnce(specIn, land, attempt, { ...opts, maxAttempts: max, onLand: l => { lands++; opts.onLand?.(l); } }, t0, null, screened);
+      } finally {
+        land.joinsOff = false;
+      }
+    }
     if (a.stage) {
       committed = a.stage;
       keptAt = land.settles;
@@ -1592,7 +1616,8 @@ function planLandStage(land: Land, attempt: number, W: number, H: number, seed: 
   // channels are cut (D151)
   relaxEdges(h, W, H);
   opts.onProgress?.({ attempt, stage: "water" });
-  const hy = planHydro(land.E, h, g, seed, W, H, attempt);
+  const hy = planHydro(land.E, h, g, seed, W, H, attempt, land.joinsOff ? { joins: false } : {});
+  land.joined = (hy.joined ?? 0) > 0;
   // (M9b: the banks beside an inflow's mouth stay as the land has them: lowered to its channel, the
   // water would run out along the edge beside the mouth instead of down its course)
   // (and no tile beside a planned channel is lowered below that channel's water, here or by the

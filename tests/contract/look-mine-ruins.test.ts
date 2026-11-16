@@ -96,8 +96,10 @@ import * as ed from "../../src/worker/session";
 // on its first attempt instead of its third, every check passing, D148);
 // `4a6c66b0…` before generator 0.10.29 (#1186): not the version alone (at 0.10.27 the branch gives `93e7ebed…`): the
 // weathering's disc of the square's area and the washes' brush and swing move its land, made on its first attempt, every
-// check passing, D148)
-const LIVE_SHA = "c58f6dbdefb8776fdc39ed9f5c5d357f7c9fb82cd30187cafaf97c1df59e541d";
+// check passing, D148);
+// `c58f6dbd…` (0.10.29) before generator 0.10.35's ruled water (D(ruled-water), which moves none of this map): the version
+// in the file alone, D148)
+const LIVE_SHA = "c6ef1748748e424e668f20558e2ba5a65425ce5b1703c27c4b76bc8f0f4023a3";
 const spec = () => makeSpec({ seed: 4242, size: { x: 128, y: 128 }, theme: "riverValley", designedFor: "normal" });
 
 describe("mine sites and ruins, models of our own", () => {

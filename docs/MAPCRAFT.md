@@ -118,7 +118,8 @@ a premise or one still to come, may carry its own, lower playability floor.
   dry tiles; ours at least 28, 30 to 34 where the bare land's share holds it: the cover limit and the spread that make
   a stand a wood allow no more, D516's floor, D518), in two to four old woods where forest was: the old water line, dry beds, a mesa top,
   dry hollows; pines on the tops, birches by old water, a few old oaks. The rest of the dry land is bare: at most a
-  quarter of it within 6 tiles of a dead tree, the count giving way first. A wood is dense inside its outline. A stand is irregular knots of 3 to 8
+  quarter of it within 6 tiles of a dead tree, the count giving way first (and where a 3D form's spring cave later wets
+  dry land under them, the stands farthest from the start, `generate.ts`, `deadStands.ts` `bareShare`). A wood is dense inside its outline. A stand is irregular knots of 3 to 8
   trunks, each its own shape, with gaps, never a filled square, thinning to single trees at its edge, its outline the land's (a rim, a bank, the old
   water line), a third of its trees shorter (died young; D518). A dead tree keeps its logs and grows none back: wood
   travelled for, none in the start's walk.
@@ -167,6 +168,39 @@ a premise or one still to come, may carry its own, lower playability floor.
   lake stair failed on its corners alone (rectangular plates of one level, 6 to 15 tiles, half of them on the outlands'
   rim) until D518 turned its plates' scatter off the grid and bent its benches' sides; at 128² it passes now. The real places (`places/`) are warned only. The game's maps are run on the
   machine that holds them: `npx tsx tools/ruled-land.ts <folder>/*.timber`.
+- **Ruled water** (planning's rulings of 2026-11-15): lake shores that run ruler-straight and channels that run side by
+  side like drawn lines. `tools/ruled-water.ts` measures both on a generated map: the share of lake shore (wide water,
+  every tile within 4.5 of it water; shore tiles with a dry side, not on the map's edge) in straight runs (8 tiles or
+  more whose centres lie in a strip under a tile wide, at any angle; and without the sea's lip, the 4 tiles by the
+  edge), and the channels' centre line (thinned, on the water as seen) within 6 tiles of another channel water to
+  water, heading the same way and more than 8 tiles farther by water than by air, in runs of 20 or more (and within 12
+  centre to centre, reported). `--gen` makes a set, `--frames` marks them (straight shore orange, side by side yellow),
+  `tools/ruled-water-sheet.py` lays before and after out with the start's numbers first; `tools/water-tree.ts` reads
+  the drainage's hierarchy (courses, joins, wet share, width by order). The 42 maps at 256² (seven themes, seeds 1 to
+  6, and River Valley 9), dev 1c962953e (0.10.29) → generator 0.10.35: side by side within 6 tiles 344 → 221 (within
+  12: 1,112 → 1,125), straight shore 62.3 → 61.3 %, attempts 180 → 178, leaks 9 → 9. The mends: a course traced beside
+  one already traced, on the same plain (no ground between them more than a level over it), joins it (`hydro.ts`
+  `BESIDE`), never on a sea's map, and a plan whose joins its land refuses is planned again without them before the
+  land is shown; Delta's arms step diagonally; `src/core/land/README.md`. Lake shores laid on a noised
+  contour were tried and dropped (they cost Highlands 4 its start): the shores wait for the water tree. A gently
+  curving shore still counts as straight under an 8-tile strip, so the share is a relative measure, not a limit; the
+  game's own maps have not been run.
+- **The water tree** (D(water-tree), planning's ruling of 2026-11-15): `tools/water-tree.ts` reads each map's drainage
+  as a tree: courses (heads that bring water), joins and whether the course below is a tile or more wider than both arms
+  (medians over 4–20 tiles; a head on another's water, or a join under 4 tiles from a way out, is not read), courses
+  alone to the edge or the sea, the wet share on day 1, irrigable dry (dry land within a 24-tile canal of a course's
+  clean water and at most 2 levels above it) and width by order. `--json` writes the rows; `tools/water-tree-sheet.py`
+  lays before and after out with the start's numbers first, on `tools/ruled-water.ts --frames --plain` frames. Round 2
+  also reads joins through a lake (the paths ending in one lake against its outlet's stretch below it) and the start's
+  own water (trunk, tributary, lake, sea or other); round 3 reads order (trunks, tributaries, and brooks at a median
+  width of 2.5 or less) and the sea only where a lake runs along a quarter of the border; round 4 the total source
+  strength and Delta's fan (the most border ways out of one system, its mouths left out). The tree on dev is the order
+  alone: dev's heads and flows, each course as wide as its water and wider below each join (2 tiles more where one half
+  as wide or more joins), measured once against dev with D(ruled-water) in. Its own heads and water (rounds 1–4: fewer
+  heads seated where water gathers, the split by drained area, brooks toward the land farthest from the water), its
+  pools and its rough wide banks come later on branch `gen/water-tree-parts`: they showed that the heads' count and
+  irrigable dry pull against each other (at most 6 courses read 6.9 % irrigable dry against 8.7 %, the courses 4 tiles
+  wide or less holding 56 % of it), and the brooks bought it back with attempts and the start's drought.
 
 **Land first, story second** (planning's ruling of 2026-11-11, for every path: themes, premises, hand maps). Every
 landform is one geology makes, shaped by the shared natural relief. A premise is found in or cut into natural land by a

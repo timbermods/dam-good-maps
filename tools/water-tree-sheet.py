@@ -1,0 +1,96 @@
+"""Lay out before-and-after frames as one sheet for the water tree (D(water-tree)): each map whole, north up, its start's
+numbers first (D515's floors from the map's own checks), then the tree's measures (tools/water-tree.ts), attempts and
+leaks. The frames are tools/ruled-water.ts --frames'; the measures tools/water-tree.ts --json's, one file a side.
+
+    python tools/water-tree-sheet.py <before frames> <before.json> <after frames> <after.json> <out.png> highlands-4 … [--cell 512]
+
+Two maps a row, each as before | after.
+"""
+import json
+import os
+import sys
+
+from PIL import Image, ImageDraw
+
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from importlib import import_module
+
+rw = import_module("ruled-water-sheet")
+
+
+def tree_line(t, rec):
+    order = f"order {t['trunks']}/{t['tributaries']}/{t['brooks']}" if "trunks" in t else f"courses {t['courses']}"
+    return (f"{order} (alone {t['alone']})  ·  joins {t['joins']}, wider below {t['wider']}  ·  wet "
+            f"{100 * t['wetShare']:.1f} %  ·  irrigable {100 * t['irrigable']:.1f} %  ·  attempts {rec.get('attempts', '?')}, "
+            f"leaks {rec.get('leaks', '?')}")
+
+
+def wrap(d, text, font, width):
+    """Each line of `text` broken at its "  ·  " or spaces so that none runs past `width` pixels (into the next panel)."""
+    out = []
+    for line in text.split("\n"):
+        cur = ""
+        for part in line.replace("  ·  ", "  ·  |").split("|"):
+            words = [part] if d.textlength(part, font=font) <= width else part.split(" ")
+            for w in words:
+                sep = "" if (not cur or w is part) else " "
+                if cur and d.textlength(cur + sep + w, font=font) > width:
+                    out.append(cur.rstrip(" ·"))
+                    cur = w
+                else:
+                    cur += sep + w
+        out.append(cur.rstrip(" ·"))
+    return out
+
+
+def main():
+    args = sys.argv[1:]
+    cell = 512
+    if "--cell" in args:
+        k = args.index("--cell")
+        cell = int(args[k + 1])
+        args = args[:k] + args[k + 2:]
+    before, bjson, after, ajson, out = args[:5]
+    maps = args[5:]
+    trees = {}
+    for side, path in (("before", bjson), ("after", ajson)):
+        with open(path, encoding="utf-8") as f:
+            trees[side] = {r["name"]: r["m"] for r in json.load(f)}
+    f_head, f_line = rw.font(18), rw.font(13)
+    cols = 4
+    probe = ImageDraw.Draw(Image.new("RGB", (1, 1)))
+    texts = {}
+    for m in maps:
+        for side, folder in (("before", before), ("after", after)):
+            with open(os.path.join(folder, m + ".json"), encoding="utf-8") as f:
+                rec = json.load(f)
+            head, start, _ = rw.labels(rec, side)
+            t = trees[side].get(m)
+            texts[m, side] = (head, wrap(probe, start, f_line, cell), wrap(probe, tree_line(t, rec), f_line, cell) if t else [])
+    # (the label as tall as the most lines any panel needs, so no line runs into the panel below or beside it)
+    lab = 24 + 16 * max(len(a) + len(b) for _, a, b in texts.values()) + 6
+    rows = (2 * len(maps) + cols - 1) // cols
+    sheet = Image.new("RGB", (cols * (cell + 8) + 8, rows * (cell + lab + 8) + 8), (24, 24, 24))
+    d = ImageDraw.Draw(sheet)
+    k = 0
+    for m in maps:
+        for side, folder in (("before", before), ("after", after)):
+            x0 = 8 + (k % cols) * (cell + 8)
+            y0 = 8 + (k // cols) * (cell + lab + 8)
+            head, start, tree = texts[m, side]
+            d.text((x0, y0), head, fill=(255, 255, 255), font=f_head)
+            for n, line in enumerate(start):
+                d.text((x0, y0 + 24 + 16 * n), line, fill=(255, 230, 150), font=f_line)
+            for n, line in enumerate(tree):
+                d.text((x0, y0 + 24 + 16 * (len(start) + n)), line, fill=(200, 220, 255), font=f_line)
+            img = Image.open(os.path.join(folder, m + ".png")).convert("RGB")
+            img = img.resize((cell, cell), Image.NEAREST)
+            sheet.paste(img, (x0, y0 + lab))
+            k += 1
+    os.makedirs(os.path.dirname(out) or ".", exist_ok=True)
+    sheet.save(out, optimize=True)
+    print(f"wrote {out} ({sheet.width}×{sheet.height})")
+
+
+if __name__ == "__main__":
+    main()

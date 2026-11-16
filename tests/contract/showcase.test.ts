@@ -1,6 +1,6 @@
 // Showcase mode (D488 (2)): the search makes the asked map's siblings in order, measures each one's arc,
 // keeps the best three that pass, and each pick's share spec regenerates its file byte for byte. The beats
-// asserted here were read off these three maps by hand (Lake Basin 96², seed 2, variations 0–2) and re-read off the new maps for generator 0.10.13 (D507, D148), 0.10.16 (ground with grade, D148), 0.10.17 (the start's floors, D515, D148) 0.10.20 (contour edges, D518, D148), 0.10.21 (the look round, D518, D148), 0.10.24 (round forms, D148), 0.10.27 (D(new-leaks), D148) and 0.10.29 (#1186, D148).
+// asserted here were read off these three maps by hand (Lake Basin 96², seed 2, variations 0–2) and re-read off the new maps for generator 0.10.13 (D507, D148), 0.10.16 (ground with grade, D148), 0.10.17 (the start's floors, D515, D148) 0.10.20 (contour edges, D518, D148), 0.10.21 (the look round, D518, D148), 0.10.24 (round forms, D148), 0.10.27 (D(new-leaks), D148), 0.10.29 (#1186, D148) and 0.10.35 (D(ruled-water), D148).
 
 import { createHash } from "node:crypto";
 import { describe, expect, it } from "vitest";
@@ -67,6 +67,10 @@ describe("Showcase mode (D488 (2))", () => {
     // before it the asked map's mesa stood 37 tiles east, its dam a 5-tile one 50 tiles north-east holding 5,700, the first
     // sibling's partial drought choice 0.4, a 4-tile dam 37 tiles north-east holding 7,700 and its drowned village 62 tiles
     // east, the second every beat but the first drought's choice, ranked [2, 0, 1])
+    // (generator 0.10.35's ruled water, D(ruled-water), D148: a course beside another on one plain joins it, so the asked map's
+    // and the first sibling's water moved, and their beats were read off again by hand with `arcOf` and `showcaseSearch` at
+    // tries: 3; before it the asked map's dam stood 20 tiles north-east, the first sibling's was a 9-tile one 39 tiles north-east
+    // holding 7,500 and its drowned village 42 tiles south-east; the second sibling is as it was)
     // the asked map: an 8-level mesa in view, a dam to build and the first drought's choice; no valley, no vista and no
     // mystery (the strength 0.4 of a partial one)
     expect(a.vista.met).toBe(false);
@@ -75,17 +79,18 @@ describe("Showcase mode (D488 (2))", () => {
     expect(a.drought.met).toBe(true);
     expect(a.drought.say).toMatch(/^The nearest water, 7 tiles' walk from the start, runs low in the first drought; water 9 tiles' walk away holds.$/);
     expect(a.valley.met).toBe(false);
-    expect(a.project.say).toMatch(/^A 4-tile dam across a narrows 20 tiles north-east of the start would hold 5,600 water\.$/);
+    expect(a.project.say).toMatch(/^A 4-tile dam across a narrows 21 tiles east of the start would hold 5,600 water\.$/);
     expect(a.mystery.met).toBe(false);
     expect(a.mystery.strength).toBe(0.4);
-    // the first sibling: a dam to build and a drowned village; no landmark, no valley, and a partial first-drought choice
+    // the first sibling: a vista, a dam to build and a drowned village; no landmark, no valley, and a partial first-drought choice
+    expect(b.vista.met).toBe(true);
     expect(b.landmark.met).toBe(false);
     expect(b.valley.met).toBe(false);
     expect(b.drought.met).toBe(false);
     expect(b.drought.strength).toBe(0.25);
-    expect(b.project.say).toMatch(/^A 9-tile dam across a narrows 39 tiles north-east of the start would hold 7,500 water\.$/);
+    expect(b.project.say).toMatch(/^A 4-tile dam across a narrows 44 tiles north of the start would hold 7,600 water\.$/);
     expect(b.mystery.met).toBe(true);
-    expect(b.mystery.say).toMatch(/^A drowned village stands in a lake's shallows 42 tiles south-east of the start/);
+    expect(b.mystery.say).toMatch(/^A drowned village stands in a lake's shallows 32 tiles west of the start/);
     // the second: every beat; the vista of 10 levels of relief, farmland past the gorge, an 8-level mesa in view, a dam, a
     // drowned village in the lake's shallows and the first drought's choice
     expect(c.vista.met).toBe(true);
@@ -99,10 +104,10 @@ describe("Showcase mode (D488 (2))", () => {
     expect(c.project.say).toMatch(/^A 4-tile dam across a narrows 36 tiles south of the start would hold 6,900 water\.$/);
     // each is ranked by its arc and its opening picture's looks (SHOWCASE_LOOKS, docs/progress/showcase-looks.md)
     for (const c of seen) expect(c.score).toBeCloseTo(arcScore(c.arc!) + SHOWCASE_LOOKS * c.looks!, 9);
-    // the best three, best first: the second sibling (6 beats), the first sibling (2 beats: a project and a mystery), the
+    // the best three, best first: the second sibling (6 beats), the first sibling (3 beats: a vista, a project and a mystery), the
     // asked map (3 beats)
-    // (the first sibling's picture holds more than the asked map's, its looks 0.62 against 0.49, enough to outrank the asked
-    // map's higher arc, 3.57 to 2.41)
+    // (the first sibling's picture holds more than the asked map's, its looks 0.60 against 0.49, enough to outrank the asked
+    // map's higher arc, 3.57 to 3.44)
     expect(seen[1].looks!).toBeGreaterThan(seen[0].looks!);
     expect(arcScore(a)).toBeGreaterThan(arcScore(b));
     expect(res.best.map((p) => p.index)).toEqual([2, 1, 0]);
