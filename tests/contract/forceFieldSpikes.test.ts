@@ -14,9 +14,8 @@ import type { TerrainState } from "../../src/core/features/raster/strokePreview"
 import { CRATER_DEFAULTS } from "../../src/core/forces/craterize";
 import type { FullForceMap } from "../../src/core/forces/force";
 import { buildTouches } from "../../src/core/forces/start";
-import { makeSpec } from "../../src/core/spec/mapspec";
-import { runGenerate } from "../../src/worker/api";
 import * as ed from "../../src/worker/session";
+import { fixtureInEditor } from "../fixtureEditor";
 
 describe("a force wears the ground as the build does: a spike the generation grew stays (D207, D455)", () => {
   const W = 8;
@@ -53,8 +52,8 @@ describe("a force wears the ground as the build does: a spike the generation gre
   // the crater's reach raising the ground round them a level; on 0.10.5's map these tiles are no spikes)
   it("Highlands 64², seed 7: a Craterize (Power 44) at (42, 30) with the layer cut at level 11 leaves every tile above the layer as it was; its last frame is the map applied and reopened", async () => {
     const N = 64;
-    await runGenerate(makeSpec({ seed: 7, theme: "highlands", size: { x: N, y: N } }));
-    ed.refine();
+    // (a fixture since generator 0.10.29, D148: the land these cases were written on, tests/fixtures/projects, so the weathering's reach moving the generator's land moves nothing here)
+    fixtureInEditor("highlands", N, 7);
     const cut = 11;
     const before = MapSession.open(decodeProject(ed.project().bytes)).built;
 

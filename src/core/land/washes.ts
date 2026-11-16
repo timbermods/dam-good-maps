@@ -78,9 +78,14 @@ export const WASHES = {
    *  `reach[0]` to `reach[1]` tiles (two and three for a reach of seven or eight), the middle ones a tile to one side of
    *  the line (`wanderRuns`), so each bank wanders as a contour does. */
   reach: [3, 5, 6] as const,
-  /** The sideways meander: at most this far off the flow's line, with this wavelength. */
+  /** The sideways meander: at most this far off the flow's line, swinging from one side to the other every
+   *  `meanderCell` tiles along it (`swingAt`). The swing crosses the line every cell and reaches 0.6 to 1 of `meander`
+   *  each side, so from one side to the other it drifts further than a tread (3.6 tiles at least). A swing that
+   *  stayed on one side, or turned back short of a tread, was forgiven by the treads, and a line straight across a
+   *  flat (where the drainage runs straight down the tilt) kept a bed ruler-straight for 60 tiles (Canyon 3 at 256²,
+   *  the look round of #1186). */
   meander: 3,
-  meanderCell: 16,
+  meanderCell: 14,
   /** The centre line smoothed over this many points each side. */
   smooth: 2,
   /** The deepest a bed cuts under the lowest ground beside it: deeper and it ends there, in a hollow. */
@@ -301,6 +306,18 @@ function flow(
   return { rcv, area, order, n };
 }
 
+/** The meander's swing at point `s` of a line, in [-1, 1]: a side for each `cell` points, alternating, its reach drawn
+ *  from 0.6 to 1, eased from one to the next. */
+export function swingAt(seed: number, s: number, cell: number): number {
+  const f = s / cell;
+  const k = Math.floor(f);
+  let t = f - k;
+  t = t * t * (3 - 2 * t);
+  const first = hash32(seed, "swing-side") & 1;
+  const side = (j: number) => ((j + first) % 2 === 0 ? 1 : -1) * (0.6 + 0.4 * (hash32(seed, "swing", j) / 4294967296));
+  return side(k) * (1 - t) + side(k + 1) * t;
+}
+
 /** A line's points (tile centres), smoothed and swung sideways by the meander. */
 function curveOf(line: readonly number[], W: number, seed: number, smooth: number): { x: number[]; y: number[] } {
   const n = line.length;
@@ -333,7 +350,7 @@ function curveOf(line: readonly number[], W: number, seed: number, smooth: numbe
     tx /= len;
     ty /= len;
     const fade = Math.min(1, s / 6, (n - 1 - s) / 6);
-    const off = WASHES.meander * fade * valueNoise(seed, s, 0, WASHES.meanderCell);
+    const off = WASHES.meander * fade * swingAt(seed, s, WASHES.meanderCell);
     x.push(sx[s] - ty * off);
     y.push(sy[s] + tx * off);
   }
@@ -504,6 +521,32 @@ export function wanderRuns(path: readonly (readonly number[])[], W: number, seed
       if (shift[u] !== before) out[own[j]].push(uniq[u - 1] + shift[u]);
     }
     out[own[j]].push(seq[j] + shift[u]);
+  }
+  return out;
+}
+
+/** How the brush cuts at each tile of a tread path (per curve point, as `wanderRuns` gives it): 1 where the path runs
+ *  along x (a cut down the column), 2 along y (a cut along the row), 0 at a turn (the whole square). Read over the
+ *  path two tiles each way, so a reach's one-tile jogs stay in its reach. A square brush on a straight reach reached a
+ *  tile or two up and down it, past the jog's ends, so the stretches' cuts overlapped and the closed teeth filled what
+ *  was left: a bed 4 wide stood ruler-straight however its path wandered (Canyon 3 at 256², a side canyon's 59 tiles
+ *  down one column; the look round of #1186). */
+export function brushAcross(path: readonly (readonly number[])[], W: number): number[][] {
+  const seq: number[] = [];
+  for (const p of path) for (const t of p) seq.push(t);
+  const n = seq.length;
+  const out: number[][] = [];
+  let j = 0;
+  for (const p of path) {
+    const row: number[] = [];
+    for (let q = 0; q < p.length; q++, j++) {
+      const a = seq[Math.max(0, j - 2)];
+      const b = seq[Math.min(n - 1, j + 2)];
+      const dx = Math.abs((b % W) - (a % W));
+      const dy = Math.abs(Math.floor(b / W) - Math.floor(a / W));
+      row.push(dx >= 2 * dy && dx > 0 ? 1 : dy >= 2 * dx && dy > 0 ? 2 : 0);
+    }
+    out.push(row);
   }
   return out;
 }
@@ -710,6 +753,7 @@ export function planWashes(inp: WashInput): Washes {
     };
     const path = wanderRuns(treadsOf(x, y, W, H, WASHES.tread), W, (inp.seed + salt * 0x9e3779b1) >>> 0, brushOk);
     const at = (s: number) => path[s][path[s].length - 1];
+    const across = brushAcross(path, W);
     const floor: number[] = [];
     const stamps: number[][] = [];
     let end: Wash["end"] = "hollow";
@@ -749,18 +793,22 @@ export function planWashes(inp: WashInput): Washes {
       }
       const tiles: number[] = [];
       let low = Infinity;
-      for (const p of path[s]) {
+      path[s].forEach((p, q) => {
         const px = p % W;
         const py = (p - px) / W;
-        for (let yy = py + lo; yy <= py + hi; yy++)
-          for (let xx = px + lo; xx <= px + hi; xx++) {
+        // (along a straight reach the brush cuts across it only, so the reach's jogs stand in both its banks)
+        const ax = across[s][q];
+        const [y0, y1] = ax === 2 ? [0, 0] : [lo, hi];
+        const [x0, x1] = ax === 1 ? [0, 0] : [lo, hi];
+        for (let yy = py + y0; yy <= py + y1; yy++)
+          for (let xx = px + x0; xx <= px + x1; xx++) {
             if (xx < 0 || yy < 0 || xx >= W || yy >= H) continue;
             const t = yy * W + xx;
             if (!allowed[t] || tiles.includes(t)) continue;
             tiles.push(t);
             if (h0[t] < low) low = h0[t];
           }
-      }
+      });
       if (!tiles.length) {
         last = s;
         break;

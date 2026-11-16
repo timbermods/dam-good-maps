@@ -104,8 +104,10 @@ describe("generated maps: every new object passes the placement emulation (ROADM
   // walkable land from 2,274 tiles to 1,134, so the walk rule leaves both out; seed 3 itself stays below;
   // Islands seed 6 since the opening shot, 0.10.2, D493, D148: its seeds 1–5 leave the thorn belt out; Islands seed 2
   // since generator 0.10.6 (D498, badwater left the sea alone), D148: its seeds 1 and 6 leave the belt out, seeds 2–5 and 7–11 place it; Islands seed 5 since generator 0.10.11 (#726's shores, ramps and berries), D148: its seeds 2–4 leave the belt out, 5 and 7 place it; Islands seed 7 since generator 0.10.17's start floors, D515, D148: its seeds 5, 6, 8 and 9 leave the belt out, 7 and 10–12 place it;
-  // Highlands seed 1 since generator 0.10.35's ruled water, D(ruled-water), D148: its seed 3 leaves the belt out, seeds 1, 2 and 4–10 place it)
-  const everyObject = (theme: ThemeId, seed = theme === "islands" ? 7 : theme === "canyon" || theme === "highlands" ? 1 : 3, thorns = true) => {
+  // Highlands seed 3 → 4 and Islands seed 7 → 9 at 0.10.29 (#1186), D148: the disc's land (the weathering's disc of the square's area, the
+  // washes' brush and swing) has no thorn belt on Highlands 3 or Islands 7; of Highlands seeds 1–12, 1, 2 and
+  // 4–11 place it, and of Islands seeds 1–13, 1–3, 9 and 10)
+  const everyObject = (theme: ThemeId, seed = theme === "islands" ? 9 : theme === "canyon" ? 1 : theme === "highlands" ? 4 : 3, thorns = true) => {
     const spec = makeSpec({ seed, size: { x: 96, y: 96 }, theme });
     spec.settings.hazards.thornBelts = "some";
     spec.settings.hazards.unstableCores = "on";
@@ -177,8 +179,10 @@ describe("the generator's M7 set pieces keep their rules (ROADMAP M7)", () => {
     // River Valley and Canyon seeds 1–20, 15 keep every rule (Islands 1, 3, 4, 8, 12, 19; Canyon 9; River Valley 1–3, 5, 6, 13, 14, 16);
     // Islands 6 and 9 hold sites 41 tiles out that the walk does not join to the start; River Valley 1 for Canyon 9 since generator
     // 0.10.21's look round (the land's long straight steps jog), D148: Canyon 9 has no site now, nor has any of Canyon seeds 1–19 that keeps every
-    // rule, while Islands 3 and 12 and River Valley 1–3, 5, 6, 13, 14 and 16 do)
-    for (const [theme, seed] of [["islands", 12], ["riverValley", 3], ["islands", 3], ["riverValley", 1]] as [ThemeId, number][]) {
+    // rule, while Islands 3 and 12 and River Valley 1–3, 5, 6, 13, 14 and 16 do;
+    // River Valley seed 1 → 2 at 0.10.29 (#1186), D148: the disc's land (the weathering's disc of the square's area, the washes' brush and swing) has no second district's site on River Valley 1;
+    // River Valley 2, the nearest, has one that keeps every rule, as have River Valley 3 and 4 and Islands 1–4)
+    for (const [theme, seed] of [["islands", 12], ["riverValley", 3], ["islands", 3], ["riverValley", 2]] as [ThemeId, number][]) {
       const r = generate(makeSpec({ seed, size: { x: 128, y: 128 }, theme }));
       expect(r.report.passed).toBe(true);
       const f = r.features.find((g) => g.kind === "setPiece" && g.params.kind === "secondDistrict");
@@ -240,12 +244,11 @@ describe("the generator's M7 set pieces keep their rules (ROADMAP M7)", () => {
     // 11, 12, 17, 20; River Valley 4, 5, 7, 11, 15, 18, 20); canyon 20, river valley 5 and river valley 7 for canyon 7, canyon 8 and
     // river valley 4 since generator 0.10.24's round forms, the look round, D148: those three hold no rise now; of Canyon seeds 1–12, 17
     // and 20 only 2 and 20 hold one that keeps every rule, and of River Valley seeds 1–7, 11, 15, 18 and 20, seeds 2, 5, 7, 11, 15, 18
-    // and 20 do; canyon 12 and river valley 2 for canyon 2 and canyon 20 since generator 0.10.35's ruled water (a course beside
-    // another joins it), D(ruled-water), D148: those two hold no rise now; of Canyon seeds 2, 3, 7, 8, 11, 12, 17 and 20 only 12
-    // holds one that keeps every rule, and of River Valley seeds 2, 5, 7, 11, 15, 18 and 20, seeds 2, 5, 7 and 20 do; canyon 14
-    // for canyon 12 since the ruled water's courses join only on one plain, D148: canyon 12 holds no rise now; of Canyon and River
-    // Valley 128² seeds 1–20, Canyon 14 and River Valley 2, 4, 5, 7 and 20 hold one that keeps every rule)
-    for (const [theme, seed] of [["canyon", 14], ["riverValley", 2], ["riverValley", 5], ["riverValley", 7]] as [ThemeId, number][]) {
+    // and 20 do; canyon 2 → 4 and canyon 20 → 17 at 0.10.29 (#1186), D148: the disc's land (the weathering's disc of the square's area, the washes' brush and swing) has no rise on
+    // Canyon 2 or 20; of Canyon seeds 1–20 only 4, 12, 14 and 17 hold one, each keeping every rule; canyon 4 → 12 at 0.10.35's ruled
+    // water, D(ruled-water), D148: a course beside another on one plain joins it, and canyon 4 holds no rise now; of Canyon and River
+    // Valley 128² seeds 1–20, Canyon 12, 14, 17 and River Valley 2, 5, 6, 7, 11, 18, 20 hold one, each keeping every rule)
+    for (const [theme, seed] of [["canyon", 12], ["canyon", 17], ["riverValley", 5], ["riverValley", 7]] as [ThemeId, number][]) {
       const r = generate(makeSpec({ seed, size: { x: 128, y: 128 }, theme }));
       const f = r.features.find((g) => g.kind === "setPiece" && g.params.kind === "obstaclePayoff");
       if (!f || f.kind !== "setPiece") continue;
@@ -295,13 +298,13 @@ describe("the generator's M7 set pieces keep their rules (ROADMAP M7)", () => {
     // take no weir now; of Canyon and Highlands 96² seeds 1–20, 10 hold 0.6 or more (Canyon 3, 7, 10, 17; Highlands 2, 4, 9, 10, 12,
     // 13) and none holds less; canyon 12 and canyon 13 for canyon 3 and canyon 17 since generator 0.10.27, D(new-leaks): a course's
     // water leaves only by its own way, so the land moved, D148: those two rivers take no weir now; of Canyon and Highlands 96² seeds
-    // 1–20, 14 hold 0.6 or more (Canyon 7, 10, 12, 13, 18, 19; Highlands 2, 3, 7, 9, 13, 16, 18, 20) and none holds less;
-    // canyon 5 and canyon 18 for canyon 12 and canyon 13 since generator 0.10.35's ruled water (a course beside another joins
-    // it) on 0.10.27's land, D(ruled-water), D148: those two rivers take no weir now; of Canyon and Highlands 96² seeds 1–20, 13
-    // hold 0.6 or more (Canyon 5, 7, 10, 18; Highlands 2, 3, 4, 7, 9, 10, 16, 18, 20) and none holds less; canyon 19 for canyon 5
-    // since the ruled water's courses join only on one plain, D148: canyon 5's river takes no weir now; 13 still hold 0.6 or more
-    // (Canyon 7, 10, 18, 19; Highlands 2, 3, 4, 6, 7, 9, 16, 18, 20) and none holds less)
-    for (const [theme, seed] of [["canyon", 7], ["canyon", 10], ["canyon", 18], ["canyon", 19], ["highlands", 2]] as [ThemeId, number][]) {
+    // 1–20, 14 hold 0.6 or more (Canyon 7, 10, 12, 13, 18, 19; Highlands 2, 3, 7, 9, 13, 16, 18, 20) and none holds less; canyon 12 → 9, canyon 13 → 16
+    // and highlands 2 → 4 at 0.10.29 (#1186), D148: the disc's land (the weathering's disc of the square's area, the washes' brush and swing) gives those three rivers no weir; of Canyon 96² seeds 6–20,
+    // 6, 7, 9, 10, 16 and 18 hold 0.6 or more and 17 holds 0.58, and of Highlands seeds 1–7 only 4 and 7 take a weir, both holding 0.6 or more;
+    // highlands 4 → 2 at 0.10.35's ruled water, D(ruled-water), D148: a course beside another on one plain joins it, and highlands 4's
+    // river takes no weir now; of Canyon and Highlands 96² seeds 1–20, 12 hold 0.6 or more (Canyon 3, 6, 7, 9, 10, 16, 18; Highlands 2,
+    // 7, 10, 13, 16) and Canyon 17 holds less, as on dev)
+    for (const [theme, seed] of [["canyon", 7], ["canyon", 10], ["canyon", 9], ["canyon", 16], ["highlands", 2]] as [ThemeId, number][]) {
       const r = generate(makeSpec({ seed, size: { x: 96, y: 96 }, theme }));
       const w = r.features.find((g) => g.kind === "mapObject" && g.params.kind === "weir");
       if (!w || w.kind !== "mapObject") continue;

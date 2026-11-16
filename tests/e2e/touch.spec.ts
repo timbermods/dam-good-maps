@@ -426,9 +426,14 @@ for (const size of SIZES) {
       await fingers.up(1, 2);
       await still(page);
 
-      // a twist turns the view with the fingers (clockwise, clockwise), about the ground under their middle
-      await page.evaluate(() => window.dgm3d!.renderer.setView({ distance: 48 }));
+      // a twist turns the view with the fingers (clockwise, clockwise), about the ground under their middle (from the
+      // test's first view, with a level patch under the middle: the pinch's glide had moved the target by as much as the
+      // machine was slow, and a middle over relief turns about ground the ray finds a little differently as the touch's
+      // moves are taken together or apart, so the ground going round came out 0.08 to 1.84 tiles from run to run; from
+      // here it is the same every run)
+      await page.evaluate((v) => window.dgm3d!.renderer.setView({ distance: 48, target: v.target, yaw: v.yaw, pitch: v.pitch }), v0);
       c = await roomy(page, R);
+      await onFlat(page, c);
       under = await tileAt(page, c);
       const yaw0 = (await view(page)).yaw;
       const turn = Math.PI / 6;

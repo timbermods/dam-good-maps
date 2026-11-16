@@ -59,7 +59,8 @@ import { decodeSpecFragment, encodeSpecFragment, makeSpec, type MapSpec } from "
 // and generator 0.10.25's version alone, its Lake Basin water settings moving no Canyon map, D148;
 // and generator 0.10.26's ruins to within a column, D527: its ruin fields hold the scrap asked to a column, D148;
 // and generator 0.10.27's version alone, the premise map otherwise 0.10.26's (D(new-leaks) moves the themes' land, not a premise's), D148;
-// and generator 0.10.35's version alone (ruled water, D(ruled-water), moves none of this map), D148)
+// and generator 0.10.29's version alone (#1186): at 0.10.27 the branch gives `7760e7be…` byte for byte, D148;
+// and generator 0.10.35's version alone (ruled water, D(ruled-water), moves none of this map): at 0.10.29 it gives `93bb3867…`, D148)
 const SHA = "28463f59703c35c4a8cb5ab4cb21bf3f6bf4089fa6256bf845cde890a160a836";
 
 // (a Hard map whose start lake parts as it falls: the single analytic reading stood 0.32 over the run there, PR #1040;

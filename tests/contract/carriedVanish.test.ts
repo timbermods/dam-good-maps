@@ -13,15 +13,14 @@ import { decodeProject } from "../../src/core/doc/document";
 import type { EditOp } from "../../src/core/doc/ops";
 import { MapSession } from "../../src/core/doc/session";
 import { QUAKE_DEFAULTS } from "../../src/core/forces/quake";
-import { makeSpec } from "../../src/core/spec/mapspec";
-import { runGenerate } from "../../src/worker/api";
 import * as ed from "../../src/worker/session";
+import { fixtureInEditor } from "../fixtureEditor";
 
 const W = 64;
 const open = () => MapSession.open(decodeProject(ed.project().bytes));
 const gid = (n: number) => `00000000-0000-4000-8000-${String(n).padStart(12, "0")}`;
 const PINES = Array.from({ length: 12 }, (_, k) => gid(k + 1));
-const ROW = 26;
+const ROW = 27;
 const X0 = 33;
 
 /** A Quake Slide along a straight fault, the editor's worker keeping it. */
@@ -31,13 +30,12 @@ function slide(path: { x: number; y: number }[], side: 1 | -1, power: number): v
   expect(ed.forceStop().kept).toBe(true);
 }
 
-/** Highlands 64², seed 2: twelve Pines planted in a row on dry free ground, (33..44, 26). (D148: D518's mends moved the
- *  land; on seed 1 the row's Slide is no longer kept, seed 2 carries the row as before. Row 26 for 27 since generator 0.10.27,
- *  D(new-leaks): a course's water leaves only by its own way, so the land moved, D148: the Slide carries 8 of row 27's Pines,
- *  and every row from 24 to 30 but 27 carries more.) */
+/** Highlands 64², seed 2: twelve Pines planted in a row on dry free ground, (33..44, 27). (D148: D518's mends moved the
+ *  land; on seed 1 the row's Slide is no longer kept, seed 2 carries the row as before. Row 27 stays: generator
+ *  0.10.27's move (dev, D(new-leaks)) followed the generator's land; the fixture keeps 0.10.25's, where this holds.) */
 async function planted(): Promise<void> {
-  await runGenerate(makeSpec({ seed: 2, theme: "highlands", size: { x: W, y: W } }));
-  ed.refine();
+  // (a fixture since generator 0.10.29, D148: the land these cases were written on, tests/fixtures/projects, so the weathering's reach moving the generator's land moves nothing here)
+  fixtureInEditor("highlands", W, 2);
   PINES.forEach((id, k) => expect(ed.apply({ op: "placeEntity", params: { id, template: "Pine", x: X0 + k, y: ROW, orientation: "Cw0" } }).errors).toEqual([]));
 }
 
@@ -59,7 +57,7 @@ describe("an object a force carries lands where the force put it (D425)", () => 
     await planted();
     // a Slide across the south of the map, carrying what stands there
     slide([{ x: 4, y: W - 12 }, { x: W - 5, y: W - 11.5 }], 1, 30);
-    // the player deletes the ninth Pine, at (41, 26)
+    // the player deletes the ninth Pine, at (41, 27)
     expect(ed.apply({ op: "deleteEntities", params: { entities: [PINES[8]] } } as EditOp).errors).toEqual([]);
     expect(rowSlide()).toEqual([]);
   });

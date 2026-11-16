@@ -13,12 +13,12 @@ import { MAX_DABS, strokeParts, type BrushParams } from "../../src/core/features
 import { groundUnderObjects } from "../../src/core/features/raster/objectGround";
 import { StrokePreview } from "../../src/core/features/raster/strokePreview";
 import { generate } from "../../src/core/gen/generate";
-import { makeSpec } from "../../src/core/spec/mapspec";
+import { fixtureSession } from "../fixtureProjects";
 
 const W = 64;
-const r = generate(makeSpec({ seed: 3, theme: "riverValley", size: { x: W, y: W } }));
+// (a fixture since generator 0.10.29, D148: the land these cases were written on, tests/fixtures/projects, so the weathering's reach moving the generator's land moves nothing here)
 const session = () => {
-  const s = MapSession.fromGenerated(r, r.file);
+  const s = fixtureSession("riverValley", W, 3);
   s.setWaterMode("defer");
   return s;
 };

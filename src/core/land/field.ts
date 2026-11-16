@@ -566,20 +566,25 @@ export function erodeHard(U: Float64Array, hard: Float64Array, W: number, H: num
   return h;
 }
 
-/** The least value within `r` tiles of each tile: a disc, not a square (the look round: the square's corners drew a
- *  square ring on every butte's shoulder, where the weathering's reach ran out). The least over each row within each
- *  half-width the disc needs, then the least of those down the column, exact. */
+/** The least value within reach `r` of each tile: a disc, not a square (the look round: the square's corners drew a
+ *  square ring on every butte's shoulder, where the weathering's reach ran out), of the square's area (0.10.29: a disc
+ *  of radius `r` read three quarters of its ground, and the caprock weathered at a high Verticality stood in fewer
+ *  cliffs). The least over each row within each half-width the disc needs, then the least of those down the column,
+ *  exact. */
 function minFilter(v: Float64Array, W: number, H: number, r: number): Float64Array {
   const N = W * H;
-  // (the disc's half-width at each row offset: the widest run of whole tiles within the radius)
+  // (the disc's half-width at each row offset: the widest run of whole tiles within it. Its area is the square's,
+  // (2r + 1)², so the weathering reaches as much ground as it did: x² + y² ≤ (2r + 1)² / π, π as 22 / 7, exact)
+  const R = 7 * (2 * r + 1) * (2 * r + 1);
   const half: number[] = [];
-  for (let dy = 0; dy <= r; dy++) {
+  for (let dy = 0; 22 * dy * dy <= R; dy++) {
     let w = 0;
-    while ((w + 1) * (w + 1) + dy * dy <= r * r) w++;
+    while (22 * ((w + 1) * (w + 1) + dy * dy) <= R) w++;
     half.push(w);
   }
+  const reach = half.length - 1;
   const rows: Float64Array[] = [];
-  for (let w = 0; w <= r; w++) {
+  for (let w = 0; w <= half[0]; w++) {
     const tmp = new Float64Array(N);
     for (let y = 0; y < H; y++)
       for (let x = 0; x < W; x++) {
@@ -596,7 +601,7 @@ function minFilter(v: Float64Array, W: number, H: number, r: number): Float64Arr
   for (let y = 0; y < H; y++)
     for (let x = 0; x < W; x++) {
       let m = Infinity;
-      for (let dy = -r; dy <= r; dy++) {
+      for (let dy = -reach; dy <= reach; dy++) {
         const yy = y + dy;
         if (yy < 0 || yy >= H) continue;
         const u = rows[half[dy < 0 ? -dy : dy]][yy * W + x];
