@@ -126,12 +126,12 @@ function widened(hit: Uint8Array, W: number, H: number): Uint8Array {
 
 /** Each model's flow (prefill.ts `flowThrough`), kept while the model lives: the next edit's warm
  *  start compares against it. */
-const flows = new WeakMap<WaterModel, { q: Float64Array; level: Float64Array; path: Uint8Array }>();
-function flowOf(m: WaterModel): { q: Float64Array; level: Float64Array; path: Uint8Array } {
+const flows = new WeakMap<WaterModel, { q: Float64Array; level: Float64Array; path: Uint8Array; spill: Float64Array }>();
+function flowOf(m: WaterModel): { q: Float64Array; level: Float64Array; path: Uint8Array; spill: Float64Array } {
   let f = flows.get(m);
   if (!f) {
-    const { q, level, path } = flowThrough(m);
-    flows.set(m, (f = { q, level, path }));
+    const { q, level, path, spill } = flowThrough(m);
+    flows.set(m, (f = { q, level, path, spill }));
   }
   return f;
 }
@@ -181,10 +181,16 @@ export function unfedTiles(from: WarmState, next: WaterModel, start: WaterState 
   const { q: now, level } = flowOf(next);
   const before = reachOf(prev);
   const lost = lostReach(prev, next);
+  const crossed = crossedPools(next);
   const out = new Uint8Array(N);
   for (let i = 0; i < N; i++) {
     if (!(d[i] > 0) || !(prev.floor[i] + d[i] > next.floor[i])) continue;
     if (now[i] < was[i] * (lost?.[i] ? LOST_SHARE : UNFED_SHARE) - 1e-9 && (!(level[i] > next.floor[i]) || lost?.[i])) {
+      out[i] = 1;
+      continue;
+    }
+    // (a pool that lost flow and that a walk now only crosses, where none ends, #1173)
+    if (now[i] < was[i] - 1e-9 && crossed?.[i]) {
       out[i] = 1;
       continue;
     }
@@ -198,6 +204,52 @@ export function unfedTiles(from: WarmState, next: WaterModel, start: WaterState 
   }
   return out;
 }
+
+/** The pools of `m`'s canonical start that a walk only crosses, where none ends (#1173, planning's ruling
+ *  of 2026-11-15), as a mask, or null when there are none. A pool is a hollow its walk fills (prefill.ts
+ *  `flowThrough`: tiles joined side by side whose water stands over their floor at one level); a walk
+ *  ends in it when an emitter emits into it or the walk comes down into it from higher ground (a
+ *  tile it reached whose spill level is higher). A walk that only spreads into it at its own level
+ *  over flat ground (a trench on a plateau another river's walk crosses) brings no water there in
+ *  the game. Kept per model. */
+function crossedPools(m: WaterModel): Uint8Array | null {
+  if (crossings.has(m)) return crossings.get(m)!;
+  const { W, H, floor } = m;
+  const N = W * H;
+  const { path, level, spill } = flowOf(m);
+  const emits = new Uint8Array(N);
+  for (const e of m.emitters) if (e.strength > 0) for (const c of e.cells) emits[c] = 1;
+  const seen = new Uint8Array(N);
+  const stack: number[] = [];
+  const pool: number[] = [];
+  let mask: Uint8Array | null = null;
+  for (let s = 0; s < N; s++) {
+    if (seen[s] || !path[s] || !(level[s] > floor[s])) continue;
+    pool.length = 0;
+    stack.push(s);
+    seen[s] = 1;
+    let ends = false;
+    while (stack.length) {
+      const c = stack.pop()!;
+      pool.push(c);
+      if (emits[c]) ends = true;
+      const x = c % W;
+      for (const n of [c >= W ? c - W : -1, x > 0 ? c - 1 : -1, c + W < N ? c + W : -1, x < W - 1 ? c + 1 : -1]) {
+        if (n < 0) continue;
+        if (path[n] && spill[n] > spill[c]) ends = true;
+        if (seen[n] || !path[n] || !(level[n] > floor[n]) || level[n] !== level[c]) continue;
+        seen[n] = 1;
+        stack.push(n);
+      }
+    }
+    if (ends) continue;
+    mask ??= new Uint8Array(N);
+    for (const c of pool) mask[c] = 1;
+  }
+  crossings.set(m, mask);
+  return mask;
+}
+const crossings = new WeakMap<WaterModel, Uint8Array | null>();
 
 /** The tiles of the pools the edit deepened (#1181), as a mask, or null when there are none: where the
  *  canonical start of `next` (prefill.ts) stands water at a level its walk reaches that is higher than
