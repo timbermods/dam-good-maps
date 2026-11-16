@@ -8,14 +8,16 @@
 
 import { expect, test, type Page } from "@playwright/test";
 import { startFitExtras, startFitWarnings } from "../../src/core/doc/startFit";
-import { openEditor, topDown } from "./open";
+import { openSaved, topDown } from "./open";
 
 const info = (page: Page) => page.evaluate(() => window.dgmEditor!.info());
 const idle = (page: Page) => page.evaluate(() => window.dgmEditor!.idle());
 const labels = async (page: Page) => (await info(page)).history.filter((h) => h.applied).map((h) => h.label);
 
+/** Open the map of `hash` saved (`openSaved`): the page's own map of it, saved once, so the ground its spots are found on stays
+ *  as it was written on, whatever the generator's version (generator 0.10.29's land moved seed 1's open ground, D148). */
 async function openTopDown(page: Page, hash: string) {
-  await openEditor(page, hash);
+  await openSaved(page, hash);
   await topDown(page);
 }
 

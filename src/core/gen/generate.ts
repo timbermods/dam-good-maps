@@ -103,7 +103,7 @@ import { resourceBudget, ruinColumns, ruinRagged } from "../resources/baseline";
 import { runsToTiles, tilesToRuns } from "../math/grid";
 import { obstacleTiles, type ObstaclePlan } from "../features/setpieces/obstaclePayoff";
 import type { SetPieceFeature } from "../features/schema";
-import { dryStart, padFloods, pickStart, prepareStart, waterAim, type DroughtPolicy, type StartPick } from "./settler";
+import { dryStart, padFloods, pickStart, prepareStart, startWalks, waterAim, type DroughtPolicy, type StartPick } from "./settler";
 import { failurePhrase } from "./failWords";
 import { EASY_LAND, easyStartMeasures, easyTargets } from "../analysis/easyStart";
 import { pondWater, POND_WATER, shapeEasyStart } from "../land/easyStart";
@@ -370,6 +370,10 @@ interface Land {
   h0: Uint8Array;
   /** Settles this genome has cost. */
   settles: number;
+  /** The last plan on it joined a course to one beside it, or refused one (ruled water, hydro.ts `BESIDE`). */
+  joined?: boolean;
+  /** Plan its water without the joins (on the genome as the refused plan left it). */
+  joinsOff?: boolean;
 }
 
 interface Attempt {
@@ -793,7 +797,27 @@ function attemptRound(specIn: MapSpec, optsIn: GenerateOptions, t0: number, roun
       // (round 6: Islands' sea's lip at the map's edge, a tile or two, D151's edge rule kept)
       if (g.seaLayout && g.theme === "islands") holdSeaLip(land.h0, W, H);
     } else replans++;
-    const a = attemptOnce(specIn, land, attempt, { ...opts, maxAttempts: max, onLand: l => { lands++; opts.onLand?.(l); } }, t0, null, screened);
+    const screenedAt = { ...screened };
+    let shownJoined = false;
+    let a = attemptOnce(specIn, land, attempt, { ...opts, maxAttempts: max, onLand: l => { shownJoined = true; lands++; opts.onLand?.(l); } }, t0, null, screened);
+    // (ruled water: a join never costs a land. A plan whose joins the land refuses, on any check, is planned again on the
+    // same land without them: a joined course took a land's water another way, and the land refused
+    // drew another, whose start, water and irrigable land were the draw's; Any 256² seed 4's first lands that passed before
+    // it settled no more (8 → 13 attempts, two of the five more refused as leaks), Canyon 5's and Highlands 4's missed a
+    // promise or their start. The second plan's screening count and dry tally are put back as they were before the first;
+    // its genome is the one the first left, so a Canyon whose joined plan missed its promise is planned again already
+    // incised a level deeper on a lower floor (the promise screen's own step), not as dev plans it. A land once shown stays the map,
+    // D348: its later failures are planned again on it as any land's)
+    if (!a.passed && land.joined && !shownJoined) {
+      screened.count = screenedAt.count;
+      screened.dry = screenedAt.dry;
+      land.joinsOff = true;
+      try {
+        a = attemptOnce(specIn, land, attempt, { ...opts, maxAttempts: max, onLand: l => { lands++; opts.onLand?.(l); } }, t0, null, screened);
+      } finally {
+        land.joinsOff = false;
+      }
+    }
     if (a.stage) {
       committed = a.stage;
       keptAt = land.settles;
@@ -1593,7 +1617,8 @@ function planLandStage(land: Land, attempt: number, W: number, H: number, seed: 
   // channels are cut (D151)
   relaxEdges(h, W, H);
   opts.onProgress?.({ attempt, stage: "water" });
-  const hy = planHydro(land.E, h, g, seed, W, H, attempt);
+  const hy = planHydro(land.E, h, g, seed, W, H, attempt, land.joinsOff ? { joins: false } : {});
+  land.joined = (hy.joined ?? 0) > 0;
   // (M9b: the banks beside an inflow's mouth stay as the land has them: lowered to its channel, the
   // water would run out along the edge beside the mouth instead of down its course)
   // (and no tile beside a planned channel is lowered below that channel's water, here or by the
@@ -3005,6 +3030,11 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
     for (let i = 0; i < N; i++) if (!mineRoomAt[i]) a[i] = 1;
     return a;
   };
+  // (a place made ready as the land was shaped stood by the plan's water: under a rule of 7, where the
+  // settled water a tile further off fails it, its pump's shore on the settled water, walked from its
+  // middle over the slopes the build derives, is within the aim too, or it is passed over before its
+  // water is settled)
+  const servedOnB1 = (q: StartPick): boolean => rule >= 7 || startWalks(h, W, H, b1.water, b1.contamination, b1.moisture, q.x, q.y, rule).water <= aim;
   // the start on the shown land: one that needs no levelling, so the land stays as it was shown
   // (D348; the plan's start had its ground levelled as the land was shaped)
   const chooseStart = (): StartPick | null => {
@@ -3012,7 +3042,7 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
     // clear: before any start without room, D373 (3))
     const ready = (): StartPick | null => {
       for (const q of landStage?.prepared ?? []) {
-        if (tried[q.y * W + q.x] || avoidOf(bad)[q.y * W + q.x] || wetRing(b1, q) || padFloods(h, W, H, b1.water, q.x, q.y, q.level)) continue;
+        if (tried[q.y * W + q.x] || avoidOf(bad)[q.y * W + q.x] || wetRing(b1, q) || padFloods(h, W, H, b1.water, q.x, q.y, q.level) || !servedOnB1(q)) continue;
         if (anyRoom && !mineRoomAt[q.y * W + q.x] && !easy) continue;
         return q;
       }
@@ -3085,7 +3115,7 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
     markTried(tried, failed, W, H);
     // (Easy start: another shaped place, or none)
     if (easy) return landStage?.prepared.find((q) => !tried[q.y * W + q.x] && !avoidOf(bad)[q.y * W + q.x] && !wetRing(b1, q) && !padFloods(h, W, H, b1.water, q.x, q.y, q.level)) ?? null;
-    const ready = N <= 96 * 96 ? landStage?.prepared.find(q => !tried[q.y * W + q.x] && !avoidOf(bad)[q.y * W + q.x] && !wetRing(b1, q) && !padFloods(h, W, H, b1.water, q.x, q.y, q.level)) : null;
+    const ready = N <= 96 * 96 ? landStage?.prepared.find(q => !tried[q.y * W + q.x] && !avoidOf(bad)[q.y * W + q.x] && !wetRing(b1, q) && !padFloods(h, W, H, b1.water, q.x, q.y, q.level) && servedOnB1(q)) : null;
     if (ready) return ready;
     return settlerOn(b1.water, b1.contamination, b1.moisture, 7, roomy(beyondBad(b1)), 1, near) ?? settlerOn(b1.water, b1.contamination, b1.moisture, 7, roomy(avoidOf(bad)), 1, near) ?? dryStart(h, W, H, b1.water, hy, { avoid: roomy(avoidOf(bad)), foot, minFoot, benchMin, near: guess, level: allowLevel }) ?? settlerOn(b1.water, b1.contamination, b1.moisture, 7, avoidOf(bad), 1, near);
   };

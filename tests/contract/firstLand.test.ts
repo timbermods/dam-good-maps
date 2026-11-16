@@ -15,8 +15,10 @@ describe("the first land shown is the map (D348)", () => {
       for (const theme of AVAILABLE_THEMES)
         // (Islands 96² seed 3 for 2 since generator 0.10.20's contour edges, D518, D148: seed 2's shown land fails its start's
         // wood, its moved start water and then its start, and the next round draws another; of Islands 96² seeds 1–12 only
-        // seed 2 shows two lands)
-        for (const seed of theme === "islands" && size === 96 ? [1, 3] : [1, 2]) {
+        // seed 2 shows two lands; Delta 96² seeds 2 and 3 for 1 and 2 since generator 0.10.35's ruled water, D(ruled-water), D148:
+        // seed 1's shown land spends its attempts and a rescue round draws another (D471's exception); of Delta 96² seeds 1–6 only
+        // seed 1 shows two lands)
+        for (const seed of theme === "islands" && size === 96 ? [1, 3] : theme === "delta" && size === 96 ? [2, 3] : [1, 2]) {
           const { changed, levelled, worn, mainKept } = changedSinceShown(theme as ThemeId, seed, size);
           expect(mainKept, `${theme} ${seed} ${size}²: the main river kept`).toBe(true);
           expect(mainKept, `${theme} 1 256²: the main river kept`).toBe(true);

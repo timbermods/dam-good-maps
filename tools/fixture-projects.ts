@@ -53,6 +53,15 @@ const LIST: Entry[] = [
   ["canyon", 96, 4, "noforms"],
   ["delta", 96, 2, "noforms"],
   ["islands", 96, 5, "noforms"],
+  // generator 0.10.25's land, the land the scenario tests the weathering's reach (0.10.29) moved were written on
+  ...[2, 7].map((seed): Entry => ["highlands", 64, seed]),
+  ...[22, 24, 4249].map((seed): Entry => ["highlands", 96, seed]),
+  ["riverValley", 64, 6],
+  ["riverValley", 96, 5],
+  ["canyon", 128, 2],
+  ["highlands", 96, 22, "vert70"],
+  // generator 0.10.27's land (written from dev at 12661aca), where forcePower's seed 4 was chosen; scenario-riverValley-128-4 holds 0.10.22's
+  ["riverValley", 128, 4, "v0.10.27"],
 ];
 
 // The browser specs' maps (tests/e2e, `openSaved`): each the map the page made of its fragment, saved with the generator
@@ -67,6 +76,7 @@ const PAGE: string[] = [
   "s=6&z=96&d=n&t=riverValley",
   "s=7&z=96&d=n&t=riverValley",
   "s=13&z=96&d=n&t=riverValley",
+  "s=9&z=96&d=n&t=riverValley",
   "s=4242&z=96&d=n&t=riverValley&bw=0",
   "s=8&z=96&d=n&t=riverValley&bw=0",
   "s=7&z=96&d=n&t=riverValley&bw=0&uc=1",
@@ -79,6 +89,7 @@ const PAGE: string[] = [
   "s=77&z=96&d=n&t=lakeBasin",
   "s=86&z=96&d=n&t=lakeBasin",
   "s=5&z=128&d=n&t=lakeBasin",
+  "s=1&z=128&d=n&t=canyon",
   "s=8&z=128&d=n&t=canyon",
   "s=1&z=96&d=n&t=islands",
   "s=7&z=128&d=n&t=islands",
@@ -92,6 +103,8 @@ const JOBS: { name: string; make: () => { spec: MapSpec; forms: boolean } }[] = 
       const spec = makeSpec({ seed, theme, size: { x: size, y: size } });
       const terracing = /terr(\d+)/.exec(variant ?? "")?.[1];
       if (terracing !== undefined) spec.settings.terrain.terracing = Number(terracing);
+      const verticality = /vert(\d+)/.exec(variant ?? "")?.[1];
+      if (verticality !== undefined) spec.settings.terrain.verticality = Number(verticality);
       return { spec, forms: !variant?.startsWith("noforms") };
     },
   })),
