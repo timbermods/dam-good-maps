@@ -282,8 +282,8 @@ describe("on generated maps (D281)", () => {
   /** Highlands 4's map with a fin raised on it, as a player raises one: six levels over a dry, level strip three tiles
    *  thick and nine long, nothing standing on or beside it. */
   const finMap = () => {
-    const r = generate(makeSpec({ seed: 4, theme: "highlands", size: { x: 128, y: 128 } }));
-    const s = MapSession.fromGenerated(r);
+    // (opens Highlands 128² seed 4 as a saved fixture of the land it was written on (D148, the #1163 pattern, #1205): the generated land moves with the generator)
+    const s = fixtureSession("highlands", 128, 4);
     const { W, H, heights: h, water } = s.built;
     const near = new Set<number>();
     for (const e of s.built.entities) for (let dy = -2; dy <= 2; dy++) for (let dx = -2; dx <= 2; dx++) near.add((e.y + dy) * W + e.x + dx);
@@ -410,6 +410,34 @@ describe("Erode as an operation (D342)", () => {
     expect(MapSession.open(decodeProject(ed.project().bytes)).terrain.mask).toEqual(ColumnTerrain.fromHeights(before.heights, W, W).mask);
     ed.redo();
     expect(MapSession.open(decodeProject(ed.project().bytes)).terrain.mask).toEqual(masks);
+  }, 120000);
+
+  it("Try another wears another stretch of a small face: Highlands 96² seed 21 as generator 0.10.29 made it (#1198)", () => {
+    // (its first cliff foot, (16, 25), stands under a 7-high face whose opening fills all the room its roof and floor
+    // leave it: centred on the foot every roll, seeds 3 and 4 wore the same 19 voxels and Try another changed nothing.
+    // Each roll now turns the opening along the face and in or out)
+    fixtureInEditor("highlands", 96, 21, "v0.10.29");
+    ed.settleWater();
+    const before = ed.terrainNow();
+    const W = 96;
+    const m = { heights: before.heights, W, H: W, water: { depth: before.terrain.water } } as unknown as FullForceMap;
+    const [{ foot }] = cliffFeet(m, 7);
+    expect([foot % W, Math.floor(foot / W)]).toEqual([16, 25]);
+    expect(ed.forceStart({ verb: "erode", settings: { ...ERODE_DEFAULTS, power: 70, seed: 3 }, path: [{ x: foot % W, y: Math.floor(foot / W) }], cut: null }).errors).toEqual([]);
+    for (let k = 0; k < 200; k++) if (ed.forceAdvance(4)!.done) break;
+    expect(ed.forceStop().kept).toBe(true);
+    const masks = () => MapSession.open(decodeProject(ed.project().bytes)).terrain.mask;
+    let last = masks();
+    expect(changedTiles(last, ColumnTerrain.fromHeights(before.heights, W, W).mask)).toBeGreaterThan(0);
+    for (let roll = 2; roll <= 4; roll++) {
+      expect(ed.forceAgain().errors).toEqual([]);
+      for (let k = 0; k < 200; k++) if (ed.forceAdvance(4)!.done) break;
+      expect(ed.forceStop().kept).toBe(true);
+      const now = masks();
+      expect(changedTiles(now, last), `roll ${roll}`).toBeGreaterThan(0);
+      last = now;
+    }
+    ed.undo();
   }, 120000);
 
   it("stopped part way, keeps its whole result, and the log replays to it byte for byte", async () => {

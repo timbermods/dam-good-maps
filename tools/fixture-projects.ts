@@ -27,7 +27,7 @@ const LIST: Entry[] = [
   ["highlands", 96, 3, "noforms"],
   ["highlands", 96, 57, "noforms"],
   ["highlands", 96, 4],
-  ...[1, 3, 7, 26, 28].map((seed): Entry => ["highlands", 128, seed]),
+  ...[1, 3, 4, 7, 26, 28].map((seed): Entry => ["highlands", 128, seed]),
   // River Valley
   ...[11, 12].map((seed): Entry => ["riverValley", 48, seed]),
   ...[1, 2, 3, 4, 5, 7, 11, 13, 22, 29].map((seed): Entry => ["riverValley", 64, seed]),
@@ -62,6 +62,10 @@ const LIST: Entry[] = [
   ["highlands", 96, 22, "vert70"],
   // generator 0.10.27's land (written from dev at 12661aca), where forcePower's seed 4 was chosen; scenario-riverValley-128-4 holds 0.10.22's
   ["riverValley", 128, 4, "v0.10.27"],
+  // generator 0.10.29's land, where #1198 found glaciate's gentlest too strong on River Valley 128 seed 4 and Erode's Try
+  // another wearing nothing new on Highlands 96 seed 21 (forcePower.test.ts, erode.test.ts)
+  ["riverValley", 128, 4, "v0.10.29"],
+  ["highlands", 96, 21, "v0.10.29"],
 ];
 
 // The browser specs' maps (tests/e2e, `openSaved`): each the map the page made of its fragment, saved with the generator
@@ -93,6 +97,7 @@ const PAGE: string[] = [
   "s=8&z=128&d=n&t=canyon",
   "s=1&z=96&d=n&t=islands",
   "s=7&z=128&d=n&t=islands",
+  "v=0.10.5&s=740973&t=riverValley&z=64x256&d=n&vt=69", // succulentPaint.test.ts: a 64x256 map (land written from dev at 664754403, generator 0.10.29)
 ];
 
 /** Each fixture: its file's name, and the map's spec and whether it has 3D forms. */

@@ -40,8 +40,9 @@ describe("the first map that passes is the map (D329)", () => {
     // Canyon 96² seed 3 since generator 0.10.20's contour edges, D518, D148: the first maps of Canyon's seeds 1 and 2 meet all three now, and seed 3's, the first of Canyon's seeds 1–20 to miss, misses its promise, where its first sibling meets all three;
     // seed 3 → 2 at 0.10.29 (#1186), D148: the disc's land (the weathering's disc of the square's area, the washes' brush and swing) has no
     // missed promise on Canyon 96² seed 3, whose first map meets all three now; seed 2's, the nearest, misses its promise, and the search
-    // finds a sibling, its variation 3, that meets all three)
-    const r = generate(makeSpec({ seed: 2, theme: "canyon", size: { x: 96, y: 96 } }));
+    // finds a sibling, its variation 3, that meets all three;
+    // seed 2 → 1 at 0.10.36 (#1205), D148: Canyon 96² seed 2's first map meets all three on the new land; seed 1's, the nearest, misses its promise, and the search finds its variation 1, that meets all three; of seeds 1–8 so do 4, 5, 6 and 8)
+    const r = generate(makeSpec({ seed: 1, theme: "canyon", size: { x: 96, y: 96 } }));
     const m = missesOf(r.outcomes!);
     expect(worthSearching(m)).toBe(true);
     const v = findVersion({ spec: r.spec, intentions: r.info.genome?.intentions ?? [], heights: r.built.heights });

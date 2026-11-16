@@ -1,5 +1,5 @@
 {
- "generatorVersion": "0.10.22",
+ "generatorVersion": "0.10.37",
  "side": 128,
  "seeds": [
   1,
@@ -18,147 +18,147 @@
  "least": 4,
  "counts": {
   "under-cliff": {
-   "riverValley": 12,
-   "canyon": 4,
-   "highlands": 4,
-   "lakeBasin": 0,
-   "delta": 1,
-   "islands": 0
-  },
-  "landmark": {
    "riverValley": 10,
-   "canyon": 8,
-   "highlands": 9,
-   "lakeBasin": 9,
-   "delta": 9,
-   "islands": 9
-  },
-  "farmland-past-gorge": {
-   "riverValley": 4,
-   "canyon": 2,
-   "highlands": 2,
-   "lakeBasin": 4,
-   "delta": 1,
-   "islands": 0
-  },
-  "falls-shield": {
-   "riverValley": 2,
-   "canyon": 6,
-   "highlands": 4,
-   "lakeBasin": 2,
+   "canyon": 4,
+   "highlands": 6,
+   "lakeBasin": 0,
    "delta": 2,
    "islands": 0
   },
+  "landmark": {
+   "riverValley": 9,
+   "canyon": 9,
+   "highlands": 11,
+   "lakeBasin": 6,
+   "delta": 10,
+   "islands": 10
+  },
+  "farmland-past-gorge": {
+   "riverValley": 1,
+   "canyon": 0,
+   "highlands": 1,
+   "lakeBasin": 2,
+   "delta": 0,
+   "islands": 0
+  },
+  "falls-shield": {
+   "riverValley": 1,
+   "canyon": 3,
+   "highlands": 3,
+   "lakeBasin": 2,
+   "delta": 1,
+   "islands": 0
+  },
   "hidden-valley": {
-   "riverValley": 5,
+   "riverValley": 9,
    "canyon": 1,
    "highlands": 2,
    "lakeBasin": 0,
-   "delta": 1,
-   "islands": 0
+   "delta": 0,
+   "islands": 2
   },
   "high-lake": {
-   "riverValley": 6,
+   "riverValley": 3,
    "canyon": 0,
-   "highlands": 3,
+   "highlands": 1,
    "lakeBasin": 0,
-   "delta": 7,
-   "islands": 0
+   "delta": 6,
+   "islands": 3
   },
   "meeting-waters": {
-   "riverValley": 8,
-   "canyon": 0,
-   "highlands": 5,
+   "riverValley": 9,
+   "canyon": 1,
+   "highlands": 4,
    "lakeBasin": 4,
-   "delta": 1,
-   "islands": 1
+   "delta": 0,
+   "islands": 0
   },
   "long-view": {
    "riverValley": 0,
-   "canyon": 8,
-   "highlands": 6,
-   "lakeBasin": 7,
-   "delta": 6,
-   "islands": 10
+   "canyon": 5,
+   "highlands": 8,
+   "lakeBasin": 6,
+   "delta": 8,
+   "islands": 11
   },
   "snaking-river": {
-   "riverValley": 9,
-   "canyon": 9,
-   "highlands": 9,
+   "riverValley": 11,
+   "canyon": 11,
+   "highlands": 12,
    "lakeBasin": 12,
-   "delta": 10,
+   "delta": 12,
    "islands": 0
   },
   "crater-rivers": {
-   "riverValley": 0,
-   "canyon": 7,
-   "highlands": 5,
-   "lakeBasin": 0,
+   "riverValley": 1,
+   "canyon": 9,
+   "highlands": 8,
+   "lakeBasin": 2,
    "delta": 6,
    "islands": 0
   },
   "cliff-falls-lake": {
-   "riverValley": 0,
-   "canyon": 1,
-   "highlands": 2,
+   "riverValley": 2,
+   "canyon": 0,
+   "highlands": 3,
    "lakeBasin": 2,
-   "delta": 1,
+   "delta": 0,
    "islands": 0
   },
   "oxbow": {
    "riverValley": 0,
    "canyon": 0,
-   "highlands": 3,
-   "lakeBasin": 8,
-   "delta": 2,
+   "highlands": 1,
+   "lakeBasin": 9,
+   "delta": 0,
    "islands": 0
   },
   "stepped-lakes": {
-   "riverValley": 2,
+   "riverValley": 0,
    "canyon": 0,
-   "highlands": 1,
+   "highlands": 2,
    "lakeBasin": 0,
    "delta": 4,
    "islands": 0
   },
   "split-island": {
    "riverValley": 0,
-   "canyon": 0,
+   "canyon": 1,
    "highlands": 0,
    "lakeBasin": 1,
-   "delta": 0,
-   "islands": 1
+   "delta": 1,
+   "islands": 0
   },
   "twin-falls": {
    "riverValley": 0,
    "canyon": 0,
-   "highlands": 0,
-   "lakeBasin": 1,
+   "highlands": 2,
+   "lakeBasin": 0,
    "delta": 0,
    "islands": 0
   },
   "upper-lower": {
-   "riverValley": 10,
-   "canyon": 9,
-   "highlands": 11,
+   "riverValley": 12,
+   "canyon": 11,
+   "highlands": 12,
    "lakeBasin": 0,
-   "delta": 4,
-   "islands": 7
+   "delta": 2,
+   "islands": 8
   },
   "hanging-valleys": {
    "riverValley": 0,
    "canyon": 0,
    "highlands": 1,
    "lakeBasin": 0,
-   "delta": 0,
+   "delta": 3,
    "islands": 0
   },
   "two-ways": {
-   "riverValley": 6,
-   "canyon": 4,
-   "highlands": 1,
-   "lakeBasin": 0,
-   "delta": 3,
+   "riverValley": 8,
+   "canyon": 2,
+   "highlands": 4,
+   "lakeBasin": 1,
+   "delta": 5,
    "islands": 0
   },
   "badwater-rich": {
@@ -171,26 +171,26 @@
   },
   "relic-pinnacle": {
    "riverValley": 8,
-   "canyon": 4,
-   "highlands": 6,
-   "lakeBasin": 4,
+   "canyon": 6,
+   "highlands": 4,
+   "lakeBasin": 2,
    "delta": 3,
-   "islands": 7
+   "islands": 5
   },
   "plug-lake": {
    "riverValley": 3,
-   "canyon": 4,
-   "highlands": 4,
-   "lakeBasin": 3,
-   "delta": 2,
+   "canyon": 2,
+   "highlands": 3,
+   "lakeBasin": 2,
+   "delta": 4,
    "islands": 0
   },
   "district-behind": {
-   "riverValley": 3,
+   "riverValley": 2,
    "canyon": 0,
-   "highlands": 2,
-   "lakeBasin": 2,
-   "delta": 1,
+   "highlands": 0,
+   "lakeBasin": 5,
+   "delta": 0,
    "islands": 2
   }
  },
@@ -208,19 +208,12 @@
    "delta",
    "islands"
   ],
-  "farmland-past-gorge": [
-   "riverValley",
-   "lakeBasin"
-  ],
-  "falls-shield": [
-   "canyon",
-   "highlands"
-  ],
+  "farmland-past-gorge": [],
+  "falls-shield": [],
   "hidden-valley": [
    "riverValley"
   ],
   "high-lake": [
-   "riverValley",
    "delta"
   ],
   "meeting-waters": [
@@ -260,26 +253,26 @@
    "riverValley",
    "canyon",
    "highlands",
-   "delta",
    "islands"
   ],
   "hanging-valleys": [],
   "two-ways": [
    "riverValley",
-   "canyon"
+   "highlands",
+   "delta"
   ],
   "badwater-rich": [],
   "relic-pinnacle": [
    "riverValley",
    "canyon",
    "highlands",
-   "lakeBasin",
    "islands"
   ],
   "plug-lake": [
-   "canyon",
-   "highlands"
+   "delta"
   ],
-  "district-behind": []
+  "district-behind": [
+   "lakeBasin"
+  ]
  }
 }

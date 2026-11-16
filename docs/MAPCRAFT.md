@@ -177,8 +177,8 @@ a premise or one still to come, may carry its own, lower playability floor.
   centre to centre, reported). `--gen` makes a set, `--frames` marks them (straight shore orange, side by side yellow),
   `tools/ruled-water-sheet.py` lays before and after out with the start's numbers first; `tools/water-tree.ts` reads
   the drainage's hierarchy (courses, joins, wet share, width by order). The 42 maps at 256² (seven themes, seeds 1 to
-  6, and River Valley 9), dev 1c962953e (0.10.29) → generator 0.10.35: side by side within 6 tiles 344 → 221 (within
-  12: 1,112 → 1,125), straight shore 62.3 → 61.3 %, attempts 180 → 178, leaks 9 → 9. The mends: a course traced beside
+  6, and River Valley 9), dev 6c354c47 (0.10.36) → generator 0.10.37: side by side within 6 tiles 253 → 116 (within
+  12: 1,094 → 895), straight shore 61.3 → 61.5 %, attempts 148 → 146, leaks 9 → 9. The mends: a course traced beside
   one already traced, on the same plain (no ground between them more than a level over it), joins it (`hydro.ts`
   `BESIDE`), never on a sea's map, and a plan whose joins its land refuses is planned again without them before the
   land is shown; Delta's arms step diagonally; `src/core/land/README.md`. Lake shores laid on a noised
