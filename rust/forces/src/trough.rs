@@ -6,7 +6,8 @@
 //
 // - **The line is a smooth curve.** The stations are rounded (Chaikin, three passes) and sampled every
 //   half tile; every tile takes its place along the line and its offset across it from the nearest
-//   sample. Nothing in the trough runs along the grid or between two drawn points as a ruled line.
+//   sample. Nothing in the trough runs along the grid or between two drawn points as a ruled line. A
+//   line that runs to the map's edge runs on off it: the trough stays open there, its water leaving the map.
 // - **One floor across the trough, stepping down in long treads.** Each sample's floor level is the
 //   valley's low dry ground near the line, less Power's cut, never rising down the route; the level
 //   holds for a tread at least `tread` tiles long and steps down a level (or more, a rock bar) at
@@ -122,6 +123,32 @@ pub(super) fn trough(p: &mut GlacierPlan, before: &Map, s: &GlacierSettings, kee
             line[k].ny = ny;
         }
     }
+    // (a line that runs to the map's edge, as a valley's way down does where it leaves the map, runs on off it: the
+    // trough stays open there, its floor and channel running out over the edge, and its water leaves the map by
+    // them, as the valley's did. Closed by a lip a few tiles inside the edge, its floor could stand no lower than the
+    // edge's own ground, at every Power alike: #1198, where Power 100's trough on a hilltop by the edge was no deeper
+    // than Power 50's)
+    let open = {
+        let e = line.last().unwrap();
+        let (dx, dy) = (e.ny, -e.nx);
+        let inside = |x: f64, y: f64| x >= 0.0 && y >= 0.0 && x < w as f64 && y < h as f64;
+        let near_edge = min(min(e.x, e.y), min(w as f64 - e.x, h as f64 - e.y)) < 3.5;
+        let mut k = 1usize;
+        while k <= 8 && inside(e.x + dx * k as f64 * 0.5, e.y + dy * k as f64 * 0.5) {
+            k += 1;
+        }
+        if near_edge && k <= 8 {
+            let (x0, y0, s0, r0, nx, ny) = (e.x, e.y, e.s, e.r, e.nx, e.ny);
+            for j in 1..=k + 1 {
+                let d = j as f64 * 0.5;
+                line.push(Sample { x: x0 + dx * d, y: y0 + dy * d, s: s0 + d, r: r0, nx, ny });
+            }
+            true
+        } else {
+            false
+        }
+    };
+    let length = max(line.last().unwrap().s, 1.0);
     let t = clamp(s.power, 0.0, 100.0) / 100.0;
     let cut = 1.0 + round(10.0 * t * (0.4 + 0.6 * t));
     let cap = cut + 2.0 + round(3.0 * t) + if t >= 1.0 { 4.0 } else { 0.0 };
@@ -151,13 +178,14 @@ pub(super) fn trough(p: &mut GlacierPlan, before: &Map, s: &GlacierSettings, kee
         }
     }
     // (past the line's two ends the trough closes: the cirque's headwall and the snout's lip rise from the floor's
-    // edge as its walls do, so the floor ends where the ice did, never a round pad beyond it)
+    // edge as its walls do, so the floor ends where the ice did, never a round pad beyond it; a snout run off the
+    // map's edge stays open)
     for i in 0..n {
         if near[i] < 0 {
             continue;
         }
         let j = near[i] as usize;
-        if j != 0 && j != line.len() - 1 {
+        if j != 0 && (j != line.len() - 1 || open) {
             continue;
         }
         let q = &line[j];
@@ -388,7 +416,8 @@ pub(super) fn trough(p: &mut GlacierPlan, before: &Map, s: &GlacierSettings, kee
             }
         }
     }
-    let mut drains = ribbon[ns - 1] >= 0 || joins_water.is_some();
+    // (a trough open at the map's edge drains off the map, along its own floor)
+    let mut drains = open || ribbon[ns - 1] >= 0 || joins_water.is_some();
     if !drains {
         let end = &line[ns - 1];
         let start = glacier_tile(before, Point { x: clamp(end.x, 0.0, w as f64 - 1.0), y: clamp(end.y, 0.0, h as f64 - 1.0) });
