@@ -221,6 +221,9 @@ export function nudgeFor(id: IntentionId): (g: Genome, rng: Rng, W: number, H: n
       return (g, rng) => {
         g.hydro.springs += 1;
         if (rng.float() < 0.8) part(g, rng, "mesa", 1.2);
+        // (#1193: on a Delta the mesas and plateaus keep inside their radius, their lobes cutting in only, as before
+        // 0.10.36: their points reaching past it took the lake on the heights, 13 of seeds 13–36 down to 8)
+        if (g.theme === "delta") g.formsInward = true;
         g.weathering = Math.min(1, g.weathering + 0.2);
       };
     case "meeting-waters":
@@ -283,6 +286,9 @@ export function nudgeFor(id: IntentionId): (g: Genome, rng: Rng, W: number, H: n
       // the great-scarp recipe, folded in: an escarpment across the whole map
       return (g, rng, W, H) => {
         g.parts.push({ kind: "escarpment", at: [0.3 + 0.4 * rng.float(), 0.3 + 0.4 * rng.float()], size: 3 * Math.max(W, H), height: (4.5 + 2 * rng.float()) * tall(g), turn: rng.float(), extra: 4 + 6 * rng.float(), soft: 1 / tall(g) });
+        // (#1193: on a Delta the knolls keep off its line, `field.ts` `KNOLL_CLEAR`: at their meant size they stood on
+        // it and broke it, 9 of seeds 13–36 down to 5)
+        if (g.theme === "delta") g.parts[g.parts.length - 1].split = true;
         g.ramps = Math.max(0.1, g.ramps - 0.2);
       };
     case "hanging-valleys":

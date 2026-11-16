@@ -55,6 +55,9 @@ export interface Outline {
   k2: number;
   p2: number;
   a2: number;
+  /** The waves only cut in, so the form stays inside its radius (`Genome.formsInward`: a high lake's mesas and plateaus
+   *  on a Delta). */
+  inward?: boolean;
 }
 
 export function outlineOf(s: number): Outline {
@@ -65,6 +68,10 @@ export function outlineOf(s: number): Outline {
 /** How far a round form reaches from its middle, in radii, at the most `FORM_ROUGH` roughness: `formDistance` is 1 or
  *  more past it (the roughness, the warp and the lobes at their extremes: 1.21 × 1.6 + 0.25). */
 export const FORM_REACH = 2.25;
+/** How far a knoll's footprint keeps off the step of the long cliff that splits the map, in tiles past the step's own
+ *  softness (#1193: Delta's knolls at their meant size, since 0.10.36, stood on the escarpment's line, raised its foot
+ *  and broke it: upper-lower on 9 of seeds 13–36 at 0.10.23, 5 at 0.10.36). */
+export const KNOLL_CLEAR = 6;
 /** The most roughness a form's radius takes (a share of it, by noise). */
 export const FORM_ROUGH = 0.6;
 
@@ -81,7 +88,9 @@ function formDistance(x: number, y: number, cx: number, cy: number, r: number, s
   const t = pseudoAngle(dx, dy);
   // (the waves swing about the radius, out at the points as far as in at the bays: 0.10.36; waves that only cut in left
   // every form a sixth narrower, and the mesas and buttes a high Verticality raises stood in fewer cliffs)
-  const lobes = 1 - 0.5 * o.a1 * sinDet(TWO_PI * (o.k1 * t + o.p1)) - 0.5 * o.a2 * sinDet(TWO_PI * (o.k2 * t + o.p2));
+  const lobes = o.inward
+    ? 1 - o.a1 * (0.5 + 0.5 * sinDet(TWO_PI * (o.k1 * t + o.p1))) - o.a2 * (0.5 + 0.5 * sinDet(TWO_PI * (o.k2 * t + o.p2)))
+    : 1 - 0.5 * o.a1 * sinDet(TWO_PI * (o.k1 * t + o.p1)) - 0.5 * o.a2 * sinDet(TWO_PI * (o.k2 * t + o.p2));
   const n = fbm(s + 13, x, y, Math.max(4, r * 0.55), 3);
   return portable.sqrt(dx * dx + dy * dy) / (r * lobes * (1 + rough * n));
 }
@@ -101,7 +110,7 @@ function pseudoAngle(dx: number, dy: number): number {
 }
 
 /** One part added to the uplift. */
-function addPart(U: Float64Array, p: Part, seed: number, W: number, H: number, k: number): void {
+function addPart(U: Float64Array, p: Part, seed: number, W: number, H: number, k: number, all: readonly Part[], inwardForms = false): void {
   const cx = p.at[0] * (W - 1);
   const cy = p.at[1] * (H - 1);
   const s = hash32(seed, "part", k, p.kind);
@@ -274,7 +283,7 @@ function addPart(U: Float64Array, p: Part, seed: number, W: number, H: number, k
       }, round(0.5 * p.size));
       top += p.height;
       // (the blob is 0 from `FORM_REACH` radii and half its softness out)
-      const o = outlineOf(s);
+      const o: Outline = { ...outlineOf(s), inward: inwardForms };
       each((x, y, i) => {
         const m = blob(x, y, cx, cy, p.size, s, p.soft, o);
         if (m <= 0) return;
@@ -410,15 +419,46 @@ function addPart(U: Float64Array, p: Part, seed: number, W: number, H: number, k
     case "knolls": {
       const rng = stream(seed, "knolls", k);
       const n = Math.round(p.extra);
+      // (the long cliff that splits the map (`Part.split`, upper-lower on a Delta), read as its own case below draws
+      // it: a knoll is on its line where a tile of its footprint lies within `KNOLL_CLEAR` tiles of the cliff's step,
+      // where the line has not died out)
+      const lines = all.flatMap((q, kq) => (q.kind === "escarpment" && q.split ? [{ q, s: hash32(seed, "part", kq, q.kind), u: unit(q.turn), cx: q.at[0] * (W - 1), cy: q.at[1] * (H - 1), half: Math.max(8, q.size / 2) }] : []));
+      const onLine = (kx: number, ky: number, rad: number, ks: number, o: Outline, reach: number): boolean => {
+        for (let y = Math.max(0, Math.floor(ky - reach)); y <= Math.min(H - 1, Math.ceil(ky + reach)); y++)
+          for (let x = Math.max(0, Math.floor(kx - reach)); x <= Math.min(W - 1, Math.ceil(kx + reach)); x++) {
+            if (formDistance(x, y, kx, ky, rad, ks, o, 0.5) >= 1) continue;
+            for (const e of lines) {
+              const [ux, uy] = e.u;
+              const sd = (x - e.cx) * ux + (y - e.cy) * uy + e.q.extra * fbm(e.s, x, y, 26, 3);
+              const along = (x - e.cx) * -uy + (y - e.cy) * ux + 0.3 * e.half * fbm(e.s + 4, x, y, 30, 2);
+              if (Math.abs(along) < e.half && Math.abs(sd) < 0.5 * e.q.soft + KNOLL_CLEAR) return true;
+            }
+          }
+        return false;
+      };
       for (let j = 0; j < n; j++) {
-        const kx = 4 + (W - 8) * rng.float();
-        const ky = 4 + (H - 8) * rng.float();
+        const kx0 = 4 + (W - 8) * rng.float();
+        const ky0 = 4 + (H - 8) * rng.float();
         const rad = 2.5 + 5 * rng.float();
         const h = p.height * (0.5 + rng.float());
         // (each knoll its own outline, the look round: a round knoll's ring or two drew a small square)
         const ks = hash32(s, "knoll", j);
         const o = outlineOf(ks);
         const reach = FORM_REACH * rad;
+        // (a knoll on the line of the long cliff that splits the map raised its foot and broke the line: it stands
+        // elsewhere at its own size and shape, its middle drawn again from a stream of its own, or after eight tries
+        // not at all)
+        let [kx, ky] = [kx0, ky0];
+        if (lines.length) {
+          const again = stream(seed, "knolls-off-line", k, j);
+          let tries = 0;
+          while (onLine(kx, ky, rad, ks, o, reach)) {
+            if (++tries > 8) break;
+            kx = 4 + (W - 8) * again.float();
+            ky = 4 + (H - 8) * again.float();
+          }
+          if (tries > 8) continue;
+        }
         for (let y = Math.max(0, Math.floor(ky - reach)); y <= Math.min(H - 1, Math.ceil(ky + reach)); y++)
           for (let x = Math.max(0, Math.floor(kx - reach)); x <= Math.min(W - 1, Math.ceil(kx + reach)); x++) U[y * W + x] += h * bump(formDistance(x, y, kx, ky, rad, ks, o, 0.5));
       }
@@ -502,7 +542,7 @@ export function uplift(g: Genome, seed: number, W: number, H: number): Float64Ar
       U[y * W + x] = h;
     }
   const ps = ls;
-  g.parts.forEach((p, k) => addPart(U, p, ps, W, H, k));
+  g.parts.forEach((p, k) => addPart(U, p, ps, W, H, k, g.parts, !!g.formsInward));
   return U;
 }
 

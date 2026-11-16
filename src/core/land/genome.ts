@@ -64,6 +64,9 @@ export interface Part {
   /** An island sea only: Islands' lip, a tile or two at the map's edge (round 6); else round 5's, 6–10
    *  tiles (`rimKeep`). */
   thinLip?: boolean;
+  /** An escarpment only: the long cliff that splits the map (upper-lower on a Delta, #1193); the knolls keep off its
+   *  line (`field.ts` `KNOLL_CLEAR`). */
+  split?: boolean;
 }
 
 /** A lobe of the rim of land round an island sea (round 4, D417): its middle, as a place round the
@@ -283,6 +286,9 @@ export interface Genome {
   plugLake?: boolean;
   /** Item 47's second district close to the start, behind debris on its ramps. */
   districtBehind?: boolean;
+  /** A high lake on a Delta (#1193): the mesas' and plateaus' lobes only cut in, so each stays inside its radius
+   *  (`field.ts` `formDistance`); its points reaching past it on the fan's plain took the lake on the heights. */
+  formsInward?: boolean;
   hazards: { badwater: "none" | "pit" | "stream"; ratio: number; thorns: boolean };
   resources: { forest: number; bushes: number; ruins: number; grove: "scattered" | "normal" | "bigWoods" };
   /** What kind of place the settler looks for first: weights over a lake shore, a river bank, a
