@@ -625,8 +625,9 @@ export function planDeadStands(inp: DeadStandsInput): DeadStand[] {
         within(at, (i) => {
           zone[i] = allowed[i] && (!under || over[i]) && (pass === 2 || (placeOf[i] === p && zoneOf[i] === z)) ? 1 : 0;
         });
-        // (under the floor, a whole stand however few it lacks: a stand is never cut under its least to meet it)
-        const n = under ? Math.max(goal - got, s.least + rng.int(0, s.a) + rng.int(0, s.b)) : Math.min(goal - got, s.least + rng.int(0, s.a) + rng.int(0, s.b));
+        // (under the floor, a whole stand however few it lacks: a stand is never cut under its least to meet it, nor
+        // grown past its most, D516's 60, however many it lacks: the next stand takes the rest)
+        const n = under ? Math.min(s.least + s.a + s.b - 2, Math.max(goal - got, s.least + rng.int(0, s.a) + rng.int(0, s.b))) : Math.min(goal - got, s.least + rng.int(0, s.a) + rng.int(0, s.b));
         if (n < 3) return;
         const grown = clumpStand(zone, allowed, seed, n, W, H, rng);
         const tiles = [...grown.tiles].sort((a, c) => a - c);
