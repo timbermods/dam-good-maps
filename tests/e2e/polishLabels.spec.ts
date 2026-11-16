@@ -1,9 +1,10 @@
 // The map's labels, the Legend and the minimap (the editor polish audit): the sources' labels never stand on one
 // another or on an open panel, the open Legend hangs centred under its toggle and keeps Ground height's Low and High,
 // and the minimap shows a held Drought day's water as the map does.
+// Its maps are saved (`openSaved`): the page's own map of each fragment, as generator 0.10.26 made it.
 
 import { expect, test, type Page } from "@playwright/test";
-import { openEditor, openLegend } from "./open";
+import { openSaved, openLegend } from "./open";
 
 const ID = (k: number) => `00000000-0000-4000-8000-0000000001${String(k).padStart(2, "0")}`;
 
@@ -30,7 +31,7 @@ for (const [width, height] of [
     test.setTimeout(240_000);
     await page.addInitScript(() => localStorage.setItem("dgm.markers", "on"));
     await page.setViewportSize({ width, height });
-    await openEditor(page, "s=4&z=96&d=n&t=riverValley");
+    await openSaved(page, "s=4&z=96&d=n&t=riverValley");
     await placeCrowd(page);
     await openLegend(page);
     await expect.poll(async () => (await boxes(page, ".source-marker")).length, { timeout: 30_000 }).toBeGreaterThanOrEqual(3);
@@ -43,7 +44,7 @@ for (const [width, height] of [
 
 test("the open Legend hangs centred under its toggle and keeps Ground height's Low and High", async ({ page }) => {
   await page.setViewportSize({ width: 1920, height: 1080 });
-  await openEditor(page, "s=4242&z=96&d=n&t=riverValley");
+  await openSaved(page, "s=4242&z=96&d=n&t=riverValley");
   await page.getByRole("checkbox", { name: "Heights" }).click();
   const legend = await openLegend(page);
   const toggle = (await page.locator(".legend-row").boundingBox())!;
@@ -67,9 +68,11 @@ test("the open Legend hangs centred under its toggle and keeps Ground height's L
 test("the minimap shows a held Drought day's water, and the map's own again after it", async ({ page }) => {
   test.setTimeout(240_000);
   await page.setViewportSize({ width: 1920, height: 1080 });
-  // (seed 2 since generator 0.10.13, D507, D148: the start frames the map, and seed 4242's river came out shallow, 50 of
-  // its minimap's pixels water-blue, the deep water's colour; seed 2's shows 148)
-  await openEditor(page, "s=2&z=96&d=n&t=riverValley");
+  // (seed 6 since generator 0.10.24's round forms (the look round), D148: the land moved and seed 2's river came out
+  // shallow, 42 of its minimap's pixels water-blue, the deep water's colour; of seeds 1 to 6, seed 6's shows the most, 214,
+  // 31 on its held Drought day. Seed 2 since generator 0.10.13, D507: the start frames the map, and seed 4242's river came
+  // out shallow, 50 water-blue)
+  await openSaved(page, "s=6&z=96&d=n&t=riverValley");
   await expect.poll(() => page.evaluate(() => window.dgmEditor!.waterSettled()), { timeout: 60_000 }).toBe(true);
   /** The minimap's picture as a string of its pixels, and how many are water-blue. */
   const picture = () =>
@@ -100,7 +103,7 @@ test("the minimap shows a held Drought day's water, and the map's own again afte
 
 test("at 1280×800 a legend taller than its room scrolls inside itself, keeping Low and High, and its last row is reachable", async ({ page }) => {
   await page.setViewportSize({ width: 1280, height: 800 });
-  await openEditor(page, "s=4242&z=96&d=n&t=riverValley");
+  await openSaved(page, "s=4242&z=96&d=n&t=riverValley");
   // (Heights' key, Badwater's caption and Markers' lines: the fullest legend, in the room the first run's hints leave)
   await page.getByRole("checkbox", { name: "Heights" }).click();
   await page.getByRole("checkbox", { name: "Markers" }).click();

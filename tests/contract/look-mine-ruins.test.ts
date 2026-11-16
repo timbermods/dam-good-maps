@@ -84,8 +84,17 @@ import * as ed from "../../src/worker/session";
  *  a new map, D148); `45998c3e…` before the dead stands grew dense in their woods, each knot its own shape (its dead
  *  trees moved, D148); `32c11aba…` before generator 0.10.21's look round (D518: no one-level step runs straight over 8
  *  tiles, so its land's edges jog; its ruin fields lie along their level's rim, and the dead stands read the dry land as the checks do: a new map, D148); `46455017…` before the dead stands' dry reading. */
-// (generator 0.10.22, the settings keeping their promises: the version in the file alone, the map otherwise byte for byte 0.10.21's, D148)
-const LIVE_SHA = "52341eabd72a4b0b8fc7f47700f9bfd0ffc3b4647170c7a4e4947f2bc62bdd9b";
+// (generator 0.10.22, the settings keeping their promises: the version in the file alone, the map otherwise byte for byte 0.10.21's, D148;
+// `52341eab…` before generator 0.10.23's shown land kept for a rescue round, which moves only maps above 128²: the version
+// in the file alone, D148);
+// `36ed64bf…` before generator 0.10.24's round forms (the look round: no mesa, plateau, butte, cone or knoll is a circle, and
+// the weathering reaches in a disc, so no ring round one has square corners: a new land, D148);
+// `ca3cf458…` before generator 0.10.25 (the Lake Basin water settings, D527): the version in the file alone, D148);
+// `e59d652e…` before generator 0.10.26's ruins to within a column (D527: its last field gives back the columns it grew past
+// the scrap asked: its ruins moved, D148);
+// `7084a1df…` before generator 0.10.27, D(new-leaks): a course's water leaves only by its own way, so its land is new: made
+// on its first attempt instead of its third, every check passing, D148)
+const LIVE_SHA = "4a6c66b0a42d0c188b9c143f313c6777e6138848a84bd2d9cde43612dd2ffa02";
 const spec = () => makeSpec({ seed: 4242, size: { x: 128, y: 128 }, theme: "riverValley", designedFor: "normal" });
 
 describe("mine sites and ruins, models of our own", () => {

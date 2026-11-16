@@ -29,6 +29,7 @@
     "batch": "tsx tools/batch.ts",
     "sheet": "tsx tools/sheet.ts",
     "fixtures": "python tools/export-fixtures.py",
+    "fixtures:projects": "tsx tools/fixture-projects.ts",
     "build:spike": "tsx tools/build-spike.ts",
     "spike:check": "tsx tools/build-spike.ts && tsx tools/spike-check.ts",
     "mcp": "tsx mcp/src/index.ts",

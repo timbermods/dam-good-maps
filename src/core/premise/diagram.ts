@@ -1,12 +1,29 @@
 // The water-story diagram of a plan (docs/PREMISES.md §2.2, stage 0's output): sources, bodies, links, exits, regions,
 // ridges, works and the start with its look, drawn from the plan alone, before any land. `planSvg` is the labelled
 // drawing; `planRaster` is the same plan a pixel a tile (RGB, north up) for a quick look. Headless: strings and arrays
-// only (`tools/premise-plan.ts` writes them).
+// only (`tools/premise-plan.ts` writes them). A premise with pieces of its own (bands, banks, a search window) hands
+// them to `planSvg` as `PlanOverlay`s; water a badwater source rises in is drawn red.
 
 import { openingCamera } from "../analysis/opening";
 import { sqrt } from "../math/portable";
 import { bodyDist, pathDist, pathLength, pointAt, segDist } from "./geom";
+import { reach } from "./planChecks";
 import type { Body, Link, Point, PremisePlan, Spine, Work } from "./types";
+
+/** A premise's own piece on the diagram: a filled band (a polygon), a line along points, or a label at a point; with
+ *  its legend's words, where it has a row there. */
+export interface PlanOverlay {
+  kind: "band" | "line" | "label";
+  points: Point[];
+  colour: string;
+  opacity?: number;
+  /** A line's width in pixels; dashed or whole. */
+  width?: number;
+  dash?: boolean;
+  /** A label's words. */
+  text?: string;
+  legend?: string;
+}
 
 const WATER_LOW: [number, number, number] = [96, 160, 214];
 const WATER_HIGH: [number, number, number] = [28, 70, 140];
@@ -19,6 +36,7 @@ const BYPASS: [number, number, number] = [196, 120, 60];
 const LIP: [number, number, number] = [214, 40, 40];
 const START: [number, number, number] = [255, 255, 255];
 const RIDGE: [number, number, number] = [150, 146, 136];
+const BAD: [number, number, number] = [192, 57, 43];
 
 const hex = ([r, g, b]: [number, number, number]) => `#${[r, g, b].map((v) => Math.round(v).toString(16).padStart(2, "0")).join("")}`;
 const mix = (a: [number, number, number], b: [number, number, number], t: number): [number, number, number] => [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t, a[2] + (b[2] - a[2]) * t];
@@ -31,9 +49,18 @@ function bodyColour(b: Body, top: number): [number, number, number] {
   return mix(WATER_LOW, WATER_HIGH, Math.min(1, b.sill / Math.max(1, top - 2)));
 }
 
-function linkColour(l: Link): [number, number, number] {
+function linkColour(l: Link, bad?: ReadonlySet<string>): [number, number, number] {
   if (l.kind === "bypass") return BYPASS;
+  if (l.wet && bad?.has(l.id)) return BAD;
   return l.wet ? WATER_LOW : DRY_BED;
+}
+
+/** The links whose water a badwater source rises in: wet links on from a body a bad source stands in. */
+function badLinks(plan: PremisePlan): Set<string> {
+  const from = plan.sources.filter((s) => s.bad && plan.bodies.some((b) => b.id === s.into)).map((s) => s.into);
+  if (!from.length) return new Set();
+  const bodies = reach(plan, from, (l) => l.wet);
+  return new Set(plan.links.filter((l) => l.wet && bodies.has(l.from)).map((l) => l.id));
 }
 
 const WORK_MARK: Record<Work["kind"], string> = { breach: "B", notch: "N", damToPond: "D", levee: "L", leat: "T", raisedSill: "R", bypass: "Y", megadam: "M", canal: "C" };
@@ -41,8 +68,8 @@ const RUNG_COLOUR: Record<Work["rung"], string> = { first: "#d62828", small: "#2
 
 const esc = (t: string) => t.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 
-/** The plan as a labelled SVG, `px` pixels a tile, north up. */
-export function planSvg(plan: PremisePlan, px = 4): string {
+/** The plan as a labelled SVG, `px` pixels a tile, north up, with a premise's own pieces. */
+export function planSvg(plan: PremisePlan, px = 4, overlays: readonly PlanOverlay[] = []): string {
   const W = plan.W;
   const H = plan.H;
   const legend = 230;
@@ -56,6 +83,12 @@ export function planSvg(plan: PremisePlan, px = 4): string {
   for (const r of plan.ridges) {
     out.push(`<polyline points="${r.path.map((p) => `${X(p[0])},${Y(p[1])}`).join(" ")}" fill="none" stroke="${hex(RIDGE)}" stroke-opacity="0.55" stroke-width="${(2 * r.half * px).toFixed(1)}" stroke-linecap="round" stroke-linejoin="round"/>`);
   }
+  // a premise's own bands, then its lines, under the water
+  const pts = (o: PlanOverlay) => o.points.map((p) => `${X(p[0])},${Y(p[1])}`).join(" ");
+  for (const o of overlays) if (o.kind === "band") out.push(`<polygon points="${pts(o)}" fill="${o.colour}" fill-opacity="${o.opacity ?? 1}" stroke="none"/>`);
+  for (const o of overlays)
+    if (o.kind === "line") out.push(`<polyline points="${pts(o)}" fill="none" stroke="${o.colour}" stroke-opacity="${o.opacity ?? 1}" stroke-width="${o.width ?? 2}" stroke-linecap="round" stroke-linejoin="round"${o.dash ? ` stroke-dasharray="${2 * px},${px}"` : ""}/>`);
+  const bad = badLinks(plan);
   const capsules = (spine: Spine, fill: string, extra = "") => {
     const parts: string[] = [];
     for (const [x, y, r] of spine) parts.push(`<circle cx="${X(x)}" cy="${Y(y)}" r="${(r * px).toFixed(1)}"/>`);
@@ -76,7 +109,7 @@ export function planSvg(plan: PremisePlan, px = 4): string {
     if (!l.path) continue;
     const dash = l.wet ? "" : ` stroke-dasharray="${2 * px},${px}"`;
     const width = Math.max(1, 2 * (l.half ?? 1) * px);
-    out.push(`<polyline points="${l.path.map((p) => `${X(p[0])},${Y(p[1])}`).join(" ")}" fill="none" stroke="${hex(linkColour(l))}" stroke-width="${width.toFixed(1)}" stroke-linecap="round" stroke-linejoin="round"${dash}/>`);
+    out.push(`<polyline points="${l.path.map((p) => `${X(p[0])},${Y(p[1])}`).join(" ")}" fill="none" stroke="${hex(linkColour(l, bad))}" stroke-width="${width.toFixed(1)}" stroke-linecap="round" stroke-linejoin="round"${dash}/>`);
   }
   for (const b of plan.bodies) {
     const fill = hex(bodyColour(b, plan.top));
@@ -128,6 +161,7 @@ export function planSvg(plan: PremisePlan, px = 4): string {
     out.push(`<text x="${X(x)}" y="${Y(y)}" font-size="10" fill="#0b2545" text-anchor="middle">${esc(name)} (${b.sill})</text>`);
   }
   for (const r of plan.regions) out.push(`<text x="${X(r.at[0])}" y="${Y(r.at[1])}" font-size="13" fill="#5c4d3c" font-style="italic" text-anchor="middle" opacity="0.8">${esc(r.role)}</text>`);
+  for (const o of overlays) if (o.kind === "label" && o.text) out.push(`<text x="${X(o.points[0][0])}" y="${Y(o.points[0][1])}" font-size="10" fill="${o.colour}" text-anchor="middle" font-weight="bold">${esc(o.text)}</text>`);
   // the legend
   const lx = W * px + 12;
   const rows: [string, string][] = [
@@ -138,6 +172,7 @@ export function planSvg(plan: PremisePlan, px = 4): string {
     [hex(BASIN), "dry basin"],
     [hex(DRY_BED), "dry bed (dashed)"],
     [hex(BYPASS), "bypass"],
+    ...(bad.size ? [[hex(BAD), "badwater"] as [string, string]] : []),
     [hex(LIP), "lip (↓ height)"],
     ["#111", "gate"],
     ["#f28c28", "row of Blockages"],
@@ -155,6 +190,13 @@ export function planSvg(plan: PremisePlan, px = 4): string {
   out.push(`<text x="${lx}" y="${wy + 4 * 18 + 20}" font-size="10">L levee T leat R raised sill</text>`);
   out.push(`<text x="${lx}" y="${wy + 4 * 18 + 34}" font-size="10">Y bypass M megadam</text>`);
   out.push(`<text x="${lx}" y="${wy + 4 * 18 + 56}" font-size="10">□ start, its look; ○ exit</text>`);
+  overlays
+    .filter((o) => o.legend)
+    .forEach((o, k) => {
+      const y = wy + 4 * 18 + 70 + k * 18;
+      out.push(o.kind === "band" ? `<rect x="${lx}" y="${y}" width="14" height="12" fill="${o.colour}"/>` : `<line x1="${lx}" y1="${y + 6}" x2="${lx + 14}" y2="${y + 6}" stroke="${o.colour}" stroke-width="${Math.min(5, o.width ?? 2)}"${o.dash ? ` stroke-dasharray="4,2"` : ""}/>`);
+      out.push(`<text x="${lx + 20}" y="${y + 10}" font-size="11">${esc(o.legend!)}</text>`);
+    });
   out.push(`<text x="8" y="${H * px + 26}" font-size="13">${esc(`${plan.premise} · seed ${plan.seed} · ${W}² · ${plan.line}`)}</text>`);
   out.push("</svg>");
   return out.join("\n");
@@ -165,6 +207,7 @@ export function planRaster(plan: PremisePlan): { rgb: Uint8Array; width: number;
   const W = plan.W;
   const H = plan.H;
   const rgb = new Uint8Array(W * H * 3);
+  const bad = badLinks(plan);
   const put = (i: number, j: number, c: [number, number, number]) => {
     if (i < 0 || j < 0 || i >= W || j >= H) return;
     const o = ((H - 1 - j) * W + i) * 3;
@@ -178,7 +221,7 @@ export function planRaster(plan: PremisePlan): { rgb: Uint8Array; width: number;
       const y = j + 0.5;
       let c = LAND;
       for (const r of plan.ridges) if (pathDist(x, y, r.path).d < r.half) c = RIDGE;
-      for (const l of plan.links) if (l.path && pathDist(x, y, l.path).d < (l.half ?? 1)) c = linkColour(l);
+      for (const l of plan.links) if (l.path && pathDist(x, y, l.path).d < (l.half ?? 1)) c = linkColour(l, bad);
       for (const b of plan.bodies) if (bodyDist(x, y, b) < 0) c = bodyColour(b, plan.top);
       for (const l of plan.links) if (l.fall && segDist(x, y, l.fall.lip[0][0], l.fall.lip[0][1], l.fall.lip[1][0], l.fall.lip[1][1]).d < 0.75) c = LIP;
       put(i, j, c);

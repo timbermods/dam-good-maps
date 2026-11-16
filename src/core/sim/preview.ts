@@ -4,11 +4,15 @@
 // the canonical settle (prefill.ts), which the preview only approximates while it runs.
 //
 // The warm start keeps the previous settled water (depth, badwater share and outflow momentum) on
-// every tile whose ground, water objects and neighbourhood the edit left alone, and takes the
-// canonical pre-fill on the rest: the ground an edit changed, the tiles near it, and the tiles of
-// emitters that are new or changed. Then the exact simulation runs until the edit's water has
-// found its level: checked every 64 ticks, the volume changes by under 0.2% and at most 0.05% of
-// the map moves by more than 0.05 (a local change reaches a whole lake or sea, whose level then
+// every tile whose ground and water objects the edit left alone and that was wet or lies away from
+// the edit, and takes the canonical pre-fill on the rest: the ground an edit changed, the tiles of
+// emitters that are new or changed, and the dry tiles near them (WARM_MARGIN). A wet tile beside the
+// edit keeps its water and momentum (D(new-preview)), but only where a source, a stored lake or the
+// water kept away from the edit reaches it (D385): restarting a stretch of flowing river left a
+// step in its surface with no momentum, which sloshed on past the cap. Then the exact simulation
+// runs until the edit's water has found its level: checked every 64 ticks, the volume changes by
+// under 0.2% and at most 0.05% of the map moves by more than 0.05 (a local change reaches a whole
+// lake or sea, whose level then
 // drifts by thousandths for a long time), with a cap of one game day. A sealed oxbow lake only
 // evaporating is not the water still moving (D222): the preview stops once everything else has. The
 // editor's background settle (`PreviewJob`, the one driver, with its own cap) runs on past the day
@@ -28,13 +32,27 @@
 // once the preview's water stops, the pre-fill's water that only the walk's thin water had joined to
 // fed water is taken away and the water runs on, by the canonical settle's own drain (sim/fed.ts
 // `withoutUnfed`, a new simulation on the water as it stands).
+//
+// Which water lost its feed depends on the cause (D260 as ruled 2026-11-15). A source removed or
+// weakened takes water out of the map, so standing water above the new level must go and a warm pool
+// drains too slowly to show it; every tile that source's walk reached and that lost over a tenth of
+// its flow starts again as unfed (`LOST_SHARE`). Ground that only turns a walk takes no water out; it
+// moves it, so only the tiles the flow left (under a tenth of it still there, `UNFED_SHARE`) are
+// unfed, and the rest keep their depth and momentum and adjust.
 
 import { drainUnfed, fedTiles, keptSeeds, withoutUnfed } from "./fed";
 import { flowThrough, prefill, type CanonicalWater } from "./prefill";
 import { sealedTiles, SettleRun, TICKS_PER_DAY, WaterSim, type WaterModel, type WaterState } from "./water";
 
-/** How far (tiles, Chebyshev) around a changed tile the warm start takes the pre-fill. */
+/** How far (tiles, Chebyshev) around a changed tile the warm start takes the pre-fill on dry tiles. */
 export const WARM_MARGIN = 2;
+/** The share of a tile's walk flow (prefill.ts `flowThrough`) below which ground that only turned a walk
+ *  has taken its feed (D260 as ruled 2026-11-15): a channel that still carries more keeps its water and
+ *  momentum and adjusts. */
+export const UNFED_SHARE = 0.1;
+/** The same share on a tile the walk of a source the edit removed or weakened reached: any fall over a
+ *  tenth (D260). */
+export const LOST_SHARE = 0.9;
 /** The preview's settle: checks every 64 ticks, at most 0.05% of tiles moving by more than 0.05,
  *  one day at most. */
 export const PREVIEW_CHECK = 64;
@@ -59,9 +77,9 @@ export function warmState(model: WaterModel, sim: WaterSim): WarmState {
   return { model, water: { settled: false, ticks: sim.ticks, depth: sim.D.slice(), contamination: sim.C.slice(), sat: new Uint8Array(sim.N), out: sim.out.slice(), preview: true } };
 }
 
-/** The tiles whose water the edit may have changed: their floor or dam, their emitters, and
- *  WARM_MARGIN tiles round them (a mask), or null when the models differ in size. */
-export function changedTiles(prev: WaterModel, next: WaterModel): Uint8Array | null {
+/** The tiles the edit itself changed: their floor or dam, or an emitter that is new, gone or changed
+ *  emits into them (a mask), or null when the models differ in size. */
+export function editedTiles(prev: WaterModel, next: WaterModel): Uint8Array | null {
   if (prev.W !== next.W || prev.H !== next.H) return null;
   const { W, H } = next;
   const N = W * H;
@@ -80,6 +98,12 @@ export function changedTiles(prev: WaterModel, next: WaterModel): Uint8Array | n
   for (const e of next.emitters) after.set(key(e), (after.get(key(e)) ?? 0) + 1);
   for (const e of prev.emitters) if ((after.get(key(e)) ?? 0) < (before.get(key(e)) ?? 0)) for (const c of e.cells) hit[c] = 1;
   for (const e of next.emitters) if ((before.get(key(e)) ?? 0) < (after.get(key(e)) ?? 0)) for (const c of e.cells) hit[c] = 1;
+  return hit;
+}
+
+/** `hit` and WARM_MARGIN tiles round each of its tiles (Chebyshev), as a new mask. */
+function widened(hit: Uint8Array, W: number, H: number): Uint8Array {
+  const N = W * H;
   const out = new Uint8Array(N);
   for (let i = 0; i < N; i++) {
     if (!hit[i]) continue;
@@ -132,7 +156,10 @@ function lostReach(prev: WaterModel, next: WaterModel): Uint8Array | null {
  *  a fall in it only where a source that is gone or weaker reached it: a cut far away re-routes the
  *  walk without taking any water off the pool, as a LargeRelic's levelling 17 tiles from a dam took a
  *  spring's walk off the dam's tiles and drained them while the water round them stayed (#756); in the
- *  open channel the flow sets the water's height, and any fall counts.
+ *  open channel the flow sets the water's height. How far it must fall depends on its cause (D260 as
+ *  ruled 2026-11-15): on a tile the walk of a source removed or weakened reached, over a tenth
+ *  (`LOST_SHARE`), since that takes water out of the map; elsewhere ground only turned a walk, which
+ *  moves water, and only a tile left under a tenth of its flow (`UNFED_SHARE`) counts.
  *  They take the canonical start, so their water drains in the edit's own journey as the canonical
  *  settle's does. Only water that lost its feed on the new ground: a tile the old ground's canonical
  *  start didn't reach either (nor a tile round it) holds water the settle itself spread there, a lake
@@ -152,7 +179,7 @@ export function unfedTiles(from: WarmState, next: WaterModel, start: WaterState 
   const out = new Uint8Array(N);
   for (let i = 0; i < N; i++) {
     if (!(d[i] > 0) || !(prev.floor[i] + d[i] > next.floor[i])) continue;
-    if (now[i] < was[i] * 0.9 - 1e-9 && (!(level[i] > next.floor[i]) || lost?.[i])) {
+    if (now[i] < was[i] * (lost?.[i] ? LOST_SHARE : UNFED_SHARE) - 1e-9 && (!(level[i] > next.floor[i]) || lost?.[i])) {
       out[i] = 1;
       continue;
     }
@@ -180,8 +207,22 @@ function reachOf(m: WaterModel): Float64Array {
  *  lakes; null when nothing is kept. */
 export function warmStart(from: WarmState, next: WaterModel): { state: WaterState; out: Float64Array | null; seeds: Uint8Array | null } {
   const init = prefill(next);
-  const changed = changedTiles(from.model, next);
-  if (!changed) return { state: init, out: null, seeds: null };
+  const edited = editedTiles(from.model, next);
+  if (!edited) return { state: init, out: null, seeds: null };
+  // (the tiles that start again: those the edit changed, and the dry tiles round them; a wet tile round
+  // them whose floor, dam and emitters the edit left alone keeps its water and its momentum, D(new-preview):
+  // restarting a stretch of flowing river with the pre-fill's depth and no momentum left a step in its
+  // surface that sloshed on past the preview's cap)
+  // (such a tile is not a seed: like the restarted tiles it keeps its water only where a running
+  // source, a stored lake or the other kept water reaches it, D385, so a pool whose only source the
+  // edit deleted still dries)
+  const changed = widened(edited, next.W, next.H);
+  const beside = new Uint8Array(changed.length);
+  for (let i = 0; i < changed.length; i++)
+    if (changed[i] && !edited[i] && from.water.depth[i] > 0) {
+      changed[i] = 0;
+      beside[i] = 1;
+    }
   // (water no source feeds any more starts as the canonical start has it: dry, D260)
   const unfed = unfedTiles(from, next, init);
   // (a lake the edit stored, a Fill: its tiles start from it, as the canonical start has them)
@@ -196,16 +237,17 @@ export function warmStart(from: WarmState, next: WaterModel): { state: WaterStat
     init.depth[i] = from.water.depth[i];
     init.contamination[i] = from.water.contamination[i];
     if (po) for (let k = 0; k < 4; k++) out[4 * i + k] = po[4 * i + k];
-    seeds[i] = 1;
+    if (!beside[i]) seeds[i] = 1;
   }
   // (water a removal drained feeds nothing)
   for (const i of next.drained ?? []) seeds[i] = 0;
   // (the pre-fill's water nothing reaches would come from nowhere: those tiles start dry, D385)
   const fed = fedTiles(next, init.depth, seeds);
   for (let i = 0; i < N; i++) {
-    if (!(changed[i] || unfed?.[i]) || fed[i] || !(init.depth[i] > 0)) continue;
+    if (!(changed[i] || beside[i] || unfed?.[i]) || fed[i] || !(init.depth[i] > 0)) continue;
     init.depth[i] = 0;
     init.contamination[i] = 0;
+    if (beside[i]) for (let k = 0; k < 4; k++) out[4 * i + k] = 0;
   }
   // (and the unfed water a removal drained is gone, as the canonical settle takes it)
   drainUnfed(next, init.depth, init.contamination, po ? out : null);

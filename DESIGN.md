@@ -243,8 +243,9 @@ Kyler's six notes on the preview (2026-10-02) and what the mockups propose for e
   settings) and [Share](docs/design/lamplight-v4-13-phone-share.jpg).
 - [Landscape](docs/design/lamplight-v4-14-phone-landscape.jpg): the bar becomes a rail on the right, clear of the
   camera island and the home bar; sheets come [from the right](docs/design/lamplight-v4-15-phone-landscape-tools.jpg).
-- Sizes come from `100dvh` and `env(safe-area-inset-*)`, with `viewport-fit=cover`, so the bars follow Safari's
-  moving toolbar and nothing sits under the island or the home bar.
+- Sizes come from the box the browser pins fixed elements to and `env(safe-area-inset-*)`, with `viewport-fit=cover`,
+  so the bars follow Safari's moving toolbar and nothing sits under the island, the home bar or iOS 26's floating
+  address bar (EDITOR_PLAN §3, "Phones").
 - **What a phone can do:** make a map, look round it (one finger turns, two move and zoom), turn the view's layers
   on, read the card, use the forces and the brushes with one finger while one is held, place objects with a tap,
   share the link, download the file. **What it can't:** Save to Timberborn (Safari has no folder access and the
@@ -549,7 +550,7 @@ refinements and what the mockups left open:
 - **Real places** (Kyler, 2026-10-04): the header reads Map Generator, Real places, Your maps; Real places opens in
   the same box, three across and three down (rows of 220px, so exactly three show and a fourth never peeks; the
   scrollbar's room kept on both sides), each place's top-down picture, its whole name as the map carries it
-  ("Crater Lake", no "Near", D(new-names); two lines kept) and its size;
+  ("Crater Lake", no "Near", D522; two lines kept) and its size;
   more scroll inside. A click opens the place in the editor, as the gallery's Refine does. The header has no tabs on the window's edge; the left side's controls stay on
   the 10px margin, and nothing hides while a panel is open.
 - **No Speed in the water row** (Kyler, 2026-10-04): beside Drought and Badtide it read as a weather control; the

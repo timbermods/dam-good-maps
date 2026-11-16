@@ -1,5 +1,5 @@
 // The springs' search and the film rule of the Real places tool (tools/lib/placeFeeds.ts, tools/lib/placeWater.ts;
-// D(new), D(new-films)): on a made-up settle, so each step's rule is seen alone.
+// D521, D(new-films)): on a made-up settle, so each step's rule is seen alone.
 
 import { describe, expect, it } from "vitest";
 import { films, FILM_THIN_SHARE } from "../../tools/lib/placeWater";

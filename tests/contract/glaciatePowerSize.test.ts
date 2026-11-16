@@ -5,12 +5,15 @@
 // wider valley reaches higher up the old slopes, so its walls stand taller there: the land's, not
 // Size's). Measured on the land the editor's worker leaves (the page's way, nature drawing the
 // details), across the glacier's path (`glacierSections`), on the stretch of valley every run shares.
+//
+// The maps are fixtures (tests/fixtures/projects: Highlands 128² seeds 26 and 28; `fixtureInEditor`): the subject is the force's Power and Size, not the generator, so a land
+// change moves nothing here (D148).
 
 import { beforeAll, describe, expect, it } from "vitest";
 import { GLACIATE_DEFAULTS } from "../../src/core/forces/glaciate/model";
 import { glacierSections, type GlacierSection } from "../../tools/lib/glaciate";
 import * as ed from "../../src/worker/session";
-import { openMap } from "./forceEverywhere";
+import { fixtureInEditor } from "../fixtureEditor";
 
 const W = 128;
 const SEED = 28;
@@ -21,7 +24,7 @@ const POWER_HEAD: [number, number] = [8, 104];
 let at: [number, number] = [W >> 1, W >> 1];
 
 beforeAll(async () => {
-  await openMap("highlands", W, SEED);
+  fixtureInEditor("highlands", W, SEED);
   // (D148, M9b's maps: the head is re-picked from the map. The old pick, the highest dry ground, is on
   // seed 21 a tile near the north rim whose ice runs 16 tiles and stops, so the comparisons had no
   // stretch to share; (80, 24), level 14, sends its ice 70 tiles at the narrowest Size, and every check
@@ -131,7 +134,7 @@ describe("Glaciate: Power is how deep, Size how wide (D368 (3))", () => {
   }, 300_000);
 
   it("at a fixed Power, Size alone widens it, its floor cut to the same level", async () => {
-    await openMap("highlands", W, SIZE_SEED);
+    fixtureInEditor("highlands", W, SIZE_SEED);
     at = SIZE_HEAD;
     for (const power of [20, 60, 100]) {
       const [narrow, wide] = compare([glacier(power, 10), glacier(power, 40)], 40);

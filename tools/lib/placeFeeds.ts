@@ -1,4 +1,4 @@
-// The springs searched under the game's rules (planning's ruling on #236, D(new), with D271 and D311): the survey chose
+// The springs searched under the game's rules (planning's ruling on #236, D521, with D271 and D311): the survey chose
 // a place's sources under the port's water rules, so under the game's they can make water the place does not have. D271
 // is the aim and the measure: the settled water over the place's real water (the observed-water mask) as high as it
 // goes, over real dry land as low as it goes, by where each spring stands and how strong it is. The land is untouched.
