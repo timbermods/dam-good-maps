@@ -3,9 +3,10 @@
 // number starting at the selection's lowest with Flatten, Cut down and Fill up acting at once, no
 // Dig out, hover previews; Z undoes, C redoes, X clears the selection; Quake's side flips on V;
 // Clear everything in the ⋯ menu; a map without a start says so and the save refuses.
+// Its maps are saved (`openSaved`): the page's own map of each fragment, as generator 0.10.26 made it.
 
 import { expect, test, type Page } from "@playwright/test";
-import { openEditor, openFileMenu, setWaterSpeed, topDown } from "./open";
+import { openSaved, openFileMenu, setWaterSpeed, topDown } from "./open";
 
 const info = (page: Page) => page.evaluate(() => window.dgmEditor!.info());
 const idle = (page: Page) => page.evaluate(() => window.dgmEditor!.idle());
@@ -15,7 +16,7 @@ const selection = (page: Page) => page.evaluate(() => window.dgmEditor!.selectio
 const client = (page: Page, x: number, y: number) => page.evaluate(([a, b]) => window.dgmEditor!.tileToClient(a, b), [x, y] as [number, number]);
 
 async function openTopDown(page: Page) {
-  await openEditor(page, "s=4242&z=96&d=n&t=highlands");
+  await openSaved(page, "s=4242&z=96&d=n&t=highlands");
   await topDown(page);
   await setWaterSpeed(page, "instant");
 }

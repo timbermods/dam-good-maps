@@ -4,7 +4,8 @@
 // pass (`resources.ts` `planResources`) runs it, so the themes and the premises both get it.
 //
 // They gather in a few old woods (two to four on a 128² map), each a group of stands grown outward from its middle, the
-// rest of the dry land bare: at most a quarter of the dry land within 6 tiles of a dead tree (the aim gives way first).
+// rest of the dry land bare: at most a quarter of the dry land within 6 tiles of a dead tree (the aim gives way first;
+// the 3D forms grown later keep it too, `bareShare`: a spring cave that moistens dry land past it is dropped).
 // Where a wood goes is read from the land, never a random field: the old water line (the dry band just beyond the moist
 // ground, where the water used to reach), the banks of dry beds and washes, the top of a mesa or butte (a level plate
 // with no higher ground beside it; a stand keeps to its rim), and dry hollows and their rims; its trees are the site's
@@ -137,14 +138,21 @@ export interface DeadStand {
   giants?: boolean;
 }
 
-/** The share of the dry land (no water, no moisture) within `DEAD_STANDS.bare.reach` tiles of a dead tree on these
- *  tiles: the bare land's measure, read on a map as built. A later stage that wets the land (a 3D form's spring cave)
- *  must not take it past `bare.most` (`generate.ts`). */
-export function bareShare(W: number, H: number, deadTiles: readonly number[], water: ArrayLike<number>, moisture: ArrayLike<number>): number {
+/** The dry tiles: no water and no moisture. The aim is per 1,000 of them. */
+export function dryTiles(wet: Uint8Array, moist: Uint8Array): number {
+  let n = 0;
+  for (let i = 0; i < wet.length; i++) if (!wet[i] && !moist[i]) n++;
+  return n;
+}
+
+/** The bare land's share (D516, D518): of the dry tiles (no water, no moisture), the share within `bare.reach` tiles of
+ *  a dead tree of `trees`. The placer keeps it to `bare.most` on the land it plants; a stage after it that moistens
+ *  dry land (a spring cave's water, D488) shrinks the dry land under the same trees, so that stage reads it again. */
+export function bareShare(trees: readonly number[], wet: ArrayLike<number>, moist: ArrayLike<number>, W: number, H: number): number {
   const B = DEAD_STANDS.bare;
   const R = Math.ceil(B.reach);
   const near = new Uint8Array(W * H);
-  for (const t of deadTiles) {
+  for (const t of trees) {
     const tx = t % W;
     const ty = (t - tx) / W;
     for (let dy = -R; dy <= R; dy++)
@@ -157,18 +165,11 @@ export function bareShare(W: number, H: number, deadTiles: readonly number[], wa
   let dry = 0;
   let cover = 0;
   for (let i = 0; i < W * H; i++)
-    if (!(water[i] > 0) && !(moisture[i] > 0)) {
+    if (!(wet[i] > 0) && !(moist[i] > 0)) {
       dry++;
       if (near[i]) cover++;
     }
   return dry ? cover / dry : 0;
-}
-
-/** The dry tiles: no water and no moisture. The aim is per 1,000 of them. */
-export function dryTiles(wet: Uint8Array, moist: Uint8Array): number {
-  let n = 0;
-  for (let i = 0; i < wet.length; i++) if (!wet[i] && !moist[i]) n++;
-  return n;
 }
 
 /** The start's bench tiles (`validate/playability.ts` `startBench`'s flood: the start's level joined to its 3×3

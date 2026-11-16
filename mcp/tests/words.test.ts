@@ -102,7 +102,7 @@ describe("the MCP server's words", () => {
     };
     // the example in generate's description, as it stands there, gives its intention (under-cliff on River Valley: 12 of
     // 12 in the intention table); Canyon 128, seed 2 is offered it (4 of 12) and misses (re-pin both if the generator
-    // moves, D148; seed 2 for seed 1 since generator 0.10.28's ruled water, D(ruled-water): seed 1's under-cliff emerges
+    // moves, D148; seed 2 for seed 1 since generator 0.10.35's ruled water, D(ruled-water): seed 1's under-cliff emerges
     // now; of seeds 1-12, 1, 6 and 12 give it)
     const example = JSON.parse(/(\{"theme": "riverValley"[^}]*\})/.exec(TOOLS.find((t) => t.name === "generate")!.description!)![1]);
     const [hit, miss] = await Promise.all([made(example), made({ theme: "canyon", size: 128, seed: 2, intentions: ["under-cliff"] })]);

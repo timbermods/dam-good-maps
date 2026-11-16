@@ -18,10 +18,12 @@ describe("small starts prepared before the land is shown (D348, D363, D373)", ()
   // promise, and still passes on the land first shown: 3, 4, 6, 8 and 12 miss; since generator 0.10.24's round forms, the look
   // round, D148: Canyon 128² seed 9 misses its water story again, its main system holding 67% of the map's water beside a second,
   // so seed 1 stands for it, the first of Canyon 128² seeds 1–11 that meets all three and passes on the land first shown: all but 9 do;
-  // since generator 0.10.28's ruled water (a course beside another joins it), D(ruled-water), D148: Canyon 96² seed 3 meets all
+  // since generator 0.10.35's ruled water (a course beside another joins it), D(ruled-water), D148: Canyon 96² seed 3 meets all
   // three now, so seed 4 stands for it, the first of Canyon 96² seeds 1–12 that misses an outcome (its water) and passes on the land
-  // first shown: 4, 6, 8 and 12 miss)
-  for (const [theme, seed, size, met] of [["any", 31, 96, true], ["islands", 4, 96, true], ["highlands", 14, 96, true], ["canyon", 4, 96, false], ["canyon", 1, 128, true]] as const)
+  // first shown: 4, 6, 8 and 12 miss; and on 0.10.27's land, D(new-leaks) with the ruled water, D148: Canyon 128² seed 1 misses
+  // its water story, its main system holding 65% of the map's water beside a second, so seed 2 stands for it, the first of Canyon
+  // 128² seeds 1–11 that meets all three and passes on the land first shown: all but 1 and 3 do)
+  for (const [theme, seed, size, met] of [["any", 31, 96, true], ["islands", 4, 96, true], ["highlands", 14, 96, true], ["canyon", 4, 96, false], ["canyon", 2, 128, true]] as const)
     it(`${theme} ${size}² seed ${seed} passes without changing the shown land`, () => {
       const shown: Uint8Array[] = [];
       const r = generate(makeSpec({ theme: theme as ThemeId, seed, size: { x: size, y: size } }), {

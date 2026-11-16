@@ -4,20 +4,27 @@
    settings in a sheet above that row (one row, or half the screen pulled up by its handle), Show and the objects as
    sheets. On its side: the same bar, the tools in a rail at the left, the settings, Show and the objects in a panel at the
    right (at most 40 % of the width). Every control at least 44 px, nothing off the screen, the page never zooms or
-   scrolls; the notch and the home bar keep their room (safe areas, the dynamic viewport's height). */
+   scrolls; the notch and the home bar keep their room (safe areas), and the foot keeps clear of the browser's own bar. */
 
+/* The root is the box the browser pins fixed elements to (inset 0), not a viewport unit's height: iOS 26 Safari's
+   floating bar lies over the foot of `100dvh` and is reported to keep fixed elements above it (2026-11-15). Should the fixed box still
+   reach under a bar, `--bar-b` (ui/phoneRoot.ts, measured from the visual viewport) is how far, and the foot's room is
+   the larger of it and the home bar's inset: `--safe-b` below carries both, so every foot that keeps the home bar's room
+   (the tool row, the sheets above it, the objects, the rail and the panel on its side, the pages) keeps the bar's too.
+   What read the viewport's height reads `--room-h`, this box's height. Elsewhere `--bar-b` is 0: nothing moves. */
 .editor[data-phone] {
   /* the tool row's height (its 56px buttons and their padding), the Show button's, the gap round the edges */
   --phone-row: 64px;
   --phone-gap: 8px;
   --safe-t: env(safe-area-inset-top, 0px);
   --safe-r: env(safe-area-inset-right, 0px);
-  --safe-b: env(safe-area-inset-bottom, 0px);
+  --safe-b: max(env(safe-area-inset-bottom, 0px), var(--bar-b, 0px));
   --safe-l: env(safe-area-inset-left, 0px);
-  position: relative;
-  height: 100vh;
-  height: 100dvh;
-  width: 100%;
+  position: fixed;
+  inset: 0;
+  width: auto;
+  height: auto;
+  min-height: 0;
   overflow: clip;
 }
 
@@ -130,7 +137,7 @@
   left: 0;
   right: auto;
   min-width: min(260px, calc(100vw - 16px));
-  max-height: calc(100dvh - 72px - var(--safe-t) - var(--safe-b));
+  max-height: calc(var(--room-h, 100dvh) - 72px - var(--safe-t) - var(--safe-b));
   overflow-y: auto;
   overscroll-behavior: contain;
 }
@@ -157,7 +164,7 @@
   top: calc(56px + var(--safe-t));
   width: auto;
   max-width: none;
-  max-height: calc(100dvh - 72px - var(--safe-t) - var(--safe-b));
+  max-height: calc(var(--room-h, 100dvh) - 72px - var(--safe-t) - var(--safe-b));
   overflow-y: auto;
 }
 
@@ -249,7 +256,7 @@
   flex-wrap: nowrap;
   align-items: stretch;
   height: auto;
-  max-height: 50dvh;
+  max-height: calc(var(--room-h, 100dvh) / 2);
   padding: 0 max(8px, var(--safe-r)) 8px max(8px, var(--safe-l));
   border-radius: 12px 12px 0 0;
 }
@@ -1144,7 +1151,8 @@ html[data-phone] :is(.dialog, .phone-page) :is(input, select, textarea) {
 
 /* ---- the dialogs: a sheet the screen's width, scrolling inside, its buttons at its foot */
 html[data-phone] .dialog-backdrop {
-  padding: max(8px, env(safe-area-inset-top, 0px)) max(8px, env(safe-area-inset-right, 0px)) max(8px, env(safe-area-inset-bottom, 0px)) max(8px, env(safe-area-inset-left, 0px));
+  /* (its foot clear of the browser's own bar too, as the editor's: --bar-b, ui/phoneRoot.ts) */
+  padding: max(8px, env(safe-area-inset-top, 0px)) max(8px, env(safe-area-inset-right, 0px)) max(8px, env(safe-area-inset-bottom, 0px), calc(var(--bar-b, 0px) + 8px)) max(8px, env(safe-area-inset-left, 0px));
   place-items: end stretch;
 }
 
@@ -1300,7 +1308,7 @@ html[data-phone] .phone-only {
   right: max(8px, var(--safe-r));
   top: calc(56px + var(--safe-t));
   width: auto;
-  max-height: calc(100dvh - 72px - var(--safe-t) - var(--safe-b));
+  max-height: calc(var(--room-h, 100dvh) - 72px - var(--safe-t) - var(--safe-b));
   overflow-y: auto;
   padding-top: 52px;
 }
@@ -1702,7 +1710,13 @@ html[data-phone] .dialog > footer {
   font-size: 15px;
 }
 
-/* ---- the map being made: centred on the screen upright and on its side, every word of its line kept */
+/* ---- the map being made: centred on the screen upright and on its side, every word of its line kept; the land's first
+   look sized by the room the root fills, not the viewport's height (page.css, `--land`) */
+html[data-phone] {
+  --land: min(512px, calc(var(--room-h, 100vh) / 2));
+  --land-lift: max(0px, calc(var(--room-h, 100vh) / 2 + var(--head) / 2 + var(--land) / 2 + 122px - (var(--room-h, 100vh) - 72px - 60px)));
+}
+
 html[data-phone] .dialog-backdrop.making-backdrop {
   place-items: center;
   padding-top: max(8px, env(safe-area-inset-top, 0px));

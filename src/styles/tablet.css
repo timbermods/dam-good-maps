@@ -333,10 +333,12 @@
 /* ---- a tablet narrower than the desktop's room: the bar across the map's foot, cells of the whole width */
 @media (pointer: coarse) and (max-width: 1279px) {
   /* the editor the screen's height, the map filling what the bars leave (the desktop's narrow-window rules let the page
-     grow under a 70vh map) */
+     grow under a 70vh map): the box the browser pins fixed elements to, ending where a browser's own bar over the page
+     begins (`--bar-b`, ui/phoneRoot.ts; 0 elsewhere), as a phone's root (phone.css) */
   .editor:not([data-phone]) {
-    height: 100vh;
-    height: 100dvh;
+    position: fixed;
+    inset: 0 0 var(--bar-b, 0px);
+    height: auto;
     min-height: 0;
     overflow: clip;
   }
@@ -412,7 +414,8 @@
   --phone-gap: 8px;
   --safe-t: env(safe-area-inset-top, 0px);
   --safe-r: env(safe-area-inset-right, 0px);
-  --safe-b: env(safe-area-inset-bottom, 0px);
+  /* (the root ends at a browser's own bar over the page: what lies under it of the home bar's inset is the bar's) */
+  --safe-b: max(0px, env(safe-area-inset-bottom, 0px) - var(--bar-b, 0px));
   --safe-l: env(safe-area-inset-left, 0px);
   /* the corner's buttons (Show, and Objects left of it) and the side sheets under them, down to the dock */
   --corner-btn: 56px;
@@ -421,10 +424,12 @@
   --sheet-w: min(380px, 46%);
 }
 
-/* the editor the screen's height at every tablet width, the map filling what the header and the dock leave */
+/* the editor the screen's height at every tablet width, the map filling what the header and the dock leave: the box the
+   browser pins fixed elements to, ending where a browser's own bar over the page begins (`--bar-b`, ui/phoneRoot.ts) */
 .editor[data-tablet] {
-  height: 100vh;
-  height: 100dvh;
+  position: fixed;
+  inset: 0 0 var(--bar-b, 0px);
+  height: auto;
   min-height: 0;
   overflow: clip;
 }

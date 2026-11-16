@@ -8,9 +8,10 @@
 // a Flatten stroke, Smooth with no walkable option (D247); hold F to size the brush, its size beside
 // the pointer, kept when F is let go; the sounds' switch; the Select tool (M, or Ctrl+drag) with its
 // size and its actions.
+// Its maps are saved (`openSaved`): the page's own map of each fragment, as generator 0.10.26 made it.
 
 import { expect, test, type Page } from "@playwright/test";
-import { choose, openEditor, setLevel, settingValue, topDown } from "./open";
+import { choose, openSaved, setLevel, settingValue, topDown } from "./open";
 
 const info = (page: Page) => page.evaluate(() => window.dgmEditor!.info());
 const idle = (page: Page) => page.evaluate(() => window.dgmEditor!.idle());
@@ -68,22 +69,12 @@ test("the bar and the brush kit: options, the target level, straight lines, terr
   const errors: string[] = [];
   page.on("pageerror", (e) => errors.push(String(e)));
   await page.setViewportSize({ width: 1400, height: 900 });
-  // (seed 34 since batch 5, seed 35 since D252's start planting, D148: the test needs four stretches
-  // of flat, dry, empty ground at level 4 or above for the pits, the stroke, the plateau and the
-  // Select tool, and a mine site standing unturned; seed 24, used since M9a's first maps, had room for
-  // only two, and 0.7.0's 4242 for none. Seed 34 on M9b's maps: its two flat pits once filled with
-  // water from nowhere a few seconds after the stroke, D385, fixed by #177; the seed that caught it
-  // stays. Seed 21 since generator 0.10.20's contour edges and its mends (D518), D148: seed 34 has no
-  // such ground 4 wide with no water within 10 now; seed 44 has four stretches, but the lines stroke's
-  // stretch is beside its mine site (75, 19), which the stroke takes down a level before the Flatten
-  // that crosses it, so that Flatten's rim no longer finds the footprint level, and its `keep` is empty;
-  // seed 21's mine site, at (52, 41), is 26 tiles from all four stretches. Seed 60 since D518's later mends (the rolling
-  // and rises reweighed), D148: seed 21's third stretch, 4 wide with no water within 10, now lies only at the map's east
-  // edge, out of the view; seed 60's four lie in the map's north half, its mine site at (71, 88) 70 tiles from them. Seed
-  // 44 since generator 0.10.24's round forms, D148: seed 60 has no third stretch, 4 wide with no water within 10, at all
-  // now, nor have 21, 34, 61, 62 or 64; seed 44's four lie round (18–30, 15–31), its mine sites at (72, 14) and (32, 75)
-  // 40 tiles and more from them)
-  await openEditor(page, "s=44&z=96&d=n&t=riverValley");
+  // (the test needs four stretches of flat, dry, empty ground at level 4 or above for the pits, the stroke, the plateau and
+  // the Select tool, one 4 wide with no water within 10, and a mine site standing unturned far from them, D148: the map is
+  // River Valley 96² seed 56 as generator 0.10.26 made it, saved, its first mine site at (55, 87). Seed 44, used from
+  // generator 0.10.24, had no stretch 4 wide with no water within 10 on 0.10.26's land, as seeds 21, 34 and 60 lost theirs
+  // before it)
+  await openSaved(page, "s=56&z=96&d=n&t=riverValley");
   await topDown(page);
   const i = await info(page);
   const start = (i.features.find((f) => f.kind === "start")!.params as { position: [number, number] }).position;

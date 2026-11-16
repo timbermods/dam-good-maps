@@ -14,6 +14,7 @@ import { LONG_PRESS, LONG_SLOP, OWN_LONG_PRESS, tip } from "../../ui/Tooltip";
 import { compareProblem, nameTip, parentFull, parentStep, splitVersionName } from "../../core/library/keptVersions";
 import { limitName } from "../nameFit";
 import { COMPARE_KEY } from "../compare/useCompare";
+import { visibleBottom } from "../../ui/phoneRoot";
 
 /** How long after a finger lifts from a tile the click or the menu its long press brings may still come, ms. */
 const AFTER_LIFT = 600;
@@ -441,7 +442,8 @@ function MapMenu(p: { at: { x: number; y: number }; items: { label: string; titl
     if (!el) return;
     const r = el.getBoundingClientRect();
     const left = Math.max(4, Math.min(p.at.x, window.innerWidth - r.width - 4));
-    const top = Math.max(4, Math.min(p.at.y, window.innerHeight - r.height - 4));
+    // (above a browser's own bar over the page, ui/phoneRoot.ts)
+    const top = Math.max(4, Math.min(p.at.y, visibleBottom() - r.height - 4));
     setPos({ left, top });
     (el.querySelector("button:not(:disabled)") as HTMLButtonElement | null)?.focus();
   }, [p.at.x, p.at.y]);

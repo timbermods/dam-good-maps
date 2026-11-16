@@ -6,9 +6,10 @@
 // take the light look: the tests there treat it as a GPU (window.dgmLookTest), so the High shaders
 // compile and run on CI too, and they shorten the fallback's waits and report every frame as quick
 // (software frames are slow) until a test reports them slow.
+// Its maps are saved (`openSaved`): the page's own map of each fragment, as generator 0.10.26 made it.
 
 import { expect, test, type Page } from "@playwright/test";
-import { openEditor, waitForEditor, topDown } from "./open";
+import { openSaved, waitForEditor, topDown } from "./open";
 
 // the automatic choice, not the Standard look the other tests hold (playwright.config.ts)
 test.use({ storageState: { cookies: [], origins: [] } });
@@ -28,7 +29,7 @@ async function open(page: Page, errors: string[], hash = "s=4242&z=96&d=n&t=rive
   page.on("pageerror", (e) => errors.push(String(e)));
   page.on("console", (m) => m.type() === "error" && errors.push(m.text()));
   await page.setViewportSize({ width: 1280, height: 900 });
-  await openEditor(page, hash);
+  await openSaved(page, hash);
 }
 
 const look = (page: Page) => page.evaluate(() => window.dgm3d!.renderer.look);
@@ -439,7 +440,7 @@ test("High's water is darker deep than shallow, at one camera and light (D334: t
   await page.setViewportSize({ width: 1280, height: 900 });
   // (seed 5 on M9b's maps, D148: seed 3's lake basin is nowhere 2 deep, its deepest water 1.8; seed 5 shows
   // about a thousand tiles of each in view)
-  await openEditor(page, "s=5&z=128&d=n&t=lakeBasin");
+  await openSaved(page, "s=5&z=128&d=n&t=lakeBasin");
   const depths = await page.evaluate(() => {
     const r = window.dgm3d!.renderer;
     r.setLookChoice("high", false);
@@ -493,7 +494,7 @@ test("deep water seen from the top-down view is not black and reads as the angle
   page.on("pageerror", (e) => errors.push(String(e)));
   page.on("console", (m) => m.type() === "error" && errors.push(m.text()));
   await page.setViewportSize({ width: 1280, height: 900 });
-  await openEditor(page, "s=7&z=128&d=n&t=islands");
+  await openSaved(page, "s=7&z=128&d=n&t=islands");
   const seen = await page.evaluate(async () => {
     const r = window.dgm3d!.renderer;
     await r.patternsMade();
@@ -564,7 +565,7 @@ test("an eruption in High (D378): its plume rises, its lava glows on High's grou
   // has no water and no tree within 12 tiles (its lava lies on dry rock alone, where CI and software drawing here agree
   // closely) and draws 2,576, the same on every run (seed 91, 2,450 to 2,490, has 31 trees within 12; seed 12, 2,306, 71 water
   // tiles). The earlier lands drew 700 to 2,300 across seeds, so the glow per lava tile is unchanged)
-  await openEditor(page, "s=47&z=96&d=n&t=highlands");
+  await openSaved(page, "s=47&z=96&d=n&t=highlands");
   await topDown(page);
   await opensHigh(page);
   await page.keyboard.press("Shift+Digit3");
@@ -853,7 +854,7 @@ test("High's visible seasons follow the game's timers: no plant dies of dryness 
   // (worker/session.ts `stackedMap`), so none was dead on day 20; seed 6 since generator 0.10.16's ground with grade: on
   // seed 5's land then no plant died between days 20 and 24; seed 5 since generator 0.10.13, D507: the start frames the
   // map, and on seed 4242's the plants stood on ground that stays moist past the normal drought's 9 days)
-  await openEditor(page, "s=8&z=96&d=n&t=riverValley&bw=0");
+  await openSaved(page, "s=8&z=96&d=n&t=riverValley&bw=0");
   await expect.poll(() => page.evaluate(() => window.dgmEditor!.waterSettled()), { timeout: 60_000 }).toBe(true);
   await opensHigh(page);
   const withered = () => page.evaluate(() => window.dgm3d!.renderer.witheredPlants);
@@ -922,7 +923,7 @@ test("a held drought or badtide turns the haze to the game's fog colour for it, 
   page.on("pageerror", (e) => errors.push(String(e)));
   page.on("console", (m) => m.type() === "error" && errors.push(m.text()));
   await page.setViewportSize({ width: 1280, height: 900 });
-  await openEditor(page, "s=4242&z=96&d=n&t=riverValley&bw=0");
+  await openSaved(page, "s=4242&z=96&d=n&t=riverValley&bw=0");
   await expect.poll(() => page.evaluate(() => window.dgmEditor!.waterSettled()), { timeout: 60_000 }).toBe(true);
   await opensHigh(page);
   // (the game's daytime fogs, Sun.blueprint: temperate, drought, badtide)
@@ -964,7 +965,7 @@ test("clean water and badwater a level and a half deep, by day, as drawn through
   page.on("pageerror", (e) => errors.push(String(e)));
   page.on("console", (m) => m.type() === "error" && errors.push(m.text()));
   await page.setViewportSize({ width: 1280, height: 800 });
-  await openEditor(page, "s=5&z=128&d=n&t=lakeBasin");
+  await openSaved(page, "s=5&z=128&d=n&t=lakeBasin");
   // two pools side by side on the same moist ground, 1.5 levels deep, one clean and one pure badwater (its floor
   // contaminated, as the game's would be), seen as the probe's start shots see their water (the pixel judge's fitted
   // cameras: about 53° down, about 100 away) in the day's light, through the shipped shaders, fog and finish

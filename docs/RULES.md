@@ -73,7 +73,7 @@ way, proposes the change on [#236](https://github.com/timbermods/dam-good-maps/i
   blocks only for real bugs and anything that breaks what players get; polish goes in a follow-up. The browser specs and
   the heavier suites run on dev's tip after the merge, and nightly; a failure there is fixed forward at once by whoever's
   merge broke it, or that merge is reverted. The planning session watches dev's runs and sends each failure to its owner.
-  No full run by hand except for a release. The browser shards run one worker each (fifteen shards since 2026-11-09): a
+  No full run by hand except for a release. The browser shards run one worker each (fifteen shards since 2026-11-09, twenty since 2026-11-15): a
   second worker beside a spec that draws in software made it two to three times slower and red (runs 42592717654,
   42599783087). A shard that outgrows its 30 minutes gets more shards, never a second worker or a longer limit.
   **The `page` job (2026-11-10):** a PR into dev that changes `src/editor/`, `src/ui/`, `src/render3d/` or `src/styles/` also runs the `page` job (thirteen
@@ -208,6 +208,17 @@ way, proposes the change on [#236](https://github.com/timbermods/dam-good-maps/i
   adds its map to the list in `tools/fixture-projects.ts` and runs `npm run fixtures:projects`; a deliberate refresh of every
   map is `npm run fixtures:projects -- --all` (then the suite, and re-aim what moved). Keep fixtures few and small: the bytes
   go in git, so scenarios share a map where they can.
+  A water test on a generated map opens one too (`previewWarmStream`'s River Valley 96² seeds 8 and 9): a preview test must
+  not hang on the generator's land.
+  A case found on a land the list does not keep is run on that land, saved once from the commit it was found on by the
+  tool's own steps under a name of its own (`<test>-<theme>-<size>-<seed>-<why>.damgoodmaps`, opened by `namedProject`,
+  `namedSession`, `namedInEditor`); a refresh of the list leaves it (`previewWarmStream`'s Ruins at 34,34, #1145's 0.10.23 land).
+  The browser specs too: a spec that tests the editor on some land opens it saved, `openSaved(page, "s=4242&z=96&d=n&t=riverValley")`
+  (tests/e2e/open.ts: the page's own map of that fragment, saved once as `page-<theme>-<size>-<seed>[-<setting><value>…]`,
+  listed in `PAGE` in `tools/fixture-projects.ts`, opened through the page's own Open as a player opens a project, D455), because
+  every land change sent a dozen specs hunting new seeds for the ground they need. A spec whose subject is the generator seen
+  through the page (generating, versions, Showcase, the settings) generates with `openEditor`, and asserts only what holds on
+  any land, never a tile.
 - **Dependency updates:** merge GitHub Actions updates and minor or patch npm updates when CI is green (CI's byte checks
   catch anything that changes a map). Hold major upgrades (TypeScript 7.0, @types/node 26, and any future major) for a
   deliberate upgrade step at a quiet time, such as housekeeping (ROADMAP.md, "Housekeeping"; D283), with the full nightly

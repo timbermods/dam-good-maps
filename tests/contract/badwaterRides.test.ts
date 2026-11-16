@@ -14,19 +14,20 @@ import { generate } from "../../src/core/gen/generate";
 import { makeSpec } from "../../src/core/spec/mapspec";
 
 describe("a brush stroke over a badwater source leaves it level, never floating (D249)", () => {
-  // ((20, 4) on M9b's map, D148: dev's (27, 5) is not level there; seed 4 for seed 3 since generator 0.10.28's ruled water,
-  // D(ruled-water), D148: a mine site stands at (20, 4) on seed 3 now, and of seeds 1-7, 4, 5 and 6 take the source there)
-  it("Highlands 64², seed 4: a BadwaterSource at (20, 4); a Raise (target 15, Size 1.5) over its corner; the stroke is refused, or the source rides level, and the map has no load error", () => {
+  // ((20, 4) on M9b's map, D148: dev's (27, 5) is not level there; (27, 4) since generator 0.10.27, D(new-leaks): a course's
+  // water leaves only by its own way, so the land moved, D148: a relic stands on (20, 4) now, and (27, 4), at level 12, is the
+  // first spot near it where the source stands under the stroke's target of 15)
+  it("Highlands 64², seed 3: a BadwaterSource at (27, 4); a Raise (target 15, Size 1.5) over its corner; the stroke is refused, or the source rides level, and the map has no load error", () => {
     const W = 64;
-    const r = generate(makeSpec({ seed: 4, theme: "highlands", size: { x: W, y: W } }));
+    const r = generate(makeSpec({ seed: 3, theme: "highlands", size: { x: W, y: W } }));
     const s = MapSession.fromGenerated(r, r.file);
     s.setWaterMode("defer");
     const id = "00000000-0000-4000-8000-000000000777";
-    expect(s.apply({ op: "placeEntity", params: { id, template: "BadwaterSource", x: 20, y: 4, orientation: "Cw0" } } as EditOp).errors).toEqual([]);
+    expect(s.apply({ op: "placeEntity", params: { id, template: "BadwaterSource", x: 27, y: 4, orientation: "Cw0" } } as EditOp).errors).toEqual([]);
     const loadErrors = () => s.validate(undefined, { loadOnly: true }).report.checks.filter((c) => !c.ok && c.severity === "error").map((c) => `${c.id}: ${c.message}`);
     expect(loadErrors()).toEqual([]);
 
-    const res = s.apply({ op: "brush", params: { tool: "raise", size: 1.5, strength: 10, target: 15, dabs: [20 * 4 + 2, 4 * 4 + 2] } } as EditOp);
+    const res = s.apply({ op: "brush", params: { tool: "raise", size: 1.5, strength: 10, target: 15, dabs: [27 * 4 + 2, 4 * 4 + 2] } } as EditOp);
     if (res.ok) {
       const e = s.built.entities.find((g) => g.id === id)!;
       const under: number[] = [];

@@ -11,7 +11,7 @@ import { failing, firstPlan } from "../../src/core/premise/draw";
 import { pathLength } from "../../src/core/premise/geom";
 import { PREMISES } from "../../src/core/premise/premises";
 import { DEV_PREMISES } from "../../src/core/premise/premises/dev";
-import { PLAIN_ID, plainOf, plainOverlays, plainShares, poisonedPlain, poisonedPlainEligible } from "../../src/core/premise/premises/poisonedPlain";
+import { onMap, PLAIN_ID, plainOf, plainOverlays, plainShares, poisonedPlain, poisonedPlainEligible, toLocal, toMap, turnOf, WALL, wallStraight } from "../../src/core/premise/premises/poisonedPlain";
 import type { PremisePlan } from "../../src/core/premise/types";
 import { BED_FLOOR } from "../../src/core/land/genome";
 import { makeSpec, PREMISE_CHOICES, PREMISE_IDS, type MapSpec } from "../../src/core/spec/mapspec";
@@ -206,6 +206,66 @@ describe("Broken poisoned-floodplain plans fail their invariants", () => {
   it("has a broken plan for every plan invariant (one or more)", () => {
     const ids = poisonedPlain.invariants.filter((inv) => inv.at === "plan").map((inv) => inv.id);
     expect([...new Set(broken.map(([id]) => id))].sort()).toEqual([...ids].sort());
+  });
+
+  // the near wall's foot ruled over 1.5 P from 8 tiles down the valley (a chord between its points there), and the
+  // same with every point between standing 1.9 tiles either side of the chord in turn
+  const ruleNear = (plan: PremisePlan, zig: number) => {
+    const q = p(plan);
+    const n = Math.ceil((1.5 * q.P) / q.step);
+    const k0 = Math.round(8 / q.step);
+    const [a, b] = [q.near[k0], q.near[k0 + n]];
+    for (let k = 1; k < n; k++) q.near[k0 + k] = a + ((b - a) * k) / n + zig * (k % 2 ? 1 : -1);
+  };
+
+  it("wall.wanders alone: the near wall's foot ruled over 1.5 P fails it and nothing else", () => {
+    const plan = copy();
+    ruleNear(plan, 0);
+    expect(fails(s, plan)).toEqual(["wall.wanders"]);
+  });
+
+  it("wall.wanders by its longest run truly: a zigzag about a ruled line, every short chord straying, fails it", () => {
+    // (the measure before: from each start, the longest chord until the first that strays; this one's chords from
+    // every start stray within a few points, so it read the run as short)
+    const before = (line: readonly number[], step: number, T: ReturnType<typeof turnOf>) => {
+      const pts = line.map((v, k): [number, number] | null => (onMap(T, [k * step, v]) ? [k * step, v] : null));
+      let best = 0;
+      for (let i = 0; i < pts.length; i++)
+        for (let j = i + 1; j < pts.length; j++) {
+          const [a, b] = [pts[i], pts[j]];
+          if (!a || !b) break;
+          const len = Math.hypot(b[0] - a[0], b[1] - a[1]);
+          let ok = true;
+          for (let m = i + 1; m < j && ok; m++) ok = Math.abs((b[0] - a[0]) * (a[1] - pts[m]![1]) - (a[0] - pts[m]![0]) * (b[1] - a[1])) / len <= WALL.near;
+          if (!ok) break;
+          best = Math.max(best, len);
+        }
+      return best;
+    };
+    const plan = copy();
+    ruleNear(plan, 1.9);
+    const q = p(plan);
+    const T = turnOf(plan, q);
+    expect(before(q.near, q.step, T)).toBeLessThanOrEqual(WALL.longest * q.P);
+    expect(wallStraight(T, q.near, q.step, 0, T.U)).toBeGreaterThan(WALL.longest * q.P);
+    expect(fails(s, plan)).toEqual(["wall.wanders"]);
+  });
+
+  it("start.badwater reads the river below the red stream's join as red water", () => {
+    // (a point of the river just below the join led 4 tiles down the valley from the start: the river there carries
+    // the red stream's water)
+    const plan = copy(joined.plan);
+    const q = p(plan);
+    const T = turnOf(plan, q);
+    const river = link(plan, "river").path!;
+    const at = link(plan, "red").joins!.at;
+    let k = 1;
+    while (k < river.length - 1 && pathLength(river.slice(0, k + 1)) <= at) k++;
+    const [u, v] = toLocal(T, [plan.frame.start.x + 0.5, plan.frame.start.y + 0.5]);
+    river[k] = toMap(T, [u + 4, v]);
+    const f = failing(poisonedPlain.invariants, "plan", { spec: joined.sp, plan }).find((x) => x.id === "start.badwater");
+    expect(fails(joined.sp, joined.plan)).toEqual([]);
+    expect(f?.reason).toMatch(/Red water stands [0-9]+ tiles from the start/);
   });
 
   for (const [id, what, breakIt, base] of broken)

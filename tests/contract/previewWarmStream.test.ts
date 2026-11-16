@@ -6,7 +6,9 @@
 // surface that sloshed on past the preview's four-day cap: River Valley 96² seed 9 at generator 0.10.23, an
 // Underground Ruins at 34,31, read 0.793 at 41,50 where the settle gives 0.657.
 //
-// Two lands: one built here, so no generator version moves it, and River Valley 96² seed 9. The built land is
+// Two lands: one built here, so no generator version moves it, and River Valley 96² seed 9. The generated lands
+// (seeds 9 and 8) are fixtures, tests/fixtures/projects, `fixtureInEditor`: the land of generator 0.10.22 these
+// cases were written on, byte for byte, so a land change moves nothing here (D148). The built land is
 // a blank 96² map with a river running diagonally from the north-east corner (three tiles wide in each row,
 // one tile over per row), fed by three sources of strength 4: north of row 40 the land is at 7 and the bed at
 // 6, from row 40 on the land is at 4 and the bed at 3, so the river falls three levels there and runs fast
@@ -27,17 +29,15 @@
 // 363 wet tiles; and one edit that weakens a source and turns its walk takes each rule where it belongs.
 // Neither turned case fails with the old line (any fall over a tenth restarted the tile dry); the one that
 // does, seed 9's Ruins at 34,34 (0.105 against the settle, now 0.038), needs #1145's land and is held there.
-// Not held, for a ruling: a trench a river filled that a turned walk leaves, another walk still crossing it
-// with half the flow, keeps 1.90 in the preview against the settle's 0 (1.93 before: a pool tile is never
-// judged by its flow).
+// A trench a river filled that a turned walk leaves, another walk still crossing it with half the flow, is held in
+// previewWide.test.ts (#1173: a pool a walk only crosses, where no walk ends, is unfed).
 
 import { describe, expect, it } from "vitest";
 import { footprintTiles } from "../../src/core/format/footprints";
-import { makeSpec } from "../../src/core/spec/mapspec";
-import { runGenerate } from "../../src/worker/api";
 import * as ed from "../../src/worker/session";
 import { flowThrough } from "../../src/core/sim/prefill";
 import { UNFED_SHARE, unfedTiles } from "../../src/core/sim/preview";
+import { fixtureInEditor, namedInEditor } from "../fixtureEditor";
 
 const W = 96;
 const ID = "11111111-2222-4333-8444-555555555555";
@@ -124,9 +124,8 @@ describe("the preview after an edit beside a stream ends where the canonical set
     }
   }, 120000);
 
-  it("on River Valley 96² seed 9: every placement that levels, and a raise and a dig of every third tile, within 2 tiles of the river", async () => {
-    await runGenerate(makeSpec({ seed: 9, theme: "riverValley", size: { x: W, y: W } }));
-    ed.refine();
+  it("on River Valley 96² seed 9: every placement that levels, and a raise and a dig of every third tile, within 2 tiles of the river", () => {
+    fixtureInEditor("riverValley", W, 9);
     settle();
     const before = snap();
     const counts = { placed: 0, raised: 0, dug: 0 };
@@ -259,15 +258,30 @@ describe("a channel that still carries a tenth of its walk's flow keeps its wate
     expect(count.turned, "tiles under the turned rule").toBeGreaterThan(5);
   }, 120000);
 
-  it("River Valley 96² seed 8: an Underground Ruins at 82,52 leaves the river 0.12 of its walk's flow", async () => {
-    await runGenerate(makeSpec({ seed: 8, theme: "riverValley", size: { x: W, y: W } }));
-    ed.refine();
+  it("River Valley 96² seed 8: an Underground Ruins at 82,52 leaves the river 0.12 of its walk's flow", () => {
+    fixtureInEditor("riverValley", W, 8);
     settle();
     const before = snap();
     const g = gap(before, flowLeft(place("UndergroundRuins", 82, 52)));
     expect(g, "the ruins are placed").not.toBeNull();
     expect(left.falls, "the river's walk loses flow").toBeGreaterThan(100);
     expect(left.least, "the river keeps more than a tenth of its walk's flow").toBeGreaterThan(UNFED_SHARE);
+    expect(g!, `the preview differs from the settle by ${g!.toFixed(3)}`).toBeLessThan(TOL);
+  }, 120000);
+
+  // (the case #1159's two causes were built for, on the land it was found on: #1145's River Valley 96² seed 9 at generator
+  // 0.10.23, saved once from that branch's commit 8596797e as tools/fixture-projects.ts saves a fixture
+  // (preview-riverValley-96-9-leaks). The old line, restarting every tile whose walk lost over a tenth, ended 0.105 off the
+  // settle (0.112 on the code before #1159); the two rules end 0.038, the river keeping 0.77 of its walk's flow on 94 tiles)
+  it("River Valley 96² seed 9 on the land it was found on: an Underground Ruins at 34,34 turns the river's walk, no source touched", () => {
+    namedInEditor("preview-riverValley-96-9-leaks.damgoodmaps");
+    settle();
+    const before = snap();
+    const g = gap(before, flowLeft(place("UndergroundRuins", 34, 34)));
+    expect(g, "the ruins are placed").not.toBeNull();
+    expect(left.falls, "the river's walk loses flow").toBeGreaterThan(50);
+    expect(left.least, "the river keeps more than a tenth of its walk's flow").toBeGreaterThan(UNFED_SHARE);
+    expect(left.least, "and loses more than a tenth").toBeLessThan(0.9);
     expect(g!, `the preview differs from the settle by ${g!.toFixed(3)}`).toBeLessThan(TOL);
   }, 120000);
 });
