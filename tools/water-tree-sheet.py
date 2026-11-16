@@ -25,6 +25,24 @@ def tree_line(t, rec):
             f"leaks {rec.get('leaks', '?')}")
 
 
+def wrap(d, text, font, width):
+    """Each line of `text` broken at its "  ·  " or spaces so that none runs past `width` pixels (into the next panel)."""
+    out = []
+    for line in text.split("\n"):
+        cur = ""
+        for part in line.replace("  ·  ", "  ·  |").split("|"):
+            words = [part] if d.textlength(part, font=font) <= width else part.split(" ")
+            for w in words:
+                sep = "" if (not cur or w is part) else " "
+                if cur and d.textlength(cur + sep + w, font=font) > width:
+                    out.append(cur.rstrip(" ·"))
+                    cur = w
+                else:
+                    cur += sep + w
+        out.append(cur.rstrip(" ·"))
+    return out
+
+
 def main():
     args = sys.argv[1:]
     cell = 512
@@ -39,8 +57,18 @@ def main():
         with open(path, encoding="utf-8") as f:
             trees[side] = {r["name"]: r["m"] for r in json.load(f)}
     f_head, f_line = rw.font(18), rw.font(13)
-    lab = 88
     cols = 4
+    probe = ImageDraw.Draw(Image.new("RGB", (1, 1)))
+    texts = {}
+    for m in maps:
+        for side, folder in (("before", before), ("after", after)):
+            with open(os.path.join(folder, m + ".json"), encoding="utf-8") as f:
+                rec = json.load(f)
+            head, start, _ = rw.labels(rec, side)
+            t = trees[side].get(m)
+            texts[m, side] = (head, wrap(probe, start, f_line, cell), wrap(probe, tree_line(t, rec), f_line, cell) if t else [])
+    # (the label as tall as the most lines any panel needs, so no line runs into the panel below or beside it)
+    lab = 24 + 16 * max(len(a) + len(b) for _, a, b in texts.values()) + 6
     rows = (2 * len(maps) + cols - 1) // cols
     sheet = Image.new("RGB", (cols * (cell + 8) + 8, rows * (cell + lab + 8) + 8), (24, 24, 24))
     d = ImageDraw.Draw(sheet)
@@ -49,13 +77,12 @@ def main():
         for side, folder in (("before", before), ("after", after)):
             x0 = 8 + (k % cols) * (cell + 8)
             y0 = 8 + (k // cols) * (cell + lab + 8)
-            with open(os.path.join(folder, m + ".json"), encoding="utf-8") as f:
-                rec = json.load(f)
-            head, start, _ = rw.labels(rec, side)
+            head, start, tree = texts[m, side]
             d.text((x0, y0), head, fill=(255, 255, 255), font=f_head)
-            d.multiline_text((x0, y0 + 24), start, fill=(255, 230, 150), font=f_line, spacing=2)
-            t = trees[side].get(m)
-            d.text((x0, y0 + 62), tree_line(t, rec) if t else "", fill=(200, 220, 255), font=f_line)
+            for n, line in enumerate(start):
+                d.text((x0, y0 + 24 + 16 * n), line, fill=(255, 230, 150), font=f_line)
+            for n, line in enumerate(tree):
+                d.text((x0, y0 + 24 + 16 * (len(start) + n)), line, fill=(200, 220, 255), font=f_line)
             img = Image.open(os.path.join(folder, m + ".png")).convert("RGB")
             img = img.resize((cell, cell), Image.NEAREST)
             sheet.paste(img, (x0, y0 + lab))

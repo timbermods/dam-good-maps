@@ -94,9 +94,9 @@ import * as ed from "../../src/worker/session";
 // the scrap asked: its ruins moved, D148);
 // `7084a1df…` before generator 0.10.27, D(new-leaks): a course's water leaves only by its own way, so its land is new: made
 // on its first attempt instead of its third, every check passing, D148;
-// `4a6c66b0…` (0.10.27) before generator 0.10.33's ruled water and water tree (D(ruled-water), D(water-tree), which move only
+// `4a6c66b0…` (0.10.27) before generator 0.10.34's ruled water and water tree (D(ruled-water), D(water-tree), which move only
 // maps above 128² and none of this one): the version in the file alone, D148)
-const LIVE_SHA = "a89ff55a93f872249999df5fb52fbdebb16d587065f7d6f243f91bc148ddd085";
+const LIVE_SHA = "40287887f33c101149366ed257f3240ded8df1abda6be85678e7feef020bc7d5";
 const spec = () => makeSpec({ seed: 4242, size: { x: 128, y: 128 }, theme: "riverValley", designedFor: "normal" });
 
 describe("mine sites and ruins, models of our own", () => {

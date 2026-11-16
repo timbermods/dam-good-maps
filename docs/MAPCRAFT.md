@@ -202,7 +202,10 @@ a premise or one still to come, may carry its own, lower playability floor.
   basin's budget, keeps the start on dry land that stays moist through the drought, and gives a basin with no course one
   of its own; the tool reads the total source strength and Delta's fan. Pools sit where the water makes them, 5 to 7
   channel widths apart. Against dev 0.10.27 (0.10.33): irrigable dry 9.2 → 8.4 %, attempts 200 → 176, leaks 10 → 18,
-  `plants.drought` 13 → 14, Delta's fan 6 of 6.
+  `plants.drought` 13 → 14, Delta's fan 6 of 6. Round 5 (0.10.34) re-orders dev's water without redistributing it: dev's
+  heads and flows, a course wider below a join by the water it brings (2 tiles more where one half as wide or more
+  joins); the tree's own heads and water are `TREE_PARTS.springs` (off), its pools `TREE_PARTS.pools` (on). Against dev
+  0.10.27: wet 31.2 → 30.7 %, irrigable dry 9.2 → 9.2 %, attempts 200 → 152, leaks 10 → 10, `plants.drought` 13 → 7.
 
 **Land first, story second** (planning's ruling of 2026-11-11, for every path: themes, premises, hand maps). Every
 landform is one geology makes, shaped by the shared natural relief. A premise is found in or cut into natural land by a
