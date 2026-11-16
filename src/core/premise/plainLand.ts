@@ -625,9 +625,9 @@ const levelAt = (p: PlainNumbers, u: number, v: number) => (u < p.plainFrom ? p.
 /** The theme's upland as this premise reads it past the near wall: softened (`blur` tiles, twice), read through a
  *  wander (`warp` tiles, noise `warpCell`) and dithered (`dither` levels, noise `ditherCell`) before it is rounded.
  *  The shared relief sets its upland a plate at a time, the tiles nearest one point of a scatter, each plate a level of
- *  its own: the plates' sides are straight lines (Voronoi edges, read through a wander of a few tiles only), and above
- *  128² the scatter's lattice runs along the grid, so the plates meet in straight cliffs and near-rectangular benches.
- *  Softened, its levels stay where the theme put them and its contours run by noise. */
+ *  its own, meeting in cliffs (their sides ragged by noise and the scatter turned off the grid at every size,
+ *  D(plates-turned), but still a step a plate). Softened, its levels stay where the theme put them and its contours run
+ *  by noise. */
 export const SOFT_UPLAND = { blur: 4, warp: 4, warpCell: 19, dither: 0.45, ditherCell: 9 } as const;
 export function softUpland(up: ArrayLike<number>, W: number, H: number, seed: number): Float64Array {
   let a: Float64Array = Float64Array.from(up as ArrayLike<number>);

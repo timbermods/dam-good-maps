@@ -100,8 +100,10 @@ import * as ed from "../../src/worker/session";
 // `c58f6dbd…` before generator 0.10.36's round forms at their meant size (#1205: their lobes swing about the radius, so mesas,
 // buttes, cones and knolls are a sixth wider, and the dead stands' floor pass: not the version alone, at 0.10.29's version the
 // branch gives `0ce281af…`, D148); `841215d6…` before generator 0.10.37's version alone (the Nightly of 2026-11-16: with the
-// version set back to 0.10.36 the branch gives it byte for byte, D148)
-const LIVE_SHA = "64928c3753d64b6fe6cae7c58aae420ab99fbdde7c8783bf90d35690b52c0d51";
+// version set back to 0.10.36 the branch gives it byte for byte, D148); `64928c37…` before generator 0.10.39's version alone
+// (D(plates-turned) moves a premise's plates, never a theme's land: with the version set back to 0.10.37 the branch
+// gives it byte for byte, D148; 0.10.39 re-bumps at merge)
+const LIVE_SHA = "c61165b9f2ae4f024b033c0f887dddac98ef2f605057f0ba5230eab797c60db0";
 const spec = () => makeSpec({ seed: 4242, size: { x: 128, y: 128 }, theme: "riverValley", designedFor: "normal" });
 
 describe("mine sites and ruins, models of our own", () => {
