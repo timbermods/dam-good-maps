@@ -3863,6 +3863,9 @@ let forceStack: {
   objects: readonly EntitySpec[];
   rows: Float64Array;
   front: CarveFront | null;
+  /** The map's own terrain and ground as the force began, for the water run on beside the force's (`holdOwn`). */
+  ownBase: Uint32Array;
+  ownGround: Uint8Array;
   seen: SeenWater;
   seenTicks: number;
   sent?: Float64Array;
@@ -3876,10 +3879,12 @@ function stackRowsOf(entities: readonly EntitySpec[]): Float64Array {
 }
 
 /** Each tile's top as the force's water stands on it: the ground shown, or a wall where a carve's front holds it. */
-function forceStackMask(w: NonNullable<typeof forceStack>): Uint32Array {
+function forceStackMask(w: NonNullable<typeof forceStack>, own = false): Uint32Array {
   const out = new Uint32Array(w.base.length);
   const held = w.front?.held;
-  for (let i = 0; i < out.length; i++) out[i] = reshapeTop(w.base[i], held && held[i] ? TERRAIN_LAYERS : w.ground[i]);
+  const base = own ? w.ownBase : w.base;
+  const ground = own ? w.ownGround : w.ground;
+  for (let i = 0; i < out.length; i++) out[i] = reshapeTop(base[i], held && held[i] ? TERRAIN_LAYERS : ground[i]);
   return out;
 }
 
@@ -3911,9 +3916,13 @@ function startForceStack(f: NonNullable<typeof force>, start: NonNullable<Return
       from.contamination[c] = 0;
     }
   }
-  const w: NonNullable<typeof forceStack> = { force: f, live: null as unknown as StackLive, model, base, ground: m.heights.slice(), mask: base, objects: m.entities, rows, front, seen: null as unknown as SeenWater, seenTicks: 0 };
+  const w: NonNullable<typeof forceStack> = { force: f, live: null as unknown as StackLive, model, base, ground: m.heights.slice(), mask: base, objects: m.entities, rows, front, ownBase: base.slice(), ownGround: m.heights.slice(), seen: null as unknown as SeenWater, seenTicks: 0 };
   w.mask = forceStackMask(w);
   w.live = new StackLive({ ...model, stacked: { mask: w.mask.slice(), objects: rows } }, from, start.flows);
+  // (its water run on beside it on the map's own ground and objects, the front's walls let go as the force's are: the
+  // water shown is the map's own as it began plus what the force changed, so a column the force never reaches stays as
+  // it began, #1181)
+  w.live.holdOwn(model.stacked!.objects);
   const f0 = w.live.frame();
   w.seen = new SeenWater(f0.depth, f0.contamination);
   forceStack = w;
@@ -3961,7 +3970,7 @@ function forceStackFlows(w: NonNullable<typeof forceStack>): boolean {
     if (!same) {
       w.mask = mask;
       try {
-        w.live.reshape(mask.slice(), rows);
+        w.live.reshape(mask.slice(), rows, forceStackMask(w, true));
       } catch {
         // (its ground has no cave or overhang left: the force's water stops here, and flows on once it is kept)
         endForceWater();
@@ -4046,7 +4055,7 @@ function forceStackState(f: NonNullable<typeof force>): { model: WaterModel; sta
   if (mask.some((v, i) => v !== w.mask[i])) {
     w.mask = mask;
     try {
-      w.live.reshape(mask.slice());
+      w.live.reshape(mask.slice(), undefined, forceStackMask(w, true));
     } catch {
       return null;
     }

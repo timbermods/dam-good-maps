@@ -2100,7 +2100,9 @@ checks dot counts; every other row is information under Good to know, worded as 
     `draftStack`). A force's own water flows there too while it plays (D371; `startForceStack`): the engine is
     built again on the land and objects each frame shows (Erode's voxels included), a carve's front walls its course
     until the cut reaches it, and kept, the map's water flows on from it (a Slide's water stays where it stood rather
-    than riding its block). While it flows the map keeps the last settle carried over; an edit's journey stops by the
+    than riding its block). The map's own water runs on beside it on the map's own ground and objects (`holdOwn`), and
+    the water shown and kept is the water as the force began plus what the force changed, so water the force never
+    reaches (a cave's stream swinging about where the settle stopped it) stays exactly as it was (#1181). While it flows the map keeps the last settle carried over; an edit's journey stops by the
     preview's own rule (the volume within 0.2% and at most 0.05% of the tiles moving more than 0.05 between checks,
     every 128 ticks), and where it came to stand is then the map's preview water, as a plain map's is (D453;
     `stackPreview`), until the canonical settle, run in the background in slices, on several threads where the page

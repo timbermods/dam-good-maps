@@ -12,7 +12,7 @@ import { DEFAULTS } from "../../src/core/forces/carve/run";
 import { STEPS_PER_SECOND } from "../../src/core/forces/force";
 import { WET, type WaterView } from "../../src/render3d/model";
 import * as ed from "../../src/worker/session";
-import { fixtureInEditor } from "../fixtureEditor";
+import { fixtureInEditor, namedInEditor } from "../fixtureEditor";
 
 const W = 96;
 const N = W * W;
@@ -36,11 +36,18 @@ function farFromStart(s: MapSession): [number, number] {
   return best;
 }
 
+/** Highlands 96² seed 22 as generator 0.10.27 made it (#1181): a stream in a cave at (41–51, 68–69), 13 tiles from the
+ *  carve's origin, that swings a few thousandths about where the settle stopped it (0.427 to 0.433 at (41, 68) about
+ *  the settle's 0.431), so a carve's water that ran it on alone showed it falling while the carve worked far from it. */
+const CAVE_STREAM = "preview-highlands-96-22-carve.damgoodmaps";
+
 async function open(seed = 21): Promise<{ origin: [number, number]; ground: Uint8Array; water: number[]; roofed: Map<string, number> }> {
   // (a force an earlier test left at work, failing part way, goes first)
   ed.forceCancel();
-  // (a fixture since generator 0.10.29, D148: the land these cases were written on, tests/fixtures/projects, so the weathering's reach moving the generator's land moves nothing here)
-  fixtureInEditor("highlands", W, seed);
+  // (a fixture since generator 0.10.29, D148: the land these cases were written on, tests/fixtures/projects, so the weathering's reach moving the generator's land moves nothing here;
+  // seed 22's is the land of #1181, `CAVE_STREAM`)
+  if (seed === 22) namedInEditor(CAVE_STREAM);
+  else fixtureInEditor("highlands", W, seed);
   ed.settleWater();
   const s = MapSession.open(decodeProject(ed.project().bytes));
   const ground = ed.terrainNow().heights.slice();
@@ -95,8 +102,11 @@ function wetCut(ground: Uint8Array, now: Uint8Array, depth: ArrayLike<number>): 
 
 describe("Carve's river is born as it cuts (D371)", () => {
   // (seed 22 has caves: a pool under a roof stays apart from the carve's water, checked on its own; #814. Seed 24 for 21
-  // since generator 0.10.19's dry washes, D517, D148: seed 21's channel holds no more water at the cut's end than halfway;
-  // seed 22 stays: generator 0.10.27's move (dev, D(new-leaks)) followed the generator's land; the fixture keeps 0.10.25's, where this holds)
+  // since generator 0.10.19's dry washes, D517, D148: seed 21's channel holds no more water at the cut's end than halfway.
+  // Seed 22 on generator 0.10.27's land, `CAVE_STREAM`, #1181, D148: the cases went to seed 23 with 0.10.27, then to
+  // 0.10.25's seed 22 as a fixture, because 19 of this land's cave stream's columns fell while the carve was shown,
+  // (41, 68) 0.431 to 0.429, the most 0.003; the carve's water now changes only what the carve does (stackLive.ts
+  // `holdOwn`): its own river reaches the stream and moves it by under 0.0004, the stream's own swing none)
   it.each([24, 22])("the water flows into the channel as it is cut, from the carve's source; kept, the map's water flows on from it (seed %i)", async (seed) => {
     const { origin, ground, water, roofed } = await open(seed);
     const st = ed.forceStart({ verb: "carve", settings: { ...DEFAULTS, power: 70 }, origin, cut: null });
@@ -136,6 +146,8 @@ describe("Carve's river is born as it cuts (D371)", () => {
     ed.settleWater();
   });
 
+  // (seed 22 on `CAVE_STREAM`, #1181, D148: Esc handed on 17 of its cave stream's columns low by up to 0.003, caught part
+  // way through the stream's own swing; now exactly as they were)
   it.each([21, 22])("undo stops it and puts the map's own water back; Esc skips to the end and hands on the water flowing then; a dry canyon flows none (seed %i)", async (seed) => {
     const { origin, ground, water, roofed } = await open(seed);
     if (seed === 22) expect(roofed.size, "seed 22's water under a roof").toBeGreaterThan(0);
