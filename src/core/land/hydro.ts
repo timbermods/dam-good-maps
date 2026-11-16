@@ -71,6 +71,11 @@ export interface Hydro {
   joined?: number;
   /** Whether the water is a tree (D(water-tree): natural water above 128², not a sea's map). */
   tree?: boolean;
+  /** The rivers the joins touched (ruled water): each course joined to one beside it, the course it joined, the course a
+   *  head refused for running beside it from its head would have run beside, and every course traced after such a head
+   *  (another head took its place, so they stand where dev's plan had others); `generate.ts` plans a land again without
+   *  the joins only when its refusal names or touches one of them. */
+  joinedRivers?: string[];
 }
 
 export interface HydroOptions {
@@ -730,6 +735,8 @@ function planHydroSingle(E: Float64Array, h: Uint8Array, g: Genome, seed: number
   // (ruled water: the courses joined to one beside them, and the heads refused for running beside one from the head)
   let joined = 0;
   let refused = 0;
+  const touched = new Set<number>();
+  let lostAt = Infinity;
   const trace = (hd: Head, alongUp = false, mustJoin = natural && heads.length > 0): boolean => {
     if (heads.length >= maxHeads) return false;
     const k = heads.length;
@@ -792,6 +799,9 @@ function planHydroSingle(E: Float64Array, h: Uint8Array, g: Genome, seed: number
       const met = besideJoin(cells);
       if (met === null) {
         refused++;
+        const o = besideSrc[cells[0]];
+        if (o >= 0 && owner[o] >= 0) touched.add(owner[o]);
+        lostAt = Math.min(lostAt, k);
         return false;
       }
       // (a join the course's own rules refuse, a tributary cut under its length or a link along the edge, leaves the course
@@ -800,6 +810,8 @@ function planHydroSingle(E: Float64Array, h: Uint8Array, g: Genome, seed: number
       // attempts)
       if (met && take(met.cells, met.joins, false)) {
         joined++;
+        touched.add(k);
+        touched.add(met.joins);
         return true;
       }
     }
@@ -2300,7 +2312,7 @@ function planHydroSingle(E: Float64Array, h: Uint8Array, g: Genome, seed: number
     };
     for (const r of rivers) lowerFrom(r, 0, Infinity, 0);
   }
-  return { rivers, water, lakes, falls, arms, flowTotal, joined: joined + refused, tree };
+  return { rivers, water, lakes, falls, arms, flowTotal, joined: joined + refused, tree, joinedRivers: [...heads.keys()].filter((k) => touched.has(k) || k >= lostAt).map((k) => featureId(seed, "river", roleOf(k))).filter((id) => rivers.some((r) => r.id === id)) };
 }
 
 /** River Valley tries two courses around a drawn cliff and retains the stronger split.
