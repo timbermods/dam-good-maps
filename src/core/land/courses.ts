@@ -96,6 +96,29 @@ export function sealedMouths(rivers: readonly RiverFeature[], W: number, H: numb
   return sealed;
 }
 
+/** The level each tile beside a planned channel (`water` 1) may not be lowered below: the water
+ *  that channel holds beside it (the land's spill level there, mouths sealed). The land's later
+ *  cuts (the edge relax, the basins' outlets) keep to it, so they never open a course's water a
+ *  way out lower than its own (investigation attempts-256, cause C: 20 of 61 leaks at 256²). 0
+ *  where no channel is beside. */
+export function besideCourses(h: ArrayLike<number>, W: number, H: number, water: ArrayLike<number>, rivers: readonly RiverFeature[]): Uint8Array {
+  const N = W * H;
+  const sealed = sealedMouths(rivers, W, H);
+  const filled = drainage(h, W, H, { eight: false, outlet: (i) => !sealed[i] }).filled;
+  const floor = new Uint8Array(N);
+  for (let i = 0; i < N; i++) {
+    if (water[i] !== 1) continue;
+    const x = i % W;
+    const y = (i - x) / W;
+    const level = Math.min(255, Math.ceil(filled[i]));
+    if (x > 0 && water[i - 1] !== 1 && floor[i - 1] < level) floor[i - 1] = level;
+    if (x < W - 1 && water[i + 1] !== 1 && floor[i + 1] < level) floor[i + 1] = level;
+    if (y > 0 && water[i - W] !== 1 && floor[i - W] < level) floor[i - W] = level;
+    if (y < H - 1 && water[i + W] !== 1 && floor[i + W] < level) floor[i + W] = level;
+  }
+  return floor;
+}
+
 /** Levels of standing water over an inflow's mouth at which its head is drowned. */
 const DROWNED = 2;
 

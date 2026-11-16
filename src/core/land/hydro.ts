@@ -149,6 +149,39 @@ function edgeOf(i: number, W: number, H: number): Edge | null {
   return null;
 }
 
+/** The spill levels with only `edge` draining, but for the positions along it in `sealed` (the
+ *  inflows' mouth rows, which hold their sources): the level at which standing water anywhere leaves
+ *  by that edge. `poolHolds` reads it for an inflow's pool. */
+export function edgeBackFill(h: ArrayLike<number>, W: number, H: number, edge: Edge, sealed: ReadonlySet<number>): Float64Array {
+  const vertical = edge === "west" || edge === "east";
+  return drainage(h, W, H, { eight: false, outlet: (i) => edgeOf(i, W, H) === edge && !sealed.has(vertical ? (i - (i % W)) / W : i % W) }).filled;
+}
+
+/** Whether a pool cut a level or more under `level` (its water, the bed of the reach below) on
+ *  `tiles` is held by its banks (attempts-256, cause A): every tile beside it but its outflow
+ *  (`outflow`, the channel it leaves by) stands at `level` or higher, none lies past the map's
+ *  edge, and with `backFill` (an inflow's `edgeBackFill`, read before the pool is cut) the water
+ *  at `level` cannot run back out by the inflow's own edge. Nothing is raised to make it hold: where
+ *  it doesn't, the pool is not cut. The planned pools below drops use it; so may any later cut below
+ *  a bed (a plunge pool at a fall's foot) once every river is carved. */
+export function poolHolds(h: ArrayLike<number>, W: number, H: number, tiles: readonly number[], level: number, outflow: (i: number) => boolean, backFill: ArrayLike<number> | null = null): boolean {
+  const inPool = new Set(tiles);
+  for (const i of tiles) {
+    if (backFill && !(backFill[i] > level)) return false;
+    const x = i % W;
+    const y = (i - x) / W;
+    for (const [dx, dy] of N4) {
+      const xx = x + dx;
+      const yy = y + dy;
+      if (xx < 0 || yy < 0 || xx >= W || yy >= H) return false;
+      const q = yy * W + xx;
+      if (inPool.has(q) || outflow(q)) continue;
+      if (h[q] < level) return false;
+    }
+  }
+  return true;
+}
+
 /** The edges on the outlet side of a flow direction (two for a diagonal). */
 function downstreamEdges(dir: number): Edge[] {
   const [fx, fy] = DIRS8[dir];
@@ -643,8 +676,10 @@ function planHydroSingle(E: Float64Array, h: Uint8Array, g: Genome, seed: number
   if (lengthwise && !g.seaLayout && !g.hydro.exactInflows && !g.hydro.noInflows) g.hydro.inflows = Math.max(1, g.hydro.inflows);
   if (g.hydro.inflows > 0) {
     // (Canyon from 128² up prefers the mouth with the longest way across, so the main river crosses
-    // the map and its gorge is a real stretch, not a corner's; Kyler's look at #261, seed 27)
-    const lengthWeight = g.theme === "canyon" && side >= 128 ? 0.06 : 0.012;
+    // the map and its gorge is a real stretch, not a corner's; Kyler's look at #261, seed 27. From 256²
+    // up the way across is long anyway, and a longer one left the walled stretch too small a share of
+    // the course for the theme's promise: there it weighs as on smaller maps, attempts-256)
+    const lengthWeight = g.theme === "canyon" && side >= 128 && side < 256 ? 0.06 : 0.012;
     const search = (minLen: number, apart: number, r: Rng, n0: number, relaxed: boolean, separate = false): number => {
       const cands: [number, number][] = [];
       for (let i = 0; i < N; i++) {
@@ -1260,6 +1295,8 @@ function planHydroSingle(E: Float64Array, h: Uint8Array, g: Genome, seed: number
   // the main river cuts deeper than its tributaries: their valleys hang above it
   const hanging = Math.round(g.hanging);
   const exits = new Map<string, { path: Point[]; prof: Float64Array; L: number; n: number; width: number; half: (s: number, L: number) => number }>();
+  // (each river's pools that held, by station: planned standing water a level under the reach below)
+  const poolsOf = new Map<string, Set<number>>();
   // (M9b) how high the water at each inflow's mouth may stand before it runs back out by the same
   // edge beside the mouth (the game drains every edge tile but the mouth's own); a lake on a river
   // stands no higher than that for any inflow whose water reaches it, its own and its tributaries'
@@ -1414,13 +1451,54 @@ function planHydroSingle(E: Float64Array, h: Uint8Array, g: Genome, seed: number
     // pools: below a drop the water scours its bed a level deeper for a few tiles, where the reach
     // below is long enough to keep a lip (pools and riffles: standing water deep enough to pump)
     const bedOf = prof.slice();
+    const poolAt: number[] = [];
     for (let j = 1; j <= n; j++) {
       if (!(prof[j - 1] - prof[j] >= 1) || prof[j] < BED_FLOOR + 1) continue;
       let level = 0;
       for (let q = j; q <= n && prof[q] === prof[j]; q++) level++;
-      if (level >= 8) for (let q = j; q < j + 3; q++) bedOf[q] = prof[j] - 1;
+      if (level >= 8) poolAt.push(j);
     }
     carve(st, bedOf, L, n, half, floorHalf);
+    // (a pool is cut only inside banks that hold it: every tile beside it but its outflow, the
+    // channel below it, stands at the pool's water, its bed above it, or higher; else its water finds
+    // a lower way out, back by an inflow's own edge or over a low bank to another, and the course
+    // check refuses the land (investigation attempts-256, cause A). Never a raised lip: where the
+    // banks don't hold, the bed stays as it is)
+    if (poolAt.length) {
+      const poolTiles = new Map<number, number[]>();
+      const inChannel = new Map<number, number>();
+      for (const i of st.tiles) {
+        if (mouthBank[i] || water[i] === 2 || !(st.d[i] < half(st.s[i], L))) continue;
+        inChannel.set(i, Math.min(n, Math.max(0, Math.round((st.s[i] / L) * n))));
+      }
+      for (const j of poolAt) poolTiles.set(j, []);
+      // (an inflow's pool holds only below the level its own edge lets water out at, beside its
+      // mouth: the spill level with that edge draining, every inflow's mouth row sealed, on the land
+      // as carved so far; at that level or over it, the pool's standing water runs back out there)
+      let backFill: Float64Array | null = null;
+      if (natural && hd.kind === "edge") {
+        const e = hd.edge!;
+        const mouths = new Set<number>();
+        for (const m of mouthRows.values()) if (m.edge === e) for (const a of m.along) mouths.add(a);
+        backFill = edgeBackFill(h, W, H, e, mouths);
+      }
+      for (const [i, k] of inChannel)
+        for (const j of poolAt)
+          if (k >= j && k < j + 3 && h[i] === prof[j]) poolTiles.get(j)!.push(i);
+      for (const j of poolAt) {
+        const tiles = poolTiles.get(j)!;
+        if (!tiles.length) continue;
+        const outflow = (q: number) => {
+          const k = inChannel.get(q);
+          return k !== undefined && k >= j + 3;
+        };
+        if (!poolHolds(h, W, H, tiles, prof[j], outflow, backFill)) continue;
+        for (const i of tiles) h[i] = prof[j] - 1;
+        const held = poolsOf.get(rid) ?? poolsOf.set(rid, new Set()).get(rid)!;
+        for (let q = j; q < j + 3 && q <= n; q++) held.add(q);
+        for (let q = j; q < j + 3 && q <= n; q++) bedOf[q] = prof[j] - 1;
+      }
+    }
     // (M9b: an inflow's mouth, the rule's row (D314), stays level for its first three rows, its
     // bed there: the edge's banks beside it are kept, and its sources stand on one level)
     const mr = mouthRows.get(tr.k);
@@ -1863,6 +1941,36 @@ function planHydroSingle(E: Float64Array, h: Uint8Array, g: Genome, seed: number
       main.params.bedProfile = { start: env[0], steps };
     }
   }
+  // (a Delta's course that leaves by an edge of its own, crossed by a fan's arm or running on its
+  // bank: the arm takes its water there and carries it to the fan's mouths, and the water left its
+  // course by another edge than its own (attempts-256: Delta's springs on the floor). It joins the
+  // main river there by plan: above the crossing a tributary, run down to the arm below (D447); below
+  // it one more of the fan's mouths, carrying the fan's water as the arms do. Nothing is raised to
+  // keep them apart)
+  const joinedAt = new Map<string, number>();
+  const fanMain = g.theme === "delta" ? rivers.find((r) => r.role === "river/main") : undefined;
+  if (natural && fanMain && arms.some((a) => a.kind === "mouth"))
+    for (const r of rivers) {
+      if (r === fanMain || !("edge" in r.params.exit)) continue;
+      const m = exits.get(r.id);
+      if (!m) continue;
+      let at = -1;
+      for (let s = 0; s <= m.L && at < 0; s += 1) {
+        const {
+          p: [px, py],
+        } = pointAt(m.path, s);
+        const R = m.half(s, m.L) + 1;
+        for (let y = Math.max(0, Math.floor(py - R)); y <= Math.min(H - 1, Math.ceil(py + R)) && at < 0; y++)
+          for (let x = Math.max(0, Math.floor(px - R)); x <= Math.min(W - 1, Math.ceil(px + R)); x++)
+            if (armTiles[y * W + x] && (x - px) * (x - px) + (y - py) * (y - py) <= R * R) {
+              at = s;
+              break;
+            }
+      }
+      if (at < 0) continue;
+      joinedAt.set(r.id, at);
+      r.params.exit = { river: fanMain.id };
+    }
   // (D447: an arm, cut after the rivers, crossing a tributary's course or running on its bank lower
   // than its bed takes its water there, and the tributary's course on stood dry to its join: from
   // there it runs at the arm's level, its channel holding water to the river it joins. Its
@@ -1906,6 +2014,20 @@ function planHydroSingle(E: Float64Array, h: Uint8Array, g: Genome, seed: number
       }
       r.params.bedProfile = { start: env[0], steps };
     }
+  for (const [id, at] of joinedAt) {
+    const r = rivers.find((o) => o.id === id)!;
+    const m = exits.get(id)!;
+    const upper: Point[] = [];
+    for (let s = 0; s < at; s += 1) upper.push(pointAt(m.path, s).p);
+    upper.push(pointAt(m.path, at).p);
+    const tail: Point[] = [];
+    for (let s = at; s < m.L; s += 1) tail.push(pointAt(m.path, s).p);
+    tail.push(m.path[m.path.length - 1]);
+    if (upper.length < 2) upper.push(pointAt(m.path, Math.min(m.L, at + 1)).p);
+    r.params.path = upper;
+    r.params.bedProfile = { start: r.params.bedProfile.start, steps: r.params.bedProfile.steps.filter((b) => b.at <= at) };
+    if (tail.length >= 2) arms.push({ kind: "mouth", river: fanMain!.id, path: tail });
+  }
   // The trunk can drain a lake while later rivers are carved. River Valley keeps that
   // lake's closed core, rather than a broad spent shelf marked as standing water.
   // Compact ponds and oxbows keep their outline; intentional plugged lakes keep their storage.
@@ -1925,6 +2047,74 @@ function planHydroSingle(E: Float64Array, h: Uint8Array, g: Genome, seed: number
       for (const m of exits.values()) carve(stamp(m.path, W, H, Math.ceil(m.width / 2 + 3)), m.prof, m.L, m.n, m.half, 0);
       for (let k = lakes.length - 1; k >= 0; k--) if (lakes[k].tiles.length < 6) lakes.splice(k, 1);
     }
+  }
+  // (a channel is never left lower than its own reach downstream: a later river's cut, or a lake's
+  // carving, can leave a stretch of a course under the bed it runs on to, and the water held there
+  // finds another way out, by a lower bank to another edge (attempts-256, Any's leaks). The reach
+  // downstream is cut down to it, on into the river it joins, to its exit; a planned lake or a
+  // held pool is standing water by design and starts the reach below it afresh. Only ground is
+  // taken away)
+  if (natural) {
+    const byStation = new Map<string, number[][]>();
+    const stationsOf = (id: string): number[][] => {
+      const known = byStation.get(id);
+      if (known) return known;
+      const m = exits.get(id)!;
+      const st = stamp(m.path, W, H, Math.ceil(m.width / 2 + 1));
+      const out: number[][] = Array.from({ length: m.n + 1 }, () => []);
+      for (const i of st.tiles) if (st.d[i] < m.half(st.s[i], m.L)) out[Math.min(m.n, Math.max(0, Math.round((st.s[i] / m.L) * m.n)))].push(i);
+      byStation.set(id, out);
+      return out;
+    };
+    const byId = new Map(rivers.map((r) => [r.id, r]));
+    const lowerFrom = (r: RiverFeature, from: number, start: number, depth: number): void => {
+      const m = exits.get(r.id);
+      if (!m || depth > 8) return;
+      const tiles = stationsOf(r.id);
+      const pools = poolsOf.get(r.id);
+      // (a Delta course joined to an arm ends where it meets it: below, it is one of the fan's mouths)
+      const joined = joinedAt.get(r.id);
+      const last = joined === undefined ? m.n : Math.min(m.n, Math.round((joined / m.L) * m.n));
+      let level = start;
+      for (let j = from; j <= last; j++) {
+        const at = tiles[j];
+        if (!at.length) continue;
+        let bed = Infinity;
+        let lake = false;
+        for (const i of at) {
+          if (water[i] === 2) lake = true;
+          bed = Math.min(bed, h[i]);
+        }
+        if (lake || pools?.has(j)) {
+          level = Infinity;
+          continue;
+        }
+        if (bed > level) {
+          for (const i of at) if (h[i] > level && !mouthBank[i] && water[i] !== 2) h[i] = level;
+          bed = level;
+        }
+        level = Math.min(level, bed);
+      }
+      const ex = r.params.exit;
+      if (!("river" in ex) || level === Infinity) return;
+      const to = byId.get(ex.river);
+      const tm = to ? exits.get(to.id) : undefined;
+      if (!to || !tm) return;
+      // (on into the river it joins, from the station nearest its end)
+      const [ex0, ey0] = r.params.path[r.params.path.length - 1];
+      let best = Infinity;
+      let k0 = 0;
+      for (let j = 0; j <= tm.n; j++) {
+        const [px, py] = pointAt(tm.path, (j * tm.L) / tm.n).p;
+        const d = (px - ex0) * (px - ex0) + (py - ey0) * (py - ey0);
+        if (d < best) {
+          best = d;
+          k0 = j;
+        }
+      }
+      lowerFrom(to, k0, level, depth + 1);
+    };
+    for (const r of rivers) lowerFrom(r, 0, Infinity, 0);
   }
   return { rivers, water, lakes, falls, arms, flowTotal };
 }

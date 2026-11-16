@@ -64,6 +64,10 @@ export function pageFixtureName(fragment: string): string {
 /** A browser spec's fixture's project file (the map the page makes of `fragment`, saved), as `fixtureProject` gives a scenario's. */
 export const pageFixtureProject = (fragment: string): Uint8Array => relabel(pageFixtureName(fragment));
 
+/** A fixture saved under a name of its own (not the scenario list's: a land kept for one case, such as
+ *  `preview-riverValley-96-9-leaks.damgoodmaps`, the land a preview case was found on), as `fixtureProject` opens it. */
+export const namedProject = (name: string): Uint8Array => relabel(name);
+
 function relabel(name: string): Uint8Array {
   let b = relabelled.get(name);
   if (!b) {
@@ -78,3 +82,6 @@ export const fixtureDoc = (theme: ThemeId, size: number, seed: number, variant?:
 
 /** The fixture's map, opened as a session. */
 export const fixtureSession = (theme: ThemeId, size: number, seed: number, variant?: FixtureVariant): MapSession => MapSession.open(fixtureDoc(theme, size, seed, variant));
+
+/** A fixture saved under a name of its own, opened as a session. */
+export const namedSession = (name: string): MapSession => MapSession.open(decodeProject(namedProject(name)));
