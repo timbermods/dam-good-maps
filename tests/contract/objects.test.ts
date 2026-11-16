@@ -245,10 +245,10 @@ describe("the generator's M7 set pieces keep their rules (ROADMAP M7)", () => {
     // river valley 4 since generator 0.10.24's round forms, the look round, D148: those three hold no rise now; of Canyon seeds 1–12, 17
     // and 20 only 2 and 20 hold one that keeps every rule, and of River Valley seeds 1–7, 11, 15, 18 and 20, seeds 2, 5, 7, 11, 15, 18
     // and 20 do; canyon 2 → 4 and canyon 20 → 17 at 0.10.29 (#1186), D148: the disc's land (the weathering's disc of the square's area, the washes' brush and swing) has no rise on
-    // Canyon 2 or 20; of Canyon seeds 1–20 only 4, 12, 14 and 17 hold one, each keeping every rule; canyon 4 → 12 at 0.10.35's ruled
-    // water, D(ruled-water), D148: a course beside another on one plain joins it, and canyon 4 holds no rise now; of Canyon and River
-    // Valley 128² seeds 1–20, Canyon 12, 14, 17 and River Valley 2, 5, 6, 7, 11, 18, 20 hold one, each keeping every rule)
-    for (const [theme, seed] of [["canyon", 12], ["canyon", 17], ["riverValley", 5], ["riverValley", 7]] as [ThemeId, number][]) {
+    // Canyon 2 or 20; of Canyon seeds 1–20 only 4, 12, 14 and 17 hold one, each keeping every rule; canyon 4 → 12 and canyon 17 → 14
+    // at 0.10.35's ruled water, D(ruled-water), D148: a course beside another on one plain joins it, and neither holds a rise now; of
+    // Canyon and River Valley 128² seeds 1–20, Canyon 12, 14 and River Valley 2, 5, 6, 7, 11, 18, 20 hold one, each keeping every rule)
+    for (const [theme, seed] of [["canyon", 12], ["canyon", 14], ["riverValley", 5], ["riverValley", 7]] as [ThemeId, number][]) {
       const r = generate(makeSpec({ seed, size: { x: 128, y: 128 }, theme }));
       const f = r.features.find((g) => g.kind === "setPiece" && g.params.kind === "obstaclePayoff");
       if (!f || f.kind !== "setPiece") continue;

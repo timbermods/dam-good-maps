@@ -67,6 +67,8 @@ export interface Hydro {
   falls: { x: number; y: number; drop: number; river: string }[];
   arms: Arm[];
   flowTotal: number;
+  /** Courses traced to a course beside them (ruled water, `BESIDE`): none, the plan is as it was without the joins. */
+  joined?: number;
 }
 
 export interface HydroOptions {
@@ -76,6 +78,9 @@ export interface HydroOptions {
   /** River Valley's default trunk looked for again (`planHydro`): its water may enter by every edge
    *  but the downstream ones, and leaves by those alone. */
   across?: boolean;
+  /** False: no course joins one beside it (ruled water, `BESIDE`), the plan as it was before; `generate.ts` plans so
+   *  again when a joined plan's land is refused. */
+  joins?: boolean;
 }
 
 /** The share of the map the planned courses aim to bring within the story's reach (`STORY_REACH`,
@@ -703,6 +708,9 @@ function planHydroSingle(E: Float64Array, h: Uint8Array, g: Genome, seed: number
     }
     return undefined;
   };
+  // (ruled water: the courses joined to one beside them, and the heads refused for running beside one from the head)
+  let joined = 0;
+  let refused = 0;
   const trace = (hd: Head, alongUp = false, mustJoin = natural && heads.length > 0): boolean => {
     if (heads.length >= maxHeads) return false;
     const k = heads.length;
@@ -761,14 +769,20 @@ function planHydroSingle(E: Float64Array, h: Uint8Array, g: Genome, seed: number
     // tiles of it for `BESIDE.run` cells, joins it where that stretch begins, so the streams on one plain gather as a
     // land's do; River Valley 256² seed 9's three springs ran side by side down its floor like drawn lines)
     // (never on a sea's map, whose islands drain to the sea as dev's do: planning, 2026-11-15, D(water-tree) round 3)
-    if (natural && !g.seaLayout && heads.length > 0) {
+    if (natural && !g.seaLayout && heads.length > 0 && opts.joins !== false) {
       const met = besideJoin(cells);
-      if (met === null) return false;
+      if (met === null) {
+        refused++;
+        return false;
+      }
       // (a join the course's own rules refuse, a tributary cut under its length or a link along the edge, leaves the course
       // as it ran: refused for the join, the head was lost and another taken in its place, and on Any 256² seed 6 one
       // between the two systems led the second's water out by the first's edge, a leak; dev's first map refused, 2 → 4
       // attempts)
-      if (met && take(met.cells, met.joins, false)) return true;
+      if (met && take(met.cells, met.joins, false)) {
+        joined++;
+        return true;
+      }
     }
     return take(cells, joins, toSea);
   };
@@ -2220,7 +2234,7 @@ function planHydroSingle(E: Float64Array, h: Uint8Array, g: Genome, seed: number
     };
     for (const r of rivers) lowerFrom(r, 0, Infinity, 0);
   }
-  return { rivers, water, lakes, falls, arms, flowTotal };
+  return { rivers, water, lakes, falls, arms, flowTotal, joined: joined + refused };
 }
 
 /** River Valley tries two courses around a drawn cliff and retains the stronger split.
