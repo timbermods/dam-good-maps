@@ -531,6 +531,8 @@ const TODAY_KEPT: Record<string, string> = {
   paricutin: "its springs' search ends with less water over real water than today's (5 → 1)",
   "western-ghats-mahabaleshwar": "its one spring by the start puts 550 more tiles over real dry land; the start had water 15.5 tiles' walk away today",
   "fish-river-canyon": "the spring its search keeps puts 160 more tiles over real dry land and gives the start water only past its walk (none → 42.3 of 20)",
+  altiplano: "its one spring by the start (2,54) puts 299 more tiles over real dry land than today's (697 → 996) with the start's water where it was (8.2 tiles' walk); without it the turns leave the start 19.8 tiles from water",
+  "roaring-river-fan": "its search puts 138 more tiles over real dry land than today's (602 → 740) and takes the start's water from 1.4 to 10.2 tiles' walk; the start's spring that held it nearer (70,57) leaves it at 4",
 };
 
 /** The films above floor 0 the searched springs leave (D(new-films): thin on 90 % of their tiles) mended as `basinsFor`
