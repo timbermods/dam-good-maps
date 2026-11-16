@@ -10,7 +10,7 @@
 
 import { expect, test, type Locator, type Page } from "@playwright/test";
 import { toolPutAway } from "./helpers";
-import { centreOn, openEditor, setWaterSpeed, topDown, waitForEditor } from "./open";
+import { centreOn, openEditor, openSaved, setWaterSpeed, topDown, waitForEditor } from "./open";
 import { Scene, build } from "../../tools/terrain3d-maps";
 import { ruin } from "../../src/core/format/entities";
 
@@ -21,8 +21,10 @@ const heights = (page: Page) => page.evaluate(() => Array.from(window.dgm3d!.ren
 const selection = (page: Page) => page.evaluate(() => window.dgmEditor!.selection());
 const client = (page: Page, x: number, y: number) => page.evaluate(([a, b]) => window.dgmEditor!.tileToClient(a, b), [x, y] as [number, number]);
 
-async function openTopDown(page: Page, hash = "s=4242&z=96&d=n&t=highlands") {
-  await openEditor(page, hash);
+/** Open `hash` top down, the water instant: generated, or (`saved`) its saved map (`openSaved`, D148), so a generator's version
+ *  moves none of its ground. */
+async function openTopDown(page: Page, hash = "s=4242&z=96&d=n&t=highlands", opts: { saved?: boolean } = {}) {
+  await (opts.saved ? openSaved(page, hash) : openEditor(page, hash));
   await topDown(page);
   await setWaterSpeed(page, "instant");
 }
@@ -259,14 +261,15 @@ test("the Wand (D261): a river's visible water and no bank tile; land at its lev
 });
 
 test("Ctrl+A, Cut down and Fill up (D264): no ground left above the level, nothing at or below it changed; Fill up raises only the ground below; a cave's ground and what holds its roof left as they are (D487)", async ({ page }) => {
-  // (Highlands seed 7 since generator 0.10.11, #726, D148: seed 4242's spring cave is no longer kept)
-  await openTopDown(page, "s=7&z=96&d=n&t=highlands");
+  // (Highlands seed 4242's saved map since generator 0.10.36, D148: seed 7's land, generated, has no cave left; the saved map
+  // keeps its caves and their roofs. Seed 7 since generator 0.10.11, #726)
+  await openTopDown(page, "s=4242&z=96&d=n&t=highlands", { saved: true });
   const row = page.getByRole("group", { name: "Selection" });
   await page.keyboard.press("Control+a");
   await expect(row.getByRole("status")).toHaveText("96 × 96 tiles");
   const h0 = await heights(page);
-  // (this map grows a spring cave at the default Verticality, D488: the Select actions leave its ground, and the ground
-  // holding up its roof, as they are, as a force does, D487; the whole map's rest is shaped)
+  // (this map has caves at the default Verticality, D488: the Select actions leave their ground, and the ground holding up
+  // their roofs, as they are, as a force does, D487; the whole map's rest is shaped)
   const held = new Set(await page.evaluate(() => window.dgmEditor!.worker.selectionHeld()));
   expect(held.size).toBeGreaterThan(0);
   const L = 8;
@@ -295,7 +298,9 @@ test("Ctrl+A, Cut down and Fill up (D264): no ground left above the level, nothi
 });
 
 test("Delete sources (D315): removes only the water or badwater source in the selection, one undo step; its water drains after", async ({ page }) => {
-  await openTopDown(page);
+  // (saved since generator 0.10.36, D148: on its land the source farthest from the others, a badwater source in a pit, stands
+  // within four tiles of water it does not feed, 0.156 deep, which stays when the pit dries, as the canonical settle has it)
+  await openTopDown(page, undefined, { saved: true });
   const sourceCount = () =>
     page.evaluate(() => {
       const e = window.dgm3d!.renderer.mapState()!.entities;
