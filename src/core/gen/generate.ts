@@ -234,8 +234,9 @@ export interface GenerationInfo {
   /** The shown land's outcomes read on the water its rivers were planned with (the theme's promise,
    *  a readable water story), before its water settled: what the land-stage screen judged. */
   planned?: { promise: boolean; water: boolean; island?: number };
-  /** Rivers, lakes, falls, splits and deltas the hydrology planned. */
-  hydro: { rivers: number; lakes: number; falls: number; splits: number; deltas: number } | null;
+  /** Rivers, lakes, falls, splits and deltas the hydrology planned; on the water tree the pools' spacing along each level
+   *  reach, in channel widths (D(water-tree) round 4). */
+  hydro: { rivers: number; lakes: number; falls: number; splits: number; deltas: number; poolGaps?: number[] } | null;
   start: StartPick | null;
   /** The longest straight channel bank and canal (D209). */
   straight: { run: number; canal: number; wave: number } | null;
@@ -1823,7 +1824,7 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
     genomes: 0,
     genome: g,
     settles: 0,
-    hydro: { rivers: hy.rivers.length, lakes: hy.lakes.length, falls: hy.falls.length, splits: hy.arms.filter((a) => a.kind === "split").length, deltas: hy.arms.filter((a) => a.kind === "mouth").length },
+    hydro: { rivers: hy.rivers.length, lakes: hy.lakes.length, falls: hy.falls.length, splits: hy.arms.filter((a) => a.kind === "split").length, deltas: hy.arms.filter((a) => a.kind === "mouth").length, ...(hy.poolGaps?.length ? { poolGaps: hy.poolGaps } : {}) },
     start: null,
     straight: null,
     storage: null,

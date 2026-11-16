@@ -69,6 +69,8 @@ export interface Hydro {
   flowTotal: number;
   /** Whether the water is a tree (D(water-tree): natural water above 128², not a sea's map). */
   tree?: boolean;
+  /** On the tree, the spacing between pools along each level reach, in channel widths (round 4's measure). */
+  poolGaps?: number[];
 }
 
 export interface HydroOptions {
@@ -118,11 +120,13 @@ const REACH_HEADS = 2;
  *    join that keeps `run` after it gives it, the main river keeping its lead; where none can, there is no brook;
  *  - `run` (round 4): no course carries less, the water that runs its bed through the settle (a spring at 0.5 stood a
  *    film 0.03 deep that never reached its join); the springs' least comes off the inflows, so the total is the theme's;
- *  - `pool` (round 4): along a level reach a pool every `pool` tiles, three tiles a level under the bed, so water lasts
- *    a drought along every course;
+ *  - `pool`, `poolBend` (round 4): pools where the water makes them, below a step and then `pool[0]` to `pool[1]`
+ *    channel widths on along a level reach, at a join, where the bed is widest or on the outside of a bend turning
+ *    `poolBend` or more, else by a seeded draw in that stretch (never on a count), each `poolLen` channel widths long
+ *    (three tiles at least), so water lasts a drought;
  *  - `deltaCap`: Delta's courses are this wide at most (round 3: its trunk read as a drowned valley 20 tiles wide).
  *  The trunk, the first course, is the land's own: the first that traces (round 3). Never on a sea's map (Islands). */
-export const TREE = { heads: [3, 1.5], seat: [0.0015, 4], apart: 0.15, floor: 0.4, grow: 3, width: 3, bank: 3, reach: 24, pick: 6, rough: 0.3, bays: 6, brook: { count: 5, apart: 0.08, width: 1.5, grow: 1, seat: 0.05, len: 0.1 }, run: 1, pool: 12, basin: 0.12, deltaCap: 10 } as const;
+export const TREE = { heads: [3, 1.5], seat: [0.0015, 4], apart: 0.15, floor: 0.4, grow: 3, width: 3, bank: 3, reach: 24, pick: 6, rough: 0.3, bays: 6, brook: { count: 5, apart: 0.08, width: 1.5, grow: 1, seat: 0.05, len: 0.1 }, run: 1, pool: [5, 7], poolLen: 1.5, poolBend: 0.25, basin: 0.12, deltaCap: 10 } as const;
 /** Ruled water (planning's ruling of 2026-11-15): a course within `near` tiles of one already traced for `run` cells
  *  joins it there, never running side by side with it (`planHydroSingle`'s trace). */
 export const BESIDE = { near: 12, run: 16 } as const;
@@ -602,6 +606,7 @@ function planHydroSingle(E: Float64Array, h: Uint8Array, g: Genome, seed: number
   // a tangle: at most `maxHeads`; River Valley keeps fewer tributaries with enough flow.
   const owner = new Int32Array(N).fill(-1);
   const traced: { k: number; head: Head; cells: number[]; joins: number; toSea?: boolean }[] = [];
+  const poolGaps: number[] = [];
   // (round 6, Islands: a river that meets the sea ends there, and none is ever routed on through the
   // sea and across its lip to the map's edge: its bed cut there drained the sea through the lip, the
   // cause round 5 widened the lip for. A later head still joins a river on the land (D273 (1)): one
@@ -1818,19 +1823,88 @@ function planHydroSingle(E: Float64Array, h: Uint8Array, g: Genome, seed: number
       for (let q = j; q <= n && prof[q] === prof[j]; q++) level++;
       if (level >= 8) for (let q = j; q < j + 3; q++) bedOf[q] = prof[j] - 1;
     }
-    // (the water tree, round 4: along a level reach, a pool every `TREE.pool` tiles, three tiles a level deeper with the
-    // reach's bed for its lip, so water lasts a drought along every course, a brook's too, and the start's plants stand
-    // on water that lasts; never by a lake, nor within six tiles of a course's ends)
-    if (tree)
+    // (the water tree, round 4: pools where the water makes them, a level under the reach's bed, its lip, so water
+    // lasts a drought along every course, a brook's too. Below a step (the pool above); then, along a level reach, the
+    // next one `TREE.pool` channel widths on (5 to 7, as a stream's are), `TREE.poolLen` widths long: at a join, where
+    // the bed is widest, or on the outside of the sharpest bend in that stretch, and on a straight even reach by a
+    // seeded draw within it, never on a count (planning, 23:48Z: a pool every 12 tiles read as beads on a string);
+    // never by a lake, nor within six tiles of a course's ends. The spacing is kept, in channel widths, for the measures)
+    if (tree) {
+      const at = (t: number) => (t * L) / n;
+      const turnAt = (t: number): number => {
+        const a = pointAt(path, Math.max(0, at(t) - 3)).p;
+        const b = pointAt(path, at(t)).p;
+        const c = pointAt(path, Math.min(L, at(t) + 3)).p;
+        const ux = b[0] - a[0];
+        const uy = b[1] - a[1];
+        const vx = c[0] - b[0];
+        const vy = c[1] - b[1];
+        const lu = portable.sqrt(ux * ux + uy * uy) || 1;
+        const lv = portable.sqrt(vx * vx + vy * vy) || 1;
+        return Math.abs(ux * vy - uy * vx) / (lu * lv);
+      };
       for (let j = 1; j <= n; ) {
         let e = j;
         while (e + 1 <= n && prof[e + 1] === prof[j]) e++;
         let lake = false;
         for (let q = j; q <= e; q++) if (lakeAt[q]) lake = true;
-        if (!lake && prof[j] >= BED_FLOOR + 1)
-          for (let q = Math.max(j + 4, 6); q + 3 <= Math.min(e - 2, n - 6); q += TREE.pool) for (let t = q; t < q + 3; t++) bedOf[t] = Math.min(bedOf[t], prof[j] - 1);
+        const end = Math.min(e - 2, n - 6) - 3;
+        if (!lake && prof[j] >= BED_FLOOR + 1) {
+          // (the reach's head is a step, or the course's own head: the spacing counts from it)
+          let last = j;
+          const stepPool = prof[j - 1] - prof[j] >= 1 && e - j + 1 >= 8;
+          for (let k = 0; k < n; k++) {
+            const w = Math.max(1, widthAt(at(last)));
+            const lo = Math.max(last + Math.ceil((TREE.pool[0] * w * n) / L), j + 4, 6);
+            const hi = Math.min(last + Math.floor((TREE.pool[1] * w * n) / L), end);
+            if (lo > hi) break;
+            let t = -1;
+            // a join in the stretch: the pool just below it
+            for (const jn of joined) {
+              const q = Math.round((jn.s * n) / L);
+              if (q >= lo && q <= hi) {
+                t = q;
+                break;
+              }
+            }
+            // else the outside of its sharpest bend, where it turns enough to read as one
+            if (t < 0) {
+              let most: number = TREE.poolBend;
+              for (let q = lo; q <= hi; q++) {
+                const v = turnAt(q);
+                if (v > most) {
+                  most = v;
+                  t = q;
+                }
+              }
+            }
+            // else where the bed is widest, clearly wider than the stretch's narrowest
+            if (t < 0) {
+              let wide = -1;
+              let narrow = Infinity;
+              let best = -1;
+              for (let q = lo; q <= hi; q++) {
+                const v = half(at(q), L);
+                narrow = Math.min(narrow, v);
+                if (v > wide) {
+                  wide = v;
+                  best = q;
+                }
+              }
+              if (wide - narrow >= 0.5) t = best;
+            }
+            // else a seeded draw within the stretch
+            if (t < 0) t = lo + Math.floor(((hash32(seed, "pool", attempt, tr.k, last) >>> 0) / 4294967296) * (hi - lo + 1));
+            // (as long as the channel is wide and a half, three tiles at least: a trunk's pools are its size)
+            const len = Math.min(Math.max(3, Math.round((TREE.poolLen * w * n) / L)), Math.min(e - 2, n - 6) - t);
+            for (let q = t; q < t + len; q++) bedOf[q] = Math.min(bedOf[q], prof[j] - 1);
+            if (stepPool || last !== j) poolGaps.push(Math.round(((at(t) - at(last)) / w) * 100) / 100);
+            last = t;
+          }
+        }
         j = e + 1;
       }
+    }
     // (the water tree, D(water-tree): a course along the map's edge keeps a bank of `TREE.bank` tiles between its
     // channel or floor and the edge, but where it comes in or leaves by that edge; a trunk as wide as its water
     // cut the edge row there and its water left the map beside its own mouth)
@@ -2342,7 +2416,7 @@ function planHydroSingle(E: Float64Array, h: Uint8Array, g: Genome, seed: number
       for (let k = lakes.length - 1; k >= 0; k--) if (lakes[k].tiles.length < 6) lakes.splice(k, 1);
     }
   }
-  return { rivers, water, lakes, falls, arms, flowTotal, tree };
+  return { rivers, water, lakes, falls, arms, flowTotal, tree, poolGaps };
 }
 
 /** River Valley tries two courses around a drawn cliff and retains the stronger split.
