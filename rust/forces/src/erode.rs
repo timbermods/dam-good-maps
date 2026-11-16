@@ -263,14 +263,15 @@ fn opening_share(power: f64) -> f64 {
 }
 
 /// One opening the gesture wears: the tile at the face's foot, the way into the face (an axis), the
-/// foot's level, its half-width along the face, its height and depth, and the thickness of the fin it
-/// cuts through (0: the face is no fin).
+/// foot's level, its half-width along the face and how far along the face from the foot its middle stands
+/// (in tiles), its height and depth, and the thickness of the fin it cuts through (0: the face is no fin).
 struct Opening {
     fx: i64,
     fy: i64,
     dx: i64,
     dy: i64,
     half: f64,
+    shift: i64,
     tall: f64,
     depth: f64,
     fin: usize,
@@ -475,7 +476,7 @@ pub(super) fn plan(before: &Map, mut map: Map, s: &Settings, intent: &Intent, ke
             Some(q) if thick < 4 && surf[q] <= level + 1 && wet[q] == 0 => thick,
             _ => 0,
         };
-        openings.push(Opening { fx, fy, dx, dy, half: 0.0, tall, depth: depth * (0.9 + 0.2 * hash(seed, 503.0 + k as f64)), fin });
+        openings.push(Opening { fx, fy, dx, dy, half: 0.0, shift: 0, tall, depth: depth * (0.9 + 0.2 * hash(seed, 503.0 + k as f64)), fin });
         widths.push(clamp(size * 0.5, 3.0, 8.0) * (0.75 + 0.5 * hash(seed, 401.0 + k as f64)));
     }
     // each 3 to 8 wide, never so wide it comes within 2 tiles of the next (a fin's no wider than its roof can span)
@@ -488,6 +489,16 @@ pub(super) fn plan(before: &Map, mut map: Map, s: &Settings, intent: &Intent, ke
         }
         let wide = clamp(min(widths[k], room), 3.0, 8.0);
         openings[k].half = if openings[k].fin > 0 { min(wide * 0.5, 2.5) } else { wide * 0.5 };
+        // (each roll turns its opening, turn by turn with the seed: centred on the foot at its depth, then a step
+        // along the face and deeper, then a step the other way and shallower, so Try another wears another stretch
+        // of the face, never the same pocket. Centred on the foot every time, a small face's opening filled all the
+        // room its roof and floor left it, whatever the seed drew, and the next roll wore the same voxels: #1198.
+        // The step never brings it nearer the next opening than its width allows: the rock between stays)
+        let turn = ((seed as u64).wrapping_add(k as u64) % 3) as usize;
+        let free = if room.is_finite() { max(0.0, ((room - 2.0 * openings[k].half) * 0.5).floor()) } else { f64::INFINITY };
+        let step = min(free, max(1.0, round(openings[k].half * 0.6))) as i64;
+        openings[k].shift = [0, 1, -1][turn] * step;
+        openings[k].depth *= [1.0, 1.2, 0.8][turn];
     }
     // how far each opening reaches into the rock at a voxel: deepest at its base and its middle, the
     // rock's grain varying it; through a fin, all the way across its lower part
@@ -517,16 +528,17 @@ pub(super) fn plan(before: &Map, mut map: Map, s: &Settings, intent: &Intent, ke
         let long = (max(o.depth * 1.15, o.fin as f64 + 0.5) + 1.0).ceil() as i64;
         let span = (o.half + 1.0).ceil() as i64;
         for along in -1..=long {
-            for lat in -span..=span {
+            for lat in o.shift - span..=o.shift + span {
                 let Some(q) = at(o.fx + along * o.dx - lat * o.dy, o.fy + along * o.dy + lat * o.dx) else { continue };
                 if !dist[q].is_finite() {
                     continue;
                 }
-                let g = smooth((o.half - lat.abs() as f64) / max(0.5, 0.45 * o.half)) as f32;
+                let off = (lat - o.shift).abs() as f64;
+                let g = smooth((o.half - off) / max(0.5, 0.45 * o.half)) as f32;
                 if g > weight[q] {
                     weight[q] = g;
                     owner[q] = k as u8;
-                    let f = lat.abs() as f64 / max(1.0, o.half);
+                    let f = off / max(1.0, o.half);
                     arch[q] = portable_math::sqrt(max(0.0, 1.0 - f * f)) as f32;
                 }
             }

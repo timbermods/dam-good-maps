@@ -60,8 +60,9 @@ import { decodeSpecFragment, encodeSpecFragment, makeSpec, type MapSpec } from "
 // and generator 0.10.26's ruins to within a column, D527: its ruin fields hold the scrap asked to a column, D148;
 // and generator 0.10.27's version alone, the premise map otherwise 0.10.26's (D(new-leaks) moves the themes' land, not a premise's), D148;
 // and generator 0.10.29's version alone (#1186): at 0.10.27 the branch gives `7760e7be…` byte for byte, D148;
-// and generator 0.10.30's version alone (the land-stage flood check): at 0.10.29 the branch gives `93bb3867…` byte for byte, D148)
-const SHA = "f4d520fb16124924b87d173b48d1c98b53eeed60ea0dffed076d9cae8c6f11ba";
+// and generator 0.10.36's version alone (#1205): `93bb3867…` before it, and with the version set back to 0.10.29 the branch gives
+// `93bb3867…` byte for byte, the round forms at their meant size not reaching this premise's land, D148)
+const SHA = "c42349c0bce06aab7e00cbd1d52b6a3fbdfcc99c02736b5377224db746c8a347";
 
 // (a Hard map whose start lake parts as it falls: the single analytic reading stood 0.32 over the run there, PR #1040;
 // seed 5 for 7 since D518 with dev's ways out by a ramp's line (#1061), D148: seed 7's Hard lake stair holds no plan now

@@ -15,6 +15,7 @@ import { fixture } from "./forceFixtures";
 import * as ed from "../../src/worker/session";
 import { openMap } from "./forceEverywhere";
 import { fixtureInEditor } from "../fixtureEditor";
+import type { FixtureVariant } from "../fixtureProjects";
 import { MapSession } from "../../src/core/doc/session";
 import { decodeProject } from "../../src/core/doc/document";
 
@@ -23,10 +24,10 @@ let at: [number, number] = [W >> 1, W >> 1];
 const mid: [number, number] = [W >> 1, W >> 1];
 const fault = [{ x: 10, y: W * 0.4 }, { x: W - 10, y: W * 0.45 }];
 
-/** River Valley 128 at `seed` (`saved`: its saved fixture, shown as generated), and its highest dry ground (where Carve and Glaciate start). */
-async function open(seed: number, saved = false) {
+/** River Valley 128 at `seed` (`saved`: its saved fixture of that generator version's land, shown as generated), and its highest dry ground (where Carve and Glaciate start). */
+async function open(seed: number, saved: FixtureVariant | null = null) {
   if (saved) {
-    fixtureInEditor("riverValley", W, seed, "v0.10.27");
+    fixtureInEditor("riverValley", W, seed, saved);
     ed.settleWater();
   }
   const b = saved ? MapSession.open(decodeProject(ed.project().bytes)).built : await openMap("riverValley", W, seed);
@@ -56,7 +57,7 @@ beforeAll(async () => {
   // gentlest glacier moves 1,267 levels to Power 100's 3,924, over its quarter; of seeds 1 to 5 only seed 4 keeps every force's
   // check, the gentlest glacier moving more than its share on the rest, the gentlest eruption on seed 1 and Carve on seed 3)
   // (River Valley 128² seed 4, as generator 0.10.27 made it, opens a saved fixture of the land it was written on (D148, the #1163 pattern); the generated land moves with the generator)
-  await open(4, true);
+  await open(4, "v0.10.27");
 });
 
 /** Each force at its largest Size (Carve's widest), the page's way (nature drawing its details). */
@@ -101,20 +102,23 @@ function change(force: string, power: number) {
   return { tiles, max, sum };
 }
 
+/** At its largest Size, Power 0 is gentle but visible, and the change grows with Power. */
+function gentleButVisible(force: string) {
+  const [p0, p50, p100] = [0, 50, 100].map((p) => change(force, p));
+  const where = `${force}: ${JSON.stringify({ p0, p50, p100 })}`;
+  expect(p0.tiles, where).toBeGreaterThanOrEqual(9);
+  // (a Slide moves land sideways: its gentlest is a 2-tile shift, the least that shows at a map's edge)
+  expect(p0.sum, where).toBeLessThanOrEqual(p100.sum * (force === "quake slide" ? 0.3 : 0.25));
+  if (force !== "quake slide") {
+    expect(p0.max, where).toBeLessThanOrEqual(Math.min(4, p100.max * 0.6));
+  }
+  expect(p50.sum, where).toBeGreaterThan(p0.sum);
+  expect(p100.sum, where).toBeGreaterThan(p50.sum);
+}
+
 describe("Size sets the reach, Power the strength within it (D361 (3))", () => {
   for (const force of ["carve", "erupt", "glaciate", "quake lift", "quake slide"])
-    it(`${force}: at its largest Size, Power 0 is gentle but visible, and the change grows with Power`, () => {
-      const [p0, p50, p100] = [0, 50, 100].map((p) => change(force, p));
-      const where = `${force}: ${JSON.stringify({ p0, p50, p100 })}`;
-      expect(p0.tiles, where).toBeGreaterThanOrEqual(9);
-      // (a Slide moves land sideways: its gentlest is a 2-tile shift, the least that shows at a map's edge)
-      expect(p0.sum, where).toBeLessThanOrEqual(p100.sum * (force === "quake slide" ? 0.3 : 0.25));
-      if (force !== "quake slide") {
-        expect(p0.max, where).toBeLessThanOrEqual(Math.min(4, p100.max * 0.6));
-      }
-      expect(p50.sum, where).toBeGreaterThan(p0.sum);
-      expect(p100.sum, where).toBeGreaterThan(p50.sum);
-    }, 120_000);
+    it(`${force}: at its largest Size, Power 0 is gentle but visible, and the change grows with Power`, () => gentleButVisible(force), 120_000);
 
   it("the strength rule: full at Power 100 and at Power's own size, the square root of the natural share at Power 0", () => {
     // (an impact's: Power 0 gives a 6-tile crater, Power 50 a 48-tile one)
@@ -142,6 +146,42 @@ describe("a painted Lift answers Power while it is painted (D361 (1))", () => {
     expect(lift(ed.terrainNow().heights)).toBeGreaterThan(low + 3);
     ed.undo();
   });
+});
+
+describe("a glacier whose way runs off the map (#1198)", () => {
+  // (River Valley 128² seed 4 as generator 0.10.29 made it: from its highest dry ground, (26, 10), a hilltop by the north
+  // edge, the glacier's way runs off the map within 8 tiles. Closed by a lip inside the edge, every Power's floor stood at
+  // the edge's own ground, so Power 0 moved 235 levels to Power 100's 514, and Power 50 547; its trough now runs open
+  // off the map, its water leaving by it, and Power cuts it as deep as anywhere)
+  it("glaciate: at its largest Size, Power 0 is gentle but visible, and the change grows with Power", async () => {
+    await open(4, "v0.10.29");
+    expect(at).toEqual([26, 10]);
+    gentleButVisible("glaciate");
+  }, 120_000);
+
+  // (and it is never wider than it is long on the map: an open end's width is capped by the route's length on the map
+  // and the way on to the edge. On Size Auto it took the valley's width, 21 tiles, and Power 100 cut a box 14 tiles
+  // across the edge from a route 10 tiles long: #1204)
+  it("glaciate on Size Auto: the open end is no wider than its way from the click to the edge", async () => {
+    await open(4, "v0.10.29");
+    for (const power of [50, 100]) {
+      const before = ed.terrainNow().heights.slice();
+      const r = ed.forceStart({ ...request("glaciate", power), settings: { ...GLACIATE_DEFAULTS, power, size: null, benches: null, steps: null, tarn: null, scree: null } as never } as ed.ForceRequest);
+      expect(r.errors).toEqual([]);
+      let shown = r.frame?.heights ?? before;
+      for (let k = 0; k < 20000; k++) {
+        const f = ed.forceAdvance(64);
+        if (!f) break;
+        if (f.heights) shown = f.heights;
+        if (f.done) break;
+      }
+      ed.forceCancel();
+      let across = 0;
+      for (let x = 0; x < W; x++) if (before[x] - shown[x] >= 1) across++;
+      expect(across, `Power ${power}`).toBeGreaterThanOrEqual(3);
+      expect(across, `Power ${power}`).toBeLessThanOrEqual(at[1] + 2);
+    }
+  }, 120_000);
 });
 
 describe("Craterize's gentlest is gentle on any ground: seeds 1 to 10 (D361 (3))", () => {

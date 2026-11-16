@@ -6,7 +6,8 @@
 //
 // - **The line is a smooth curve.** The stations are rounded (Chaikin, three passes) and sampled every
 //   half tile; every tile takes its place along the line and its offset across it from the nearest
-//   sample. Nothing in the trough runs along the grid or between two drawn points as a ruled line.
+//   sample. Nothing in the trough runs along the grid or between two drawn points as a ruled line. A
+//   line that runs to the map's edge runs on off it: the trough stays open there, its water leaving the map.
 // - **One floor across the trough, stepping down in long treads.** Each sample's floor level is the
 //   valley's low dry ground near the line, less Power's cut, never rising down the route; the level
 //   holds for a tread at least `tread` tiles long and steps down a level (or more, a rock bar) at
@@ -28,6 +29,7 @@
 // portable functions and the planner's own rounding: the same bytes natively and in WebAssembly.
 use super::*;
 
+#[derive(Clone, Copy)]
 struct Sample {
     x: f64,
     y: f64,
@@ -122,6 +124,35 @@ pub(super) fn trough(p: &mut GlacierPlan, before: &Map, s: &GlacierSettings, kee
             line[k].ny = ny;
         }
     }
+    // (a line that runs to the map's edge, as a valley's way down does where it leaves the map, runs on off it: the
+    // trough stays open there, its floor and channel running out over the edge, and its water leaves the map by
+    // them, as the valley's did. Closed by a lip a few tiles inside the edge, its floor could stand no lower than the
+    // edge's own ground, at every Power alike: #1198, where Power 100's trough on a hilltop by the edge was no deeper
+    // than Power 50's). Its width runs out to the edge too: the planner holds no station back from the edge it runs
+    // off, so the trough keeps its U to the edge, never a slot. Whether it runs off is `glacier_runs_off`'s one test
+    // on the stations, the planner's too, so the width freed and the end opened always go together: a slanted end
+    // near the edge once freed its width while its line, aimed along the edge, stayed closed. The line runs on along
+    // itself where that leaves the map within four tiles, else straight across the edge)
+    let route: Vec<Point> = p.path.iter().map(|q| Point { x: q.x, y: q.y }).collect();
+    let open = match glacier_runs_off(w, h, &route) {
+        Some(edge) => {
+            let e = *line.last().unwrap();
+            let inside = |x: f64, y: f64| x >= 0.0 && y >= 0.0 && x < w as f64 && y < h as f64;
+            let leaves = |dx: f64, dy: f64| (1..=8usize).find(|&k| !inside(e.x + dx * k as f64 * 0.5, e.y + dy * k as f64 * 0.5));
+            let across = [(-1.0, 0.0), (0.0, -1.0), (1.0, 0.0), (0.0, 1.0)][edge];
+            let (dx, dy, nx, ny, k) = match leaves(e.ny, -e.nx) {
+                Some(k) => (e.ny, -e.nx, e.nx, e.ny, k),
+                None => (across.0, across.1, -across.1, across.0, leaves(across.0, across.1).unwrap_or(8)),
+            };
+            for j in 1..=k + 1 {
+                let d = j as f64 * 0.5;
+                line.push(Sample { x: e.x + dx * d, y: e.y + dy * d, s: e.s + d, r: e.r, nx, ny });
+            }
+            true
+        }
+        None => false,
+    };
+    let length = max(line.last().unwrap().s, 1.0);
     let t = clamp(s.power, 0.0, 100.0) / 100.0;
     let cut = 1.0 + round(10.0 * t * (0.4 + 0.6 * t));
     let cap = cut + 2.0 + round(3.0 * t) + if t >= 1.0 { 4.0 } else { 0.0 };
@@ -151,13 +182,14 @@ pub(super) fn trough(p: &mut GlacierPlan, before: &Map, s: &GlacierSettings, kee
         }
     }
     // (past the line's two ends the trough closes: the cirque's headwall and the snout's lip rise from the floor's
-    // edge as its walls do, so the floor ends where the ice did, never a round pad beyond it)
+    // edge as its walls do, so the floor ends where the ice did, never a round pad beyond it; a snout run off the
+    // map's edge stays open)
     for i in 0..n {
         if near[i] < 0 {
             continue;
         }
         let j = near[i] as usize;
-        if j != 0 && j != line.len() - 1 {
+        if j != 0 && (j != line.len() - 1 || open) {
             continue;
         }
         let q = &line[j];
@@ -388,7 +420,8 @@ pub(super) fn trough(p: &mut GlacierPlan, before: &Map, s: &GlacierSettings, kee
             }
         }
     }
-    let mut drains = ribbon[ns - 1] >= 0 || joins_water.is_some();
+    // (a trough open at the map's edge drains off the map, along its own floor)
+    let mut drains = open || ribbon[ns - 1] >= 0 || joins_water.is_some();
     if !drains {
         let end = &line[ns - 1];
         let start = glacier_tile(before, Point { x: clamp(end.x, 0.0, w as f64 - 1.0), y: clamp(end.y, 0.0, h as f64 - 1.0) });

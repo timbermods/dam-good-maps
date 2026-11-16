@@ -964,7 +964,13 @@ on one shared forces core, `src/core/forces/` (D203, D206, D220; see its README)
   (`tests/contract/glaciateFloor.test.ts`, `glaciatePowerSize.test.ts`). **One U-shaped trough** (#914; its last
   stage, `rust/forces/src/trough.rs`): the line is the stations rounded into a smooth curve that wanders a little
   either side of the drawn one, so nothing in the trough runs ruled; its edge wanders too, and it closes at both ends,
-  the cirque's headwall and the snout's lip rising from the floor as its walls do. The floor is one level across the
+  the cirque's headwall and the snout's lip rising from the floor as its walls do, except where the line runs to the
+  map's edge: there the trough runs on off the map open, its floor and channel out over the edge and its water leaving
+  by them, so the edge's ground never holds every Power's floor at one height (#1198), and at its full width: no
+  station is held back from the edge its route runs off, so the U reaches it whole, never a slot, yet no wider than
+  the route is long on the map, the glacier never wider than it is long (#1204). Whether a route runs off the map is
+  one test for its width and its open end alike (its last point within 3.5 tiles of an edge, heading into it). The floor is
+  one level across the
   trough (the valley's low dry ground near the line less Power's cut, 1 level at Power 0 to 11 at 100, easing off over
   the last third) and steps down the route in uneven treads, never rising down it; a tread longer than twice its
   length steps down part way. The river runs in one channel a level below the floor, two or three tiles wide,
@@ -1051,7 +1057,10 @@ on one shared forces core, `src/core/forces/` (D203, D206, D220; see its README)
   rock that wore least comes back as ragged remnants wherever a roof would hang. Openings are scaled to their cliff
   (the force audit's 11): a click's at the nearest face within twice its Size, a sweep's one every 6 to 10 tiles of
   unequal size; 40 % of the face high at Power 55, 70 % at 100, 3 to 8 wide; a fin under 4 tiles is cut through, an
-  arch. Where no face is in reach (D356, the audit's 24) it scours rills a level deep down a slope's fall line, or on
+  arch. Each roll turns an opening with the seed (centred on the foot at its depth, then a step along the face and
+  deeper, then a step the other way and shallower), so Try another wears another stretch of the face, never the same
+  pocket of a small face again (#1198). Where no face is in reach (D356, the audit's 24) it scours rills a level deep
+  down a slope's fall line, or on
   level ground one scour toward lower ground, keeping only what drains: never a pond, never below the water beside it,
   never under water. Every tile it changes lies within `erodeExtent` (2 × Size + 12) of its gesture. Sheet
   `docs/sheets/force-erode.jpg`. Its
@@ -1705,8 +1714,12 @@ Craterize, Erupt, Rift, Quake, Deposit, Glaciate and Erode. M turns Markers on o
   desktop's). A finger is a pointer of its own type, so the mouse, the pen (its pressure) and the keys keep everything
   above. **Two fingers** move the camera in one gesture: dragged they pan, pinched they zoom about the ground under their
   middle (it stays under it, as the wheel's does), twisted they turn the view about that ground, and two fingers side by
-  side dragged up or down together tilt it (in the top-down view that drag pans). A browser tells one touch a finger at
-  a time, so the gesture takes a touch's move whole: one step once both fingers' moves are in (`Touches`), never a
+  side (a hand's slanted pair too; not one clearly above the other) dragged up or down together tilt it (in the top-down
+  view that drag pans). The gesture moves nothing until its way is clear on a hand's evidence, not a test's (`settle`:
+  each finger's travel past its wobble, a lead of up to 25 px past iOS's 10 px slop, a drifting gap; a sideways pan is
+  clear at 8 px, a pinch or a twist of both fingers at 6, a pivot about a held finger at 36, a tilt once both fingers
+  have gone 8 px up or down; `?viewport=on` shows how the last one settled). A browser tells one touch a finger at a
+  time, so the gesture takes a touch's move whole: one step once both fingers' moves are in (`Touches`), never a
   step aside and back that a view held at the map's edge could not undo. Let go moving, the view glides on and
   slows to a stop (none with reduced motion). **One finger with nothing in hand** (the resting Select with nothing
   selected) pans; a **tap** reads the tile (the readout stays once the finger is gone) and is a click (an object, a
