@@ -388,8 +388,8 @@ interface Attempt {
    *  settle): the attempts stop there (D348: the land is never replaced). */
   stuck?: boolean;
   /** The rivers a refusal before the build names (its leak's courses, its drowned heads, the main river its promise or
-   *  water story is read on, a source in a flow's courses and those whose water reaches it, the courses whose water came
-   *  down to a badwater hollow); none: it names no river (ruled water's retry, `joinCaused`). */
+   *  water story is read on, a source in a flow's courses and those whose water reaches it); none: it names no river
+   *  (ruled water's retry, `joinCaused`). */
   touches?: string[];
 }
 
@@ -565,12 +565,14 @@ export async function generateAsync(specIn: MapSpec, opts: GenerateOptions, runn
  *  channel's half-width and its banks. */
 const JOIN_TOUCH = 6;
 
-/** Ruled water's retry (D(ruled-water)): a refusal is the joins' doing only when it names or touches a joined course
+/** Ruled water's retry (D(ruled-water)): a refusal is the joins' doing when it names or touches a joined course
  *  (`Hydro.joinedRivers`): before the build, the rivers it names (`Attempt.touches`); on a built map, a blocking check whose
- *  feature is one or whose tiles lie within `JOIN_TOUCH` of one's course. A start, a mine pair, a dam wall or a badwater
- *  hollow with no place, away from them, is the land's, and the land is drawn again as dev draws it, at no second plan's
- *  cost. */
+ *  feature is one or whose tiles lie within `JOIN_TOUCH` of one's course. No place for the badwater counts on any land
+ *  with joins (planning, 2026-11-16 15:12Z: the hollows' place is read off all the water, which the joins re-route;
+ *  Delta 256² seed 6 lost dev's land to it, 3 → 9 attempts). A start, a mine pair or a dam wall away from the joined
+ *  courses is the land's, and the land is drawn again as dev draws it, at no second plan's cost. */
 function joinCaused(a: Attempt, joined: ReadonlySet<string> | undefined, W: number, H: number): boolean {
+  if (a.result.info.stage === "no place for badwater") return true;
   if (!joined?.size) return false;
   if (a.touches) return a.touches.some((id) => joined.has(id));
   const checks = a.result.report.checks.filter((c) => !c.ok && blocks("generate", c));
@@ -830,8 +832,8 @@ function attemptRound(specIn: MapSpec, optsIn: GenerateOptions, t0: number, roun
     const screenedAt = { ...screened };
     let shownJoined = false;
     let a = attemptOnce(specIn, land, attempt, { ...opts, maxAttempts: max, onLand: l => { shownJoined = true; lands++; opts.onLand?.(l); } }, t0, null, screened);
-    // (ruled water: a plan refused on a check that names or touches a joined course is planned again on the same land
-    // without the joins; any other refusal draws the next land as dev does. `joinCaused` reads that from the refusal
+    // (ruled water: a plan refused on a check that names or touches a joined course, or for no place for its badwater, is
+    // planned again on the same land without the joins; any other refusal draws the next land as dev does. `joinCaused` reads that from the refusal
     // itself, so a refused joined plan costs no second plan unless a join could have refused it. The second plan's
     // screening count and dry tally are put back as they were before the first; its genome is the one the first left, so
     // a Canyon whose joined plan missed its promise is planned again already incised a level deeper, not as dev plans it.
@@ -2546,7 +2548,6 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
       // is shown, D348)
       let keepOffH = badAsk.keepOff ?? null;
       let hollowTries = 0;
-      const badReachers = new Set<string>();
       // (the pre-fill of the land as it will be shown, for the dam-wall check below)
       let shownFill: Float64Array | null = null;
       for (let round = 0; round < HOLLOW_TRIES + 3; round++) {
@@ -2568,9 +2569,6 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
           droppedPre.push(...leave.map((r) => r.id));
         }
         if (bad.features.some((f) => reached.has(f.id))) {
-          // (the courses whose water came down to the hollow: what a refusal for no place names)
-          const by = sourcesInFlowReachers({ ...bw, waterModel: model, water: fill } as BuildResult);
-          for (const f of bad.features) for (const o of by.get(f.id) ?? []) badReachers.add(o);
           for (const f of bad.features) contains.delete(f.id);
           h.set(bare);
           keepOffH = orMask(keepOffH, bad.avoid);
@@ -2581,7 +2579,7 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
           }
         } else if (!leave.length) break;
       }
-      if (guess && badAsk.count > 0 && !bad.features.length && !lastAttempt) return fail("no place for badwater", null, true, [...badReachers]);
+      if (guess && badAsk.count > 0 && !bad.features.length && !lastAttempt) return fail("no place for badwater", null, true);
       // (the dry washes and an old bed, `land/washes.ts` (D517): cut as the land is shaped,
       // before it is shown, off every place a start may take and its ground, the hollows, the mine sites' squares and
       // ways, the weir's pool and the natural ramps; on the water as the settle starts from it, which they never reach)
