@@ -26,6 +26,12 @@ export interface LeveeForm {
   over(s: number, side: BankSide): number;
   /** The noise seed for the steps' outer edges. */
   seed: number;
+  /** The course's water as laid (1 on its tiles), and the bank's core: every tile within `core` of that water (centre
+   *  to centre) stands at least one over where the crest does, whatever its edge's noise, and from `lead` tiles before
+   *  `from` along the course (the water beside land before the banks begin). Without it the banks are the noise's. */
+  water?: ArrayLike<number>;
+  core?: number;
+  lead?: number;
 }
 
 /** How far a bank's outer edge wanders off its width (tiles, noise `cell`), and its jag (tiles, noise `jagCell`: a
@@ -56,8 +62,25 @@ export function leveeBanks(W: number, H: number, f: LeveeForm): { over: Uint8Arr
   const best = new Float64Array(W * H).fill(Infinity);
   const at = new Float64Array(W * H);
   const cross = new Float64Array(W * H);
+  const lead = f.water ? (f.lead ?? 0) : 0;
+  // (the tiles within the core of the course's water)
+  const near = new Uint8Array(W * H);
+  if (f.water && f.core) {
+    const c = Math.ceil(f.core);
+    for (let i = 0; i < W * H; i++) {
+      if (!(f.water[i] > 0)) continue;
+      const x = i % W;
+      const y = (i - x) / W;
+      for (let dy = -c; dy <= c; dy++)
+        for (let dx = -c; dx <= c; dx++) {
+          const xx = x + dx;
+          const yy = y + dy;
+          if (xx >= 0 && yy >= 0 && xx < W && yy < H && dx * dx + dy * dy <= f.core * f.core) near[yy * W + xx] = 1;
+        }
+    }
+  }
   for (const g of segs) {
-    if (g.s0 + g.len < f.from - reach || g.s0 > f.to + reach) continue;
+    if (g.s0 + g.len < f.from - lead - reach || g.s0 > f.to + reach) continue;
     const x0 = Math.max(0, Math.floor(Math.min(g.a[0], g.b[0]) - reach));
     const x1 = Math.min(W - 1, Math.ceil(Math.max(g.a[0], g.b[0]) + reach));
     const y0 = Math.max(0, Math.floor(Math.min(g.a[1], g.b[1]) - reach));
@@ -74,19 +97,26 @@ export function leveeBanks(W: number, H: number, f: LeveeForm): { over: Uint8Arr
   }
   for (let i = 0; i < W * H; i++) {
     const d = best[i];
-    if (!(d > f.half) || d > reach) continue;
+    // (the core reaches inside the channel's half-width where its water does not: at a map's edge, a narrow reach)
+    const inCore = near[i] && !(f.water![i] > 0);
+    if ((!(d > f.half) && !inCore) || d > reach) continue;
     const s = at[i];
-    if (s < f.from || s > f.to) continue;
+    // (a tile past the course's end by a tile's rounding stands as its end does)
+    if (s < f.from - lead || s > f.to + 1) continue;
     const sd: BankSide = cross[i] > 0 ? "a" : "b";
-    const w = f.width(s, sd);
-    const o = f.over(s, sd);
+    const coreOnly = s < f.from;
+    if (coreOnly && !(near[i] && !(f.water![i] > 0))) continue;
+    const sAt = Math.min(f.to, Math.max(s, f.from));
+    const w = f.width(sAt, sd);
+    const o = f.over(sAt, sd);
     const x = i % W;
     const y = (i - x) / W;
     // (the share of the bank's width this tile stands at, its edge wandering by a tile)
     const q = (d - f.half) / w + (EDGE.wander * fbm(f.seed, x, y, EDGE.cell, 2) + EDGE.jag * fbm(f.seed ^ 0x5bd1e995, x, y, EDGE.jagCell, 1)) / w;
-    if (q >= 1 || o <= 0) continue;
-    let h = 0;
-    for (let k = 1; k <= o; k++) if (q < STEP(o, k)) h = k;
+    // (the core: a badtide's poison climbing the bank a level, 2/7, is gone before it reaches the land past it)
+    if (o <= 0 || (q >= 1 && !inCore)) continue;
+    let h = inCore ? 1 : 0;
+    if (!coreOnly) for (let k = 1; k <= o; k++) if (q < STEP(o, k)) h = Math.max(h, k);
     over[i] = h;
     side[i] = sd === "a" ? 1 : 2;
   }
