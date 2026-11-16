@@ -171,7 +171,7 @@ export const TOOLS: Tool[] = [
       "Make a new Timberborn map with the Dam Good Maps generator.",
       "Steer the map with the theme, the premise, the settings and the intentions. Do not build a map by hand. For real land, give a place from the places tool alone.",
       "It returns a handle, a summary, a picture and the website link.",
-      "Choose the intentions whose words match the player's wish, on a theme they are offered for. Example: for \"the start under a cliff with water below\", {\"theme\": \"riverValley\", \"size\": 128, \"seed\": 1, \"intentions\": [\"under-cliff\"]} gives it.",
+      "Choose the intentions whose words match the player's wish, on a theme they are offered for. Example: for \"the start under a cliff with water below\", {\"theme\": \"riverValley\", \"size\": 128, \"seed\": 3, \"intentions\": [\"under-cliff\"]} gives it.",
       "The summary tells which intentions emerged and which did not. Tell the player honestly what emerged.",
       "A map whose intention did not emerge still saves; to try again, give another seed. After about five misses, tell the player it did not come out.",
       "The generator refuses a map that does not pass its checks. Then try another seed or other settings.",

@@ -150,6 +150,69 @@ export function growGroveAt(g: BaselineGround, rng: Rng, allowed: Uint8Array, se
   return growCluster(g, rng, allowed, seedTile, n, fill, GROVE_RAGGED, keepFill);
 }
 
+/** A grove of about `n` trees as `growGroveAt` grows it, and, where its ground cuts it short, grown on across the gaps
+ *  onto `more` (the ground it may take beyond `allowed`), a tile at a time from the tiles nearest it: beside it first,
+ *  else two tiles off, as a grove is trees within 2 tiles of each other (the official groves' measure). So a grove on
+ *  broken ground (a knoll's ragged rings, a bench cut by steps) still reaches its size, its trees on the ground's pieces
+ *  and the gaps between them the ground it can't take; it stops short only where nothing is left within 2 tiles of it.
+ *  The start's planting grows its groves this way, so Grove size keeps its promise near the start however broken the
+ *  land (generator 0.10.29). */
+export function growGroveAcross(g: BaselineGround, rng: Rng, allowed: Uint8Array, more: Uint8Array, seedTile: number, n: number, fill = GROVE_AREA_FILL): { area: number[]; tiles: number[] } | null {
+  if (!allowed[seedTile]) return null;
+  const { W, H } = g;
+  const want = Math.max(n, Math.round(n / fill));
+  const order = growBlob(rng, allowed, W, H, seedTile, want, 1.5);
+  if (order.length < want) {
+    const blob = new Set(order);
+    // (each candidate's count of the grove's tiles round it: beside it, the 8 round it, or within 2 tiles)
+    const near1 = new Map<number, number>();
+    const near2 = new Map<number, number>();
+    const add = (t: number) => {
+      const x = t % W;
+      const y = (t - x) / W;
+      for (let dy = -2; dy <= 2; dy++)
+        for (let dx = -2; dx <= 2; dx++) {
+          if (!dx && !dy) continue;
+          const xx = x + dx;
+          const yy = y + dy;
+          if (xx < 0 || yy < 0 || xx >= W || yy >= H) continue;
+          const j = yy * W + xx;
+          if (blob.has(j) || (!more[j] && !allowed[j])) continue;
+          const m = dx >= -1 && dx <= 1 && dy >= -1 && dy <= 1 ? near1 : near2;
+          m.set(j, (m.get(j) ?? 0) + 1);
+        }
+    };
+    for (const t of order) add(t);
+    while (order.length < want) {
+      const from = near1.size ? near1 : near2;
+      if (!from.size) break;
+      // (drawn as `growBlob` draws, the tiles with more of the grove round them likelier, in ascending tile order)
+      const cands = [...from.keys()].sort((a, b) => a - b);
+      const weight = (c: number) => BRIDGE_WEIGHT[Math.min(8, from.get(c)!)];
+      let total = 0;
+      for (const c of cands) total += weight(c);
+      let r = rng.float() * total;
+      let pick = cands[cands.length - 1];
+      for (const c of cands) {
+        r -= weight(c);
+        if (r < 0) {
+          pick = c;
+          break;
+        }
+      }
+      near1.delete(pick);
+      near2.delete(pick);
+      blob.add(pick);
+      order.push(pick);
+      add(pick);
+    }
+  }
+  const keep = order.length >= want ? n : Math.min(n, order.length);
+  return { area: order, tiles: thinCluster(rng, order, W, Math.max(1, keep), GROVE_RAGGED) };
+}
+/** `growBlob`'s weights at compactness 1.5 (k^1.5 for k of the grove's tiles round a candidate). */
+const BRIDGE_WEIGHT = [0, 1, 2.8284271247, 5.1961524227, 8, 11.1803398875, 14.6969384567, 18.5202591775, 22.627416998];
+
 /** A blob of about n / fill tiles thinned to n from its edge; a blob the ground cut short keeps
  *  every tile up to n, or with `keepFill` only as many as `fill` of it (a grove in a narrow strip
  *  of moist ground stays as open as one with room). */
