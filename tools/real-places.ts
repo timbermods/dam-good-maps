@@ -928,19 +928,19 @@ function runPlace(item: LibraryItem): Outcome | null {
   // start still without it gets the start's spring, whatever its sealed land had: a spring by it (above it first) whose
   // water stands as a pool the start walks to and pumps from with the first pump (`startPool`), no film above floor 0
   // and nothing else it passed then failing; the fewest failures win, then the nearest pool
-  if (strictFails.includes("start.water")) {
-    const had = new Set(strictFails);
-    const filmed = (b: ReturnType<typeof buildPlace>) => films(b.settle.depth, b.model.floor, place.W, place.H).filter((f) => f.floor0 * 2 <= f.tiles.length).reduce((n, f) => n + f.tiles.length, 0);
-    const film0 = filmed(built);
+  const startSpringFor = (at: PlaceData, r0: Checked) => {
+    const had = new Set(r0.strictFails);
+    const filmed = (b: ReturnType<typeof buildPlace>) => films(b.settle.depth, b.model.floor, at.W, at.H).filter((f) => f.floor0 * 2 <= f.tiles.length).reduce((n, f) => n + f.tiles.length, 0);
+    const film0 = filmed(r0.built);
     let best: { add: [number, number, number][]; r: Checked; score: number; walk: number } | null = null;
     const seen = new Set<string>();
     for (const above of [true, false])
       for (const [rule, tries] of SPRING_TRIES)
-        for (const add of placeSprings(place, built.heights, built.settle.depth, { rule, tries, key: seedKey(place), above })) {
+        for (const add of placeSprings(at, r0.built.heights, r0.built.settle.depth, { rule, tries, key: seedKey(at), above })) {
           const k = JSON.stringify(add);
           if (seen.has(k)) continue;
           seen.add(k);
-          const cand = { ...place, sources: [...place.sources, ...add] };
+          const cand = { ...at, sources: [...at.sources, ...add] };
           const r = buildChecked(cand);
           if (r.strictFails.includes("start.water") || r.strictFails.some((id) => !had.has(id) && !free.has(id)) || filmed(r.built) > film0) continue;
           const pool = poolOf(cand);
@@ -949,19 +949,55 @@ function runPlace(item: LibraryItem): Outcome | null {
           if (best && (sc > best.score || (sc === best.score && pool.walk >= best.walk))) continue;
           best = { add, r, score: sc, walk: pool.walk };
         }
-    if (best) {
-      spring = [...(spring ?? []), ...best.add];
-      place = { ...place, sources: [...place.sources, ...best.add] };
-      ({ built, v, strict, blocking, strictFails } = best.r);
-    }
-    everySpot += `  the start's spring for its water: ${best ? `${best.add.map((s) => `${s[0]},${s[1]}`).join(" ")}, a pool ${Math.round(best.walk * 10) / 10} tiles' walk away` : `none of ${seen.size} places gives a pool the start pumps from`}`;
-  }
+    const note = `  the start's spring for its water: ${best ? `${best.add.map((s) => `${s[0]},${s[1]}`).join(" ")}, a pool ${Math.round(best.walk * 10) / 10} tiles' walk away` : `none of ${seen.size} places gives a pool the start pumps from`}`;
+    return { best, note };
+  };
+  const pre = strictFails.includes("start.water") ? startSpringFor(place, { built, v, strict, blocking, strictFails }) : null;
   // The springs searched under the game's rules (D521, tools/lib/placeFeeds.ts): by D271's measure, the settled water
   // over the real water as high as it goes and over real dry land as low as it goes, by where each spring stands and how
   // strong it is; kept only where no check the place passed then fails and no film above floor 0 stands. After the start
   // has found its water (a move, a spring by it, every spot), so a spring the start drinks from is never the one taken
   // away; before the berries and plants, which settle on the water the springs leave
-  const feeds = feedsFor(item.id, place);
+  let feeds = feedsFor(item.id, place);
+  // A start given the start's spring is built both ways, the spring before the search and after it (where the start
+  // still has none once the springs are searched), and keeps the better: the start's pool first, then the water over
+  // real water, then D271's measure (a spring before the search can hold a source the search would move off the real
+  // water: Cliffs of Moher, Iguazu Falls)
+  if (pre?.best) {
+    const real = realOf(item.id, place.W, place.H);
+    const judge = (p: PlaceData) => {
+      const c = buildChecked(p);
+      const m = realMeasure(c.built.settle.depth, real);
+      return { served: !c.strictFails.includes("start.water") && poolOf(p) !== null, real: m.real, score: m.score };
+    };
+    let after = { place: feeds.place, note: feeds.note, add: null as [number, number, number][] | null };
+    const ra = buildChecked(feeds.place);
+    if (ra.strictFails.includes("start.water")) {
+      const post = startSpringFor(feeds.place, ra);
+      after = post.best ? { place: { ...feeds.place, sources: [...feeds.place.sources, ...post.best.add] }, note: feeds.note + post.note, add: post.best.add } : { ...after, note: feeds.note + post.note };
+    }
+    const before = feedsFor(item.id, { ...place, sources: [...place.sources, ...pre.best.add] });
+    const ja = judge(after.place);
+    const jb = judge(before.place);
+    if ((jb.served && !ja.served) || (jb.served === ja.served && (jb.real > ja.real || (jb.real === ja.real && jb.score > ja.score)))) {
+      spring = [...(spring ?? []), ...pre.best.add];
+      everySpot += pre.note + " (before the search)";
+      feeds = before;
+    } else {
+      if (after.add) spring = [...(spring ?? []), ...after.add];
+      everySpot += (after.add ? after.note.slice(feeds.note.length) : pre.note.replace(": ", ": not taken, ")) + " (after the search)";
+      feeds = { place: after.place, note: feeds.note };
+    }
+  } else if (pre) {
+    // (no place before the search: one after it, on the water the search leaves)
+    const ra = buildChecked(feeds.place);
+    const post = ra.strictFails.includes("start.water") ? startSpringFor(feeds.place, ra) : null;
+    if (post?.best) {
+      spring = [...(spring ?? []), ...post.best.add];
+      feeds = { place: { ...feeds.place, sources: [...feeds.place.sources, ...post.best.add] }, note: feeds.note };
+    }
+    everySpot += (post ?? pre).note + (post ? " (after the search)" : "");
+  }
   const searched = feeds.place !== place;
   if (searched) {
     place = feeds.place;
