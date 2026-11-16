@@ -27,7 +27,9 @@ const W = 96;
 // nor do seeds 1 and 4 and 6 to 8; seed 3's does)
 function session() {
   // (seed 4 since generator 0.10.21's look round (D518: the land's long straight steps jog, the dead stands read the dry land as the checks do), D148: seed 3's carve crosses no rise that Depth 2 cannot cut; of seeds 1–14 the whole file passes on 4, 5 and 8–12, seed 4 the first)
-  const r = generate(makeSpec({ seed: 4, theme: "highlands", size: { x: W, y: W } }));
+  // (seed 5 since generator 0.10.27, D(new-leaks): a course's water leaves only by its own way, so the land moved, D148: seed 4's
+  // carve crosses no rise that Depth 2 cannot cut; of seeds 1–13 the whole file passes on 5, 7, 10, 12 and 13)
+  const r = generate(makeSpec({ seed: 5, theme: "highlands", size: { x: W, y: W } }));
   const s = MapSession.fromGenerated(r, r.file);
   s.setWaterMode("defer");
   return s;

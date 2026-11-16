@@ -61,7 +61,8 @@ describe("a hollow made on a map without caves saves and exports (#435)", () => 
   // (seed 2 for seed 3 on generator 0.10.11, the D410 round's ramps and shores, D148: seed 3's hillsides all stand within three tiles of an object now;
   // seed 3 again since generator 0.10.18's dead stands on the dry land, D516, D148: seed 2 has no hillside clear of objects now, seed 3 has five;
   // seed 6 for seed 3 since generator 0.10.20's warped contour edges and compact rises, D518, D148: seed 3 has no hillside clear of objects now, seed 6 has seven)
-  // (a fixture since generator 0.10.29, D148: the land these cases were written on, tests/fixtures/projects, so the weathering's reach moving the generator's land moves nothing here)
+  // (a fixture since generator 0.10.29, D148: the land these cases were written on, tests/fixtures/projects, so the weathering's reach moving the generator's land moves nothing here; the
+  // fixture holds 0.10.25's seed 6 with its objects, so 0.10.27's move to seed 3 for 0.10.26's ruin fields, D148, is not needed on it)
   const open = () => fixtureSession("riverValley", 64, 6);
 
   it("a Block dig into a hillside on a generated map: water per column, the same bytes reopened, and undone, the same bytes as before", () => {

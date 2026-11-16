@@ -549,8 +549,9 @@ export function shapeRamp(h: Uint8Array, W: number, H: number, held: (j: number)
  *  the inward profile carried on (the next tile in, plus its rise toward the edge, never a fall), so
  *  land that rises toward the edge keeps rising and a band standing over the land inside it goes.
  *  Never raises a tile. Tiles marked in `keep` stay as they are (M9b: the banks beside an inflow's
- *  mouth, which hold its water in its channel). Returns the number of tiles lowered. */
-export function relaxEdges(h: Uint8Array, W: number, H: number, keep: Uint8Array | null = null): number {
+ *  mouth, which hold its water in its channel), and no tile is lowered below its `floor` (the water
+ *  of a planned channel beside it, `besideCourses`). Returns the number of tiles lowered. */
+export function relaxEdges(h: Uint8Array, W: number, H: number, keep: Uint8Array | null = null, floor: ArrayLike<number> | null = null): number {
   let n = 0;
   const edges: [number, (k: number, t: number) => number][] = [
     [H, (k, t) => k * W + t],
@@ -563,8 +564,8 @@ export function relaxEdges(h: Uint8Array, W: number, H: number, keep: Uint8Array
       for (let t = 1; t >= 0; t--) {
         const a = h[at(k, t + 1)];
         const b = h[at(k, t + 2)];
-        const cap = a + Math.max(0, a - b);
         const i = at(k, t);
+        const cap = Math.max(a + Math.max(0, a - b), floor ? floor[i] : 0);
         if (h[i] > cap && !keep?.[i]) {
           h[i] = cap;
           n++;
@@ -665,9 +666,10 @@ export function fillDryHollows(h: Uint8Array, W: number, H: number, keep: Uint8A
  *  such basin gets a channel a level below the flat, winding across it from the basin to where the
  *  land falls away or to the map edge, so its water leaves by one outlet as a river's does. Only
  *  basins of `minArea` tiles or more whose flat at the spill level is `minFlat` tiles or more; the
- *  tiles of `keep` (the river channels) are never cut, a lake's shallow shore may be. Returns the
- *  tiles cut. */
-export function carveOutlets(h: Uint8Array, W: number, H: number, keep: Uint8Array, seed: number, width = 5, minArea = 300, minFlat = 120, wet: Uint8Array | null = null): number {
+ *  tiles of `keep` (the river channels) are never cut, a lake's shallow shore may be, and no tile is
+ *  cut below its `floor` (the water of a planned channel beside it, `besideCourses`: the outlet
+ *  would give that water a second way out). Returns the tiles cut. */
+export function carveOutlets(h: Uint8Array, W: number, H: number, keep: Uint8Array, seed: number, width = 5, minArea = 300, minFlat = 120, wet: Uint8Array | null = null, floor: ArrayLike<number> | null = null): number {
   const N = W * H;
   // spill levels from the draining map edge (priority flood)
   const spill = edgeSpill(h, W, H);
@@ -806,7 +808,7 @@ export function carveOutlets(h: Uint8Array, W: number, H: number, keep: Uint8Arr
           const yy = cy + dy;
           if (xx < 0 || yy < 0 || xx >= W || yy >= H) continue;
           const j = yy * W + xx;
-          if (keep[j] || h[j] !== S || label[j] === id) continue;
+          if (keep[j] || h[j] !== S || label[j] === id || (floor && floor[j] > S - 1)) continue;
           h[j] = S - 1;
           cut++;
         }
