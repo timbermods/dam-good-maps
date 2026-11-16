@@ -377,8 +377,10 @@ export function clumpStand(zone: Uint8Array, loose: Uint8Array, seed: number, n:
       if (rc > edge) edge = rc;
     }
   // (where its knots crowd it, so its nearest neighbours' spread falls under `cv` of their mean, single trees set apart,
-  // the nearest the seed first, `single` tiles from any other at least, till it holds or a fifth more trees stand)
-  for (let q = 0; q < order.length && out.length > 2 && out.length < m * 1.2 && nnSpread(out, W) < k.cv; q++) {
+  // the nearest the seed first, `single` tiles from any other at least, till it holds or a fifth more trees stand, and
+  // never past a stand's most, D516's 60)
+  const top = Math.min(m * 1.2, STAND_MOST);
+  for (let q = 0; q < order.length && out.length > 2 && out.length < top && nnSpread(out, W) < k.cv; q++) {
     const c = order[q].t;
     if (owner.has(c) || !clear(c, k.lone)) continue;
     owner.set(c, knots++);
@@ -390,6 +392,9 @@ export function clumpStand(zone: Uint8Array, loose: Uint8Array, seed: number, n:
   const area = ground.filter((t) => (reach.get(t) ?? 0) <= edge + 1.5 || owner.has(t));
   return { tiles: out, area };
 }
+
+/** A stand's most trees, D516's 60: the least and both draws at their top (`rng.int` excludes its upper bound). */
+const STAND_MOST = DEAD_STANDS.stand.least + DEAD_STANDS.stand.a + DEAD_STANDS.stand.b - 2;
 
 /** The dead stands (see the file's header), each one species on one kind of place. */
 export function planDeadStands(inp: DeadStandsInput): DeadStand[] {
@@ -627,7 +632,7 @@ export function planDeadStands(inp: DeadStandsInput): DeadStand[] {
         });
         // (under the floor, a whole stand however few it lacks: a stand is never cut under its least to meet it, nor
         // grown past its most, D516's 60, however many it lacks: the next stand takes the rest)
-        const n = under ? Math.min(s.least + s.a + s.b - 2, Math.max(goal - got, s.least + rng.int(0, s.a) + rng.int(0, s.b))) : Math.min(goal - got, s.least + rng.int(0, s.a) + rng.int(0, s.b));
+        const n = under ? Math.min(STAND_MOST, Math.max(goal - got, s.least + rng.int(0, s.a) + rng.int(0, s.b))) : Math.min(goal - got, s.least + rng.int(0, s.a) + rng.int(0, s.b));
         if (n < 3) return;
         const grown = clumpStand(zone, allowed, seed, n, W, H, rng);
         const tiles = [...grown.tiles].sort((a, c) => a - c);
@@ -646,7 +651,9 @@ export function planDeadStands(inp: DeadStandsInput): DeadStand[] {
           if (host >= 0) {
             const st = out[host];
             const both = [...st.tiles, ...st.young, ...grown.tiles];
-            if (both.length <= s.least + s.a + s.b - 2 && nnSpread(both, W) >= DEAD_STANDS.knot.least && overN + overBy(grown.tiles, false) <= B.most * dryN) {
+            // (its old oaks, their own entry just after it (never a host: no wood of their own), are its trees too)
+            const oaks = out[host + 1]?.giants ? out[host + 1].tiles.length : 0;
+            if (both.length + oaks <= STAND_MOST && nnSpread(both, W) >= DEAD_STANDS.knot.least && overN + overBy(grown.tiles, false) <= B.most * dryN) {
               claim(grown.tiles);
               for (const t of grown.tiles) (rng.float() < DEAD_STANDS.young ? st.young : st.tiles).push(t);
               st.tiles.sort((a, c) => a - c);
