@@ -511,24 +511,26 @@ function unneededBeds(libraryId: string, place: PlaceData, beds: number[][], had
  *  after it (`filmsAfter`), so a film the springs take away costs the land nothing. */
 const FILM_BEFORE = 1;
 
-/** The places whose film above floor 0 (the check's, `FILM_THIN_SHARE`) no ruled mend reaches (D(new-films), planning's
- *  ruling of 2026-11-15): the springs' search leaves it and its mend after the search (`filmsAfter`) is refused. Such a
- *  place keeps the build the ruled path gives it, film and all ("ruled"), or, where that build holds less water over real
- *  water than today's (fix/places-ruins) or gains a fault, today's build unchanged ("today": the committed place, its
- *  ruins laid again as `--ruins` lays them, which gives today's files). Every run prints each by name with its film and
- *  the reason; the check passes its film, and fails a place listed here that has no film (take it off the list) and any
- *  other place with one. The list never grows past the places the films ruling left. */
-const FILMS_LEFT: Record<string, { keep: "ruled" | "today"; why: string }> = {
-  "twelve-apostles": { keep: "ruled", why: "film 2064 at 74,1: its basin costs start.wood and real water; film 141 at 77,54: its bed costs real water" },
-  "waimakariri-river": { keep: "ruled", why: "film 363 at 217,230: its bed costs start.farmland and start.forester" },
-  "na-pali-coast": { keep: "ruled", why: "film 519 at 46,1: its bed gives water.outflow and costs real water; film 2199 at 2,62: its basin gives water.outflow and a source in another's flow" },
-  "gullfoss": { keep: "ruled", why: "film 435 at 112,25: its bed costs start.food and real water" },
-  "taklimakan-kunlun-fan": { keep: "ruled", why: "film 1506 at 239,75: its bed costs start.farmland and start.forester; films 420 and 439: their beds leave the water unsettled" },
-  "milford-sound": { keep: "ruled", why: "film 359 at 191,121: its bed grows the water over real dry land" },
-  "mount-fuji": { keep: "ruled", why: "film 138 at 28,22: its bed leaves the water unsettled and costs start.food" },
-  "victoria-falls": { keep: "ruled", why: "film 1353 at 35,86: its basin gives water.outflow and costs real water" },
-  "ilulissat-icefjord": { keep: "ruled", why: "film 119 at 19,28: its basin costs real water" },
-  "yosemite-valley": { keep: "ruled", why: "film 104 at 62,1: its bed costs the real water" },
+/** The places that keep today's build (dev's: the committed place, its ruins laid again as `--ruins` lays them, which
+ *  gives today's files), by planning's rulings of 2026-11-16 on D(new-films): a place whose film above floor 0 (the
+ *  check's, `FILM_THIN_SHARE`) the springs' search leaves and no mend after it (`filmsAfter`) reaches; one whose search
+ *  ends with less water over real water than today's; and one whose search puts more water over real dry land than
+ *  today's that its start does not need. Every run prints each by name with its reason, and the check passes the film
+ *  today's build has; any other place with a film fails. The list never grows past the places these rulings named. */
+const TODAY_KEPT: Record<string, string> = {
+  "twelve-apostles": "film 2064 at 74,1: its basin costs start.wood and real water; film 141 at 77,54: its bed costs real water",
+  "waimakariri-river": "film 363 at 217,230: its bed costs start.farmland and start.forester",
+  "na-pali-coast": "film 519 at 46,1: its bed gives water.outflow and costs real water; film 2199 at 2,62 over the real sea: its basin gives water.outflow and a source in another's flow",
+  gullfoss: "film 435 at 112,25: its bed costs start.food and real water",
+  "taklimakan-kunlun-fan": "film 1506 at 239,75: its bed costs start.farmland and start.forester; films 420 and 439: their beds leave the water unsettled",
+  "milford-sound": "film 359 at 191,121: its bed grows the water over real dry land",
+  "mount-fuji": "film 138 at 28,22: its bed leaves the water unsettled and costs start.food",
+  "victoria-falls": "film 1353 at 35,86: its basin gives water.outflow and costs real water",
+  "ilulissat-icefjord": "film 119 at 19,28: its basin costs real water",
+  "yosemite-valley": "film 104 at 62,1: its bed costs the real water",
+  paricutin: "its springs' search ends with less water over real water than today's (5 → 1)",
+  "western-ghats-mahabaleshwar": "its one spring by the start puts 550 more tiles over real dry land; the start had water 15.5 tiles' walk away today",
+  "fish-river-canyon": "the spring its search keeps puts 160 more tiles over real dry land and gives the start water only past its walk (none → 42.3 of 20)",
 };
 
 /** The films above floor 0 the searched springs leave (D(new-films): thin on 90 % of their tiles) mended as `basinsFor`
@@ -682,7 +684,7 @@ function startNumbers(s: Checked["strict"]): string {
 }
 
 /** The water checks every offered place passes, and its floor-0 sheet: one log line. */
-function waterVerdict(libraryId: string, b: ReturnType<typeof buildPlace>, id: string): { line: string; failed: boolean; measure: Measure; filmLeft: boolean } {
+function waterVerdict(libraryId: string, b: ReturnType<typeof buildPlace>, id: string): { line: string; failed: boolean; measure: Measure } {
   const { W, H } = b.model;
   const again = settleFile(b.file);
   const c = compareWater(b.settle.depth, again.water.depth, W, H);
@@ -692,15 +694,15 @@ function waterVerdict(libraryId: string, b: ReturnType<typeof buildPlace>, id: s
   const real = realOf(libraryId, W, H);
   const sheet = floor0Sheet(b.settle.depth, b.model.floor, W, H, real, FILM_DEPTH, FILM_TILES);
   const measure = realParts(b.settle.depth, b.model.floor, W, H, real);
-  // (a place in `FILMS_LEFT` keeps its film, printed with the reason; listed with none, it fails: take it off the list)
-  const left = FILMS_LEFT[id];
+  // (a place kept on today's build, `TODAY_KEPT`, keeps the film today's build has, printed with the reason)
+  const left = TODAY_KEPT[id];
   const filmAt = above.map((f) => `${f.tiles.length} tiles at ${f.at.join(",")}`).join("; ");
   const line =
     `   water: opened ${c.wetOpened} wet, settled again ${c.wetSettled}${c.lost.length ? `, ${c.lost.length} bodies of ${BODY}+ lost` : ""}${unequal ? " (FAILS: opened is not settled)" : ""}` +
-    (above.length ? (left ? `; film above floor 0 kept, no ruled mend (${filmAt}; ${left.keep === "today" ? "today's build" : "the ruled build"}: ${left.why})` : `; FAILS: film above floor 0 (${filmAt})`) : left ? "; FAILS: listed in FILMS_LEFT with no film above floor 0 (take it off the list)" : "") +
+    (above.length ? (left ? `; film above floor 0 today's build has (${filmAt}), kept: ${left}` : `; FAILS: film above floor 0 (${filmAt})`) : "") +
     `; floor-0 sheet ${sheet.tiles} tiles (${sheet.real} over real water, ${sheet.dry} over real dry land)` +
     `; over real water ${measure.real}, over real dry land ${measure.dry} (floor-0 sheet ${measure.sheet}, the rest ${measure.rest})`;
-  return { line, failed: unequal || (above.length > 0) !== !!left, measure, filmLeft: !!left && above.length > 0 };
+  return { line, failed: unequal || (above.length > 0 && !left), measure };
 }
 
 const only = arg("only")?.split(",") ?? null;
@@ -726,8 +728,6 @@ interface Outcome {
   failed: boolean;
   /** D271's measure of its water as it opens (D(new-films): the water over real dry land in its two parts). */
   measure?: Measure;
-  /** Whether it keeps a film no ruled mend reaches (`FILMS_LEFT`). */
-  filmLeft?: boolean;
 }
 /** The water over real water and over real dry land, the latter as the floor-0 sheet and the rest (`realParts`). */
 type Measure = ReturnType<typeof realParts>;
@@ -759,13 +759,13 @@ function runPlace(item: LibraryItem): Outcome | null {
   // the ruins never change), and only its ruin fields are laid again: minutes, where the springs' search takes hours.
   // A full run gives the same files (`--check`)
   // A place whose film no ruled mend reaches and whose ruled build is worse than today's keeps today's build
-  // (`FILMS_LEFT`): the committed place, as `--ruins` takes it
-  const today = FILMS_LEFT[place.id]?.keep === "today";
+  // A place that keeps today's build (`TODAY_KEPT`): the committed place, as `--ruins` takes it
+  const today = !!TODAY_KEPT[place.id];
   if (relayRuins || today) {
     const kept = join(today ? "public/real-places" : OUT, `data/${place.id}.json.gz`);
-    if (!existsSync(kept)) throw new Error(`${today ? "FILMS_LEFT" : "--ruins"}: ${kept} is missing (a new place needs the full run)`);
+    if (!existsSync(kept)) throw new Error(`${today ? "TODAY_KEPT" : "--ruins"}: ${kept} is missing (a new place needs the full run)`);
     const committed = JSON.parse(new TextDecoder().decode(gunzipSync(new Uint8Array(readFileSync(kept))))) as PlaceData;
-    return finishPlace(item, committed, surveyedRuins, t, today ? `  today's build kept (its film has no ruled mend: ${FILMS_LEFT[place.id].why})` : "  (--ruins: the committed place)", out);
+    return finishPlace(item, committed, surveyedRuins, t, today ? `  today's build kept: ${TODAY_KEPT[place.id]}` : "  (--ruins: the committed place)", out);
   }
   // Sources only at heads (D171, tools/lib/placeSources.ts): a source in another's flow merges into the upstream source
   // where that file's rules allow it; the rest stay, and the place keeps the fault until none is left. (The sealed-land
@@ -915,7 +915,7 @@ function runPlace(item: LibraryItem): Outcome | null {
     ({ built, v, strict, blocking, strictFails } = unbed.r);
   }
   // the films the searched springs leave get their mend (D(new-films)); a film none of whose mends is kept stays, and
-  // the check refuses it unless the place is in `FILMS_LEFT`
+  // the check refuses it (planning: such a place keeps today's build, `TODAY_KEPT`)
   const after = filmsAfter(item.id, place, { built, v, strict, blocking, strictFails });
   if (after.place !== place) {
     place = after.place;
@@ -1128,7 +1128,6 @@ function finishPlace(item: LibraryItem, place: PlaceData, columns: number, t: nu
   const w = waterVerdict(item.id, built, place.id);
   say(w.line);
   out.measure = w.measure;
-  out.filmLeft = w.filmLeft;
   if (w.failed) out.failed = true;
   return out;
 }
@@ -1182,11 +1181,11 @@ if (claimDir) {
 const outcomes: (Outcome | null)[] = await runShards();
 /** The offered places' measure, summed (D(new-films): over real water; over real dry land as the floor-0 sheet and the rest). */
 const totals = { real: 0, dry: 0, sheet: 0, rest: 0 };
-/** The places that keep a film no ruled mend reaches (`FILMS_LEFT`), by name. */
-const filmsLeft: string[] = [];
+/** The places kept on today's build (`TODAY_KEPT`), by name. */
+const kept: string[] = [];
 for (const o of outcomes) {
   if (!o) continue;
-  if (o.filmLeft) filmsLeft.push(`${o.id} (${FILMS_LEFT[o.id].keep === "today" ? "today's build" : "the ruled build"})`);
+  if (TODAY_KEPT[o.id] && o.entries.length) kept.push(o.entries[0].name);
   if (o.measure) for (const k of ["real", "dry", "sheet", "rest"] as const) totals[k] += o.measure[k];
   for (const line of o.lines) console.log(line);
   withheld.push(...o.withheld);
@@ -1259,7 +1258,7 @@ const cardBytes = [...files].filter(([k]) => k.startsWith("cards/")).reduce((s, 
 console.log(
   `${entries.length} offered, ${withheld.length} withheld${withheld.length ? `: ${withheld.join(", ")}` : ""}; ${Math.round((performance.now() - t0) / 1000)} s; left out ${skipped.length} random-land controls (${skipped.map((s) => s.id).join(", ")}). ` +
     `Water over real water ${totals.real} tiles, over real dry land ${totals.dry} (floor-0 sheet no deeper than ${FILM_DEPTH} ${totals.sheet}, the rest ${totals.rest}). ` +
-    (filmsLeft.length ? `${filmsLeft.length} keep a film no ruled mend reaches: ${filmsLeft.join(", ")}. ` : "") +
+    (kept.length ? `${kept.length} kept on today's build: ${kept.join(", ")}. ` : "") +
     `Data ${(dataBytes / 1024).toFixed(0)} KB, cards ${(cardBytes / 1024).toFixed(0)} KB (${(cardBytes / 1024 / Math.max(1, entries.length)).toFixed(1)} KB each), total ${(total / 1024).toFixed(0)} KB.`,
 );
 

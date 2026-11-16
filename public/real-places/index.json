@@ -169,10 +169,12 @@
    "metres": 60,
    "data": "data/twelve-apostles.json.gz",
    "image": "cards/twelve-apostles.jpg",
-   "bytes": 198505,
-   "sha256": "1af188ec0a69bb4a3af9386d85ff2c624f937139d31d3775746ac70fc877485c",
+   "bytes": 215799,
+   "sha256": "508d897760bcfb498c7246dc4a64e0d8bf6d653f9a69115967ba3b5d085f47d8",
    "faults": [
-    "water.source_in_flow"
+    "water.source_in_flow",
+    "water.settles",
+    "start.water"
    ]
   },
   {
@@ -483,8 +485,8 @@
    "metres": 60,
    "data": "data/paricutin.json.gz",
    "image": "cards/paricutin.jpg",
-   "bytes": 157754,
-   "sha256": "572eeb346d08b5ab81097d5b1632c8c7a86eec35cfb39ff18199c07732a34183",
+   "bytes": 160253,
+   "sha256": "00a093f439dc4034708bd8ea5e58325d24f6d2492f87ff5c3303d6d8466b5424",
    "faults": []
   },
   {
@@ -529,8 +531,8 @@
    "metres": 120,
    "data": "data/western-ghats-mahabaleshwar.json.gz",
    "image": "cards/western-ghats-mahabaleshwar.jpg",
-   "bytes": 121260,
-   "sha256": "debab5b236f5e523174707a3097f64c995e4c939b05676cf806219e929cb8a21",
+   "bytes": 142031,
+   "sha256": "2f5589e22b151b2d699cecd05985ead6d83ea03a67cc891ef81bb3efdfa3e123",
    "faults": []
   },
   {
@@ -710,8 +712,8 @@
    "metres": 30,
    "data": "data/waimakariri-river.json.gz",
    "image": "cards/waimakariri-river.jpg",
-   "bytes": 400860,
-   "sha256": "212ce0473faeed46a21d763f0b106244c4b8ff3ca311992b49affdc93214b10c",
+   "bytes": 604705,
+   "sha256": "ab3f4d957c63e4b14d97ffa0ec1b7f8a569d5a9c76a652a8512e99d70fb4f9e5",
    "faults": []
   },
   {
@@ -752,11 +754,9 @@
    "metres": 60,
    "data": "data/na-pali-coast.json.gz",
    "image": "cards/na-pali-coast.jpg",
-   "bytes": 201121,
-   "sha256": "5807c9c58323eb9bb53e30c0090eaaa115d0e99ed2f4558e6ded1ad159c17ba9",
-   "faults": [
-    "water.outflow"
-   ]
+   "bytes": 230094,
+   "sha256": "13567707d9ec59730c107d0b284fb2725f1e14039c3eb3c39b39bd16a54e2f6d",
+   "faults": []
   },
   {
    "id": "mount-etna",
@@ -815,8 +815,8 @@
    "metres": 60,
    "data": "data/gullfoss.json.gz",
    "image": "cards/gullfoss.jpg",
-   "bytes": 189692,
-   "sha256": "4e94d073f34381ae7f9f90775d4159191a21abf2a10d9f7ba55f98bf90ca34eb",
+   "bytes": 250493,
+   "sha256": "962d171214427be4e612a1bc9f49aad2ca8b26a69b21b308031c10963abefa5f",
    "faults": []
   },
   {
@@ -829,9 +829,11 @@
    "metres": 60,
    "data": "data/taklimakan-kunlun-fan.json.gz",
    "image": "cards/taklimakan-kunlun-fan.jpg",
-   "bytes": 205236,
-   "sha256": "933d3b93033cb0b34f9be18ed883eabc7e4a22588ee1732c84676ff8f968eae9",
-   "faults": []
+   "bytes": 584368,
+   "sha256": "c9c7075e3a366bd7909392d2366b64612ddf35a796317c59b15699c59824d7cd",
+   "faults": [
+    "water.source_in_flow"
+   ]
   },
   {
    "id": "milford-sound",
@@ -843,8 +845,8 @@
    "metres": 60,
    "data": "data/milford-sound.json.gz",
    "image": "cards/milford-sound.jpg",
-   "bytes": 470131,
-   "sha256": "f25560454f2ffc6d4654b58070c8b7c633b112e19f1581cc50926eaade175aac",
+   "bytes": 502139,
+   "sha256": "e93969d4e4ecf00094062f9896c20220b79e89a0472fd7367c034205829009e8",
    "faults": []
   },
   {
@@ -973,8 +975,8 @@
    "metres": 60,
    "data": "data/fish-river-canyon.json.gz",
    "image": "cards/fish-river-canyon.jpg",
-   "bytes": 238841,
-   "sha256": "3b840901fbf82f561ac317f88f2511c11e6610a8e32a57b7173d02f9e09f2444",
+   "bytes": 225684,
+   "sha256": "b1cf4e1542f560b801f40e77e6676baf898fa0f28a49ba227f548f1bdb80e268",
    "faults": [
     "start.water"
    ]
@@ -989,11 +991,10 @@
    "metres": 120,
    "data": "data/mount-fuji.json.gz",
    "image": "cards/mount-fuji.jpg",
-   "bytes": 246418,
-   "sha256": "a21e2b667d05a9fc81b3d961e46d59b61f0ca9338ad8ffdbfffe96eb727aef56",
+   "bytes": 239010,
+   "sha256": "b479d5b396b36364b7553317bb5af10920bfa9d1fc695c14198fe96aff439243",
    "faults": [
-    "water.source_in_flow",
-    "start.wood"
+    "water.source_in_flow"
    ]
   },
   {
@@ -1020,8 +1021,8 @@
    "metres": 60,
    "data": "data/victoria-falls.json.gz",
    "image": "cards/victoria-falls.jpg",
-   "bytes": 177987,
-   "sha256": "ff531c4d3bac6a98841eafddd3ba76943bc63b33e5126af7b0121829d53d6f63",
+   "bytes": 175648,
+   "sha256": "3702c53b86a5414839bed2be5df371ec7d6e3c46848f330a9b2be8545cf8f4ff",
    "faults": []
   },
   {
@@ -1248,8 +1249,8 @@
    "metres": 120,
    "data": "data/ilulissat-icefjord.json.gz",
    "image": "cards/ilulissat-icefjord.jpg",
-   "bytes": 112176,
-   "sha256": "fd41e36ae3c0ee239fdbbcae80b7565ef99f090bebb554135577d159655a3051",
+   "bytes": 127371,
+   "sha256": "02b3d10283b611e46df762d4de52b3e56a11b1f5a2bb78f6a4fc09bc6e3cba29",
    "faults": []
   },
   {
@@ -1262,9 +1263,11 @@
    "metres": 60,
    "data": "data/yosemite-valley.json.gz",
    "image": "cards/yosemite-valley.jpg",
-   "bytes": 80344,
-   "sha256": "2cd3d446b4529b6e248995f1900e000e1d0c80d840f390649d85ccf791c9f496",
-   "faults": []
+   "bytes": 136701,
+   "sha256": "a8376b519d4930e9fb6d5b7067d1e641565275fc99c82dbb5ffeb224c0f86e55",
+   "faults": [
+    "start.water"
+   ]
   },
   {
    "id": "tara-gorge",
