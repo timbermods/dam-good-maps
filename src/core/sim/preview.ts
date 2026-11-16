@@ -59,6 +59,11 @@ export const PREVIEW_CHECK = 64;
 export const PREVIEW_MOVED = 0.0005;
 export const PREVIEW_TOL = 0.05;
 export const PREVIEW_DAYS = 1;
+/** Checks in a row the preview's test must pass (SettleRun `passes`): a surge passing down a river after
+ *  an edit rises by under `PREVIEW_TOL` a check on every tile, and one check on its crest stopped the
+ *  preview there (#1181: River Valley 96² seed 8, an Underground Ruins at 72,56, 0.64 where the settle
+ *  gives 0.53). */
+export const PREVIEW_PASSES = 2;
 /** The editor's background settle runs on past `PREVIEW_DAYS` while the water still moves (not only
  *  sealed basins evaporating), a day at a time, up to this many days in all: water that stops at the
  *  cap while still filling a lake or finding a new course is shown as settled and then moves again
@@ -121,12 +126,12 @@ function widened(hit: Uint8Array, W: number, H: number): Uint8Array {
 
 /** Each model's flow (prefill.ts `flowThrough`), kept while the model lives: the next edit's warm
  *  start compares against it. */
-const flows = new WeakMap<WaterModel, { q: Float64Array; level: Float64Array }>();
-function flowOf(m: WaterModel): { q: Float64Array; level: Float64Array } {
+const flows = new WeakMap<WaterModel, { q: Float64Array; level: Float64Array; path: Uint8Array }>();
+function flowOf(m: WaterModel): { q: Float64Array; level: Float64Array; path: Uint8Array } {
   let f = flows.get(m);
   if (!f) {
-    const { q, level } = flowThrough(m);
-    flows.set(m, (f = { q, level }));
+    const { q, level, path } = flowThrough(m);
+    flows.set(m, (f = { q, level, path }));
   }
   return f;
 }
@@ -194,6 +199,33 @@ export function unfedTiles(from: WarmState, next: WaterModel, start: WaterState 
   return out;
 }
 
+/** The tiles of the pools the edit deepened (#1181), as a mask, or null when there are none: where the
+ *  canonical start of `next` (prefill.ts) stands water at a level its walk reaches that is higher than
+ *  the old ground's (a rim the edit raised, or a hollow the walk newly crosses), and the water carried
+ *  over stands more than `PREVIEW_TOL` below it. The canonical settle starts such a pool full; kept as it
+ *  was, a film on a tile that used to drain fills it only by a trickle, long after the preview has
+ *  stopped (River Valley 96² seed 12, an Underground Ruins at 34,30 shut a pit off: 0.02 against the
+ *  settle's 1.00). They take the canonical start, fed or not by D385's rule. */
+export function deepenedPools(from: WarmState, next: WaterModel): Uint8Array | null {
+  const prev = from.model;
+  if (prev.W !== next.W || prev.H !== next.H) return null;
+  const N = next.W * next.H;
+  const was = flowOf(prev);
+  const now = flowOf(next);
+  const d = from.water.depth;
+  let mask: Uint8Array | null = null;
+  for (let i = 0; i < N; i++) {
+    const lv = now.level[i];
+    if (!now.path[i] || !(lv > next.floor[i])) continue;
+    if (was.path[i] && !(lv > was.level[i] + 1e-9)) continue;
+    const surface = prev.floor[i] + (d[i] > 0 ? d[i] : 0);
+    if (!(Math.max(surface, next.floor[i]) < lv - PREVIEW_TOL)) continue;
+    mask ??= new Uint8Array(N);
+    mask[i] = 1;
+  }
+  return mask;
+}
+
 /** Each model's canonical start's water (the walk `unfedTiles` reads), kept while the model lives. */
 const reaches = new WeakMap<WaterModel, Float64Array>();
 function reachOf(m: WaterModel): Float64Array {
@@ -225,6 +257,8 @@ export function warmStart(from: WarmState, next: WaterModel): { state: WaterStat
     }
   // (water no source feeds any more starts as the canonical start has it: dry, D260)
   const unfed = unfedTiles(from, next, init);
+  // (a pool the edit deepened starts full, as the canonical start has it, #1181)
+  const deeper = deepenedPools(from, next);
   // (a lake the edit stored, a Fill: its tiles start from it, as the canonical start has them)
   const lakes = newLakeTiles(from.model, next);
   const N = next.W * next.H;
@@ -233,7 +267,7 @@ export function warmStart(from: WarmState, next: WaterModel): { state: WaterStat
   // (the water kept from before, and the stored lakes, feed the pre-fill's water as the sources do)
   const seeds = keptSeeds(next) ?? new Uint8Array(N);
   for (let i = 0; i < N; i++) {
-    if (changed[i] || unfed?.[i] || lakes?.[i]) continue;
+    if (changed[i] || unfed?.[i] || lakes?.[i] || deeper?.[i]) continue;
     init.depth[i] = from.water.depth[i];
     init.contamination[i] = from.water.contamination[i];
     if (po) for (let k = 0; k < 4; k++) out[4 * i + k] = po[4 * i + k];
@@ -244,7 +278,7 @@ export function warmStart(from: WarmState, next: WaterModel): { state: WaterStat
   // (the pre-fill's water nothing reaches would come from nowhere: those tiles start dry, D385)
   const fed = fedTiles(next, init.depth, seeds);
   for (let i = 0; i < N; i++) {
-    if (!(changed[i] || beside[i] || unfed?.[i]) || fed[i] || !(init.depth[i] > 0)) continue;
+    if (!(changed[i] || beside[i] || unfed?.[i] || deeper?.[i]) || fed[i] || !(init.depth[i] > 0)) continue;
     init.depth[i] = 0;
     init.contamination[i] = 0;
     if (beside[i]) for (let k = 0; k < 4; k++) out[4 * i + k] = 0;
@@ -425,7 +459,7 @@ export class PreviewJob {
 class PreviewRun {
   private readonly run: SettleRun;
   constructor(sim: WaterSim, sealed: readonly number[] | undefined) {
-    this.run = new SettleRun(sim, { checkEvery: PREVIEW_CHECK, maxDays: PREVIEW_DAYS, movedShare: PREVIEW_MOVED, tol: PREVIEW_TOL, sealed });
+    this.run = new SettleRun(sim, { checkEvery: PREVIEW_CHECK, maxDays: PREVIEW_DAYS, movedShare: PREVIEW_MOVED, tol: PREVIEW_TOL, sealed, passes: PREVIEW_PASSES });
   }
   advance(ticks: number) {
     return this.run.advance(ticks);
