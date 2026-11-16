@@ -286,9 +286,9 @@ export interface Genome {
   /** Buildable land above the theme's own: every round form's lobes only cut in, so it stays inside its radius
    *  (`field.ts` `formDistance`, set by `leanGenome`). */
   formsInward?: boolean;
-  /** A late rescue round's gentle land on a map under 128² (D471, `DrawOptions.ownScale`): its parts in proportion
-   *  to its area and its levels' spread to its narrower side, set by `drawGenome`, read by `leanGenome`. */
-  ownScale?: boolean;
+  /** A map under 128² drawn at its own scale (`DrawOptions.ownScale`): its parts in proportion to its area, and this
+   *  factor on its levels' spread and its rivers' incision, set by `drawGenome`, read by `leanGenome`. */
+  ownScale?: number;
   hazards: { badwater: "none" | "pit" | "stream"; ratio: number; thorns: boolean };
   resources: { forest: number; bushes: number; ruins: number; grove: "scattered" | "normal" | "bigWoods" };
   /** What kind of place the settler looks for first: weights over a lake shore, a river bank, a
@@ -651,9 +651,10 @@ export interface DrawOptions {
   intentions?: IntentionId[] | null;
   /** D143: a sibling of the map (1, 2, …): the same draws, nudged, over different land. */
   variation?: number;
-  /** A late rescue round's gentle land (D471, from the eighth): under 128² the land at the map's own scale, its parts
-   *  in proportion to its area and its levels' spread to its narrower side (`Genome.ownScale`). */
-  ownScale?: boolean;
+  /** Under 128², the land at the map's own scale (`Genome.ownScale`): its parts in proportion to its area, its levels'
+   *  spread and its rivers' incision by the root of its narrower side over 128 ("root", every round), or by that ratio
+   *  itself ("side": a late rescue round's gentle land, D471, from the eighth). */
+  ownScale?: "root" | "side";
 }
 
 /** The Verticality the map is drawn with: the setting, jittered at high Variety, and now and then
@@ -849,7 +850,10 @@ export function drawGenome(theme: ThemeId, seed: number, W: number, H: number, a
   // parts: counts per 128² map, in proportion to the area (the same detail per tile); under 128² a 128²'s count, but
   // for a late rescue round's gentle land, at the map's own scale (`ownScale`)
   const n = Math.max(1, Math.round((d(p.partCount) + 0.5) * (o.ownScale ? areaK : Math.max(1, areaK))));
-  if (o.ownScale && areaK < 1) g.ownScale = true;
+  if (o.ownScale && areaK < 1) {
+    const r = Math.min(W, H) / 128;
+    g.ownScale = o.ownScale === "side" ? r : portable.sqrt(r);
+  }
   for (let k = 0; k < n; k++) g.parts.push(randomPart(rng, pickPart(rng, p.parts, vy), W, H, vy, tallK));
   // extra lakes: basins beyond the parts, so water spans the workshop's range
   const lakes = Math.max(0, Math.round(d(p.lakes) * (o.ownScale ? portable.sqrt(areaK) : Math.max(1, portable.sqrt(areaK)))));
@@ -1634,7 +1638,7 @@ export function leanGenome(g: Genome, s: Settings, W: number, H: number, seed: n
   // (a late rescue round's gentle land on a map under 128², D471: the levels' spread Relief asks is a 128²'s, and on 48
   // tiles its gentle land still stood 10–12 levels; there it spreads in proportion to the map's narrower side)
   if (g.ownScale) {
-    const k = Math.min(1, Math.min(W, H) / 128);
+    const k = Math.min(1, g.ownScale);
     g.top = g.base + (g.top - g.base) * k;
     g.hydro.incise *= k;
     g.hanging *= k;

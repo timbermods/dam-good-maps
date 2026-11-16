@@ -771,7 +771,7 @@ function attemptRound(specIn: MapSpec, optsIn: GenerateOptions, t0: number, roun
       // 128²'s parts and spread of levels, so even its gentle land stood 10–12 levels on 48 tiles, and a starved start's
       // waterside place walked to 30–300 tiles where its rescue asks 468; Highlands 48² Hard seed 3 made no map in
       // 1,960 attempts, and a gentle round on its land made one 1 time in 20, now 15)
-      const g = drawGenome(specIn.theme, seed, W, H, drawn, { vt: asked.terrain.verticality, intentions: keep, variety: opts.variety ?? asked.terrain.variety, ...(specIn.variation ? { variation: specIn.variation } : {}), ...(W * H < 128 * 128 || (opts.ease ?? 0) >= 8 ? { ownScale: true } : {}) });
+      const g = drawGenome(specIn.theme, seed, W, H, drawn, { vt: asked.terrain.verticality, intentions: keep, variety: opts.variety ?? asked.terrain.variety, ...(specIn.variation ? { variation: specIn.variation } : {}), ...(W * H < 128 * 128 ? { ownScale: (opts.ease ?? 0) >= 8 ? "side" : "root" } : {}) });
       leanGenome(g, asked, W, H, seed, drawn, specIn.designedFor);
       // (Lake Basin round 2, D453, D458: one valley basin in a stronger radial catchment, on every
       // Lake Basin map, whatever its settings, intentions or siblings: Kyler, 2026-10-03)
