@@ -11,7 +11,7 @@ on:
 
 # What runs, by event (Kyler, 2026-10-15: a change merges once it is reviewed and its quick checks pass; the slow
 # suites run after it is in, on dev's tip):
-#   pull request into dev    the quick checks: `changes` and `test` (typecheck, quick suite in two shards, build). The
+#   pull request into dev    the quick checks: `changes` and `test` (typecheck, quick suite in four shards, build). The
 #                            browser shards and the heavier suites wait for the merge, except the `page` job (below), which runs
 #                            before it when the PR touches the page, and the browser shards themselves when the PR can change
 #                            what the generator makes (`generator`, tools/ci-changes.mjs `isGenerator`: any file generate()
@@ -34,7 +34,7 @@ concurrency:
   group: ci-${{ github.event_name }}-${{ github.head_ref || github.ref }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' && github.base_ref == 'dev' }}
 
-# Jobs run side by side: the tests (typecheck and the quick suite), the browser tests in fifteen shards, the
+# Jobs run side by side: the tests (typecheck and the quick suite), the browser tests in twenty shards, the
 # Python oracle, generation, and the cross-engine determinism check with the Rust build. They fail only on
 # breakage. The heaviest checks run nightly (nightly.yml): the long property runs, the full oracle and the
 # 100-seed batches.
@@ -101,14 +101,16 @@ jobs:
     needs: changes
     # (skipped for a pull request into dev that touches only investigation/)
     if: needs.changes.outputs.test != 'false'
-    # The quick suite runs in two shards, each on its own runner (`--shard=i/2`, split by file): on one runner it
-    # reached the 30 minutes a job gets (generator 0.8.1 and later). The typecheck, the document tests and the build
-    # run on the first. Raising the shard count is the fix if it outgrows them again, never a longer limit.
-    name: test (${{ matrix.shard }}/2)
+    # The quick suite runs in four shards, each on its own runner (`--shard=i/4`, split by file): on one runner it
+    # reached the 30 minutes a job gets (generator 0.8.1 and later), and in two each job took 16 to 29 minutes by
+    # 2026-11-15 (one ran out its 30 on PR #1192, job 133000711902, cancelled in its build). The typecheck,
+    # the document tests and the build run on the first. Raising the shard count is the fix if it outgrows them again,
+    # never a longer limit. A check that gates every merge should take minutes.
+    name: test (${{ matrix.shard }}/4)
     strategy:
       fail-fast: false
       matrix:
-        shard: [1, 2]
+        shard: [1, 2, 3, 4]
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
@@ -129,7 +131,7 @@ jobs:
         run: npm run typecheck
       - name: Unit and contract tests (the heavy ones run nightly)
         if: needs.changes.outputs.heavy == 'true'
-        run: npx vitest run --project quick --shard=${{ matrix.shard }}/2
+        run: npx vitest run --project quick --shard=${{ matrix.shard }}/4
       # a documents-only change: just the tests that read documents (retired terms, the sounds' credits)
       - name: Document tests (a change that only touches documents, LICENSE or package.json's descriptive fields)
         if: needs.changes.outputs.heavy != 'true' && matrix.shard == 1
@@ -235,18 +237,21 @@ jobs:
   # runner to itself, summed by `--list --shard=i/N`, gives the slowest shard 27 minutes of tests at fifteen (31 at
   # twelve to fourteen, past the 30 with the build). Alone, look-high took 0.44 of its time beside a neighbour; at 0.6
   # the slowest shard is about 16 minutes of tests, 18 to 20 a job. (Seven shards from 2026-10-27, eight from 2026-11-09, #893, each with two workers.)
+  # Twenty shards since 2026-11-15: at fifteen, shard 14 (the end of textClipping, timelapse, tooltips and touch.spec's
+  # eighteen tests at about a minute each) ran out its 30 minutes with every test passing, on a PR (run 43738242890) and
+  # on dev (43738527160). A quarter fewer tests a shard puts it near 22 minutes.
   browser:
     needs: changes
     # (not on a pull request into dev: the browser specs run on dev's tip once it merges; except one that can change what
     # the generator makes, `generator` from tools/ci-changes.mjs, which runs them before the merge, as a page PR runs `page`)
     if: needs.changes.outputs.heavy == 'true' && (!(github.event_name == 'pull_request' && github.base_ref == 'dev') || needs.changes.outputs.generator == 'true')
-    name: browser (${{ matrix.shard }}/15)
+    name: browser (${{ matrix.shard }}/20)
     runs-on: ubuntu-latest
     timeout-minutes: 30
     strategy:
       fail-fast: false
       matrix:
-        shard: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]
+        shard: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20]
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-node@v7
@@ -257,8 +262,8 @@ jobs:
       - uses: ./.github/actions/playwright
         with:
           browsers: chromium
-      - name: Browser tests, shard ${{ matrix.shard }} of 15 (Node and Chromium produce the same bytes)
-        run: npx playwright test --shard=${{ matrix.shard }}/15
+      - name: Browser tests, shard ${{ matrix.shard }} of 20 (Node and Chromium produce the same bytes)
+        run: npx playwright test --shard=${{ matrix.shard }}/20
       - uses: actions/upload-artifact@v7
         if: failure()
         with:

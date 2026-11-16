@@ -3,9 +3,10 @@
 // a clean or a bad source down and its water spreads at once; Shift+scroll over a source changes its
 // strength live, one undo step for the adjustment; a source drags to a new place (Esc puts it
 // back); with Ctrl, Flatten picks the level under the pointer, on water the bed.
+// Its maps are saved (`openSaved`): the page's own map of each fragment, as generator 0.10.26 made it.
 
 import { expect, test, type Page } from "@playwright/test";
-import { centreOn, openEditor, topDown } from "./open";
+import { centreOn, openSaved, topDown } from "./open";
 
 const info = (page: Page) => page.evaluate(() => window.dgmEditor!.info());
 const idle = (page: Page) => page.evaluate(() => window.dgmEditor!.idle());
@@ -67,7 +68,7 @@ test("water: smart Lower carves a bed the water follows; sources placed, strengt
   // Seed 7 since generator 0.10.24's round forms (the look round), D148: seed 5's stroke now ends in water, its far end's
   // ring blue; of seeds 2–16 the test passes on seeds 7, 9 and 13, the others' strokes starting off the river, ending in
   // water, crossing water beside the dry line, or their first dabs taking the bed below what the test allows)
-  await openEditor(page, "s=7&z=96&d=n&t=riverValley");
+  await openSaved(page, "s=7&z=96&d=n&t=riverValley");
   await topDown(page);
   let i = await info(page);
   const W = i.W;

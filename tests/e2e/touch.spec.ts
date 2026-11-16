@@ -12,9 +12,10 @@
 // still, the lift is their click), a force's ring is filled while a finger aims it, a picked object dragged where it can't
 // go shows the reason before the lift, and a finger held still with nothing in hand draws a selection. The arithmetic is
 // touch.test's.
+// Its maps are saved (`openSaved`): the page's own map of each fragment, as generator 0.10.26 made it.
 
 import { expect, test, type CDPSession, type Page } from "@playwright/test";
-import { openEditor } from "./open";
+import { openSaved } from "./open";
 import { toolInHand, toolPutAway } from "./helpers";
 import { FINGER_LIFT, HOLD_MS } from "../../src/render3d/touch";
 
@@ -248,7 +249,7 @@ type Size = (typeof SIZES)[number];
 async function setUp(page: Page, size: Size, hide: boolean) {
   const errors: string[] = [];
   page.on("pageerror", (e) => errors.push(String(e)));
-  await openEditor(page, "s=4242&z=96&d=n&t=riverValley");
+  await openSaved(page, "s=4242&z=96&d=n&t=riverValley");
   // (the first hints closed, as a tap on their close would; the page where it opens)
   await page.evaluate(() => {
     document.querySelector<HTMLButtonElement>('button[aria-label="No more hints"]')?.click();
@@ -336,8 +337,7 @@ async function onFlat(page: Page, c: P, clear = 0) {
       taken.add(e.y[k] * W + e.x[k]);
       if (/Source$/.test(e.templates[e.template[k]])) sources.push([e.x[k], e.y[k]]);
     }
-    let best: { x: number; y: number } | null = null;
-    let far = Infinity;
+    const patches: { x: number; y: number; d: number }[] = [];
     for (let y = 6; y < H - 6; y++)
       for (let x = 6; x < W - 6; x++) {
         const h = heights[y * W + x];
@@ -348,18 +348,24 @@ async function onFlat(page: Page, c: P, clear = 0) {
             if (heights[i] !== h || surface.depth[i] > 0 || taken.has(i)) ok = false;
           }
         if (ok && clear) ok = sources.every(([sx, sy]) => Math.max(Math.abs(sx - x), Math.abs(sy - y)) - 2 > clear);
-        const d = (x - W / 2) ** 2 + (y - H / 2) ** 2;
-        if (ok && d < far) [far, best] = [d, { x, y }];
+        if (ok) patches.push({ x, y, d: (x - W / 2) ** 2 + (y - H / 2) ** 2 });
       }
-    if (!best) return { none: true };
+    patches.sort((a, b) => a.d - b.d);
     r.setView({ distance: 48 });
     // (a pan moves the ground at the view's middle by the pixels asked; a tile above or below it, by about that: a few
-    // pans bring it there)
-    for (let k = 0; k < 6; k++) {
-      const at = window.dgmEditor!.tileToClient(best.x, best.y);
-      r.panPixels(c.x - at.x, c.y - at.y);
+    // pans bring it there. The nearest patch the pans bring under `c`, as the pointer reads it there: a pan keeps the view's
+    // middle on the map (renderer.panPixels), so a patch near the map's edge may never reach a point far from the view's
+    // middle. On generator 0.10.26's land the nearest for Carve's line on a tablet on its side, (36, 84), 12 tiles from the
+    // south edge, stopped 4 tiles short of the point high in the room Carve's settings leave, D148)
+    for (const p of patches) {
+      for (let k = 0; k < 6; k++) {
+        const at = window.dgmEditor!.tileToClient(p.x, p.y);
+        r.panPixels(c.x - at.x, c.y - at.y);
+      }
+      const under = r.pick(c.x, c.y);
+      if (under && under.x === p.x && under.y === p.y) return { x: p.x, y: p.y };
     }
-    return best;
+    return { none: true };
   }, [c, clear] as const);
   expect("none" in t, "a dry, level patch").toBe(false);
   await still(page);
@@ -420,9 +426,14 @@ for (const size of SIZES) {
       await fingers.up(1, 2);
       await still(page);
 
-      // a twist turns the view with the fingers (clockwise, clockwise), about the ground under their middle
-      await page.evaluate(() => window.dgm3d!.renderer.setView({ distance: 48 }));
+      // a twist turns the view with the fingers (clockwise, clockwise), about the ground under their middle (from the
+      // test's first view, with a level patch under the middle: the pinch's glide had moved the target by as much as the
+      // machine was slow, and a middle over relief turns about ground the ray finds a little differently as the touch's
+      // moves are taken together or apart, so the ground going round came out 0.08 to 1.84 tiles from run to run; from
+      // here it is the same every run)
+      await page.evaluate((v) => window.dgm3d!.renderer.setView({ distance: 48, target: v.target, yaw: v.yaw, pitch: v.pitch }), v0);
       c = await roomy(page, R);
+      await onFlat(page, c);
       under = await tileAt(page, c);
       const yaw0 = (await view(page)).yaw;
       const turn = Math.PI / 6;

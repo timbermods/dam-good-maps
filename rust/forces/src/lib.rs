@@ -8365,6 +8365,19 @@ fn glacier_pt(m: &Map, i: usize) -> Point {
         y: (i / m.w) as f64 + 0.5,
     }
 }
+/// A point's way to each edge of the map: the west (x 0), north (y 0), east and south.
+fn edge_gaps(w: usize, h: usize, q: Point) -> [f64; 4] {
+    [q.x, q.y, w as f64 - q.x, h as f64 - q.y]
+}
+/// The edge a glacier's route runs off, if any (#1198, #1204): its last point within 3.5 tiles of an edge and
+/// nearer it than the point four before, the nearest such edge (`edge_gaps`' order). The one test the planner's
+/// widths (`glacier_once`: no station held back from that edge) and the trough's open end (trough.rs) both make,
+/// so a trough's width and its openness never disagree.
+fn glacier_runs_off(w: usize, h: usize, route: &[Point]) -> Option<usize> {
+    let e = edge_gaps(w, h, *route.last()?);
+    let b = edge_gaps(w, h, route[route.len().saturating_sub(5)]);
+    (0..4).filter(|&k| e[k] < 3.5 && e[k] < b[k]).min_by(|&x, &y| e[x].partial_cmp(&e[y]).unwrap())
+}
 fn glacier_length(p: &[Point]) -> f64 {
     let mut s = 0.0;
     for (k, &q) in p.iter().enumerate() {
@@ -9052,6 +9065,17 @@ fn glacier_once(
             glacier_quantile(regional, 0.8) - depth - 1.0,
         ),
     );
+    // (a station's half-width is held inside the map, under 0.9 of its way to the nearest edge less a tile, except the
+    // edge its route runs off (`glacier_runs_off`, the one test the trough's open end makes too): off the map is
+    // more of the same valley, and the trough runs on open there (trough.rs). Held by that edge too, the stations
+    // nearing it narrowed to two tiles and the trough reached it as a slot, a ruled slit ten levels deep at Power
+    // 100: #1204. This first test is on the whole route, for where to stop it; the widths take the final route's)
+    let off = glacier_runs_off(w, h, &reference);
+    let hold = |q: Point, off: Option<usize>| -> f64 {
+        let d = edge_gaps(w, h, q);
+        (0..4).filter(|&k| Some(k) != off).map(|k| d[k]).fold(f64::INFINITY, min)
+    };
+    let mut reach = vec![];
     let mut arc = 0.0;
     let mut bar = (8.0 + glacier_noise(s.seed, 80) * 15.0) * step_scale;
     let mut level = head_floor;
@@ -9093,7 +9117,8 @@ fn glacier_once(
             1.3,
         );
         let cirque = 1.0 + 0.72 * exp(-pow(arc / (r * 0.95), 2.0));
-        let edge = min(min(min(q.x, q.y), w as f64 - q.x), h as f64 - q.y);
+        let edge = hold(*q, off);
+        reach.push(r * width * cirque);
         preliminary.push(GlacierStation {
             x: q.x,
             y: q.y,
@@ -9112,7 +9137,7 @@ fn glacier_once(
             } else {
                 0
             };
-            let edge = min(min(min(q.x, q.y), w as f64 - q.x), h as f64 - q.y);
+            let edge = hold(Point { x: q.x, y: q.y }, off);
             if q.s > max(16.0, s.size * 1.15) && (low_run >= 7 || edge < r * 0.5) {
                 end = 8.max(k.saturating_sub(if low_run >= 7 { 5 } else { 0 }));
                 break;
@@ -9121,6 +9146,20 @@ fn glacier_once(
     }
     preliminary.truncate(end);
     reference.truncate(end);
+    // (the widths take the route as it ends: one that stops short of the edge it ran toward is held by that edge
+    // too, and one that runs off the map is no wider there than its length on the map, its route's and the way
+    // on to the edge, the glacier never wider than it is long. On Auto a short way off the map, a dozen tiles from
+    // a click near the edge, took the valley's width, twice its length, and cut a box at the edge: #1204)
+    if off.is_some() || end < reach.len() {
+        let off = glacier_runs_off(w, h, &reference);
+        let long = off.map_or(f64::INFINITY, |k| {
+            glacier_length(&reference) + edge_gaps(w, h, *reference.last().unwrap())[k]
+        });
+        for (q, &a) in preliminary.iter_mut().zip(&reach) {
+            let edge = hold(Point { x: q.x, y: q.y }, off);
+            q.r = max(2.0, min(min(a, long * 0.5), max(2.0, edge - 1.0) * 0.9));
+        }
+    }
     let mut path = preliminary;
     let length = glacier_length(&reference);
     let length = if length == 0.0 { 1.0 } else { length };

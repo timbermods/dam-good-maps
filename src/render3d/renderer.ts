@@ -621,6 +621,8 @@ export class MapRenderer {
     move: (m, at) => this.touchMove(m, at),
     fingers: (n) => this.onFingers?.(n),
     canTilt: () => this.view.mode === "orbit",
+    // (`?viewport=on`: the readout's line for the last two-finger gesture, ui/viewportReadout.ts)
+    decided: (d) => window.dgmTouchDecided?.(d),
     still: () => this.reducedMotion,
     later: (fn, ms) => window.setTimeout(fn, ms),
     clear: (id) => clearTimeout(id),

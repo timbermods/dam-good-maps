@@ -91,10 +91,11 @@ Read this index, then [how-we-work.md](how-we-work.md), then only the topic file
 
 ## [The generator](generator.md)
 
+- D(new-leaks): A course's water leaves only by its own way: pools only inside banks that hold them, never a raised lip; nothing beside a course lowered under its water; Delta courses join the fan by plan; no channel left under its reach downstream
 - D527: Every move of a generator control changes the next map, or the control is greyed with its reason
 - D520: The reach rule: a crossing between two bends under 5 wide is a ruled reach past five times its width; every other straight stretch, wider water and lakes at 12 rows
 - D519: A premise map's moist floor falls as the map grows: 30 % at 128², 25 % at 192², 20 % at 256²
-- D518: Contour edges and Canyon's side canyons: the levels' edges on warped contours, no one-level step straight over 8 tiles, ruin fields along the land, rises in nested rings, the premise plates turned and bent; Canyon's side canyons cut 3 levels by the wash pass
+- D518: Contour edges and Canyon's side canyons: the levels' edges on warped contours, no one-level step straight over 8 tiles, ruin fields along the land, rises in nested rings, the premise plates turned and bent; Canyon's side canyons cut 3 levels by the wash pass (amended: Real places' ruin fields too, D(new-ruins))
 - D517: Dry washes and an old bed: one or two long winding dry channels a map where rain would run, with branches and fords, ending at water, in a dry hollow, or behind a lake's lip; none in the start's ground, no reach lost
 - D516: Dead stands on the dry land: a floor of 28 per 1,000 dry tiles (the aim about 40) in a few old woods where forest was, pine and birch by the site, none in the start's walk
 - D515: The start's floors are the map's, in one gate: a bench, walkable land, fast wood and a forester's plot
@@ -223,6 +224,7 @@ Read this index, then [how-we-work.md](how-we-work.md), then only the topic file
 - D420: No map keeps unfed water
 - D421: Gallery hides unfed starts (amended)
 - D445: Gallery shows every place
+- D(new-ruins): Real places' ruins lie along the land, laid as the generator lays its own (with D518)
 - D521: Real places built under the game's water rules (D311's conversion carried out)
 - D522: Real places' names without "Near", in the id and link too (amends D136)
 - D166: Pick a place

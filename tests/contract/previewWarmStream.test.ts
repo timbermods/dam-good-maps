@@ -29,16 +29,15 @@
 // 363 wet tiles; and one edit that weakens a source and turns its walk takes each rule where it belongs.
 // Neither turned case fails with the old line (any fall over a tenth restarted the tile dry); the one that
 // does, seed 9's Ruins at 34,34 (0.105 against the settle, now 0.038), needs #1145's land and is held there.
-// Not held, for a ruling: a trench a river filled that a turned walk leaves, another walk still crossing it
-// with half the flow, keeps 1.90 in the preview against the settle's 0 (1.93 before: a pool tile is never
-// judged by its flow).
+// A trench a river filled that a turned walk leaves, another walk still crossing it with half the flow, is held in
+// previewWide.test.ts (#1173: a pool a walk only crosses, where no walk ends, is unfed).
 
 import { describe, expect, it } from "vitest";
 import { footprintTiles } from "../../src/core/format/footprints";
 import * as ed from "../../src/worker/session";
 import { flowThrough } from "../../src/core/sim/prefill";
 import { UNFED_SHARE, unfedTiles } from "../../src/core/sim/preview";
-import { fixtureInEditor } from "../fixtureEditor";
+import { fixtureInEditor, namedInEditor } from "../fixtureEditor";
 
 const W = 96;
 const ID = "11111111-2222-4333-8444-555555555555";
@@ -267,6 +266,22 @@ describe("a channel that still carries a tenth of its walk's flow keeps its wate
     expect(g, "the ruins are placed").not.toBeNull();
     expect(left.falls, "the river's walk loses flow").toBeGreaterThan(100);
     expect(left.least, "the river keeps more than a tenth of its walk's flow").toBeGreaterThan(UNFED_SHARE);
+    expect(g!, `the preview differs from the settle by ${g!.toFixed(3)}`).toBeLessThan(TOL);
+  }, 120000);
+
+  // (the case #1159's two causes were built for, on the land it was found on: #1145's River Valley 96² seed 9 at generator
+  // 0.10.23, saved once from that branch's commit 8596797e as tools/fixture-projects.ts saves a fixture
+  // (preview-riverValley-96-9-leaks). The old line, restarting every tile whose walk lost over a tenth, ended 0.105 off the
+  // settle (0.112 on the code before #1159); the two rules end 0.038, the river keeping 0.77 of its walk's flow on 94 tiles)
+  it("River Valley 96² seed 9 on the land it was found on: an Underground Ruins at 34,34 turns the river's walk, no source touched", () => {
+    namedInEditor("preview-riverValley-96-9-leaks.damgoodmaps");
+    settle();
+    const before = snap();
+    const g = gap(before, flowLeft(place("UndergroundRuins", 34, 34)));
+    expect(g, "the ruins are placed").not.toBeNull();
+    expect(left.falls, "the river's walk loses flow").toBeGreaterThan(50);
+    expect(left.least, "the river keeps more than a tenth of its walk's flow").toBeGreaterThan(UNFED_SHARE);
+    expect(left.least, "and loses more than a tenth").toBeLessThan(0.9);
     expect(g!, `the preview differs from the settle by ${g!.toFixed(3)}`).toBeLessThan(TOL);
   }, 120000);
 });

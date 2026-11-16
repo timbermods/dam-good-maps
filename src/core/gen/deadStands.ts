@@ -4,7 +4,8 @@
 // pass (`resources.ts` `planResources`) runs it, so the themes and the premises both get it.
 //
 // They gather in a few old woods (two to four on a 128² map), each a group of stands grown outward from its middle, the
-// rest of the dry land bare: at most a quarter of the dry land within 6 tiles of a dead tree (the aim gives way first).
+// rest of the dry land bare: at most a quarter of the dry land within 6 tiles of a dead tree (the aim gives way first;
+// the 3D forms grown later keep it too, `bareShare`: a spring cave that moistens dry land past it is dropped).
 // Where a wood goes is read from the land, never a random field: the old water line (the dry band just beyond the moist
 // ground, where the water used to reach), the banks of dry beds and washes, the top of a mesa or butte (a level plate
 // with no higher ground beside it; a stand keeps to its rim), and dry hollows and their rims; its trees are the site's
@@ -28,6 +29,10 @@ import { pickSeeds } from "./blobs";
 export const DEAD_STANDS = {
   /** Dead trees per 1,000 dry tiles at Forests 100 %, the seed moving it within this range. */
   per1000: [36, 48] as const,
+  /** D516's floor, dead trees in stands per 1,000 dry tiles at Forests 100 % (planning's ruling on #236, 6844141498):
+   *  where the bare land's share stops the woods short of it, they grow on to it under the land they already stand over
+   *  (`planDeadStands`, the floor's pass), every other rule kept. */
+  floor: 28,
   /** Trees in one stand: the least, and two draws added on top (15 to 60, most 25 to 50); a stand its ground holds
    *  short of the least joins its wood's stand within `join` tiles of it, or is none. */
   stand: { least: 15, a: 21, b: 26, join: 6 },
@@ -142,6 +147,33 @@ export function dryTiles(wet: Uint8Array, moist: Uint8Array): number {
   let n = 0;
   for (let i = 0; i < wet.length; i++) if (!wet[i] && !moist[i]) n++;
   return n;
+}
+
+/** The bare land's share (D516, D518): of the dry tiles (no water, no moisture), the share within `bare.reach` tiles of
+ *  a dead tree of `trees`. The placer keeps it to `bare.most` on the land it plants; a stage after it that moistens
+ *  dry land (a spring cave's water, D488) shrinks the dry land under the same trees, so that stage reads it again. */
+export function bareShare(trees: readonly number[], wet: ArrayLike<number>, moist: ArrayLike<number>, W: number, H: number): number {
+  const B = DEAD_STANDS.bare;
+  const R = Math.ceil(B.reach);
+  const near = new Uint8Array(W * H);
+  for (const t of trees) {
+    const tx = t % W;
+    const ty = (t - tx) / W;
+    for (let dy = -R; dy <= R; dy++)
+      for (let dx = -R; dx <= R; dx++) {
+        const x = tx + dx;
+        const y = ty + dy;
+        if (x >= 0 && y >= 0 && x < W && y < H && dx * dx + dy * dy <= B.reach * B.reach) near[y * W + x] = 1;
+      }
+  }
+  let dry = 0;
+  let cover = 0;
+  for (let i = 0; i < W * H; i++)
+    if (!(wet[i] > 0) && !(moist[i] > 0)) {
+      dry++;
+      if (near[i]) cover++;
+    }
+  return dry ? cover / dry : 0;
 }
 
 /** The start's bench tiles (`validate/playability.ts` `startBench`'s flood: the start's level joined to its 3×3
@@ -453,6 +485,8 @@ export function planDeadStands(inp: DeadStandsInput): DeadStand[] {
   }
 
   const out: DeadStand[] = [];
+  // (the ground stands may take, before the woods' tries leave any of it bare: the floor's pass reads it again)
+  const open = Uint8Array.from(allowed);
   // (the dry land the woods stand over: dry tiles within `bare.reach` of a dead tree, `bare.most` of the dry land at most,
   // so the rest stays bare; a stand that would pass it is not grown, and the woods stop there)
   const dryN = dryTiles(wet, moist);
@@ -562,7 +596,7 @@ export function planDeadStands(inp: DeadStandsInput): DeadStand[] {
     }
     return best;
   };
-  const grow = (k: number, goal: number): void => {
+  const grow = (k: number, goal: number, under = false): void => {
     const at = woods[k];
     const p0 = placeOf[at];
     const z0 = zoneOf[at];
@@ -575,7 +609,7 @@ export function planDeadStands(inp: DeadStandsInput): DeadStand[] {
         let seed = -1;
         let best = Infinity;
         within(at, (i) => {
-          if (!allowed[i] || (pass < 2 && (placeOf[i] < 0 || (!pass && (placeOf[i] !== p0 || zoneOf[i] !== z0))))) return;
+          if (!allowed[i] || (under && !over[i]) || (pass < 2 && (placeOf[i] < 0 || (!pass && (placeOf[i] !== p0 || zoneOf[i] !== z0))))) return;
           const dx = (i % W) - ax;
           const dy = Math.floor(i / W) - ay;
           const key = sqrt(dx * dx + dy * dy) + w.near * rng.float();
@@ -589,9 +623,10 @@ export function planDeadStands(inp: DeadStandsInput): DeadStand[] {
         const z = zoneOf[seed];
         const zone = new Uint8Array(N);
         within(at, (i) => {
-          zone[i] = allowed[i] && (pass === 2 || (placeOf[i] === p && zoneOf[i] === z)) ? 1 : 0;
+          zone[i] = allowed[i] && (!under || over[i]) && (pass === 2 || (placeOf[i] === p && zoneOf[i] === z)) ? 1 : 0;
         });
-        const n = Math.min(goal - got, s.least + rng.int(0, s.a) + rng.int(0, s.b));
+        // (under the floor, a whole stand however few it lacks: a stand is never cut under its least to meet it)
+        const n = under ? Math.max(goal - got, s.least + rng.int(0, s.a) + rng.int(0, s.b)) : Math.min(goal - got, s.least + rng.int(0, s.a) + rng.int(0, s.b));
         if (n < 3) return;
         const grown = clumpStand(zone, allowed, seed, n, W, H, rng);
         const tiles = [...grown.tiles].sort((a, c) => a - c);
@@ -605,7 +640,8 @@ export function planDeadStands(inp: DeadStandsInput): DeadStand[] {
         // `join` tiles of its trees, its trees are that stand's, reaching into the narrow ground beside it, so long as
         // that stand stays a stand's most and its spread holds; elsewhere it is none, its ground left bare)
         if (grown.tiles.length < Math.min(n, s.least)) {
-          const host = grown.tiles.length >= 3 ? hostOf(grown.tiles, k) : -1;
+          // (under the floor, a tree or two on the narrow ground beside a stand joins it too)
+          const host = grown.tiles.length >= (under ? 1 : 3) ? hostOf(grown.tiles, k) : -1;
           if (host >= 0) {
             const st = out[host];
             const both = [...st.tiles, ...st.young, ...grown.tiles];
@@ -662,6 +698,27 @@ export function planDeadStands(inp: DeadStandsInput): DeadStand[] {
     if (!allowed[c.at] || woods.some((o) => (o % W - cx) * (o % W - cx) + (Math.floor(o / W) - cy) * (Math.floor(o / W) - cy) < apart * apart)) continue;
     woods.push(c.at);
     grow(woods.length - 1, want);
+  }
+  // D516's floor: where the bare land's share stopped the woods short of `floor` (a map whose dry land is narrow, Lake
+  // Basin 128² seeds 4 and 6 on generator 0.10.36's wider forms, a tree or two short), each wood grows on to it under
+  // the land its trees already stand over, seeds and stands on that ground alone, a tree or two there joining the stand
+  // beside it, so the bare land's share, each stand's least and most and its knots' spread hold as before; a stand that
+  // would still pass the share is not grown
+  const floor = Math.floor((DEAD_STANDS.floor * dryN * inp.forestDensity) / 100 / 1000) + 1;
+  if (got < floor) {
+    full = false;
+    missed = 0;
+    // (the ground the woods' tries left bare is open to it again, but for a tile's clearing round every tree)
+    for (let i = 0; i < N; i++) allowed[i] = open[i];
+    for (const st of out)
+      for (const t of [...st.tiles, ...st.young])
+        for (let dy = -1; dy <= 1; dy++)
+          for (let dx = -1; dx <= 1; dx++) {
+            const x = (t % W) + dx;
+            const y = Math.floor(t / W) + dy;
+            if (x >= 0 && y >= 0 && x < W && y < H) allowed[y * W + x] = 0;
+          }
+    for (let k = 0; k < woods.length && got < floor; k++) grow(k, floor, true);
   }
   return out;
 }

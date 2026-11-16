@@ -4,7 +4,7 @@
 // the Badwater caption shows its colours as swatches.
 
 import { expect, test, type Page } from "@playwright/test";
-import { openEditor, topDown } from "./open";
+import { openEditor, openSaved, topDown } from "./open";
 
 const info = (page: Page) => page.evaluate(() => window.dgmEditor!.info());
 const idle = (page: Page) => page.evaluate(() => window.dgmEditor!.idle());
@@ -48,7 +48,8 @@ test("the object window has sliders with their values and segmented choices, nev
   await putAway(page);
 
   // a source picked on the map: Strength, Water and Power
-  const p = await client(page, 30, 30);
+  // (tile 34,30 since generator 0.10.27, D148: on seed 4242's new land 30,30 is a mine site, a click there picks that, not the source)
+  const p = await client(page, 34, 30);
   await shelf.getByRole("button", { name: /^Water source/ }).click();
   await page.mouse.move(p.x + 3, p.y);
   await page.mouse.click(p.x, p.y);
@@ -79,7 +80,9 @@ test("the object window has sliders with their values and segmented choices, nev
 });
 
 test("trees, bushes and thorns have Size and Density, a tree an Age, and none a Turn; a drag follows them", async ({ page }) => {
-  await openEditor(page, "s=1&z=96&d=n&t=riverValley");
+  // (saved since generator 0.10.36, D148: on its land the stroke's ground already held as many pines as a sparse stroke asks
+  // for, so it planted none; the saved map keeps the ground this was written on)
+  await openSaved(page, "s=1&z=96&d=n&t=riverValley");
   await topDown(page);
   const shelf = page.getByRole("navigation", { name: "Place" });
   const names = async (what: string) => page.getByRole("group", { name: what }).locator(".ow-name").allTextContents();
@@ -102,8 +105,9 @@ test("trees, bushes and thorns have Size and Density, a tree an Age, and none a 
   // the same stroke, dense and sparse: the dense plants more; Mixed age plants grown trees and saplings
   await shelf.getByRole("button", { name: "Pine", exact: true }).click();
   await page.getByRole("slider", { name: "Size" }).fill("10");
-  const a = await client(page, 40, 50);
-  const b = await client(page, 56, 50);
+  // (the stroke at y=70 since generator 0.10.27, D148: on seed 1's new land trees already stand along y=50, "The stroke already holds as many as its density asks for")
+  const a = await client(page, 40, 70);
+  const b = await client(page, 56, 70);
   const stroke = async () => {
     await page.mouse.move(a.x, a.y);
     await page.mouse.down();

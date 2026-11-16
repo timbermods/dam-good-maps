@@ -12,14 +12,14 @@ import { MapSession } from "../../src/core/doc/session";
 import { ERODE_DEFAULTS } from "../../src/core/forces/erode";
 import { readTimber } from "../../src/core/format/timber";
 import { generate } from "../../src/core/gen/generate";
-import { makeSpec } from "../../src/core/spec/mapspec";
 import { HazardRun } from "../../src/core/sim/weather";
 import { failing } from "../../src/core/validate/report";
 import { validateMap } from "../../src/core/validate/checks";
-import { runGenerate } from "../../src/worker/api";
 import * as ed from "../../src/worker/session";
 import { caveSession, dig, hillside } from "./caveMap";
 import { exportProblems } from "./caveChecks";
+import { fixtureSession } from "../fixtureProjects";
+import { fixtureInEditor } from "../fixtureEditor";
 
 /** The first dry tile at the foot of a cliff `drop`+ high (Erode wears a cave into its face). */
 function cliffFoot(s: MapSession, drop: number): number {
@@ -61,10 +61,12 @@ describe("a hollow made on a map without caves saves and exports (#435)", () => 
   // (seed 2 for seed 3 on generator 0.10.11, the D410 round's ramps and shores, D148: seed 3's hillsides all stand within three tiles of an object now;
   // seed 3 again since generator 0.10.18's dead stands on the dry land, D516, D148: seed 2 has no hillside clear of objects now, seed 3 has five;
   // seed 6 for seed 3 since generator 0.10.20's warped contour edges and compact rises, D518, D148: seed 3 has no hillside clear of objects now, seed 6 has seven)
-  const r = generate(makeSpec({ seed: 6, theme: "riverValley", size: { x: 64, y: 64 } }));
+  // (a fixture since generator 0.10.29, D148: the land these cases were written on, tests/fixtures/projects, so the weathering's reach moving the generator's land moves nothing here; the
+  // fixture holds 0.10.25's seed 6 with its objects, so 0.10.27's move to seed 3 for 0.10.26's ruin fields, D148, is not needed on it)
+  const open = () => fixtureSession("riverValley", 64, 6);
 
   it("a Block dig into a hillside on a generated map: water per column, the same bytes reopened, and undone, the same bytes as before", () => {
-    const s = MapSession.fromGenerated(r, r.file);
+    const s = open();
     s.settleCanonical();
     const plain = s.exportTimber().bytes;
     expect(s.built.waterModel.stacked).toBeUndefined();
@@ -86,7 +88,7 @@ describe("a hollow made on a map without caves saves and exports (#435)", () => 
   });
 
   it("the same on an import with no caves of its own", () => {
-    const s = MapSession.importMap(r.bytes, "plain.timber");
+    const s = MapSession.importMap(open().exportTimber().bytes, "plain.timber");
     expect(s.columns.size).toBe(0);
     const plain = s.exportTimber().bytes;
     const { x, y, z } = hillside(s);
@@ -98,8 +100,7 @@ describe("a hollow made on a map without caves saves and exports (#435)", () => 
   });
 
   it("an Erode cave on a generated map: water per column, the same bytes reopened, and undone, the same bytes as before", async () => {
-    await runGenerate(makeSpec({ seed: 21, theme: "highlands", size: { x: 96, y: 96 } }));
-    ed.refine();
+    fixtureInEditor("highlands", 96, 21);
     const plain = MapSession.open(decodeProject(ed.project().bytes));
     plain.settleCanonical();
     const before = plain.exportTimber().bytes;

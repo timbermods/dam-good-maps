@@ -21,8 +21,10 @@ function strengthIn(v: EntityView, x: number, y: number): number | undefined {
 }
 
 describe("a source's one number (D368 (4))", () => {
+  // (Highlands 96² seed 3 → 2 at 0.10.29 (#1186), D148: the disc's land (the weathering's disc of the square's area, the washes' brush and swing) puts a mine site on one of the two
+  // dry level spots the test picks on seed 3, so a source is refused there; seed 2, the nearest, takes both tests, as 4 and 5 do)
   it("every notch's new strength reaches the page's copy of the objects, alone and in a row", async () => {
-    await runGenerate(makeSpec({ seed: 3, theme: "highlands", size: { x: W, y: W } }));
+    await runGenerate(makeSpec({ seed: 2, theme: "highlands", size: { x: W, y: W } }));
     ed.refine();
     const s0 = MapSession.open(decodeProject(ed.project().bytes));
     const st = s0.built.start!;
@@ -59,7 +61,7 @@ describe("a source's one number (D368 (4))", () => {
   });
 
   it("one Ctrl+scroll is one undo step however long the worker takes between its notches (D196)", async () => {
-    await runGenerate(makeSpec({ seed: 3, theme: "highlands", size: { x: W, y: W } }));
+    await runGenerate(makeSpec({ seed: 2, theme: "highlands", size: { x: W, y: W } }));
     ed.refine();
     const s0 = MapSession.open(decodeProject(ed.project().bytes));
     const st = s0.built.start!;
