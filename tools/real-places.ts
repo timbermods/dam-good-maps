@@ -632,7 +632,14 @@ function feedsFor(libraryId: string, place: PlaceData): { place: PlaceData; note
       return !seen.has(k) && !!seen.add(k);
     });
   };
-  const served = (p: PlaceData) => !buildChecked(p).strictFails.includes("start.water");
+  // (served: water within the start's walk, and no farther than before the search where it had some within it: no
+  // start worse served, planning's ruling of 2026-11-16)
+  const baseWalk = base.strictFails.includes("start.water") ? null : waterIn(base.strict);
+  const served = (p: PlaceData) => {
+    const c = buildChecked(p);
+    const w = waterIn(c.strict);
+    return !c.strictFails.includes("start.water") && (baseWalk === null || (w !== null && w <= baseWalk));
+  };
   const above = (s: readonly [number, number, number][]) => s.every(([x, y]) => aboveStart(place, dryLand.heights, y * place.W + x));
   let r = searchFeeds(place, real, settle, keep, { springs, served, above });
   // no place ends with more water over real dry land (planning): one whose search did is searched again with no step
