@@ -62,6 +62,8 @@ const LIST: Entry[] = [
   ["highlands", 96, 22, "vert70"],
   // generator 0.10.27's land (written from dev at 12661aca), where forcePower's seed 4 was chosen; scenario-riverValley-128-4 holds 0.10.22's
   ["riverValley", 128, 4, "v0.10.27"],
+  // generator 0.10.29's land (written from dev at 66475440), where draftWaterQuiet's Lake Basin seed 1 lake still fills at the cap
+  ["lakeBasin", 96, 1, "v0.10.29"],
   // forcePlaybackTransport: every force starts on ground no 3D form holds up
   ["highlands", 48, 4242, "noforms"],
 ];

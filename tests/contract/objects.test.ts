@@ -107,7 +107,9 @@ describe("generated maps: every new object passes the placement emulation (ROADM
   // Highlands seed 3 → 4 and Islands seed 7 → 9 at 0.10.29 (#1186), D148: the disc's land (the weathering's disc of the square's area, the
   // washes' brush and swing) has no thorn belt on Highlands 3 or Islands 7; of Highlands seeds 1–12, 1, 2 and
   // 4–11 place it, and of Islands seeds 1–13, 1–3, 9 and 10)
-  const everyObject = (theme: ThemeId, seed = theme === "islands" ? 9 : theme === "canyon" ? 1 : theme === "highlands" ? 4 : 3, thorns = true) => {
+  // (Delta seed 3 → 2 at 0.10.30, D(new-ditch) and D(sea-steps), D148: Delta 96² seed 3's map leaves the thorn belt out now,
+  // every other kind placed; of Delta seeds 1–6 all but 3 place it, 2 and 4 the nearest)
+  const everyObject = (theme: ThemeId, seed = theme === "islands" ? 9 : theme === "canyon" ? 1 : theme === "highlands" ? 4 : theme === "delta" ? 2 : 3, thorns = true) => {
     const spec = makeSpec({ seed, size: { x: 96, y: 96 }, theme });
     spec.settings.hazards.thornBelts = "some";
     spec.settings.hazards.unstableCores = "on";

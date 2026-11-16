@@ -5,6 +5,7 @@
 // Size) still opens and replays as it was.
 
 import Ajv2020 from "ajv/dist/2020";
+import { fixtureSession } from "../fixtureProjects";
 import { describe, expect, it } from "vitest";
 import { decodeProject } from "../../src/core/doc/document";
 import opsSchema from "../../src/core/doc/ops.schema.json" with { type: "json" };
@@ -14,9 +15,7 @@ import { carveForceParams, forceMapOf } from "../../src/core/forces/carve/result
 import { cappedRise, CarveRun, cutBound, DEFAULTS as CARVE_DEFAULTS, type CarveSettings } from "../../src/core/forces/carve/run";
 import { ERUPT_DEFAULTS } from "../../src/core/forces/erupt";
 import { forceSettingsProblems, type ForceResultParams } from "../../src/core/forces/op";
-import { generate } from "../../src/core/gen/generate";
 import { checkSchema } from "../../src/core/spec/schema";
-import { makeSpec } from "../../src/core/spec/mapspec";
 
 const W = 96;
 
@@ -29,8 +28,10 @@ function session() {
   // (seed 4 since generator 0.10.21's look round (D518: the land's long straight steps jog, the dead stands read the dry land as the checks do), D148: seed 3's carve crosses no rise that Depth 2 cannot cut; of seeds 1–14 the whole file passes on 4, 5 and 8–12, seed 4 the first)
   // (seed 5 since generator 0.10.27, D(new-leaks): a course's water leaves only by its own way, so the land moved, D148: seed 4's
   // carve crosses no rise that Depth 2 cannot cut; of seeds 1–13 the whole file passes on 5, 7, 10, 12 and 13)
-  const r = generate(makeSpec({ seed: 5, theme: "highlands", size: { x: W, y: W } }));
-  const s = MapSession.fromGenerated(r, r.file);
+  // (the test needs a carve from the far spot whose course crosses a rise Depth 2 cannot cut: Highlands 96² seed 5's saved
+  // land, D148, where it does, so a land change does not move it; generated live at generator 0.10.30, D(new-ditch), seed
+  // 5's carve crosses no such rise)
+  const s = fixtureSession("highlands", W, 5);
   s.setWaterMode("defer");
   return s;
 }

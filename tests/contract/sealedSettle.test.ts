@@ -15,7 +15,7 @@ import { canonicalSettle, DRAIN_DAYS, prefill } from "../../src/core/sim/prefill
 import { settle, TICKS_PER_DAY, waterSteady, WaterSim, type WaterModel } from "../../src/core/sim/water";
 import { makeSpec } from "../../src/core/spec/mapspec";
 
-/** River Valley seed 3 at N² (its land without 3D forms), with a 12×12 pit (144 tiles) dug two levels into a dry plateau away
+/** River Valley at N², seed 3 or the first of 5, 1 and 6 whose map settles within four days (its land without 3D forms), with a 12×12 pit (144 tiles) dug two levels into a dry plateau away
  *  from water and the start, and a Fill one level deep in it. */
 function filled(N: number): { s: MapSession; level: number; tiles: readonly number[]; at: [number, number] } {
   // (without its 3D forms, D488: a map with caves settles on the stacked engine, whose own sealed basins are
@@ -23,7 +23,13 @@ function filled(N: number): { s: MapSession; level: number; tiles: readonly numb
   // (seed 3 on 0.10.6's maps, D148: the Fill's volume is in the plain check's total, so on a map whose flowing water is
   // still near that check's 0.2% at the last step, the Fill can end the settle one check before the map without it; seed 2
   // at 256 and seed 4 are such maps, seeds 1, 3, 5 and 6 are not)
-  const s = MapSession.fromGenerated(generate(makeSpec({ seed: 3, theme: "riverValley", size: { x: N, y: N } }), { forms: false }));
+  // (the test needs a map whose own water settles within the four days the Fill's must stop under: of seeds 3, 5, 1 and 6,
+  // the first whose generated map does, read off the map, so a land change does not move it, D148; at generator 0.10.30,
+  // D(new-ditch), River Valley 256² seed 3's map settles in 6.17 days, three gullies draining to the edge, and seed 5's in 2.00)
+  const made = [3, 5, 1, 6].map((seed) => () => generate(makeSpec({ seed, theme: "riverValley", size: { x: N, y: N } }), { forms: false }));
+  let r0 = made[0]();
+  for (let k = 1; k < made.length && !(waterSteady(r0.built.settle) && r0.built.settle.ticks < 4 * TICKS_PER_DAY); k++) r0 = made[k]();
+  const s = MapSession.fromGenerated(r0);
   s.setWaterMode("defer");
   const b = s.built;
   for (let y0 = 8; y0 + 24 < N; y0 += 2)
