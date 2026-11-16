@@ -7,12 +7,14 @@
 // them). Then the settled invariants, each read on the settled water (§7 "settled"):
 //
 // - `river.clean`: no tile of the river above the red stream's join (all of it where the red stream leaves by its own
-//   exit), of its springs' pool, the terrace's spring or its brook, at contamination over 0 (D498).
+//   exit), of its springs' pool, the terrace's spring or its brook, red as the game loads it: contamination over 0 in
+//   the map file's own values (D498).
 // - `water.leaks`: no water off its courses: every wet tile on stage 1's water (the bodies, the channels, the plunge
 //   pools, the crests), on the gaps cut between them (`plainLand.ts` `courseGaps`) or on the gulch's floor, the red
 //   stream's own valley down to its fall.
 // - `plain.bands` again, on the settled water and the game's soil: dead 8 to 25 % of the floor, dry 30 % or more.
-// - `fall.settled`: the Red Fall drops its height less half a level on the settled water (the Gate's `veil.settled`):
+// - `fall.settled`: the Red Fall drops its drop over the backswamp (6 or 7) less half a level on the settled water (the
+//   Gate's `veil.settled`), lip to the Red Pool's water:
 //   the fall reads as a fall, not a rapid, from the start's first frame.
 // - `levee.holds`: in a badtide's water (the river red, its depth as settled) the game's soil rule poisons the plain
 //   only within 7 tiles of the river along a low place in the levee, beyond what day 1 has dead already.
@@ -23,7 +25,7 @@ import type { BuildResult } from "../features/build";
 import { featureId } from "../features/ids";
 import { footprintAt } from "../features/objects";
 import type { Feature, ForestFeature } from "../features/schema";
-import { WATER_CONTAMINATION_LEAST } from "../format/world";
+import { fileContamination } from "../format/world";
 import { pickSeeds } from "../gen/blobs";
 import { distanceFrom, runsToTiles, tilesToRuns } from "../math/grid";
 import { stream } from "../math/rng";
@@ -202,16 +204,16 @@ export function cleanWater(plan: PremisePlan, w: StageWater): Uint8Array {
   return out;
 }
 
-/** `river.clean`: the clean water's wet tiles at contamination over 0 as the map's file holds it (the water the game
- *  loads: the file writes a contamination at or under `WATER_CONTAMINATION_LEAST` as 0; the settle's doubles keep
- *  traces under it, `redMix` `creep`), and the most there. */
+/** `river.clean`: the clean water's wet tiles red as the game loads it, read on the map file's own values
+ *  (`fileContamination`: the file writes a contamination at or under `WATER_CONTAMINATION_LEAST` as 0, the only
+ *  threshold; the settle's doubles keep traces under it, `redMix` `creep`), and the most there. */
 export function riverRed(clean: Uint8Array, depth: ArrayLike<number>, contamination: ArrayLike<number>): { tiles: number; most: number } {
   let tiles = 0;
   let most = 0;
   for (let i = 0; i < clean.length; i++)
-    if (clean[i] && depth[i] >= WET && contamination[i] > WATER_CONTAMINATION_LEAST) {
+    if (clean[i] && depth[i] >= WET && fileContamination(contamination[i]) > 0) {
       tiles++;
-      most = Math.max(most, contamination[i]);
+      most = Math.max(most, fileContamination(contamination[i]));
     }
   return { tiles, most };
 }
@@ -324,7 +326,8 @@ export function settledBands(on: Uint8Array, built: Pick<BuildResult, "water" | 
 // ------------------------------------------------------------------------------------------------- the fall and the badtide
 
 /** `fall.settled`: the Red Fall's drop on the settled water, the median water surface over its lip less the median over
- *  its plunge pool (the Red Pool's wet tiles), and the drop it must give (its height less `VEIL_SHORT`). */
+ *  its plunge pool (the Red Pool's wet tiles), and the drop it must give (its drop over the backswamp less
+ *  `VEIL_SHORT`). */
 export function redFallDrop(plan: PremisePlan, w: StageWater, heights: ArrayLike<number>, depth: ArrayLike<number>): { drop: number; want: number } {
   const r = w.raster;
   const fall = plan.links.find((l) => l.id === I.redFall)!;
@@ -333,7 +336,9 @@ export function redFallDrop(plan: PremisePlan, w: StageWater, heights: ArrayLike
   const lip = med((r.lips[I.redFall] ?? []).filter((i) => depth[i] >= WET).map((i) => heights[i] + depth[i]));
   const foot: number[] = [];
   for (let i = 0; i < r.lake.length; i++) if (r.lake[i] === pool && depth[i] >= WET) foot.push(heights[i] + depth[i]);
-  return { drop: lip - med(foot), want: (fall.fall?.height ?? 0) - VEIL_SHORT };
+  // (the drop the landmark gives on the ground, the gulch's mouth over the backswamp: its height reaches the Red Pool's
+  // sill, a level under the backswamp, and the pool's water stands over that sill)
+  return { drop: lip - med(foot), want: (plainOf(plan)?.gulch.h ?? 0) - VEIL_SHORT };
 }
 
 /** `levee.holds` (§2 "A badtide", §7): the river's water red (contamination 1 on its channel and its springs' pool, the
@@ -446,7 +451,7 @@ export interface PlainSettled {
 export function settledFailures(s: PlainSettled): { id: string; reason: string }[] {
   const out: { id: string; reason: string }[] = [];
   const pct = (v: number) => `${Math.round(100 * v)} %`;
-  if (s.river.tiles) out.push({ id: "river.clean", reason: `${s.river.tiles} tiles of the clean water stand red (at most ${s.river.most.toExponential(1)})` });
+  if (s.river.tiles) out.push({ id: "river.clean", reason: `${s.river.tiles} tiles of the clean water stand red as the game loads it (at most ${s.river.most.toExponential(1)})` });
   if (s.leaks.tiles) out.push({ id: "water.leaks", reason: `${s.leaks.tiles} tiles of water off their courses, the first at ${s.leaks.at?.join(", ")}` });
   if (s.bands.dead < DEAD_SHARE[0] || s.bands.dead > DEAD_SHARE[1]) out.push({ id: "plain.bands", reason: `the settled dead band is ${pct(s.bands.dead)} of the floor (${DEAD_SHARE.map(pct).join(" to ")})` });
   else if (s.bands.dry < DRY_LEAST) out.push({ id: "plain.bands", reason: `the settled dry band is ${pct(s.bands.dry)} of the floor, under ${pct(DRY_LEAST)}` });

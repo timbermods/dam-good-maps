@@ -182,6 +182,12 @@ function waterToken(v: number): string {
   return formatFloat(Number(Math.fround(v).toPrecision(9)));
 }
 
+/** The water contamination a map file holds for `c`: the value the game loads (0 at or under
+ *  `WATER_CONTAMINATION_LEAST`, else its token's value). */
+export function fileContamination(c: number): number {
+  return c > WATER_CONTAMINATION_LEAST ? Number(waterToken(c)) : 0;
+}
+
 export interface SettledState {
   /** Surface (water column floor) per tile. */
   floor: Uint8Array;

@@ -122,26 +122,45 @@ valley in the land the shared relief made:
 
 - **Sources.** The river's springs at its head (the map's strong sources). The start's brook: one small spring. The
   red source: one badwater source at the gulch's head, its strength a fifth (Badwater low), a quarter (medium) or a third (high) of the river's; its stream's bed
-  as wide as its flow asks, 3 tiles or more, so it runs about 0.7 deep in a bed a level under the backswamp (a bed 2
-  wide ran it over 1 deep, its water over the backswamp's floor and into the sloughs: `RED_BED`).
+  as wide as its flow asks, 3 tiles or more (4 at a quarter), so it runs 0.6 deep or less in a bed a level under the
+  backswamp (a bed 2 wide ran it over 1 deep, its water over the backswamp's floor and into the sloughs; 3 wide at a
+  quarter, 0.7, and the Red Pool, whose water is its stream's head, stood deeper over its sill than a sill's 0.6 and
+  the Red Fall fell short of its height: `RED_BED`).
 - **Courses.** The river: in at one edge, out at another, between its levees. The red stream: down the gulch, over the
   Red Fall (a fall of 6 or 7 levels, the landmark, D510: the gulch's mouth stands that far over the backswamp), along the backswamp, then by the seed either into the river in the river's
   last 30 % (D476, D498: the river is never red above the join) or out by the edge on its own. The start's brook: down
   the terrace into the river. Stage 1 lays each body and channel apart; where a course leaves a body or joins the river
   through ground left between them, that ground is cut to its bed (`courseGaps`): the Red Pool's outlet as wide as
   its stream and at the stream's bed, so the pool's water stands at the stream's head, a level under the backswamp,
-  and the Red Fall drops its whole height onto it; the brook's mouth through the river's bank.
+  and the Red Fall drops its whole height onto it; where stage 1 lays the pool touching its stream, the floor round
+  their meeting cut to that bed too, a tile each way, the walls left (they met on a corner a tile wide and the pool
+  stood a level over its stream); the brook's mouth through the river's bank, a tile wide, at the lowest of the brook's own tiles beside it; the red
+  stream's last reach and its mouth through the levee as wide as its bed (a mouth a tile wide, or a reach thinned to
+  two on its turn into the river, held its water at the backswamp's floor). The Red Pool's sill is its stream's head
+  bed, a level under the backswamp (a pool's rim stands at its sill: at the backswamp's level its water stood over
+  the floor and ran out across it), so the Red Fall's height reaches a level under its drop on the ground. The gulch's
+  floor holds its stream to the lip: a floor tile beside a drop off the floor stands a level over it (`bankGulch`).
 - **The river's steps (step 3, round 2).** Width follows flow (the river and the brook, and the red stream's share
   below a join: 6 wide over 18 a second, else 5), never length. A longer river needs more fall: its bed steps down a
   level at natural riffles (where its bends cross over, `riffles`), as few as hold its water `RIVER_STAGE.margin` under
-  its ceiling everywhere: the lowest plain within its levees' reach beside it, and at a join the backswamp's floor
-  (`riverSteps`, a step at the farthest riffle that holds). The stage is measured on the settle: about 1.6 deep over a
+  its ceiling everywhere: the lowest plain within its levees' reach beside it, and at a join the red stream's bed, two
+  under the plain (`riverSteps`, a step at the farthest riffle that holds). The stage is measured on the settle: about 1.6 deep over a
   step's lip and 0.0055 deeper a tile up the reach for 15.7 a second on a bed 5 wide, scaled by flow over width to the
-  2/3 (`riverStage`). The red stream joins 3 to 7 tiles below one of those steps (a yazoo: it keeps to the backswamp
-  until the river has dropped), its last reach at the river's bed below the step, so the trunk's water stands under
-  the red bed's banks and cannot back up it.
-- **The brook's site (step 3, round 2).** On a long terrace the brook crosses it `TERRACE.walk` (12) tiles up the
-  valley from the start, not `brookAt` from the terrace's head, so its clean water stays inside the start's 20-tile walk.
+  2/3 (`riverStage`). The red stream joins 5 to 9 tiles below one of those steps (a yazoo: it keeps to the backswamp
+  until the river has dropped), so its mouth stands wholly below the step with two tiles of the river between (red
+  water at a step's foot climbs its first tile). Its last reach is short and falls (step 3, round 3): its way square
+  across the river's bank from the plain's side, its bed a level under the backswamp to within `JOIN.drop` (4) tiles of
+  the river's middle, then through the levee at the riffle's foot down a level or more to the river's bed, so the red
+  water falls into the river and the trunk's water, standing under the red bed, cannot back up it. Its water touches
+  the river's nowhere else (`redClear`: stage 1 parts two waters that touch where no link joins them, and once the
+  river gave up its tiles across its width there, a dam), nor any reach standing over its bed.
+- **The height budget (step 3, round 3).** The plain sits as high as its river's fall needs: its level `L` is 6
+  (`PLAIN_LEAST`) plus its risers, plus a level a join keeps for the river's step under the red bed (`JOIN.levels`),
+  under the water ceiling less the Red Fall (6 or more) and the gulch's rise (`mostRisersUnder`), so the rim and the
+  Red Fall keep their drop above the plain. Joins are drawn at every size.
+- **The brook's site (step 3, round 3).** The brook crosses the terrace `brookAt` from its head, and the start is
+  taken only among the terrace's sites that already have the brook within the start's walk (the shared gate's 20
+  tiles, measured as the walk is: four ways at 1, diagonals at √2): found, not laid.
 - **Hazards.** The premise plans the map's badwater. `land/hazards.ts` places none of its own on a map of this
   premise. The start keeps its badwater distance and its clean water (D469, D85).
 - **Settings.** Badwater off, Rivers 0 or a side under 128 make the premise ineligible, each with its one-line
@@ -185,11 +204,14 @@ nothing the player valued is spent.
 Stage as PREMISES §1.4; each with a hand-broken case in its test.
 
 - **plan:** `plain.levels` (the river's bed, the levee, `L`, the backswamp, the gulch's mouth and the col by number);
-  `plain.width` (`P` against §2); `stream.join` (the join in the river's last 30 %, or the stream's own exit);
-  `start.badwater` (the terrace upstream of the mouth by the distance); `frame.fall` (the Red Fall in the first
-  frame); `poisoned.ladder` (every rung has a site); with §1.4's shared plan checks.
+  `plain.width` (`P` against §2); `stream.join` (the join in the river's last 30 %, its last reach 4 tiles or less
+  and falling a level or more into the river, or the stream's own exit); `start.badwater` (the terrace upstream of
+  the mouth by the distance, and of every red water by the distance and the 7 tiles its soil's poison reaches,
+  `BAD_SOIL`: the gate counts poisoned soil as badwater); `frame.fall` (the Red Fall in the first frame);
+  `poisoned.ladder` (every rung has a site); with §1.4's shared plan checks.
 - **land:** `gulch.found` (the pair within the mend's budget); `fall.drop` (the Red Fall 6 or 7 on the ground, from the
-  gulch's mouth to the backswamp); `wall.height` (the far wall 8 or more over the plain, the near wall 4 or more,
+  gulch's mouth to the backswamp: the level most of the backswamp's tiles round the mouth's foot stand at, under the
+  crest, the water's and the gaps' tiles out); `wall.height` (the far wall 8 or more over the plain, the near wall 4 or more,
   wherever the first frame sees them: the highest ground within 16 tiles out from the foot, 4 either way, the foot
   within 60 tiles of the start); `col.over` (2 or more over the narrows' floor, and the
   lowest way out of the gulch other than its mouth); `fork.own` (the Dry Fork reaches its edge and no tile of the
@@ -197,12 +219,13 @@ Stage as PREMISES §1.4; each with a hand-broken case in its test.
   `plain.bands` by the soil's reach on stage 2's ground (dead 8 to 25 %, dry 30 % or more); `terrain.ruled_land`
   (the shared look check, and each wall's side valleys never a comb: `combOf`).
 - **settled** (`plainMap.ts`, on the map built and settled once, its life and dead trees in): `river.clean` (no tile
-  of the clean water, the river above the join, the brook, the springs and the terrace's pool, at contamination over
-  0 as the map file writes it: the file writes 1e-6 or less as 0, `WATER_CONTAMINATION_LEAST`; "above the join" is
+  of the clean water, the river above the join, the brook, the springs and the terrace's pool, red as the game loads
+  it: read on the map file's own values, `fileContamination`, whose one threshold is the file's rounding of 1e-6 or
+  less to 0, `WATER_CONTAMINATION_LEAST`; "above the join" is
   above the middle of the river's last step over the join and above every river tile beside the red stream's cut,
   `joinEdge`; below it the mix is reported per map, `redMix`, with no bound); `water.leaks` (no settled water off its courses: stage 1's bodies and channels, the gaps cut between them and
   the gulch's floor); `plain.bands` again on the settled water and the game's soil; `fall.settled` (the Red Fall
-  drops its height less the veil's half level, lip to the Red Pool's water, as settled); `levee.holds` (the river's
+  drops its drop over the backswamp less the veil's half level, lip to the Red Pool's water, as settled); `levee.holds` (the river's
   water made red as settled, the game's soil: no tile of the plain past the banks poisoned farther than 7 tiles from the
   river along a low place, its half-width and a tile added); every blocking check of the shared gate, the start's
   among them. A map that fails one is drawn again, within 3 settles.
@@ -255,14 +278,43 @@ frames, judged by planning.
 - *Findings (step 3, round 2).* (1) A step of one level does not cut the reach above it off from the red water: the
   river stands about 1.5 deep, over the reach above's bed, and the settle's eddies carry traces up it, 1e-39 to 1e-323
   as far as 47 to 93 tiles above the step on the joined maps at 256² (seeds 3, 5, 7). The file writes them as 0, so
-  the game loads that river clean; in the core's doubles they are not 0. (2) Joins are rare: the level budget (the plain
-  at 6 plus its risers, the river's head two under it, beds no deeper than `BED_FLOOR`) leaves too few levels for the
-  river's steps and a join under the backswamp, so most draws that ask for a join find none and draw again with the
-  red stream's own exit (seeds 1 to 12: joins only at 256², seeds 3, 5 and 7). (3) The red stream's long last reach on
-  a join stands over 1 deep and floods the backswamp's floor (256² seed 5), and the Red Pool can stand over its sill
-  (256² seed 6): each is a first-attempt miss the next attempt mends. (4) The whole-map frame: the renderer draws
+  the game loads that river clean; in the core's doubles they are not 0 (`river.clean` reads the file's values,
+  `fileContamination`, round 3). (2) Joins were rare in round 2 (only at 256², seeds 3, 5 and 7): the level budget left
+  too few levels for the river's steps and a join. Round 3's budget keeps a level for the join (`JOIN.levels`): on
+  seeds 1 to 12 the first attempt joins at 128² 6 times, at 192² twice, at 256² 6 times. (3) The red water stood over
+  the backswamp four ways in round 2, each a first-attempt miss, and round 3 mends each at its cause: the Red Pool's
+  sill at the backswamp's own level (a pool's rim stands at its sill; now the stream's head bed); the mouth through the
+  levee a tile wide, and the last reach thinned to two on its turn into the river (now as wide as its bed); the red
+  channel touching the river away from its end, where stage 1's parting gave up the river's tiles across its width and
+  dammed it (now its last way square across the bank, `redClear`); the red mouth at a step's foot, where its water
+  climbed the step's first tile (now two tiles of the river between). (4) The whole-map frame: the renderer draws
   poisoned soil from afar as its crack pattern's mean, a 20 % tint toward a dull brown (`render3d/palette.ts`
   `contaminationMean`, `materials.ts` `groundColor`): the cracks are 4 texels of the 128 a tile has
   (`soilTexture.ts`), so they fall under a pixel once a tile is drawn under about 32 pixels, and the light look draws
   only the mean at every distance. The dead band then reads as dry ground. Passed to the renderer's owner; no look
   is invented here.
+- *Findings (step 3, round 3).* On seeds 1 to 12 at each size the first attempt holds 11 of 12 at 128², 12 of 12 at
+  192² and 11 of 12 at 256², in 0.8 to 2.4 s, 1.9 to 2.2 s and 3.6 to 4.8 s; the red stream joins the river on 6, 2
+  and 7 of them. (1) The start's walk is the shared gate's (four
+  ways at 1, diagonals at √2, from the district's middle), and the start is taken only where the brook already runs
+  within it. (2) The gate reads poisoned soil as badwater: the start keeps its badwater distance and the 7 tiles the
+  soil's poison reaches on the level (`BAD_SOIL`) from every red water. (3) The plan's dead band now reads the
+  ground's floor (the river's side in, the courses' water out) and the poison's reach by level (7 tiles on the
+  backswamp's level, 5 less a level up): within 3 points of the ground's share on all 36 maps, under it on the exits,
+  where round 2's whole-backswamp count read 11 % for 7 %. (4) The gulch's floor spilled down the face beside the lip
+  where the mouth ran wider than it, and a gap's side left at its bed let the brook out behind the levee: the gulch's
+  floor and every gap now have banks. (5) Open: 256² seed 3, whose window holds two side valleys and neither holds
+  (one's Dry Fork does not keep its water once mended, the other's fall no start can frame); its second attempt holds.
+  128² seed 3, whose one layout in 24 that fitted with a 3-wide red stream reads a dead band of 7.6 % with the 4-wide
+  one (8 % least: the stream runs near the far wall and its bed takes the floor the poison held), and whose second
+  attempt's far wall reads 46 tiles straight on the ground against 44 (below); its third holds. 128² seed 12's
+  Red Fall is split by one tile, where the red stream's 4-wide bed cuts the gulch's bank beside the lip. A wall's foot
+  on the ground can still read a tile straighter than its plan line (128² seed 2's earlier layout: 51
+  tiles against 50, `wall.wanders`); it costs 128² seed 3 its second attempt.
+  (6) The heavy test's Red Fall, judged by the shared curtain rule (its height, to the Red Pool's sill, less the veil's
+  half level), fell short on 12 of 36 maps: the pool's water is its stream's head, and the 3-wide stream ran it 0.62 to
+  0.83 over the sill, 1.0 where the pool met its stream on one corner. The stream is now sized for 0.6 deep (4 wide at
+  a quarter of the river's flow) and the pool's meeting with it is cut a tile each way; the gap's cut is left out of
+  `fall.drop`'s read of the backswamp, which reads only ground under the crest (the floor's mask takes in the gulch's
+  spurs). A brook's mouth gap at its last path tile's bed stood a level over the brook's own tile beside it and let
+  it out over the levee (256² seed 9); it is cut at the lowest of them.

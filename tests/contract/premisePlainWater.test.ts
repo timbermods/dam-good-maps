@@ -7,7 +7,7 @@
 import { describe, expect, it } from "vitest";
 import { runsToTiles } from "../../src/core/math/grid";
 import { badtideReach, cleanWater, floorTiles, plainCourses, plainLeaks, plainMap, redFallDrop, riverRed, settledBands, settledFailures, WET, type PlainMap } from "../../src/core/premise/plainMap";
-import { DEAD_SHARE, DRY_LEAST, PLAIN_IDS } from "../../src/core/premise/premises/poisonedPlain";
+import { DEAD_SHARE, DRY_LEAST, PLAIN_IDS, plainOf } from "../../src/core/premise/premises/poisonedPlain";
 import { makeSpec } from "../../src/core/spec/mapspec";
 
 const spec = makeSpec({ seed: 2, size: { x: 128, y: 128 }, theme: "any", premise: "any" });
@@ -53,12 +53,14 @@ describe("The poisoned floodplain's water", () => {
 
   it("runs its river in steps under its levees' crest, and reads the river's red on the file's water", () => {
     // (ruling 1 of step 3's round 2: the bed falls a level at riffles, as often as its length needs; the water stands
-    // under the levees' crest and the plain beside it all along; an exit map has no join, so no mix)
+    // under the levees' crest and the plain beside it all along; a joined map reports the mix below its join, an exit
+    // map has none: since round 3's height budget, seed 2 at 128² joins)
     expect(good.settled.stand.steps).toBeGreaterThanOrEqual(1);
     expect(good.settled.stand.crest).toBeGreaterThan(0);
     expect(good.settled.stand.plain).toBeGreaterThan(0);
     expect(good.settled.river.tiles).toBe(0);
-    expect(good.settled.mix).toBeNull();
+    if (plainOf(plan)!.red.end === "join") expect(good.settled.mix).not.toBeNull();
+    else expect(good.settled.mix).toBeNull();
   });
 
   it("is the same map for the same seed", () => {

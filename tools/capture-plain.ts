@@ -126,7 +126,7 @@ function landMap(seed: number, size: number): Made | null {
   const b = plainBands(land.plan, land.water, land.heights, land.relief.floor);
   const n = plainStart(land.plan, land.water, land.heights, land.relief.floor, land.frame);
   const wh = wallHeights(land.plan, land.heights, land.relief.floor);
-  const fd = fallDrop(land.plan, land.heights, land.relief.floor, land.relief.valleys);
+  const fd = fallDrop(land.plan, land.heights, land.relief.floor, land.relief.valleys, land.water);
   const pct = (v: number) => `${Math.round(100 * v)} %`;
   // (each wall's foot on the ground: its longest run within WALL.near tiles of one straight line, against 1.2 P)
   const P = plainOf(land.plan)!.P;
