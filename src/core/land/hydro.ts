@@ -229,6 +229,87 @@ interface Stamp {
   tiles: number[];
 }
 
+/** The most of a level a river's water stands over its bed before its channel is cut wider (D530). */
+const CARRY_MOST = 0.85;
+/** The most a channel is widened to carry its water (D530), times its width. */
+const CARRY_WIDEST = 2.5;
+
+/** How much wider than planned, by arc position, a river's channel is cut to carry its water inside a bank a level
+ *  over its bed (D530, D26): its standing water by station, from its end upstream, its head over each lip or its end
+ *  (0.3·q/w) and its rise along a flat reach (0.0015·q/w a tile); each reach of water backed up from one control
+ *  widened alike, as much as its deepest station needs, at most `CARRY_WIDEST`; the widening dilated and smoothed
+ *  along the course, so it eases in over a few widths and never steps. Null when no station needs it. */
+function carryWidth(prof: Float64Array, lakeAt: Uint8Array, L: number, n: number, widthAt: (s: number) => number, flowAt: (s: number) => number): ((s: number) => number) | null {
+  const ds = L / n;
+  const k = new Float64Array(n + 1).fill(1);
+  let any = false;
+  // (a widened reach backs less water up the reach above it: a few passes settle the factors)
+  for (let pass = 0; pass < 3; pass++) {
+    const depth = new Float64Array(n + 1);
+    const ctrl = new Int32Array(n + 1);
+    let sf = -Infinity;
+    let c = n;
+    // (the level a lake on the course holds its water at, its outlet's bed, while the course above it lies under it)
+    let held = -Infinity;
+    for (let j = n; j >= 0; j--) {
+      const s = j * ds;
+      const q = flowAt(s);
+      const w = Math.max(1, widthAt(s) * k[j]);
+      if (lakeAt[j] && j < n) {
+        // (a lake on the course stands at the water backed up to its outlet, the reach below's: the reach above
+        // runs into it at that level, all one reach of water; its own floor is the lake's, read for no depth)
+        if (!lakeAt[j + 1]) held = prof[j + 1];
+        ctrl[j] = c;
+        continue;
+      }
+      const head = prof[j] + (0.3 * q) / w;
+      const backed = sf + ((0.0015 * q) / w) * ds;
+      if (j === n || head >= backed) {
+        sf = head;
+        c = j;
+      } else sf = backed;
+      ctrl[j] = c;
+      // (the course a lake's water reaches back up is the lake's, planned to stand there)
+      if (prof[j] < held) continue;
+      held = -Infinity;
+      depth[j] = sf - prof[j];
+    }
+    const need = new Map<number, number>();
+    for (let j = 0; j <= n; j++) if (depth[j] > CARRY_MOST) need.set(ctrl[j], Math.max(need.get(ctrl[j]) ?? 1, depth[j] / CARRY_MOST));
+    if (!need.size) break;
+    any = true;
+    for (let j = 0; j <= n; j++) {
+      const f = need.get(ctrl[j]);
+      if (f !== undefined) k[j] = Math.min(CARRY_WIDEST, k[j] * f);
+    }
+  }
+  if (!any) return null;
+  // (eased: the most over a few widths each way, then their mean, never under the factor a station needs)
+  const R = Math.max(4, Math.round((2 * widthAt(L)) / ds));
+  const dil = new Float64Array(n + 1);
+  for (let j = 0; j <= n; j++) {
+    let m = 1;
+    for (let t = Math.max(0, j - R); t <= Math.min(n, j + R); t++) if (k[t] > m) m = k[t];
+    dil[j] = m;
+  }
+  const sm = new Float64Array(n + 1);
+  for (let j = 0; j <= n; j++) {
+    let a = 0;
+    let c = 0;
+    for (let t = j - R; t <= j + R; t++) {
+      a += dil[Math.max(0, Math.min(n, t))];
+      c++;
+    }
+    sm[j] = a / c;
+  }
+  return (s: number) => {
+    const x = Math.max(0, Math.min(n, s / ds));
+    const j = Math.floor(x);
+    const f = x - j;
+    return j >= n ? sm[n] : sm[j] * (1 - f) + sm[j + 1] * f;
+  };
+}
+
 /** Exact distance from each tile near a polyline to it, and the arc position of the nearest point
  *  (as the build's pathField measures it, but only within `reach` tiles). */
 function stamp(path: Point[], W: number, H: number, reach: number): Stamp {
@@ -1448,6 +1529,21 @@ function planHydroSingle(E: Float64Array, h: Uint8Array, g: Genome, seed: number
     // Waterfalls off: every drop spread along the course, a level a tile at most (the river cuts a
     // steady grade into the land above a cliff instead of falling over it); lakes keep their levels
     if (g.falls === 0) for (let j = n; j >= 1; j--) if (!lakeAt[j] && !lakeAt[j - 1] && prof[j - 1] > prof[j] + 1) prof[j - 1] = prof[j] + 1;
+    // (D530, D373 (1), D26: a channel carries its water inside its banks. Its water stands over its bed by its head
+    // where it runs off a lip or the map's edge, 0.3·q/w, and rises upstream by 0.0015·q/w a tile along a flat reach
+    // (D26's terms, as the settle has them); its bank, the floor cleared beside it, is a level over its bed. A big
+    // river's channel is no wider than `MAX_WIDTH` and on the beds' floor can't be cut deeper: a long flat reach of
+    // it stood over its bank and spread over its floor as a thin sheet (River Valley 256² seed 4: 14.4 water/s
+    // through ten tiles, standing 1.1 deep over 400 tiles, a quarter of the map under 0.2 deep). Where its water
+    // would stand over `CARRY_MOST` of a level, the reach is cut wider until it doesn't, the widening easing in
+    // along the course, never ruled; a river into the sea stands at the sea's level, which no width changes)
+    const wide = natural && !(tr.toSea && !exitEdge) ? carryWidth(prof, lakeAt, L, n, (s) => 2 * half(s, L), (s) => {
+      let q = hd.flow;
+      for (const j of joined) if (j.s <= s) q += j.q;
+      return q;
+    }) : null;
+    const halfC = wide ? (s: number, l: number) => half(s, l) * wide(s) : half;
+    const stC = wide ? stamp(path, W, H, Math.ceil(width * CARRY_WIDEST / 2 + g.hydro.floor * 1.5 + 3 + width * 0.15)) : st;
     // pools: below a drop the water scours its bed a level deeper for a few tiles, where the reach
     // below is long enough to keep a lip (pools and riffles: standing water deep enough to pump)
     const bedOf = prof.slice();
@@ -1458,7 +1554,7 @@ function planHydroSingle(E: Float64Array, h: Uint8Array, g: Genome, seed: number
       for (let q = j; q <= n && prof[q] === prof[j]; q++) level++;
       if (level >= 8) poolAt.push(j);
     }
-    carve(st, bedOf, L, n, half, floorHalf);
+    carve(stC, bedOf, L, n, halfC, floorHalf);
     // (a pool is cut only inside banks that hold it: every tile beside it but its outflow, the
     // channel below it, stands at the pool's water, its bed above it, or higher; else its water finds
     // a lower way out, back by an inflow's own edge or over a low bank to another, and the course
@@ -1467,9 +1563,9 @@ function planHydroSingle(E: Float64Array, h: Uint8Array, g: Genome, seed: number
     if (poolAt.length) {
       const poolTiles = new Map<number, number[]>();
       const inChannel = new Map<number, number>();
-      for (const i of st.tiles) {
-        if (mouthBank[i] || water[i] === 2 || !(st.d[i] < half(st.s[i], L))) continue;
-        inChannel.set(i, Math.min(n, Math.max(0, Math.round((st.s[i] / L) * n))));
+      for (const i of stC.tiles) {
+        if (mouthBank[i] || water[i] === 2 || !(stC.d[i] < halfC(stC.s[i], L))) continue;
+        inChannel.set(i, Math.min(n, Math.max(0, Math.round((stC.s[i] / L) * n))));
       }
       for (const j of poolAt) poolTiles.set(j, []);
       // (an inflow's pool holds only below the level its own edge lets water out at, beside its
@@ -1537,7 +1633,7 @@ function planHydroSingle(E: Float64Array, h: Uint8Array, g: Genome, seed: number
         if (px >= 0 && py >= 0 && px < W && py < H) falls.push({ x: Math.round(px), y: Math.round(py), drop, river: rid });
       }
     }
-    exits.set(rid, { path, prof, L, n, width, half });
+    exits.set(rid, { path, prof, L, n, width, half: halfC });
     const entry = hd.kind === "edge" ? { edge: hd.edge! } : { spring: [hx, hy] as Point };
     // (round 6: a river that ends in the sea fills it, its water leaving where the sea's does)
     const exit = tr.joins >= 0 ? { river: featureId(seed, "river", roleOf(tr.joins)) } : tr.toSea && !exitEdge ? { basin: path[path.length - 1] } : { edge: exitEdge ?? ("east" as Edge) };
