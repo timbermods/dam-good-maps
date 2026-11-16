@@ -16,6 +16,7 @@
 // changed and gives their box (`refresh`), which goes to the GPU by itself (rowUploads.ts `BoxUploads`).
 // Pure TypeScript.
 
+import { plantGround } from "../core/sim/withering";
 import { soilNibbles } from "./light";
 import { LAYERS, WET, type RunSoilView, type SoilView, type WaterView } from "./model";
 
@@ -153,10 +154,6 @@ export function runSoilAt(r: RunSoil | null, x: number, y: number, z: number): {
   return { soil: r.data[cell * 2], wet: g === RUN_WET };
 }
 
-/** Each list of run tops' cells (level·N + tile) to its run, built once a list (the worker sends a fresh one with
- *  each soil). */
-const runIndexes = new WeakMap<RunSoilView, Map<number, number>>();
-
 /** The soil an object standing at level `z` of tile (x, y) reads (3D view, objects under a roof; D491 lets them stand
  *  in caves): the run top's own where one is at that level below the tile's top (a cave's floor, a ledge under an
  *  overhang), else the tile's top, as before. Null off the map or without a soil. A ruin's ivy follows it
@@ -166,16 +163,8 @@ export function objectSoilAt(soil: SoilView | null, W: number, x: number, y: num
   const N = soil.moisture.length;
   const i = y * W + x;
   if (i >= N) return null;
-  const runs = soil.runs;
-  if (runs?.tile.length) {
-    let index = runIndexes.get(runs);
-    if (!index) {
-      index = new Map();
-      for (let r = 0; r < runs.tile.length; r++) index.set(runs.level[r] * N + runs.tile[r], r);
-      runIndexes.set(runs, index);
-    }
-    const r = index.get(z * N + i);
-    if (r !== undefined) return { moisture: runs.moisture[r], contamination: runs.contamination[r] };
-  }
+  // (the one rule for which ground an object reads, the withering's: core/sim/withering.ts `plantGround`)
+  const r = plantGround(soil, i, z);
+  if (r >= 0) return { moisture: soil.runs!.moisture[r], contamination: soil.runs!.contamination[r] };
   return { moisture: soil.moisture[i], contamination: soil.contamination[i] };
 }
