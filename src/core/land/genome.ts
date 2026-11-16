@@ -852,7 +852,7 @@ export function drawGenome(theme: ThemeId, seed: number, W: number, H: number, a
   if (o.ownScale && areaK < 1) g.ownScale = true;
   for (let k = 0; k < n; k++) g.parts.push(randomPart(rng, pickPart(rng, p.parts, vy), W, H, vy, tallK));
   // extra lakes: basins beyond the parts, so water spans the workshop's range
-  const lakes = Math.max(0, Math.round(d(p.lakes) * Math.max(1, portable.sqrt(areaK))));
+  const lakes = Math.max(0, Math.round(d(p.lakes) * (o.ownScale ? portable.sqrt(areaK) : Math.max(1, portable.sqrt(areaK)))));
   for (let k = 0; k < lakes; k++) g.parts.push(randomPart(rng, "basin", W, H, vy, tallK));
   // a radial slope falls toward the first bowl when there is one
   const bowl = g.parts.find((q) => q.kind === "basin" || q.kind === "caldera");
@@ -1633,7 +1633,12 @@ export function leanGenome(g: Genome, s: Settings, W: number, H: number, seed: n
   g.top = Math.min(g.top + BED_FLOOR, ceiling);
   // (a late rescue round's gentle land on a map under 128², D471: the levels' spread Relief asks is a 128²'s, and on 48
   // tiles its gentle land still stood 10–12 levels; there it spreads in proportion to the map's narrower side)
-  if (g.ownScale) g.top = g.base + (g.top - g.base) * Math.min(1, Math.min(W, H) / 128);
+  if (g.ownScale) {
+    const k = Math.min(1, Math.min(W, H) / 128);
+    g.top = g.base + (g.top - g.base) * k;
+    g.hydro.incise *= k;
+    g.hanging *= k;
+  }
   g.relief = g.top - g.base;
   // terracing: the benched share
   const dt = (s.terrain.terracing - p.terracing) / 100;
