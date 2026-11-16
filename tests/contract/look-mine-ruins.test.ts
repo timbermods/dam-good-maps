@@ -96,8 +96,10 @@ import * as ed from "../../src/worker/session";
 // on its first attempt instead of its third, every check passing, D148);
 // `4a6c66b0…` before generator 0.10.29 (#1186): not the version alone (at 0.10.27 the branch gives `93e7ebed…`): the
 // weathering's disc of the square's area and the washes' brush and swing move its land, made on its first attempt, every
-// check passing, D148)
-const LIVE_SHA = "c58f6dbdefb8776fdc39ed9f5c5d357f7c9fb82cd30187cafaf97c1df59e541d";
+// check passing, D148);
+// `c58f6dbd…` before generator 0.10.30 (the land-stage flood check): the version in the file alone (at 0.10.29 the branch
+// gives `c58f6dbd…` byte for byte), D148)
+const LIVE_SHA = "21d8a11a6117f63d68e821c0c359240e4c86cc6311d290bae03c6e1a01d8e90c";
 const spec = () => makeSpec({ seed: 4242, size: { x: 128, y: 128 }, theme: "riverValley", designedFor: "normal" });
 
 describe("mine sites and ruins, models of our own", () => {

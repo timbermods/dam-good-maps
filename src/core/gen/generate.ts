@@ -231,6 +231,10 @@ export interface GenerationInfo {
   /** The share of the map under the planned water or the pre-fill before the land is shown, a
    *  reading (River Valley 96² seed 1: 36% settled, over the cap, on a land already shown). */
   preWet?: number;
+  /** The share of the map under the pre-fill of the land's rivers and lakes alone, before its start and badwater,
+   *  where its planned water reached `FLOOD_LOOK` of the flood line: a land over the line is drawn again ("a
+   *  flooded land (planned)"). */
+  ownFlood?: number;
   /** The shown land's outcomes read on the water its rivers were planned with (the theme's promise,
    *  a readable water story), before its water settled: what the land-stage screen judged. */
   planned?: { promise: boolean; water: boolean; island?: number };
@@ -431,6 +435,7 @@ interface LandStage {
   rise?: number;
   lakeStraight?: { run: number; canal: number };
   preWet?: number;
+  ownFlood?: number;
   fillWalls?: number[];
   /** The settles counted on it (the settle cache hands later attempts the ones they share). */
   counted: WeakSet<object>;
@@ -503,6 +508,12 @@ const WEAR_WIDTHS = [9, 17];
  *  land is drawn again (D358: such seas fill for more than six days; 256² Islands lands run 2,000 to
  *  19,000, the three over 13,000 needed a cut or didn't settle; 128² lands stay under 6,000). */
 const SEA_SHELF_MOST = 10000;
+/** The share of its theme's flood line (`water.no_flood`) a land's planned water reaches before its own water is
+ *  read on the pre-fill (a build's cost, 84 ms on average at 256²) for a flood. On the 104 lands of the 42 maps at
+ *  256² seeds 1–6 (generator 0.10.29) the pre-fill stood at most 1.9 times the planned water's share where that was
+ *  small (River Valley seed 5, 0.110 against 0.058) and 1.17 times where it was over a fifth of the map (Islands); no
+ *  land under half the line pre-filled over 0.58 of it. */
+const FLOOD_LOOK = 0.5;
 /** The most tiles a worn way out may take (Kyler, D360: about 200). */
 export const WEAR_MOST = 200;
 
@@ -2111,6 +2122,7 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
   if (from?.rise !== undefined) info.rise = from.rise;
   if (from?.lakeStraight !== undefined) info.lakeStraight = from.lakeStraight;
   if (from?.preWet !== undefined) info.preWet = from.preWet;
+  if (from?.ownFlood !== undefined) info.ownFlood = from.ownFlood;
   if (from?.fillWalls !== undefined) info.fillWalls = from.fillWalls;
   // (the hollows off the mine sites' squares and the ways to them; off the squares alone where that
   // leaves them no room, and where even that does, as before: a map needs its badwater too)
@@ -2261,6 +2273,25 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
       if (!lastAttempt && opts.screen !== false && screened.count < landScreen(W, H) && reserveShort(shown, hLand, est, W, H)) {
         screened.count++;
         return fail("drought reserve (planned)", null, false);
+      }
+      // (D348, planning's ruling on #236, 2026-11-15: a land whose own water floods past its theme's line,
+      // `water.no_flood`, is drawn again here, before its start, its badwater and its settle, never shown and then
+      // failed on every attempt: Any 256² seed 4's lakes stood over 61% of the map against 55%, on six attempts.
+      // Read on the pre-fill of its rivers and lakes alone, the water the settle starts from, which its basins hold
+      // to their spill levels as the settle does; a build's cost, so only on a land whose planned water reaches
+      // `FLOOD_LOOK` of the line already)
+      if (!lastAttempt) {
+        const line = rulesFor(spec).maxWaterShare;
+        let plannedWet = 0;
+        for (let i = 0; i < N; i++) if (est[i] > WET) plannedWet++;
+        if (plannedWet > FLOOD_LOOK * line * N) {
+          const bw = build(rivers, "water");
+          const fill = prefill(waterModel(W, H, bw.heights, mapObjects({ entities: bw.entities.map(entityJson) }))).depth;
+          let wet = 0;
+          for (let i = 0; i < N; i++) if (fill[i] > WET) wet++;
+          info.ownFlood = Math.round((wet / N) * 1000) / 1000;
+          if (wet > line * N) return fail("a flooded land (planned)", null, false);
+        }
       }
     }
     let second: StartPick | null = null;
@@ -2615,7 +2646,7 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
         const wet = Uint8Array.from(pf.depth, (d) => (d > WET ? 1 : 0));
         if (!mb.start || minesReached(objs, W, H, colonyReach(W, H, mb.heights, wet, objs, mb.start)) < minesWanted(W, H)) return fail("mine pair (pre-fill)", null, true);
       }
-      landStage = { shown: false, hLand, bundle: planned!, keep, ramps, firstLook, cache, fields: fieldCache, counted, tried, mineKeep, mineWay, pads: info.pads, washes: info.washes, prepared: [guess, second, ...prepared].filter((p): p is StartPick => !!p).map((p) => ({ ...p, levelled: false, shore: undefined })), sheet: info.sheet, rise: info.rise, lakeStraight: info.lakeStraight, preWet: info.preWet, fillWalls: info.fillWalls, hollows: bad.features.length ? { count: bad.count, features: bad.features, avoid: bad.avoid, ...(bad.past ? { past: true } : {}) } : null, unsettled: 0, dropped: droppedPre, fed: {}, springs: [] };
+      landStage = { shown: false, hLand, bundle: planned!, keep, ramps, firstLook, cache, fields: fieldCache, counted, tried, mineKeep, mineWay, pads: info.pads, washes: info.washes, prepared: [guess, second, ...prepared].filter((p): p is StartPick => !!p).map((p) => ({ ...p, levelled: false, shore: undefined })), sheet: info.sheet, rise: info.rise, lakeStraight: info.lakeStraight, preWet: info.preWet, ownFlood: info.ownFlood, fillWalls: info.fillWalls, hollows: bad.features.length ? { count: bad.count, features: bad.features, avoid: bad.avoid, ...(bad.past ? { past: true } : {}) } : null, unsettled: 0, dropped: droppedPre, fed: {}, springs: [] };
       // (above 128² the land is shown as soon as it passes the land stage, D348, D278: there the
       // target is time to editable land, 3 s typical, and the settle a hidden land would wait for
       // takes most of a map's time; small starts' proof of the settled start's mine pair before the
