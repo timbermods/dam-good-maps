@@ -97,9 +97,11 @@ import * as ed from "../../src/worker/session";
 // `4a6c66b0…` before generator 0.10.29 (#1186): not the version alone (at 0.10.27 the branch gives `93e7ebed…`): the
 // weathering's disc of the square's area and the washes' brush and swing move its land, made on its first attempt, every
 // check passing, D148);
-// `c58f6dbd…` before generator 0.10.30, D(new-ditch) and D(sea-steps): its badwater drains by gullies (two, to the edge), so
-// its ground and water moved: still its first attempt, every check passing, D148)
-const LIVE_SHA = "39ef16961261963a5c2ea45ce10d29437873cfa0699ec3b3399f01796024589b";
+// `c58f6dbd…` before generator 0.10.36's round forms at their meant size (#1205: their lobes swing about the radius, so mesas,
+// buttes, cones and knolls are a sixth wider, and the dead stands' floor pass: not the version alone, at 0.10.29's version the
+// branch gives `0ce281af…`, D148); `841215d6…` before generator 0.10.37's version alone (the Nightly of 2026-11-16: with the
+// version set back to 0.10.36 the branch gives it byte for byte, D148)
+const LIVE_SHA = "64928c3753d64b6fe6cae7c58aae420ab99fbdde7c8783bf90d35690b52c0d51";
 const spec = () => makeSpec({ seed: 4242, size: { x: 128, y: 128 }, theme: "riverValley", designedFor: "normal" });
 
 describe("mine sites and ruins, models of our own", () => {

@@ -17,9 +17,7 @@ import { bottomRunTop, ColumnTerrain, isPlainMask, terrainColumns } from "../../
 const sha = (b: Uint8Array) => createHash("sha256").update(b).digest("hex");
 
 let made: ReturnType<typeof generate> | null = null;
-/** Canyon 96² seed 3 at Verticality 80, made once. (Seed 3 since generator 0.10.28, D(new-ditch) and D(sea-steps): the
- *  badwater drains by gullies, so the land moved, D148: seed 2 no longer passes the whole file; of seeds 1–16 seeds 3 and 8 keep
- *  spring caves and an arch and pass the whole file, seed 3 the first.) (Seed 2 since generator 0.10.27, D(new-leaks): a course's water leaves only
+/** Canyon 96² seed 3 at Verticality 80, made once. (Seed 2 → 3 at generator 0.10.36: spring caves and the arch gone from 2's land (#1205); of seeds 1–16 seeds 3, 4, 9, 11 and 12 keep both, seed 3 the first.) (Seed 2 since generator 0.10.27, D(new-leaks): a course's water leaves only
  *  by its own way, so the land moved, D148: seed 9 keeps its spring caves but no arch; of seeds 1–16 seeds 2, 8 and 11 keep spring
  *  caves and an arch and pass the whole file, seed 2 the first.) (Seed 9 since generator 0.10.22, the settings keeping their promises, D148:
  *  Verticality away from the theme's own leans the grade, sheerer at 80, and seed 2 keeps its spring caves but no arch; of
@@ -117,8 +115,8 @@ describe("a generated map's 3D forms (D488)", () => {
     for (let k = 0; k + 1 < (fd.ramps ?? []).length; k += 2) ramps.push([fd.ramps![k], fd.ramps![k + 1]]);
     const field: GeneratedField = { heights: terrainColumns(fd, 96 * 96).heights, contains: new Set(fd.contains), ...(ramps.length ? { ramps } : {}), ...(fd.top !== undefined ? { top: fd.top } : {}), caves: ColumnTerrain.fromData(fd, 96, 96) };
     const relic = { id: "f-aaaaaaaaaaaac", kind: "mapObject", origin: "user", locked: false, params: { kind: "relicSmall", placement: { x: src.x, y: src.y, orientation: "Cw0", z: src.z } } };
-    expect(buildMap({ W: 96, H: 96, seed: 3, features: r.features, field }).springsLeft).toBeUndefined();
-    const b = buildMap({ W: 96, H: 96, seed: 3, features: [...r.features, relic as never], field });
+    expect(buildMap({ W: 96, H: 96, seed: 2, features: r.features, field }).springsLeft).toBeUndefined();
+    const b = buildMap({ W: 96, H: 96, seed: 2, features: [...r.features, relic as never], field });
     const left = (b.springsLeft ?? []).filter((x) => x.feature === src.owner);
     expect(left.map((x) => [x.x, x.y])).toContainEqual([src.x, src.y]);
     expect(left[0].why).toMatch(/relic stands there/i);

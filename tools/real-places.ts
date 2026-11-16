@@ -9,6 +9,8 @@
 //                                          <dir> after a stop to do only the places left)
 //   npm run places -- --water --out <dir>  (each place's water measure too, written to <dir>; `--rules port` builds
 //                                          them under the port's water rules, as before D311's conversion)
+//   npm run places -- --ruins              (lays only the ruins again, on the committed places: their land, water,
+//                                          springs, start and plants as they are; writes as a full run would)
 //   npm run places -- --shards 1           (one place after another on this process: the places run on one
 //                                          process a core by default, the same log, files and verdicts)
 //
@@ -75,6 +77,7 @@ import { relaxEdges } from "../src/core/land/levels";
 import { EDITOR_LEVEL } from "../src/core/spec/mapspec";
 import { edgeLip } from "../src/core/water/edgeLip";
 import { placeSprings } from "../src/core/places/spring";
+import { placeRuins } from "../src/core/places/ruins";
 import { placeStartSpots, startTiles } from "../src/core/places/start";
 import { thumbnailRgba } from "../src/core/render/shade";
 import { validateMap } from "../src/core/validate/checks";
@@ -380,6 +383,8 @@ function growFastWood(p: PlaceData, r: Checked, walk: ArrayLike<number>, bar: { 
 // ------------------------------------------------------------------------------------------ run
 
 const check = process.argv.includes("--check");
+/** `--ruins`: lay only the places' ruins again, on the committed places (`runPlace`). */
+const relayRuins = process.argv.includes("--ruins");
 /** `--water`: each place's line of tools/lib/placeWater.ts's measure (its water as built against its water model
  *  settled again by the game's rules, as the first edit settles it), a withheld place's too. Information only. */
 const waterMeasure = process.argv.includes("--water");
@@ -565,6 +570,8 @@ function runPlace(item: LibraryItem): Outcome | null {
   const { withheld, entries } = out;
   const files = { set: (k: string, b: Uint8Array) => void out.files.push([k, b]) };
   let place = toPlace(item, fx);
+  // (the columns the survey stood: a place's ruins are laid again to this count, whatever ruins it holds by then)
+  const surveyedRuins = decodeTiles(place.ruins).length;
   if (only && !only.includes(place.id)) return null;
   out.id = place.id;
   if (WITHHELD_UNTIL[place.id]) {
@@ -577,6 +584,15 @@ function runPlace(item: LibraryItem): Outcome | null {
     return out;
   }
   const t = performance.now();
+  // `--ruins`: everything before the ruins is the committed place's (its land, water, springs, start and plants, which
+  // the ruins never change), and only its ruin fields are laid again: minutes, where the springs' search takes hours.
+  // A full run gives the same files (`--check`)
+  if (relayRuins) {
+    const kept = join(OUT, `data/${place.id}.json.gz`);
+    if (!existsSync(kept)) throw new Error(`--ruins: ${kept} is missing (a new place needs the full run)`);
+    const committed = JSON.parse(new TextDecoder().decode(gunzipSync(new Uint8Array(readFileSync(kept))))) as PlaceData;
+    return finishPlace(item, committed, surveyedRuins, t, "  (--ruins: the committed place)", out);
+  }
   // Sources only at heads (D171, tools/lib/placeSources.ts): a source in another's flow merges into the upstream source
   // where that file's rules allow it; the rest stay, and the place keeps the fault until none is left. (The sealed-land
   // comparison for the start's water below is the survey's own, so it keeps the unmended sources.)
@@ -848,6 +864,35 @@ function runPlace(item: LibraryItem): Outcome | null {
     say(`WITHHELD ${place.W}² ${place.name}: start fails the floors${plants.replace(/^ +plants on dry soil kept/, " - plants on dry soil kept")}`);
     return out;
   }
+  const notes =
+    (moved ? `  start moved from ${moved.join(",")} to ${place.start.join(",")}${movedWood}` : "") +
+    basin.note +
+    mendNote +
+    feedNote +
+    (spring ? `  spring by the start at ${spring.map((s) => `${s[0]},${s[1]}`).join(" ")}` : "") +
+    (planted ? `  ${planted} berry bushes planted by the start` : "") +
+    plants +
+    groves +
+    everySpot;
+  return finishPlace(item, place, surveyedRuins, t, notes, out);
+}
+
+/** A place whose start, water and plants are settled: its ruin fields laid along its land (D(new-ruins),
+ *  src/core/places/ruins.ts) to the survey's count of columns, built and checked, its files and index entry made. The
+ *  last step of `runPlace`, and the whole of `--ruins`, which takes the committed place for everything before it: the
+ *  ruins are laid on the place with none, so both give the same files, and `--ruins` again changes nothing. */
+function finishPlace(item: LibraryItem, place: PlaceData, columns: number, t: number, notes: string, out: Outcome): Outcome {
+  const say = (line: string) => void out.lines.push(line);
+  const { entries } = out;
+  const files = { set: (k: string, b: Uint8Array) => void out.files.push([k, b]) };
+  // Ruin fields along the land (D(new-ruins)): the survey's ruled squares go and the generator's laying (D518) lays the
+  // place's columns again on its settled ground, objects only. The water and soil they are read from stay as they are
+  // (the build throws if the water moved), and a laying that fails a check the place passed is not kept.
+  const bare = { ...place, ruins: encodeTiles([]) };
+  const laid = layRuins(bare, buildChecked(bare), columns);
+  place = laid.place;
+  const { built, v, strict, blocking, strictFails } = laid.checked;
+  const ruinNote = laid.note;
   const bytes = writeTimber(built.file);
   const ms = Math.round(performance.now() - t);
   // the conversion's known faults (every place has them, D200) and the places' own recorded
@@ -863,15 +908,8 @@ function runPlace(item: LibraryItem): Outcome | null {
     `${unknown.length || !loads ? "FAIL" : "ok  "} ${place.W}² ${String(ms).padStart(6)} ms  ticks ${String(built.settle.ticks).padStart(5)}${built.settle.settled ? "" : " (not settled)"}  ${place.name}` +
       (blocking.length ? `  export: ${blocking.map((c) => c.id).join(", ")}` : "") +
       (strictFails.length ? `  generate profile: ${strictFails.join(", ")}` : "") +
-      (moved ? `  start moved from ${moved.join(",")} to ${place.start.join(",")}${movedWood}` : "") +
-      basin.note +
-      mendNote +
-      feedNote +
-      (spring ? `  spring by the start at ${spring.map((s) => `${s[0]},${s[1]}`).join(" ")}` : "") +
-      (planted ? `  ${planted} berry bushes planted by the start` : "") +
-      plants +
-      groves +
-      everySpot,
+      notes +
+      ruinNote,
   );
   const data = gzipSync(strToU8(JSON.stringify(place)), { level: 9, mtime: 0 });
   files.set(`data/${place.id}.json.gz`, data);
@@ -900,6 +938,31 @@ function runPlace(item: LibraryItem): Outcome | null {
   if (w.failed) out.failed = true;
   return out;
 }
+
+/** `columns` ruins laid along a place's land (`placeRuins`; the place has none, `r` its build), seeded from its key,
+ *  built and checked: the first of a few layings that fails nothing the place passes without them. None that does is an
+ *  error. */
+function layRuins(place: PlaceData, r: Checked, columns: number): { place: PlaceData; checked: Checked; note: string } {
+  const ground = { depth: r.built.settle.depth, moisture: r.strict.analysis!.moisture, soilContamination: r.strict.analysis!.soilContamination };
+  const had = columns;
+  const refused: string[] = [];
+  for (let round = 0; round < RUIN_ROUNDS; round++) {
+    const tiles = placeRuins(place, r.built.heights, ground, round ? `${seedKey(place)}:${round}` : seedKey(place), columns);
+    const next = { ...place, ruins: encodeTiles(tiles) };
+    const c = buildChecked(next);
+    if (!c.built.settle.depth.every((d, i) => d === r.built.settle.depth[i])) throw new Error(`${place.name}: laying the ruins changed the water`);
+    const worse = c.strictFails.filter((id) => !r.strictFails.includes(id));
+    if (worse.length) {
+      refused.push(worse.join(","));
+      continue;
+    }
+    return { place: next, checked: c, note: `  ruins laid along the land: ${had} → ${tiles.length} columns${round ? ` (laying ${round + 1}; earlier ones failed ${refused.join("; ")})` : ""}` };
+  }
+  throw new Error(`${place.name}: every laying of its ruins fails a check it passed (${refused.join("; ")})`);
+}
+
+/** The layings of a place's ruins tried, each from its own seed. */
+const RUIN_ROUNDS = 4;
 
 // the places on several processes at once, each taking the next place no process has claimed (the biggest maps first,
 // so the longest are never left to the end), each place's outcome written to a file and put back in the library's

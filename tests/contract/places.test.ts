@@ -12,7 +12,8 @@ import { namedFile } from "../../src/core/gen/pack";
 import { jpegSize } from "../../src/core/validate/checks";
 import { readTimber } from "../../src/core/format/timber";
 import { PROVIDER_NOTICES, WATER_LICENCE, WATER_LICENCE_URL, WATER_NOTICE } from "../../src/core/places/attribution";
-import { CONVERSION_FAULT_CHECKS, galleryIndex, MOVING_WATER_FAULT, MOVING_WATER_NOTE, NO_WATER_FAULT, NO_WATER_NOTE, PLACE_FAULT_CHECKS, placeDescription, placeNote, placeTimber } from "../../src/core/places/place";
+import { CONVERSION_FAULT_CHECKS, decodeTiles, galleryIndex, MOVING_WATER_FAULT, MOVING_WATER_NOTE, NO_WATER_FAULT, NO_WATER_NOTE, PLACE_FAULT_CHECKS, placeDescription, placeNote, placeTimber } from "../../src/core/places/place";
+import { ruledRuinFields } from "../../src/core/places/ruins";
 import { validateMap } from "../../src/core/validate/checks";
 import type { CheckResult } from "../../src/core/validate/report";
 import { INDEX, PLACES_BELOW_THE_FLOOR, PLACES_DIR, PLACES_HAVE_EDGE_WALLS, PLACES_LACK_BADWATER, PLACES_LACK_MINE_SITES, PLACES_SHORT_OF_WOOD, PLACES_PLANTS_ON_DRY_SOIL, PLACES_SHORT_OF_BERRIES, PLACES_SOURCES_IN_FLOW, PLACES_START_WITHOUT_FED_WATER, PLACES_WATER_KEEPS_MOVING, PLACES_WATER_WITHOUT_OUTLET, placeData, sha256 } from "./placesCommon";
@@ -56,6 +57,20 @@ describe("the gallery's data", () => {
       // one name: D522 retired the `place` field that held the name without its "Near" (D148)
       expect(p).not.toHaveProperty("place");
     }
+  });
+
+  it("lays no ruin field ruled square: each lies along the land (D(new-ruins))", () => {
+    // the measure: no group of 9 or more ruin tiles joined side by side that fills its bounding box exactly with both
+    // sides 3 or more (the survey's 5×5 squares: 395 of them over the 84 places before D(new-ruins)); and the places keep
+    // nearly all the survey's columns (30,817 before; 30,148 laid along the land)
+    let columns = 0;
+    for (const entry of INDEX.places) {
+      const p = placeData(entry);
+      const ruins = decodeTiles(p.ruins);
+      columns += ruins.length;
+      expect(ruledRuinFields(ruins, p.W), entry.id).toEqual([]);
+    }
+    expect(columns).toBeGreaterThan(29_000);
   });
 
   it("stays light: the page loads the index and the cards, a map's data only when it is used", () => {

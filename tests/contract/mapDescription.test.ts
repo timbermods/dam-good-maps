@@ -18,6 +18,7 @@ import { THEMES, makeSpec, type ThemeId } from "../../src/core/spec/mapspec";
 import { NO_BADWATER_NOTE } from "../../src/core/resources/badwater";
 import { NO_SOURCES_NOTE } from "../../src/core/gen/pack";
 import { generatedTallSentence } from "../../src/core/format/world";
+import { pageFixtureProject } from "../fixtureProjects";
 import { act, expectIdentical, GUEST, HOST, mapProject, sit } from "./collabFixtures";
 
 const sha = (b: Uint8Array) => createHash("sha256").update(b).digest("hex");
@@ -172,7 +173,8 @@ ${generatedTallSentence(top)}`);
 
 describe("saved in the project", () => {
   it("reopens byte for byte, and writes the same .timber", () => {
-    const s = MapSession.fromGenerated(r);
+    // (opens River Valley 96² seed 7 as a saved fixture, the land it was written on (D148, the #1163 pattern, #1205): at 0.10.36 the raise at row 20 meets a cave on the generated land, and the editor refuses it)
+    const s = MapSession.open(decodeProject(pageFixtureProject("s=7&z=96&d=n&t=riverValley")));
     s.apply({ op: "sculpt", params: { mode: "raise", cells: [[4, 4, 9]], amount: 1 } });
     s.apply(set("Written before the second edit."));
     s.apply({ op: "sculpt", params: { mode: "raise", cells: [[20, 20, 24]], amount: 1 } });
