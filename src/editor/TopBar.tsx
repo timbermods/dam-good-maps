@@ -255,12 +255,12 @@ const ROW_FADE = 16;
 
 /** The tool in hand scrolled into the phone's tool row (or rail), or a finger's row that scrolls, so its second tap is in
  *  view too (#1074): whole, clear of the fade at an end where more tools lie, and with the row standing on a tool's start
- *  (a place it snaps to), the nearest such place to where it is. */
-function showHeld(bar: HTMLElement | null): void {
+ *  (a place it snaps to), the nearest such place to where it is. Whether it glides there. */
+function showHeld(bar: HTMLElement | null): boolean {
   const on = bar?.querySelector<HTMLElement>("button.icon-button[aria-pressed='true']:not(.objects-button)");
-  if (!bar || !on) return;
+  if (!bar || !on) return false;
   const across = bar.scrollWidth > bar.clientWidth + 1;
-  if (!across && !(bar.scrollHeight > bar.clientHeight + 1)) return;
+  if (!across && !(bar.scrollHeight > bar.clientHeight + 1)) return false;
   const cs = getComputedStyle(bar);
   const pad0 = parseFloat(across ? cs.paddingLeft : cs.paddingTop) || 0;
   const pad1 = parseFloat(across ? cs.paddingRight : cs.paddingBottom) || 0;
@@ -278,9 +278,17 @@ function showHeld(bar: HTMLElement | null): void {
   const fits = (s: number, clear: number) => lo >= s + pad0 + (s > 0.5 ? clear : 0) - 0.5 && hi <= s + room - pad1 - (s < max - 0.5 ? clear : 0) + 0.5;
   const nearest = (clear: number) => stops.filter((s) => fits(s, clear)).sort((x, y) => Math.abs(x - now) - Math.abs(y - now))[0];
   const to = nearest(ROW_FADE) ?? nearest(0);
-  if (to === undefined || Math.abs(to - now) < 0.5) return;
+  if (to === undefined || Math.abs(to - now) < 0.5) return false;
   glide(bar, across, to);
+  showing.add(bar);
+  return true;
 }
+
+/** The rows gliding to show the tool in hand, until they stand on it or a finger or the mouse takes them. A frame the
+ *  GPU took long over (a slow phone's map, CI's software drawing) left a glide without a scroll event past the row's wait
+ *  for rest; the row, taken to be at rest where the page last saw it, went to the nearest tool's start from there, back
+ *  to its start and the tool out of view (layout.spec's Craterize on CI, 2026-11-16). */
+const showing = new WeakSet<HTMLElement>();
 
 function glide(bar: HTMLElement, across: boolean, to: number): void {
   const still = typeof matchMedia === "function" && matchMedia("(prefers-reduced-motion: reduce)").matches;
@@ -744,12 +752,13 @@ export function TopBar(p: TopBarProps) {
       markRowEnds(b);
       showHeld(b);
     };
-    // (still for a moment and nothing on it: it rests on a tool's start; never while a finger or the mouse is on it)
+    // (still for a moment and nothing on it: it rests on a tool's start; never while a finger or the mouse is on it. A
+    // glide to the tool in hand goes on to it instead, until it stands there)
     let idle = 0;
     let touching = false;
     const rest = () => {
       clearTimeout(idle);
-      idle = window.setTimeout(() => touching || restOnWhole(b), 200);
+      idle = window.setTimeout(() => touching || (showing.delete(b) && showHeld(b)) || restOnWhole(b), 200);
     };
     const ends = () => {
       markRowEnds(b);
@@ -757,6 +766,7 @@ export function TopBar(p: TopBarProps) {
     };
     const on = () => {
       touching = true;
+      showing.delete(b);
       clearTimeout(idle);
     };
     const off = () => {
