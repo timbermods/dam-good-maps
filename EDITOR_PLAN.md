@@ -966,7 +966,9 @@ on one shared forces core, `src/core/forces/` (D203, D206, D220; see its README)
   either side of the drawn one, so nothing in the trough runs ruled; its edge wanders too, and it closes at both ends,
   the cirque's headwall and the snout's lip rising from the floor as its walls do, except where the line runs to the
   map's edge: there the trough runs on off the map open, its floor and channel out over the edge and its water leaving
-  by them, so the edge's ground never holds every Power's floor at one height (#1198). The floor is one level across the
+  by them, so the edge's ground never holds every Power's floor at one height (#1198), and at its full width: no
+  station is held back from the edge its route runs off, so the U reaches it whole, never a slot (#1204). The floor is
+  one level across the
   trough (the valley's low dry ground near the line less Power's cut, 1 level at Power 0 to 11 at 100, easing off over
   the last third) and steps down the route in uneven treads, never rising down it; a tread longer than twice its
   length steps down part way. The river runs in one channel a level below the floor, two or three tiles wide,

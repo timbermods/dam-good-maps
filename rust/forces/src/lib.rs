@@ -9052,6 +9052,21 @@ fn glacier_once(
             glacier_quantile(regional, 0.8) - depth - 1.0,
         ),
     );
+    // (a station's half-width is held inside the map, under 0.9 of its way to the nearest edge less a tile, except the
+    // edge its route runs off (its last point within 3.5 tiles of it, heading into it): off the map is more of the
+    // same valley, and the trough runs on open there (trough.rs). Held by that edge too, the stations nearing it
+    // narrowed to two tiles and the trough reached it as a slot, a ruled slit ten levels deep at Power 100: #1204)
+    let off: Option<usize> = {
+        let e = *reference.last().unwrap();
+        let b = reference[reference.len().saturating_sub(5)];
+        let to = |q: Point| [q.x, q.y, w as f64 - q.x, h as f64 - q.y];
+        let (de, db) = (to(e), to(b));
+        (0..4).filter(|&k| de[k] < 3.5 && de[k] < db[k]).min_by(|&a, &b| de[a].partial_cmp(&de[b]).unwrap())
+    };
+    let hold = |q: Point, off: Option<usize>| -> f64 {
+        let d = [q.x, q.y, w as f64 - q.x, h as f64 - q.y];
+        (0..4).filter(|&k| Some(k) != off).map(|k| d[k]).fold(f64::INFINITY, min)
+    };
     let mut arc = 0.0;
     let mut bar = (8.0 + glacier_noise(s.seed, 80) * 15.0) * step_scale;
     let mut level = head_floor;
@@ -9093,7 +9108,7 @@ fn glacier_once(
             1.3,
         );
         let cirque = 1.0 + 0.72 * exp(-pow(arc / (r * 0.95), 2.0));
-        let edge = min(min(min(q.x, q.y), w as f64 - q.x), h as f64 - q.y);
+        let edge = hold(*q, off);
         preliminary.push(GlacierStation {
             x: q.x,
             y: q.y,
@@ -9112,11 +9127,17 @@ fn glacier_once(
             } else {
                 0
             };
-            let edge = min(min(min(q.x, q.y), w as f64 - q.x), h as f64 - q.y);
+            let edge = hold(Point { x: q.x, y: q.y }, off);
             if q.s > max(16.0, s.size * 1.15) && (low_run >= 7 || edge < r * 0.5) {
                 end = 8.max(k.saturating_sub(if low_run >= 7 { 5 } else { 0 }));
                 break;
             }
+        }
+    }
+    // (a route that stops short of the edge it ran toward is held by that edge too)
+    if end < preliminary.len() && off.is_some() {
+        for q in preliminary.iter_mut() {
+            q.r = max(2.0, min(q.r, max(2.0, hold(Point { x: q.x, y: q.y }, None) - 1.0) * 0.9));
         }
     }
     preliminary.truncate(end);

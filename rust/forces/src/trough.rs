@@ -127,7 +127,8 @@ pub(super) fn trough(p: &mut GlacierPlan, before: &Map, s: &GlacierSettings, kee
     // trough stays open there, its floor and channel running out over the edge, and its water leaves the map by
     // them, as the valley's did. Closed by a lip a few tiles inside the edge, its floor could stand no lower than the
     // edge's own ground, at every Power alike: #1198, where Power 100's trough on a hilltop by the edge was no deeper
-    // than Power 50's)
+    // than Power 50's). Its width runs out to the edge too: the planner holds no station back from the edge it runs
+    // off (`glacier_once`'s `off`), so the trough keeps its U to the edge, never a slot)
     let open = {
         let e = line.last().unwrap();
         let (dx, dy) = (e.ny, -e.nx);
