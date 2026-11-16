@@ -992,7 +992,8 @@ function runPlace(item: LibraryItem): Outcome | null {
     // the first that serves the start and holds the real water of the search without it wins)
     const bar = realMeasure(buildChecked(feeds.place).built.settle.depth, real).real;
     let costNote = "";
-    if (jb.served && jb.real < bar) {
+    // (only where the search first leaves the start without its pool: where it gives one, that costs no real water)
+    if (jb.served && jb.real < bar && !ja.served) {
       costNote = ` (costs real water ${bar} → ${jb.real}`;
       let found = false;
       for (const c of pre.all.slice(1, 1 + COSTLESS_TRIES)) {
