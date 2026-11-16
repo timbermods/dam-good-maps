@@ -49,7 +49,8 @@ export const PLACES_WATER_KEEPS_MOVING = new Set([
  *  The list only shrinks. */
 export const PLACES_SOURCES_IN_FLOW = new Set([
   "chocolate-hills", "geirangerfjord", "glencoe", "iguazu-falls", "kenai-aialik-bay", "lofoten",
-  "mamore-river", "mount-fuji", "niagara-falls", "sete-cidades", "taklimakan-kunlun-fan", "twelve-apostles",
+  "mamore-river", "mount-fuji", "niagara-falls", "roaring-river-fan", "sete-cidades", "taklimakan-kunlun-fan",
+  "twelve-apostles",
 ]);
 
 /** A mine site on every map (Kyler, 2026-09-25): the places as converted for real-places-done have

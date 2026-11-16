@@ -38,7 +38,9 @@ describe("a real place's check summary", () => {
   });
 
   it("a place whose start reaches no clean water warns, once", () => {
-    const { groups } = opened("drumheller", true);
+    // (Deccan Plateau: its start reaches no fed water; Drumheller, the place here before, has the start's spring since
+    // D(new-films))
+    const { groups } = opened("deccan-plateau", true);
     expect(groups.warnings.map((c) => c.id)).toContain("start.water");
     expect(groups.advisory.map((c) => c.id)).not.toContain("water.storage_possible");
     expect(groups.existing).toEqual([]);
