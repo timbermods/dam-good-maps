@@ -113,7 +113,8 @@ type Scores = (mm: Measure, now: Measure, over?: number) => boolean;
  * `dryNotUp`: no step may raise the water over real dry land (for a place whose search ended with more of it).
  * `springs`: for a place with no real water, the springs by its start to try as its one spring (each a group of
  * sources, src/core/places/spring.ts). `served`: whether a candidate's start has water within its walk (`start.water`
- * passes); `above`: whether a spring list stands above the start (`aboveStart`). The one spring is the start's
+ * passes); `above`: whether a spring list stands above the start (`aboveStart`); `rank`: the walk to the start's pool
+ * (`startPool`), the nearest first. The one spring is the start's
  * (D(new-films), planning's ruling of 2026-11-16): a list whose start then has water within its walk, those above the
  * start first; once taken, no later step takes that water from the start.
  */
@@ -136,7 +137,7 @@ export function searchFeeds(
 }
 
 /** The search's options (`searchFeeds`). */
-type FeedOpts = { dryNotUp?: boolean; springs?: () => Src[][]; served?: (p: PlaceData) => boolean; above?: (s: readonly Src[]) => boolean };
+type FeedOpts = { dryNotUp?: boolean; springs?: () => Src[][]; served?: (p: PlaceData) => boolean; above?: (s: readonly Src[]) => boolean; rank?: (p: PlaceData) => number };
 
 type FeedSearch = { place: PlaceData; before: { real: number; dry: number }; after: { real: number; dry: number }; steps: FeedStep[]; refused: FeedRefusal[] };
 
@@ -161,9 +162,11 @@ function search(place: PlaceData, real: Uint8Array, settle: (p: PlaceData) => Ar
   // the strength a source had before the search (where it stands now), or its own
   const todayOf = (s: Src) => place.sources.find((o) => o[0] === s[0] && o[1] === s[1])?.[2] ?? s[2];
   // the best of several whole source lists by the measure that `keep` passes (the measure first: a keep is a build)
-  const bestOf = (lists: Src[][], tag: (s: Src[]) => { source: number; from: Src; to: Src | null }, keepIt = keep): { s: Src[]; m: ReturnType<typeof realMeasure> } | null => {
+  const bestOf = (lists: Src[][], tag: (s: Src[]) => { source: number; from: Src; to: Src | null }, keepIt = keep, rank?: (p: PlaceData) => number): { s: Src[]; m: ReturnType<typeof realMeasure> } | null => {
     const scored = lists.map((s) => ({ s, m: realMeasure(settle(as(s)), real) })).filter((c) => scores(c.m, m) && held(c.m));
-    scored.sort((a, b) => b.m.score - a.m.score);
+    // (`rank` first where given: the start's spring, the nearest pool first; then the measure)
+    const r = rank ? new Map(scored.map((c) => [c, rank(as(c.s))])) : null;
+    scored.sort((a, b) => (r ? r.get(a)! - r.get(b)! : 0) || b.m.score - a.m.score);
     for (const c of scored) {
       const why = keepIt(as(c.s));
       if (!why) return c;
@@ -182,7 +185,7 @@ function search(place: PlaceData, real: Uint8Array, settle: (p: PlaceData) => Ar
     const keepOne = served ? (p: PlaceData) => (served(p) ? keep(p) : "the start has no water within its walk") : keep;
     const tag = (s: Src[]) => ({ source: -1, from: place.sources[0], to: s[0] });
     const above = opts.above;
-    const one = (above ? bestOf(lists.filter((s) => above(s)), tag, keepOne) : null) ?? bestOf(above ? lists.filter((s) => !above(s)) : lists, tag, keepOne);
+    const one = (above ? bestOf(lists.filter((s) => above(s)), tag, keepOne, opts.rank) : null) ?? bestOf(above ? lists.filter((s) => !above(s)) : lists, tag, keepOne, opts.rank);
     if (one) {
       hold();
       steps.push({ kind: "one spring", source: -1, from: place.sources[0], to: one.s[0], was: place.sources.map((x) => [...x] as Src), now: one.s, real: one.m.real, dry: one.m.dry });

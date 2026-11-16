@@ -8,7 +8,8 @@
 // never land (D245). tools/real-places.ts builds each in turn and keeps the first the checks pass.
 // Pure and deterministic.
 
-import { walkDistance, reachAt } from "../analysis/walk";
+import { components } from "../analysis/regions";
+import { PUMP_CLEAN, PUMP_REACH, reachAt, tileShoreWalk, walkDistance } from "../analysis/walk";
 import { FIX_STRENGTH, FIX_TRIES } from "../doc/waterFix";
 import { hash32 } from "../math/hash";
 import { placeSourceGroup } from "../water/sourceGroups";
@@ -19,6 +20,56 @@ import { decodeTiles, type PlaceData } from "./place";
  *  down across land the start can use (D(new-films), planning's ruling of 2026-11-16: the start's spring). */
 export function aboveStart(p: PlaceData, heights: ArrayLike<number>, i: number): boolean {
   return heights[i] > heights[(p.start[1] + 1) * p.W + p.start[0] + 1];
+}
+
+/** The pool the start's first settlers pump from (D(new-films), planning's ruling of 2026-11-16): the nearest water,
+ *  by the walk from the start (`walkDistance`), that a pump on a shore the walk reaches draws from (`tileShoreWalk`:
+ *  clean, 0.3 deep or more, its surface 0 to 2 levels under the shore's ground, the Folktails WaterPump's pipe, the
+ *  shorter of the two factions' first pumps; Iron Teeth's first is the DeepWaterPump), within `within` tiles, in a body
+ *  that stands as a pool: a body of wet tiles (over `POOL_WET` deep) less than `thinShare` of whose tiles are `thin`
+ *  deep or less (not a thin sheet, nor the edge's floor-0 sheet, which is thin). Its walk, tile, depth there, deepest depth of its body, the drop from
+ *  the shore's ground to the water's surface (levels) and its body's tiles; null when there is none. */
+/** A wet tile of a pool's body (the places' and the measure's wet line, `tools/lib/placeWater.ts` `WET`). */
+const POOL_WET = 0.05;
+export interface StartPool {
+  walk: number;
+  tile: number;
+  depth: number;
+  deepest: number;
+  drop: number;
+  tiles: number;
+}
+export function startPool(p: PlaceData, heights: ArrayLike<number>, depth: ArrayLike<number>, contamination: ArrayLike<number>, opts: { within?: number; thin: number; thinShare: number }): StartPool | null {
+  const { W, H } = p;
+  const N = W * H;
+  const within = opts.within ?? 20;
+  const walk = walkDistance(heights, W, H, null, [], { x: p.start[0] + 1, y: p.start[1] + 1 });
+  const wet = new Uint8Array(N);
+  for (let i = 0; i < N; i++) if (depth[i] > POOL_WET) wet[i] = 1;
+  const { labels, sizes } = components(wet, W, H);
+  const thin = new Array<number>(sizes.length).fill(0);
+  const deepest = new Array<number>(sizes.length).fill(0);
+  for (let i = 0; i < N; i++) {
+    const b = labels[i];
+    if (b < 0) continue;
+    if (depth[i] <= opts.thin) thin[b]++;
+    deepest[b] = Math.max(deepest[b], depth[i]);
+  }
+  let best: StartPool | null = null;
+  for (let i = 0; i < N; i++) {
+    const b = labels[i];
+    if (b < 0 || thin[b] >= opts.thinShare * sizes[b]) continue;
+    const w = tileShoreWalk(walk, heights, W, H, i, depth[i], contamination[i] < PUMP_CLEAN);
+    if (!(w <= within) || (best && w >= best.walk)) continue;
+    // (the shore the walk reaches it from: the drop from its ground to the water's surface)
+    const x = i % W;
+    const y = (i - x) / W;
+    let drop = Infinity;
+    for (const n of [x > 0 ? i - 1 : -1, x + 1 < W ? i + 1 : -1, y > 0 ? i - W : -1, y + 1 < H ? i + W : -1])
+      if (n >= 0 && walk[n] === w && heights[i] + depth[i] >= heights[n] - PUMP_REACH && heights[i] + depth[i] <= heights[n] + 0.01) drop = Math.min(drop, heights[n] - (heights[i] + depth[i]));
+    best = { walk: w, tile: i, depth: depth[i], deepest: deepest[b], drop, tiles: sizes[b] };
+  }
+  return best;
 }
 
 /** Springs to try by the place's start, best first: each the sources to add, [x, y, strength].

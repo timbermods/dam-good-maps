@@ -62,7 +62,7 @@ import {
   type PlaceIndexEntry,
 } from "../src/core/places/place";
 import { encodeHeights, encodeTiles } from "./lib/placeData";
-import { BODY, FILM_DEPTH, FILM_TILES, WET, compareWater, films, settleFile, startFails } from "./lib/placeWater";
+import { BODY, FILM_DEPTH, FILM_THIN_SHARE, FILM_TILES, WET, compareWater, films, settleFile, startFails } from "./lib/placeWater";
 import { cutBasins, cutBed, filmBasin, floor0Sheet, realFilms, realMask } from "./lib/placeBasins";
 import { decodeTiles as decodeGaps } from "../src/core/places/place";
 import { keepNearest, settlePlants, startWood, startWoodSpecies } from "./lib/placePlants";
@@ -76,7 +76,7 @@ import { namedFile } from "../src/core/gen/pack";
 import { relaxEdges } from "../src/core/land/levels";
 import { EDITOR_LEVEL } from "../src/core/spec/mapspec";
 import { edgeLip } from "../src/core/water/edgeLip";
-import { aboveStart, placeSprings } from "../src/core/places/spring";
+import { aboveStart, placeSprings, startPool } from "../src/core/places/spring";
 import { placeRuins } from "../src/core/places/ruins";
 import { placeStartSpots, startTiles } from "../src/core/places/start";
 import { thumbnailRgba } from "../src/core/render/shade";
@@ -640,14 +640,16 @@ function feedsFor(libraryId: string, place: PlaceData): { place: PlaceData; note
   const served = (p: PlaceData) => {
     const c = buildChecked(p);
     const w = waterIn(c.strict);
-    return !c.strictFails.includes("start.water") && (baseWalk === null || (w !== null && w <= baseWalk));
+    return !c.strictFails.includes("start.water") && (baseWalk === null || (w !== null && w <= baseWalk)) && poolOf(p) !== null;
   };
+  // (the start's spring nearest the start first: the walk to its pool)
+  const rank = (p: PlaceData) => poolOf(p)?.walk ?? Infinity;
   const above = (s: readonly [number, number, number][]) => s.every(([x, y]) => aboveStart(place, dryLand.heights, y * place.W + x));
-  let r = searchFeeds(place, real, settle, keep, { springs, served, above });
+  let r = searchFeeds(place, real, settle, keep, { springs, served, above, rank });
   // no place ends with more water over real dry land (planning): one whose search did is searched again with no step
   // raising it
   const again = r.after.dry > r.before.dry ? ` (searched again: real dry land ${r.before.dry} → ${r.after.dry} the first time)` : "";
-  if (again) r = searchFeeds(place, real, settle, keep, { dryNotUp: true, springs, served, above });
+  if (again) r = searchFeeds(place, real, settle, keep, { dryNotUp: true, springs, served, above, rank });
   // the floor-0 sheet is information (planning), but a search whose sheet over real dry land grew while the water over
   // real dry land did not fall keeps the springs the place had
   const sheetDry = (p: PlaceData) => {
@@ -681,6 +683,13 @@ function feedsFor(libraryId: string, place: PlaceData): { place: PlaceData; note
     again +
     (flowOnly.length ? `; better by the measure but for a source in another's flow: ${flowOnly.map((x) => `${at(x.from)} → ${at(x.to)} (real water ${x.real}, real dry land ${x.dry}; ${x.why})`).join("; ")}` : "");
   return { place: r.place, note };
+}
+
+/** The pool the start's first settlers pump from (`startPool`: walkable, pumpable with the first pump, not a thin
+ *  sheet), on the place as built; null when there is none within the start's walk. */
+function poolOf(p: PlaceData) {
+  const b = buildPlace(p, settles);
+  return startPool(p, b.heights, b.settle.depth, b.settle.contamination, { thin: FILM_DEPTH, thinShare: FILM_THIN_SHARE });
 }
 
 /** The walk to the start's water (`start.water`'s value), or null when it has none in reach. */
@@ -914,6 +923,38 @@ function runPlace(item: LibraryItem): Outcome | null {
       ({ built, v, strict, blocking, strictFails } = best.r);
     }
     everySpot = `  every spot tried for water (${all.length}): ${watered} pass start.water with the room floor${best ? "" : watered ? ", none without failing more" : ""}`;
+  }
+  // No place ships with no pumpable water within 20 tiles of its start (D(new-films), planning's ruling of 2026-11-16): a
+  // start still without it gets the start's spring, whatever its sealed land had: a spring by it (above it first) whose
+  // water stands as a pool the start walks to and pumps from with the first pump (`startPool`), no film above floor 0
+  // and nothing else it passed then failing; the fewest failures win, then the nearest pool
+  if (strictFails.includes("start.water")) {
+    const had = new Set(strictFails);
+    const filmed = (b: ReturnType<typeof buildPlace>) => films(b.settle.depth, b.model.floor, place.W, place.H).filter((f) => f.floor0 * 2 <= f.tiles.length).reduce((n, f) => n + f.tiles.length, 0);
+    const film0 = filmed(built);
+    let best: { add: [number, number, number][]; r: Checked; score: number; walk: number } | null = null;
+    const seen = new Set<string>();
+    for (const above of [true, false])
+      for (const [rule, tries] of SPRING_TRIES)
+        for (const add of placeSprings(place, built.heights, built.settle.depth, { rule, tries, key: seedKey(place), above })) {
+          const k = JSON.stringify(add);
+          if (seen.has(k)) continue;
+          seen.add(k);
+          const cand = { ...place, sources: [...place.sources, ...add] };
+          const r = buildChecked(cand);
+          if (r.strictFails.includes("start.water") || r.strictFails.some((id) => !had.has(id) && !free.has(id)) || filmed(r.built) > film0) continue;
+          const pool = poolOf(cand);
+          if (!pool) continue;
+          const sc = score(r.strictFails);
+          if (best && (sc > best.score || (sc === best.score && pool.walk >= best.walk))) continue;
+          best = { add, r, score: sc, walk: pool.walk };
+        }
+    if (best) {
+      spring = [...(spring ?? []), ...best.add];
+      place = { ...place, sources: [...place.sources, ...best.add] };
+      ({ built, v, strict, blocking, strictFails } = best.r);
+    }
+    everySpot += `  the start's spring for its water: ${best ? `${best.add.map((s) => `${s[0]},${s[1]}`).join(" ")}, a pool ${Math.round(best.walk * 10) / 10} tiles' walk away` : `none of ${seen.size} places gives a pool the start pumps from`}`;
   }
   // The springs searched under the game's rules (D521, tools/lib/placeFeeds.ts): by D271's measure, the settled water
   // over the real water as high as it goes and over real dry land as low as it goes, by where each spring stands and how
