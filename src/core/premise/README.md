@@ -122,7 +122,31 @@ control on the page yet); and step 9's core: the theme and the premise as two ch
   own exit (`JOIN`); five regions; the ladder's rungs at their sites. Its numbers in `PlainPlan.plain` (`plainOf`), the
   day-1 shares by arithmetic on the map's tiles (`plainShares`), the diagram's own pieces (`plainOverlays`) and its
   `plan` invariants (`plain.levels`, `plain.width`, `wall.wanders`, `stream.join`, `start.badwater`, `frame.fall`, `poisoned.ladder`).
+  `redClear` keeps a join's red water off the river's but at its end (round 3).
   `plainLayoutTry` gives one try as far as it got. `premises/dev.ts` lists it.
+- `plainLand.ts`: the poisoned floodplain's stage 2 (its §9 row 2), the land and its `land` invariants;
+  `plainAttempt` is one attempt (the plan drawn, the land, its checks and the start's frame), `plainLand` the first
+  that holds. Step 3 added the levees' core (`LEVEE_CORE`, `raster/levee.ts` `water`/`core`/`lead`: within 3 tiles
+  of the river's water a bank stands a level over the land and three over the river's bed, the river's whole length,
+  the springs rimmed), so a badtide stays on the banks, and `courseGaps` (the ground stage 1 leaves between a course
+  and the body it leaves or the river it joins, cut to its bed, with banks a level over it: the Red Pool's outlet as
+  wide as its stream, or where the pool touches its stream the floor round their meeting, never a wall, `CourseGap.most`;
+  the red stream's last reach and mouth as wide as its bed; the brook's mouth at the lowest of its own tiles beside
+  it). Round 3 added `bankGulch` (the gulch's floor holds its stream to the Red Fall's lip) and reads `fall.drop`'s
+  backswamp off its dry ground under the crest, the gaps left out (the Red Pool's sill is its stream's head bed, a
+  level under it).
+- `plainMap.ts`: the poisoned floodplain's whole map (its §9 row 3), dev-only: `plainMap` builds each attempt's
+  land with the shared `premiseBase` (one settle) and `premiseFinish` (the life, its fill stands kept
+  `START_WOOD_CLEAR` off the start, then the dead band's dead stands as its `PremiseDress`, `deadBand`), the badwater
+  source in a niche dug level in the Red Spring's pool (`redNiche`), and holds a map whose shared checks pass (the
+  start's among them) and whose `settled` invariants hold (`settledFailures`: `river.clean`, `water.leaks`,
+  `plain.bands`, `fall.settled`, `levee.holds`), within 3 settles (`PLAIN_SETTLES`). Each measure is its own export
+  (`plainCourses`, `plainLeaks`, `cleanWater`, `riverRed` on the file's own values, `format/world.ts`
+  `fileContamination`, `settledBands`, `redFallDrop`, `badtideReach`), and the
+  reports with no bound: `riverStand` (the river's steps, its water under the levees' crest and the plain) and
+  `redMix` (the mix below the join, `joinEdge`, and how far traces creep above it). The river's steps themselves are
+  drawn in the plan (`poisonedPlain.ts` `riverSteps`, `riverStage`, `riffles`). `tools/capture-plain.ts --water`
+  draws the sheet.
 - `gateWater.ts`: the wall with one gate's stage 1 (§5.1 "As built (water)"): `gateWater` (the shared `waterByNumber`,
   then the leat's bar, the Veil's foot a level under the sill with its outer row the ribbon, the first frame's beds under
   two), `GATE_WATER_CHECKS` (the shared ones, the Still Pool a `Body.backwater`; `gate.dry`, `frame.water`) and `gateSettleModel` (the undrawn ground over every
@@ -219,7 +243,10 @@ day 1's water; every panel setting's role and the greyed list); `tests/contract/
 a broken plan for every `plan` invariant, the Four Lakes fixture `tests/fixtures/four-lakes.plan.json`);
 `premiseGatePlan.test.ts` (quick: the wall with one gate kept out of the choices, its eligibility, seeds 1 to 24 a size,
 variety, a broken plan for every `plan` invariant); `premisePlainPlan.test.ts` (quick: the poisoned floodplain kept out of the choices, its eligibility, seeds 1 to 12 a
-size with day 1's bands, variety, its diagram, a broken plan for every `plan` invariant); `gateBrooks.test.ts` (quick: the brooks' meander: its swing and
+size with day 1's bands, variety, its diagram, a broken plan for every `plan` invariant); `premisePlainWater.test.ts`
+(quick: a map at 128² holding on its first attempt, its start, its three sources, its bands and dead stands, the same
+map for the same seed, a broken map for every `settled` invariant) and `premisePlainWater.heavy.test.ts` (the sheet's
+six on their first attempt, the Red Fall one whole curtain as settled); `gateBrooks.test.ts` (quick: the brooks' meander: its swing and
 wavelength, no curve touching itself, the straight head, the steps aside on a steep reach, the room, one of six draws
 with no straight reach at any angle, a trunk's straight reach and tight loop);
 `premiseGateWorks.test.ts` (quick: the works invariants on two plans, the rungs and their gains, the card, a broken

@@ -172,10 +172,20 @@ export function numToken(v: number): string {
   return formatFloat(Number(v.toPrecision(7)));
 }
 
+/** The least water contamination a map file writes: at or under it, its token is "0" (the water a game loads is
+ *  exactly clean there). */
+export const WATER_CONTAMINATION_LEAST = 1e-6;
+
 /** A water depth or contamination token: nine significant places of the Single the view is sent, so a
  *  .timber download reopens to the very water shown (#310 F3, investigation/page-qa). */
 function waterToken(v: number): string {
   return formatFloat(Number(Math.fround(v).toPrecision(9)));
+}
+
+/** The water contamination a map file holds for `c`: the value the game loads (0 at or under
+ *  `WATER_CONTAMINATION_LEAST`, else its token's value). */
+export function fileContamination(c: number): number {
+  return c > WATER_CONTAMINATION_LEAST ? Number(waterToken(c)) : 0;
 }
 
 export interface SettledState {
@@ -228,7 +238,7 @@ export function settledSimulationSingletons(sizeX: number, sizeY: number, st: Se
     if (d > 1e-6) {
       const ds = waterToken(d);
       const c = st.contamination[i];
-      water[i] = `${ds}:${c > 1e-6 ? waterToken(c) : "0"}:0:${st.floor[i]}:${ds}`;
+      water[i] = `${ds}:${c > WATER_CONTAMINATION_LEAST ? waterToken(c) : "0"}:0:${st.floor[i]}:${ds}`;
       if (flows) flows[i] = outflowToken(st.out!, i, sizeX);
     } else {
       water[i] = "0";
@@ -339,7 +349,7 @@ export function stackedSimulationSingletons(sizeX: number, sizeY: number, st: St
         const cn = st.contamination[c];
         const o = st.overflow[c];
         const floor = heightfield ? runs.ceil[i] : cols.floor[c];
-        water[c] = `${ds}:${cn > 1e-6 ? waterToken(cn) : "0"}:${o > 1e-6 ? waterToken(o) : "0"}:${floor}:${ds}`;
+        water[c] = `${ds}:${cn > WATER_CONTAMINATION_LEAST ? waterToken(cn) : "0"}:${o > 1e-6 ? waterToken(o) : "0"}:${floor}:${ds}`;
       }
       const sat = st.sat[c];
       if (sat > 0) evap[c] = numToken(evapModifier(sat));
