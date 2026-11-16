@@ -58,9 +58,8 @@ import { decodeSpecFragment, encodeSpecFragment, makeSpec, type MapSpec } from "
 // reaching in a disc), a new ground, D148;
 // and generator 0.10.25's version alone, its Lake Basin water settings moving no Canyon map, D148;
 // and generator 0.10.26's ruins to within a column, D527: its ruin fields hold the scrap asked to a column, D148;
-// and generators 0.10.28's, 0.10.31's and 0.10.32's version alone (ruled water, D(ruled-water); the water tree, D(water-tree),
-// and its round 4, moving only maps above 128²), the map otherwise 0.10.26's, D148)
-const SHA = "b028588f5ef03a7ebe9e3255b893b5a7d76d53d031a45c1c838de478ac9930fa";
+// and generator 0.10.27's version alone, the premise map otherwise 0.10.26's (D(new-leaks) moves the themes' land, not a premise's), D148)
+const SHA = "7760e7be1c7c32f874f636707893c64176a06e70a91fc875b4c73851d8794892";
 
 // (a Hard map whose start lake parts as it falls: the single analytic reading stood 0.32 over the run there, PR #1040;
 // seed 5 for 7 since D518 with dev's ways out by a ramp's line (#1061), D148: seed 7's Hard lake stair holds no plan now

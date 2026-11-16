@@ -92,10 +92,9 @@ import * as ed from "../../src/worker/session";
 // `ca3cf458…` before generator 0.10.25 (the Lake Basin water settings, D527): the version in the file alone, D148);
 // `e59d652e…` before generator 0.10.26's ruins to within a column (D527: its last field gives back the columns it grew past
 // the scrap asked: its ruins moved, D148);
-// `7084a1df…` (0.10.26) before generator 0.10.28's ruled water (D(ruled-water)) and 0.10.31's water tree (D(water-tree), which
-// moves only maps above 128²): the version in the file alone, D148;
-// `c4efff02…` (0.10.31) before generator 0.10.32's water tree round 4 (above 128² only): the version in the file alone, D148
-const LIVE_SHA = "f0e54a5e0928f96077033bb4a31d62e78b50661fdf3ccd6e8689c9a94de9e337";
+// `7084a1df…` before generator 0.10.27, D(new-leaks): a course's water leaves only by its own way, so its land is new: made
+// on its first attempt instead of its third, every check passing, D148)
+const LIVE_SHA = "4a6c66b0a42d0c188b9c143f313c6777e6138848a84bd2d9cde43612dd2ffa02";
 const spec = () => makeSpec({ seed: 4242, size: { x: 128, y: 128 }, theme: "riverValley", designedFor: "normal" });
 
 describe("mine sites and ruins, models of our own", () => {

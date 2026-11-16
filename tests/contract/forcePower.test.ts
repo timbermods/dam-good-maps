@@ -44,10 +44,10 @@ beforeAll(async () => {
   // 6 and 8 (2,190 of 7,386 on seed 2), the gentlest eruption reaches 5 levels on seed 6, and the gentlest Carve moves
   // more than its share on seeds 3 and 5; seed 9 since generator 0.10.20's contour edges, D518, D148: on seed 1 the gentlest
   // Slide moves 8,545 levels to Power 100's 28,278, over its 0.3; of seeds 1 to 10 only seed 9 keeps every force's check, the
-  // gentlest glacier moving more than its share on the rest but seed 1, and the gentlest Carve on seeds 3, 6 and 8); seed 4
-  // since generator 0.10.28's ruled water, D(ruled-water), D148: on seed 9 the gentlest glacier moves 2,873 levels to Power
-  // 100's 8,239, over its quarter; of seeds 1 to 7 only seed 4 keeps every force's check, the gentlest glacier moving more than
-  // its share on the rest, and the gentlest Carve on seeds 3 and 7, the gentlest eruption on seed 1)
+  // gentlest glacier moving more than its share on the rest but seed 1, and the gentlest Carve on seeds 3, 6 and 8; seed 4
+  // since generator 0.10.27, D(new-leaks): a course's water leaves only by its own way, so the land moved, D148: on seed 9 the
+  // gentlest glacier moves 1,267 levels to Power 100's 3,924, over its quarter; of seeds 1 to 5 only seed 4 keeps every force's
+  // check, the gentlest glacier moving more than its share on the rest, the gentlest eruption on seed 1 and Carve on seed 3)
   await open(4);
 });
 

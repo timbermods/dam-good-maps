@@ -31,7 +31,7 @@ const SHOULDER_BACK = 7;
 /** The bed behind a stair fall's crest a level under it, this many rows back. */
 const BEHIND = 4;
 /** The landmark's hanging valley widens to its lip this many rows behind it. */
-const VALLEY_BACK = 5;
+export const VALLEY_BACK = 5;
 /** How much longer than its width a lip's line may be drawn to hold that many tiles. */
 const LIP_GROW = 8;
 /** The rows in front of a lip's edge that count as its front (a stair's step can leave its pool's edge that far). */
