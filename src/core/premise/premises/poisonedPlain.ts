@@ -229,8 +229,8 @@ export const WINDOW = { to: 0.75, framed: 9, past: 3 } as const;
  *  col over the narrows' floor; the Dry Fork's fall from the col to its edge. */
 export const GULCH = { h: [6, 7], width: [4, 7], len: [18, 30], slant: 0.4, narrowsAt: [0.2, 0.45], narrows: [2, 3], rise: [1, 3], colOver: 2, colOut: [7, 11], forkFall: [3, 6] } as const;
 /** How far pure badwater poisons the soil on the level (the design's §2, the game's soil rule: `sim/soil3d.ts`): the
- *  shared gate's `start.badwater` reads poisoned soil as badwater, so the start keeps its badwater distance and this
- *  from the red water (step 3, round 3: a Red Pool 15 tiles off left its dead soil 11 to 13 from the start). */
+ *  shared gate's `start.badwater` reads contaminated ground as badwater, so the start keeps its badwater distance and
+ *  this from the red water (step 3, round 3: a Red Pool 15 tiles off left its dead soil 11 to 13 from the start). */
 export const BAD_SOIL = 7;
 /** The red source's strength as a share of the river's by the Badwater setting (the design's §4, planning's ruling of
  *  2026-11-15: a fifth, a quarter, a third). */
