@@ -535,7 +535,8 @@ place of its bottom rule.
     as the core's `placeComponents`; an object picked on the map shows the same window and changes its own settings in
     place (`setOptionsOp`, one undo step for a slider's run). Relics' Medium and Large are the Relic's Size; the Mine site
     is the underground ruins. Still to come: the core's **Show after it goes off** view. The list scrolls inside itself when the window is short, keeping the
-    picked row in view;
+    picked row in view, a soft fade at its foot saying more items lie below until the foot is reached (drawn by the page:
+    a Mac's overlay scrollbar shows only once the list scrolls; none on a phone's or tablet's sheet; `shelf.spec.ts`);
     `fluidModelAt` gives each source's strength on a given day for the day-by-day view. Terrain brushes and forces
     never use the placement path (D425).
 - **The Show toggles** (D287) in one row at the top left, each a 14px checkbox at the left of its name (as in
