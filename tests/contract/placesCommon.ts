@@ -88,10 +88,8 @@ export const PLACES_BELOW_THE_FLOOR = new Set([
  *  and one that had water on the sealed land got a spring by it (tools/real-places.ts). Real places
  *  2 gives the rest their water (D300) and empties the list. */
 export const PLACES_START_WITHOUT_FED_WATER = new Set([
-  "cliffs-of-moher", "death-valley", "deccan-plateau",
-  "drumheller", "english-lake-district", "fish-river-canyon", "glencoe", "iguazu-falls",
-  "kinabatangan-river", "mount-etna", "mount-mayon", "ngorongoro", "niagara-falls", "phong-nha",
-  "twelve-apostles", "yosemite-valley",
+  "cliffs-of-moher", "deccan-plateau", "english-lake-district", "fish-river-canyon", "glencoe", "iguazu-falls",
+  "ngorongoro", "niagara-falls", "phong-nha", "twelve-apostles", "yosemite-valley",
 ]);
 
 /** Plants that die (D385): the conversion planted these places' trees and bushes on ground the
