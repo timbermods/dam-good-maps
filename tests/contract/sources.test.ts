@@ -178,8 +178,10 @@ describe("a source placed by hand in the editor (D184: sources go anywhere)", ()
   it("a source dropped in a river exports with no issue", () => {
     // (seed 2 since batch 5, D148: on seed 3's map the extra water fills a lake past the settle's days; seed 1 since
     // generator 0.10.16's ground with grade, D148: on seed 2's map, as on seed 3's, the extra water now leaves no storage
-    // near the start that the storage check finds)
-    const r = generate(makeSpec({ seed: 1, theme: "riverValley", size: { x: 96, y: 96 } }));
+    // near the start that the storage check finds; seed 2 since generator 0.10.28, D(new-ditch) and D(sea-steps): the badwater
+    // drains by gullies, so the land moved, D148: on seed 1's map the first tile of the main river 25 tiles from the start holds
+    // a source of its own now ("a water source stands there"); on seed 2, the next, the test holds)
+    const r = generate(makeSpec({ seed: 2, theme: "riverValley", size: { x: 96, y: 96 } }));
     const s = MapSession.fromGenerated(r, r.file);
     s.setWaterMode("defer");
     const before = s.validate("export").report.checks.filter((c) => !c.ok).map((c) => c.id);

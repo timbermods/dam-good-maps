@@ -16,18 +16,20 @@ import { makeSpec } from "../../src/core/spec/mapspec";
 describe("a brush stroke over a badwater source leaves it level, never floating (D249)", () => {
   // ((20, 4) on M9b's map, D148: dev's (27, 5) is not level there; (27, 4) since generator 0.10.27, D(new-leaks): a course's
   // water leaves only by its own way, so the land moved, D148: a relic stands on (20, 4) now, and (27, 4), at level 12, is the
-  // first spot near it where the source stands under the stroke's target of 15)
-  it("Highlands 64², seed 3: a BadwaterSource at (27, 4); a Raise (target 15, Size 1.5) over its corner; the stroke is refused, or the source rides level, and the map has no load error", () => {
+  // first spot near it where the source stands under the stroke's target of 15; (29, 6) since generator 0.10.28, D(new-ditch)
+  // and D(sea-steps): the badwater drains by gullies, so the land moved, D148: the ground under (27, 4) is not level now, and
+  // (29, 6), at level 5, is the nearest spot to it where the source may stand, under the stroke's target of 15)
+  it("Highlands 64², seed 3: a BadwaterSource at (29, 6); a Raise (target 15, Size 1.5) over its corner; the stroke is refused, or the source rides level, and the map has no load error", () => {
     const W = 64;
     const r = generate(makeSpec({ seed: 3, theme: "highlands", size: { x: W, y: W } }));
     const s = MapSession.fromGenerated(r, r.file);
     s.setWaterMode("defer");
     const id = "00000000-0000-4000-8000-000000000777";
-    expect(s.apply({ op: "placeEntity", params: { id, template: "BadwaterSource", x: 27, y: 4, orientation: "Cw0" } } as EditOp).errors).toEqual([]);
+    expect(s.apply({ op: "placeEntity", params: { id, template: "BadwaterSource", x: 29, y: 6, orientation: "Cw0" } } as EditOp).errors).toEqual([]);
     const loadErrors = () => s.validate(undefined, { loadOnly: true }).report.checks.filter((c) => !c.ok && c.severity === "error").map((c) => `${c.id}: ${c.message}`);
     expect(loadErrors()).toEqual([]);
 
-    const res = s.apply({ op: "brush", params: { tool: "raise", size: 1.5, strength: 10, target: 15, dabs: [27 * 4 + 2, 4 * 4 + 2] } } as EditOp);
+    const res = s.apply({ op: "brush", params: { tool: "raise", size: 1.5, strength: 10, target: 15, dabs: [29 * 4 + 2, 6 * 4 + 2] } } as EditOp);
     if (res.ok) {
       const e = s.built.entities.find((g) => g.id === id)!;
       const under: number[] = [];

@@ -37,8 +37,10 @@ describe("the first map that passes is the map (D329)", () => {
     // Canyon 96² seed 6 since generator 0.10.11, the D410 round, D148: River Valley's first maps of seeds 1–35 all meet all three, and Canyon 6's misses
     // its water, where its first sibling does; Canyon 96² seed 2 since generator 0.10.16's ground with grade, D148: Canyon 6's first
     // map meets all three now, and seed 2's, the first of Canyon's seeds 1–20 to miss, misses its promise, where its first sibling meets all three;
-    // Canyon 96² seed 3 since generator 0.10.20's contour edges, D518, D148: the first maps of Canyon's seeds 1 and 2 meet all three now, and seed 3's, the first of Canyon's seeds 1–20 to miss, misses its promise, where its first sibling meets all three)
-    const r = generate(makeSpec({ seed: 3, theme: "canyon", size: { x: 96, y: 96 } }));
+    // Canyon 96² seed 3 since generator 0.10.20's contour edges, D518, D148: the first maps of Canyon's seeds 1 and 2 meet all three now, and seed 3's, the first of Canyon's seeds 1–20 to miss, misses its promise, where its first sibling meets all three;
+    // Canyon 96² seed 1 since generator 0.10.28, D(new-ditch) and D(sea-steps), D148: seed 3's first map meets all three now, and
+    // seed 1's, the first of Canyon's seeds 1–20 to miss, misses its promise, where its first sibling meets all three)
+    const r = generate(makeSpec({ seed: 1, theme: "canyon", size: { x: 96, y: 96 } }));
     const m = missesOf(r.outcomes!);
     expect(worthSearching(m)).toBe(true);
     const v = findVersion({ spec: r.spec, intentions: r.info.genome?.intentions ?? [], heights: r.built.heights });

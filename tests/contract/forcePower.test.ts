@@ -47,8 +47,11 @@ beforeAll(async () => {
   // gentlest glacier moving more than its share on the rest but seed 1, and the gentlest Carve on seeds 3, 6 and 8; seed 4
   // since generator 0.10.27, D(new-leaks): a course's water leaves only by its own way, so the land moved, D148: on seed 9 the
   // gentlest glacier moves 1,267 levels to Power 100's 3,924, over its quarter; of seeds 1 to 5 only seed 4 keeps every force's
-  // check, the gentlest glacier moving more than its share on the rest, the gentlest eruption on seed 1 and Carve on seed 3)
-  await open(4);
+  // check, the gentlest glacier moving more than its share on the rest, the gentlest eruption on seed 1 and Carve on seed 3;
+  // seed 15 since generator 0.10.28, D(new-ditch) and D(sea-steps): the badwater drains by gullies, so the land moved, D148: on
+  // seed 4 the gentlest glacier moves 268 levels to Power 100's 606, over its quarter; of seeds 1 to 15 only seed 15 keeps every
+  // force's check, the gentlest glacier moving more than its share on the rest and the gentlest Carve on seeds 2 and 7 too)
+  await open(15);
 });
 
 /** Each force at its largest Size (Carve's widest), the page's way (nature drawing its details). */

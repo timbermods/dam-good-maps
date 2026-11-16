@@ -103,9 +103,12 @@ describe("a force's packed rows (#312) show every frame the whole snapshots do, 
       cut: null,
     },
   ];
+  // (seed 4243 for 4242 since generator 0.10.28, D(new-ditch) and D(sea-steps), D148: the land moved and on seed 4242's map
+  // the Carve's and the glacier's origin, (30, 10), holds up an overhang, which a force leaves as it is, so neither starts;
+  // seed 4243 is the next on which every force here starts)
   for (const request of requests)
     it(request.verb, async () => {
-      await runGenerate(makeSpec({ seed: 4242, theme: "highlands", size: { x: 48, y: 48 } }));
+      await runGenerate(makeSpec({ seed: 4243, theme: "highlands", size: { x: 48, y: 48 } }));
       ed.refine();
       const bytes = ed.project().bytes;
       let tick = 0,
