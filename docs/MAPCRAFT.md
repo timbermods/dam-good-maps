@@ -165,7 +165,10 @@ a premise or one still to come, may carry its own, lower playability floor.
   Channels has no limit: the game's own rivers lie in straight reaches of even width as much as the laid Gate's
   trenches do, so the number tells what a map's water is like and is never failed on. Every theme map passes. The
   lake stair failed on its corners alone (rectangular plates of one level, 6 to 15 tiles, half of them on the outlands'
-  rim) until D518 turned its plates' scatter off the grid and bent its benches' sides; at 128² it passes now. The real places (`places/`) are warned only. The game's maps are run on the
+  rim) until D518 turned its plates' scatter off the grid and bent its benches' sides; at 128² it passed then, and at 192²
+  and 256² once D(plates-turned) lifted D518's 128² cap and ragged the plates' rims (29 of 30 maps failing at 256² and
+  53 of 60 at 192², seeds 1 to 12, to none). The uplands' rims in axis-parallel straight runs of 6 or more
+  (`rimRuler`) went from 25 to 28 % to 16 to 18 %. The real places (`places/`) are warned only. The game's maps are run on the
   machine that holds them: `npx tsx tools/ruled-land.ts <folder>/*.timber`.
 
 **Land first, story second** (planning's ruling of 2026-11-11, for every path: themes, premises, hand maps). Every

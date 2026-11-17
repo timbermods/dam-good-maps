@@ -528,6 +528,76 @@ export function ruledLandMessage(r: RuledLand): string {
   return r.straight > RULED_AIM.straight ? `The land is not ruled, but straighter than the aim of ${pct(RULED_AIM.straight)}: ${nums}; ${where}` : `The land is not ruled: ${nums}${r.channel ? `; the largest straight reach of water is ${r.channel.tiles} tiles at X ${r.channel.x} · Y ${r.channel.y}` : ""}`;
 }
 
+/** The rims' ruler: the uplands' rims (a height step between two dry tiles both at least `RIM.from` tiles from the
+ *  water, by a four-way walk: past the meadows and first benches, where a premise's plates lie) counted in sides, and
+ *  the share of them lying in axis-parallel straight runs of `RIM.run`+ sides (one contour along one row or column, the
+ *  same sign and upper level, as `ruledLand`'s straight; sides within `EDGE_MARGIN` of the edge and parallel to it left
+ *  out). Plates on the tile grid's lattice read as level near-rectangles, their rims long runs along the axes. */
+export const RIM = { from: 8, run: 6 } as const;
+
+export function rimRuler(h: ArrayLike<number>, wet: ArrayLike<number>, W: number, H: number): { sides: number; straight: number; share: number } {
+  const N = W * H;
+  // the four-way walk from the water, as far as `RIM.from`
+  const d = new Int32Array(N).fill(-1);
+  const q = new Int32Array(N);
+  let qt = 0;
+  for (let i = 0; i < N; i++)
+    if (wet[i]) {
+      d[i] = 0;
+      q[qt++] = i;
+    }
+  for (let qh = 0; qh < qt; qh++) {
+    const i = q[qh];
+    if (d[i] + 1 >= RIM.from) continue;
+    const x = i % W;
+    for (const j of [x > 0 ? i - 1 : -1, x + 1 < W ? i + 1 : -1, i - W, i + W])
+      if (j >= 0 && j < N && d[j] < 0) {
+        d[j] = d[i] + 1;
+        q[qt++] = j;
+      }
+  }
+  const key = (a: number, b: number): number => {
+    if (d[a] >= 0 || d[b] >= 0 || h[a] === h[b]) return 0;
+    return h[b] > h[a] ? 1 + h[b] : -(1 + h[a]);
+  };
+  let sides = 0;
+  let straight = 0;
+  const close = (line: number, lim: number, len: number) => {
+    if (line + 1 < EDGE_MARGIN || line + 1 > lim - EDGE_MARGIN) return;
+    sides += len;
+    if (len >= RIM.run) straight += len;
+  };
+  for (let x = 0; x + 1 < W; x++) {
+    let len = 0;
+    let run = 0;
+    for (let y = 0; y < H; y++) {
+      const k = key(y * W + x, y * W + x + 1);
+      if (k !== 0 && k === run) len++;
+      else {
+        if (len) close(x, W, len);
+        len = k !== 0 ? 1 : 0;
+      }
+      run = k;
+    }
+    if (len) close(x, W, len);
+  }
+  for (let y = 0; y + 1 < H; y++) {
+    let len = 0;
+    let run = 0;
+    for (let x = 0; x < W; x++) {
+      const k = key(y * W + x, (y + 1) * W + x);
+      if (k !== 0 && k === run) len++;
+      else {
+        if (len) close(y, H, len);
+        len = k !== 0 ? 1 : 0;
+      }
+      run = k;
+    }
+    if (len) close(y, H, len);
+  }
+  return { sides, straight, share: sides ? straight / sides : 0 };
+}
+
 /** Wet tiles of settled water, as the Workshop study read them (depth 0.1 or more). */
 export function wetOf(depth: ArrayLike<number>): Uint8Array {
   const out = new Uint8Array(depth.length);

@@ -91,6 +91,7 @@ Read this index, then [how-we-work.md](how-we-work.md), then only the topic file
 
 ## [The generator](generator.md)
 
+- D(plates-turned): A premise's plates are turned off the grid and their rims ragged by noise at every size; D518's 128² cap is gone
 - D(new-leaks): A course's water leaves only by its own way: pools only inside banks that hold them, never a raised lip; nothing beside a course lowered under its water; Delta courses join the fan by plan; no channel left under its reach downstream
 - D527: Every move of a generator control changes the next map, or the control is greyed with its reason
 - D520: The reach rule: a crossing between two bends under 5 wide is a ruled reach past five times its width; every other straight stretch, wider water and lakes at 12 rows

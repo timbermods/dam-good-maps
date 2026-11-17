@@ -89,11 +89,12 @@ const STAIR_CELL = 8;
  *  outlands' mean over it, rounded after a lift of its own, up to `lift` levels either way, so neighbours meet in a
  *  step of none to three. */
 const PLATE = { from: 5, wander: 3, start: 16, lift: 1.2 };
-/** The plates' scatter's turn off the tile grid (cos, sin: 3-4-5, exact), and the bend of their benches' sides, on maps
- *  of this many tiles at most (D518 is 128²'s; a bigger map's plates stay as they were, its stair's fallback the
- *  premise's own). */
+/** The plates' scatter's turn off the tile grid (cos, sin: 3-4-5, exact), at every size (D518, D(plates-turned)). */
 const PLATE_TURN = [4 / 5, 3 / 5] as const;
-const PLATE_TURN_MOST = 128 * 128;
+/** The plates' rims wander (D(plates-turned)): each tile's distance to a plate's point is pushed by up to `rag` tiles,
+ *  by two noise fields `cell` tiles across weighed by the point's own draw, so two plates meet on a line that wanders
+ *  as a natural rim does, never a straight side between two points. */
+const PLATE_RAG = { rag: 3, cell: 11 } as const;
 /** The bend keeps off the start's own ground, this many tiles round it (its walk out to the reach floor's). */
 const BEND_START = 24;
 /** Highlands' peaks: `share` of the plates' points a cone, its summit `low` to 1 of the form's span and level for
@@ -533,21 +534,29 @@ export function reliefBetween(plan: PremisePlan, w: StageWater, style?: ReliefSt
   // the plates: every tile belongs to one, the tiles nearest one point of a scatter read through the land's wander,
   // so whatever is set a plate at a time meets its neighbours along ragged lines that run every way. The scatter's
   // lattice is turned off the tile grid (by 3-4-5, `PLATE_TURN`), so the plates' sides never run along its rows and
-  // columns and meet in no square corner (D518: the scatter on the grid met in rectangles)
+  // columns and meet in no square corner (D518: the scatter on the grid met in rectangles), at every size; and each
+  // point's distance is pushed by the rag fields (`PLATE_RAG`), so the line two plates meet on wanders (D(plates-turned):
+  // over 128² the plates stood on the grid, level near-rectangles from the widest view)
   const P = 8 + Math.round(W / 16);
-  const [tc, ts] = W * H <= PLATE_TURN_MOST ? PLATE_TURN : ([1, 0] as const);
+  const [tc, ts] = PLATE_TURN;
   const pw = Math.ceil((tc * W + ts * H) / P) + 3;
   const ph = Math.ceil((ts * W + tc * H) / P) + 3;
   const px = new Float64Array(pw * ph);
   const py = new Float64Array(pw * ph);
   const plift = new Float64Array(pw * ph);
+  const pragA = new Float64Array(pw * ph);
+  const pragB = new Float64Array(pw * ph);
   for (let cy = 0; cy < ph; cy++)
     for (let cx = 0; cx < pw; cx++) {
       const k = cy * pw + cx;
       px[k] = (cx - 1 + (hash32(sPlate, cx, cy, 0) % 1000) / 1000) * P;
       py[k] = (cy - 1 + (hash32(sPlate, cx, cy, 1) % 1000) / 1000) * P;
       plift[k] = PLATE.lift * ((2 * (hash32(sPlate, cx, cy, 2) % 1000)) / 999 - 1);
+      pragA[k] = PLATE_RAG.rag * ((2 * (hash32(sPlate, cx, cy, 4) % 1000)) / 999 - 1);
+      pragB[k] = PLATE_RAG.rag * ((2 * (hash32(sPlate, cx, cy, 5) % 1000)) / 999 - 1);
     }
+  const ragAF = field(S("ragA"), W, H, PLATE_RAG.cell, 2, 2);
+  const ragBF = field(S("ragB"), W, H, PLATE_RAG.cell, 2, 2);
   // (each plate's draw for a peak, once a plate rather than once a tile and neighbour)
   const coneHash = new Float64Array(style?.form === "peaks" ? pw * ph : 0);
   for (let k = 0; k < coneHash.length; k++) coneHash[k] = (hash32(sPlate, k, 3) % 1000) / 1000;
@@ -566,6 +575,8 @@ export function reliefBetween(plan: PremisePlan, w: StageWater, style?: ReliefSt
       const qy = ts * ux + tc * uy;
       const gx = Math.floor(qx / P) + 1;
       const gy = Math.floor(qy / P) + 1;
+      const ragA = ragAF[i];
+      const ragB = ragBF[i];
       let best = 0;
       let bd = Infinity;
       let next = 0;
@@ -575,13 +586,15 @@ export function reliefBetween(plan: PremisePlan, w: StageWater, style?: ReliefSt
         for (let cx = Math.max(0, gx - 1); cx <= Math.min(pw - 1, gx + 1); cx++) {
           const k = cy * pw + cx;
           const dd = (px[k] - qx) * (px[k] - qx) + (py[k] - qy) * (py[k] - qy);
-          if (dd < bd) {
+          // (the distance pushed by the point's own draw of the rag fields: the rim between two plates wanders)
+          const dw = sqrt(dd) + pragA[k] * ragA + pragB[k] * ragB;
+          if (dw < bd) {
             next = best;
             nd = bd;
-            bd = dd;
+            bd = dw;
             best = k;
-          } else if (dd < nd) {
-            nd = dd;
+          } else if (dw < nd) {
+            nd = dw;
             next = k;
           }
           const hv = cone ? coneHash[k] : 1;
@@ -592,7 +605,7 @@ export function reliefBetween(plan: PremisePlan, w: StageWater, style?: ReliefSt
         }
       plateOf[i] = best;
       plate2[i] = next;
-      edge[i] = sqrt(nd) - sqrt(bd);
+      edge[i] = nd - bd;
       if (cone) cone[i] = c;
     }
   // how far the outlands fall away, a plate at a time: far from every water, and toward an edge that falls away, as
@@ -723,8 +736,7 @@ export function reliefBetween(plan: PremisePlan, w: StageWater, style?: ReliefSt
   for (let k = 0; k < pw * ph; k++) if (pcnt[k]) plevel[k] = Math.max(BED_FLOOR + 1, Math.min(top, Math.round(psum[k] / pcnt[k] + plift[k])));
   // with a style the uplands are its form, graded by the theme's grade (#956): benched `step` levels apart over
   // Terracing's share, rolling elsewhere
-  // (on a map over 128² the grade is as it was before D518, the premise's plans and fallback its own)
-  const grade = style ? grader(style.grade, plan.seed, 0, W, H, W * H > PLATE_TURN_MOST) : null;
+  const grade = style ? grader(style.grade, plan.seed, 0, W, H) : null;
   const terraceF = style && style.step > 1 ? field(S("terrace"), W, H, 24, 2, 2) : null;
   const benched = style ? Math.min(1, style.benched * (style.form === "terraces" ? TERRACE.benched : 1)) : 0;
   const phase = style ? hash32(S("terrace"), 1) % style.step : 0;
@@ -814,8 +826,7 @@ export function reliefBetween(plan: PremisePlan, w: StageWater, style?: ReliefSt
   widenBenches(h, W, H, where);
   // (its benches' sides bent, so they meet in no straight side or square corner, D518; not within `BEND_START` of the
   // start, whose walk the bend would narrow)
-  if (W * H <= PLATE_TURN_MOST)
-    bendLevels(h, W, H, Uint8Array.from(where, (v, i) => (v && Math.max(Math.abs((i % W) - stx), Math.abs(Math.floor(i / W) - sty)) >= BEND_START ? 1 : 0)), S("bend"));
+  bendLevels(h, W, H, Uint8Array.from(where, (v, i) => (v && Math.max(Math.abs((i % W) - stx), Math.abs(Math.floor(i / W) - sty)) >= BEND_START ? 1 : 0)), S("bend"));
   for (let i = 0; i < N; i++) if (!keep[i] && h[i] < base[i]) h[i] = base[i];
   tidy(h, r, base);
   return h;
