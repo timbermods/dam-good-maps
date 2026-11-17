@@ -38,9 +38,9 @@ describe("a real place's check summary", () => {
   });
 
   it("a place whose start reaches no clean water warns, once", () => {
-    // (Glencoe: its start reaches no fed water; Drumheller, the place here before, has the start's spring since
-    // D(new-films))
-    const { groups } = opened("glencoe", true);
+    // (Yosemite Valley: its start reaches no fed water; Drumheller, the place here before, has the start's spring since
+    // D(new-films), and Glencoe, after it, is withheld until its start has pumpable water, #1218)
+    const { groups } = opened("yosemite-valley", true);
     expect(groups.warnings.map((c) => c.id)).toContain("start.water");
     expect(groups.advisory.map((c) => c.id)).not.toContain("water.storage_possible");
     expect(groups.existing).toEqual([]);

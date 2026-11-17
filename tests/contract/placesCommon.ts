@@ -7,9 +7,11 @@ import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import { namedFile } from "../../src/core/gen/pack";
 import { readTimber } from "../../src/core/format/timber";
-import { decodePlaceFile, PLACE_FAULT_CHECKS, placeTimber, type PlaceData, type PlaceIndex, type PlaceIndexEntry } from "../../src/core/places/place";
+import { decodeHeights, decodePlaceFile, PLACE_FAULT_CHECKS, placeTimber, type PlaceData, type PlaceIndex, type PlaceIndexEntry } from "../../src/core/places/place";
+import { startPool } from "../../src/core/places/spring";
 import { validateMap } from "../../src/core/validate/checks";
 import type { CheckResult } from "../../src/core/validate/report";
+import { FILM_DEPTH, FILM_THIN_SHARE } from "../../tools/lib/placeWater";
 
 export const PLACES_DIR = "public/real-places";
 export const INDEX = JSON.parse(readFileSync(`${PLACES_DIR}/index.json`, "utf8")) as PlaceIndex;
@@ -48,7 +50,7 @@ export const PLACES_WATER_KEEPS_MOVING = new Set([
  *  sources with no head within 20 tiles and merges that move the depth below too far.
  *  The list only shrinks. */
 export const PLACES_SOURCES_IN_FLOW = new Set([
-  "chocolate-hills", "geirangerfjord", "glencoe", "iguazu-falls", "kenai-aialik-bay", "lofoten", "mamore-river",
+  "chocolate-hills", "geirangerfjord", "iguazu-falls", "kenai-aialik-bay", "lofoten", "mamore-river",
   "mount-fuji", "niagara-falls", "roaring-river-fan", "sete-cidades", "taklimakan-kunlun-fan", "twelve-apostles",
 ]);
 
@@ -78,6 +80,21 @@ export const PLACES_BELOW_THE_FLOOR = new Set([
   "kenai-aialik-bay",
 ]);
 
+/** No place is offered without pumpable water within 20 tiles' walk of its start (D(new-films), planning's ruling on
+ *  #1201, 2026-11-16): by `startPool`'s rule (src/core/places/spring.ts), the nearest water a pump on a shore the start
+ *  walks to draws from with the first pump, in a body that stands as a pool, not a thin sheet. Glencoe and Ngorongoro,
+ *  which have none, are withheld (`WITHHELD_UNTIL`, tools/real-places.ts). The places here have none yet and are
+ *  offered as they were before D(new-films): four whose start passes `start.water` on a thin sheet (#1218 gives them a
+ *  pool), and six kept on today's build (`TODAY_KEPT`): Paricutin, Taklimakan Kunlun fan and Waimakariri River on a
+ *  thin sheet, Fish River Canyon, Twelve Apostles and Yosemite Valley with no water in reach (`start.water` fails, the
+ *  card's "No reachable water"). The list only shrinks. */
+export const PLACES_START_WITHOUT_POOL = new Set([
+  // a thin sheet (#1218)
+  "lofoten", "tagliamento-river", "thousand-islands-saint-lawrence", "tiger-leaping-gorge",
+  // today's build kept (TODAY_KEPT)
+  "fish-river-canyon", "paricutin", "taklimakan-kunlun-fan", "twelve-apostles", "waimakariri-river", "yosemite-valley",
+]);
+
 /** The start's water is never a sealed puddle (Kyler's D302, M9a), and a start has water a pump
  *  reaches: these places' starts reach no water a source feeds, which `start.water` refuses (a
  *  playability check: it warns in the export profile, and the gallery's download works). Their water
@@ -88,7 +105,7 @@ export const PLACES_BELOW_THE_FLOOR = new Set([
  *  and one that had water on the sealed land got a spring by it (tools/real-places.ts). Real places
  *  2 gives the rest their water (D300) and empties the list. */
 export const PLACES_START_WITHOUT_FED_WATER = new Set([
-  "fish-river-canyon", "glencoe", "ngorongoro", "twelve-apostles", "yosemite-valley",
+  "fish-river-canyon", "twelve-apostles", "yosemite-valley",
 ]);
 
 /** Plants that die (D385): the conversion planted these places' trees and bushes on ground the
@@ -186,6 +203,10 @@ export function checkShard(k: number, n: number): void {
       expect(f.startWater).toBe(PLACES_START_WITHOUT_FED_WATER.has(entry.id));
       expect(f.food).toBe(PLACES_SHORT_OF_BERRIES.has(entry.id));
       expect(f.plants).toBe(PLACES_PLANTS_ON_DRY_SOIL.has(entry.id));
+      // pumpable water within 20 tiles' walk of the start, standing as a pool (`startPool`, on the place's own settle)
+      const data = placeData(entry);
+      const pool = startPool(data, decodeHeights(data.heights), r.validation.water!.depth, r.validation.water!.contamination, { within: 20, thin: FILM_DEPTH, thinShare: FILM_THIN_SHARE });
+      expect(pool !== null, `${entry.id}: the start's pool`).toBe(!PLACES_START_WITHOUT_POOL.has(entry.id));
       // the faults the index records are the ones this build has: the gallery hides by them (D421)
       const has: Record<(typeof PLACE_FAULT_CHECKS)[number], boolean> = { "water.source_in_flow": f.sourceInFlow, "water.outflow": f.outflow, "water.settles": f.settles, "start.wood": f.wood, "start.wood_floor": f.floor, "start.water": f.startWater, "start.food": f.food, "plants.survive": f.plants };
       expect(entry.faults).toEqual(PLACE_FAULT_CHECKS.filter((id) => has[id]));

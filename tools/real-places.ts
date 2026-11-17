@@ -130,9 +130,13 @@ const WOOD_CHECKS = ["start.wood", "start.wood_floor", "start.wood_fast"];
  *  karst Plitvice's start meets every floor since the start's move ranks by the land floors, but its conversion puts
  *  a source in another's flow (`water.source_in_flow`); it left `PLACES_SOURCES_IN_FLOW` (tests/contract/placesCommon.ts,
  *  whose note says Real places 2 places sources only at heads) when #1094 withheld it, and that list never grows:
- *  planning's ruling on #1096. */
+ *  planning's ruling on #1096. Glencoe and Ngorongoro have no pumpable water within 20 tiles of the start (no allowed
+ *  spring site by it, and no spot within 20 tiles' walk of water that stands as the start's pool, `startPool`), and no
+ *  place ships that way (D(new-films), planning's ruling on #1201): #1218 brings them back with real pools. */
 const WITHHELD_UNTIL: Record<string, string> = {
   "dinaric-karst-plitvice": "withheld until water.source_in_flow is mended (sources at heads only)",
+  glencoe: "withheld until its start has pumpable water within 20 tiles (#1218: its pool, 186 tiles 1.04 deep, lies 37 tiles' walk away with no bank the first pump reaches)",
+  ngorongoro: "withheld until its start has pumpable water within 20 tiles (#1218: its only pumpable water lies in the floor-0 sheet, no walk from the start)",
 };
 /** The start's springs by the start built in turn, after the best, for one that costs no water over real water
  *  (planning's ruling of 2026-11-16 on Cliffs of Moher): each is a springs' search of its own. */

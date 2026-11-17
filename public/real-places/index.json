@@ -1,6 +1,6 @@
 {
  "format": 1,
- "count": 84,
+ "count": 82,
  "families": [
   {
    "id": "fan",
@@ -570,23 +570,6 @@
    "faults": []
   },
   {
-   "id": "glencoe",
-   "name": "Glencoe",
-   "family": "glacial",
-   "familyName": "Glacial valley",
-   "plays": "Wide valley floors under high ground, with side valleys hanging above.",
-   "size": 96,
-   "metres": 30,
-   "data": "data/glencoe.json.gz",
-   "image": "cards/glencoe.jpg",
-   "bytes": 149553,
-   "sha256": "a12163e6b1fb882a418320ce42920260903a5045cdb277b63d3d4ebca5655ac5",
-   "faults": [
-    "water.source_in_flow",
-    "start.water"
-   ]
-  },
-  {
    "id": "verdon-gorge",
    "name": "Verdon Gorge",
    "family": "gorge",
@@ -931,22 +914,6 @@
    "bytes": 139176,
    "sha256": "92e09b42c31cca706f7be2ac9e54e06ec775202070bc912565d0def11034c2b1",
    "faults": []
-  },
-  {
-   "id": "ngorongoro",
-   "name": "Ngorongoro",
-   "family": "caldera",
-   "familyName": "Caldera",
-   "plays": "A volcanic bowl; a dam on its outlet can hold a large lake.",
-   "size": 256,
-   "metres": 30,
-   "data": "data/ngorongoro.json.gz",
-   "image": "cards/ngorongoro.jpg",
-   "bytes": 550241,
-   "sha256": "bdd36870ab963836f63bd35aaceb340281a50d70c12bd8b16015ca996784ca4f",
-   "faults": [
-    "start.water"
-   ]
   },
   {
    "id": "fish-river-canyon",
