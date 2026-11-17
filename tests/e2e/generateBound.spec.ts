@@ -10,8 +10,9 @@
 import { expect, test } from "@playwright/test";
 import { generateButton, openDrawer, openEditor } from "./open";
 
-/** River Valley 128² with Easy start, seed 3: the open map, made with Easy start (the offer is its settings without it). */
-const EASY = "s=3&z=128&d=n&t=riverValley&es=1";
+/** River Valley 64² with Easy start, seed 3: the open map, made with Easy start (the offer is its settings without it);
+ *  small, so it opens and comes back after the stop quickly in WebKit too. */
+const EASY = "s=3&z=64&d=n&t=riverValley&es=1";
 
 test("a generate says why its last try failed, offers the map without Easy start, and stops itself with a reason, the open map kept", async ({ page }) => {
   test.setTimeout(300_000);
