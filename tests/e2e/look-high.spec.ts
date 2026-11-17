@@ -1060,3 +1060,66 @@ test("clean water and badwater a level and a half deep, by day, as drawn through
   }
   expect(errors).toEqual([]);
 });
+
+test("a lost context is waited for and the map drawn again in Standard, the same frame as before, the saved choice kept (#236 2026-11-17)", async ({ page }) => {
+  const errors: string[] = [];
+  await open(page, errors);
+  await opensHigh(page);
+  // (a still frame: the patterns in, the drought line put away (its strips blend differently between redraws, see the
+  // test of the Standard look above), the moment and the camera held)
+  await page.evaluate(() => window.dgm3d!.renderer.patternsMade());
+  await expect.poll(() => page.evaluate(() => window.dgm3d!.renderer.droughtLineShowing), { timeout: 60_000 }).toBe(true);
+  await page.evaluate(() => window.dgm3d!.renderer.setDroughtLine(null));
+  /** The still frame read back; against the first: the share of channel values more than NOISE apart, and the most. */
+  const still = () =>
+    page.evaluate(() => {
+      const r = window.dgm3d!.renderer;
+      r.setClock(12.5);
+      r.resetView();
+      r.renderNow();
+      const g = (r as unknown as { gl: { getContext(): WebGL2RenderingContext } }).gl.getContext();
+      const px = new Uint8Array(g.drawingBufferWidth * g.drawingBufferHeight * 4);
+      g.readPixels(0, 0, g.drawingBufferWidth, g.drawingBufferHeight, g.RGBA, g.UNSIGNED_BYTE, px);
+      const w = window as unknown as { lostShot?: Uint8Array };
+      w.lostShot ??= px;
+      let n = 0;
+      let max = 0;
+      const colours = new Set<number>();
+      for (let i = 0; i < px.length; i++) {
+        const d = Math.abs(px[i] - w.lostShot[i]);
+        if (d > 3) n++;
+        if (d > max) max = d;
+        if (i % 4 === 0) colours.add((px[i] << 16) | (px[i + 1] << 8) | px[i + 2]);
+      }
+      return { share: n / px.length, max, colours: colours.size, size: `${g.drawingBufferWidth}x${g.drawingBufferHeight}` };
+    });
+  // the Standard frame before (held for the moment, nothing saved), then High again
+  await page.evaluate(() => window.dgm3d!.renderer.holdTier("standard"));
+  const before = await still();
+  await page.evaluate(() => window.dgm3d!.renderer.holdTier("high"));
+  await expect.poll(() => look(page), { timeout: 60_000 }).toBe("high");
+  // the context taken away: nothing drawn, and a line over the view once it has been gone a second
+  await page.evaluate(() => {
+    const g = (window.dgm3d!.renderer as unknown as { gl: { getContext(): WebGL2RenderingContext } }).gl.getContext();
+    const lose = g.getExtension("WEBGL_lose_context")!;
+    (window as unknown as { lose: WEBGL_lose_context }).lose = lose;
+    lose.loseContext();
+  });
+  await expect.poll(() => page.evaluate(() => window.dgm3d!.renderer.contextLost)).toBe(true);
+  const line = page.locator(".view3d-error");
+  await expect(line).toHaveText("The 3D view stopped drawing. If it stays blank, reload the page.");
+  // given back: Standard, held, and the automatic choice still the one saved (none)
+  await page.evaluate(() => (window as unknown as { lose: WEBGL_lose_context }).lose.restoreContext());
+  await expect.poll(() => page.evaluate(() => window.dgm3d!.renderer.contextLost)).toBe(false);
+  expect(await look(page)).toBe("standard");
+  await expect(line).toHaveCount(0);
+  expect(await page.evaluate(() => localStorage.getItem("dgm.look"))).toBeNull();
+  // the map drawn again, the same frame as before the loss: the patterns, textures and the screen's copies all back
+  await expect.poll(() => page.evaluate(() => window.dgm3d!.renderer.programsSettled), { timeout: 60_000 }).toBe(true);
+  const after = await still();
+  console.log(`the frame before the loss: ${before.colours} colours; after: ${JSON.stringify(after)}`);
+  expect(after.size).toBe(before.size);
+  expect(after.colours).toBeGreaterThan(1000);
+  expect(after.share).toBeLessThan(0.001);
+  expect(errors).toEqual([]);
+});

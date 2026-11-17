@@ -1645,7 +1645,10 @@ chooses **Automatic**, **High** or **Standard** (a segmented choice, the page's 
 (checkbox rows as the Show column's, a long name hanging under its own first letter); every effect is switchable too
 (`setHighEffect`). A browser drawing in software keeps the light look, with no choice, drawn at one device pixel
 to a CSS pixel (its processor draws every pixel: a tablet's dense screen made each frame four times the work). The camera never moves by
-itself in either look (D265).
+itself in either look (D265). When the browser takes the view's WebGL context away (a GPU reset, a phone or tablet short
+of memory), the view waits for it and draws the map again in Standard, held for the rest of the session; the player's
+saved choice stays. If it is not back within a second, a line over the view says so: "The 3D view stopped drawing. If it
+stays blank, reload the page."
 
 ## 6a. Alive, not mechanical (D240)
 
@@ -2377,6 +2380,13 @@ delivery routes, the artifact edition and bring-your-own-key) is in
     (`bake.worker.ts`, one for the page, shared by every view), trees batched by species (at most 32 draws). Each effect is a uniform switch.
     The automatic choice (`fallback.ts`) reads each frame's GPU time (timer queries; without them every fourth
     frame) and a first quick reading a second after the first map.
+  - A lost WebGL context (`renderer.ts` `loseContext`, `restoreContext`): the view asks for it back (preventing the
+    loss's default), stops drawing and compiles nothing meanwhile (`programs.ts`). three.js makes its own state again on
+    the restore and uploads the geometry and textures from their copies at the next frame; the renderer makes what lived
+    only on the GPU (the patterns drawn into a target, the screen's copies behind the water, the bloom's targets, the
+    timer queries, the programs compiled ahead) and holds Standard (`holdTier`: not saved). The view's own
+    `forceContextLoss` on dispose is not a loss: its listeners are gone first. `View3D.tsx` shows the line over the view
+    while it waits. `tests/e2e/look-high.spec.ts` loses and restores it on High.
 - **The forces** (D203, D206, D220): one shared core in `src/core/forces/` (its README), from Codex's forces core
   (#59): `force.ts` (a run on its own copy of the map, a step at a time: ten steps a second of a carve, whatever
   the frame rate), the shared numbers, rock and object rules, the verbs (`carve/`, checked by
