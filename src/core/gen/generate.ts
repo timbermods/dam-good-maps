@@ -103,7 +103,7 @@ import { resourceBudget, ruinColumns, ruinRagged } from "../resources/baseline";
 import { runsToTiles, tilesToRuns } from "../math/grid";
 import { obstacleTiles, type ObstaclePlan } from "../features/setpieces/obstaclePayoff";
 import type { SetPieceFeature } from "../features/schema";
-import { dryStart, padFloods, pickStart, prepareStart, startWalks, waterAim, type DroughtPolicy, type StartPick } from "./settler";
+import { badWaterNearer, dryStart, padFloods, pickStart, prepareStart, startWalks, waterAim, type DroughtPolicy, type StartPick } from "./settler";
 import { failurePhrase } from "./failWords";
 import { EASY_LAND, easyStartMeasures, easyTargets } from "../analysis/easyStart";
 import { pondWater, POND_WATER, shapeEasyStart } from "../land/easyStart";
@@ -3016,6 +3016,10 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
   // middle over the slopes the build derives, is within the aim too, or it is passed over before its
   // water is settled)
   const servedOnB1 = (q: StartPick): boolean => rule >= 7 || startWalks(h, W, H, b1.water, b1.contamination, b1.moisture, q.x, q.y, rule).water <= aim;
+  // (clean water only, planning's condition of 2026-11-17: a place whose nearest water on the settled water is too foul
+  // to pump is no place for the start, however it was made ready; read once, when first asked)
+  let foulOnB1: ((x: number, y: number) => boolean) | null = null;
+  const foulNear = (q: StartPick): boolean => (foulOnB1 ??= badWaterNearer(h, W, H, b1.water, b1.contamination, rule))(q.x, q.y);
   // the start on the shown land: one that needs no levelling, so the land stays as it was shown
   // (D348; the plan's start had its ground levelled as the land was shaped)
   const chooseStart = (): StartPick | null => {
@@ -3023,7 +3027,7 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
     // clear: before any start without room, D373 (3))
     const ready = (): StartPick | null => {
       for (const q of landStage?.prepared ?? []) {
-        if (tried[q.y * W + q.x] || avoidOf(bad)[q.y * W + q.x] || wetRing(b1, q) || padFloods(h, W, H, b1.water, q.x, q.y, q.level) || !servedOnB1(q)) continue;
+        if (tried[q.y * W + q.x] || avoidOf(bad)[q.y * W + q.x] || wetRing(b1, q) || padFloods(h, W, H, b1.water, q.x, q.y, q.level) || !servedOnB1(q) || foulNear(q)) continue;
         if (anyRoom && !mineRoomAt[q.y * W + q.x] && !easy) continue;
         return q;
       }
@@ -3049,7 +3053,7 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
     // the starts that failed here; a spring by it gives it water below when the settled water left
     // none
     if (!p && guess) {
-      if ((allowLevel || !guess.levelled) && !wetRing(b1, guess) && !avoidOf(bad)[guess.y * W + guess.x] && !padFloods(h, W, H, b1.water, guess.x, guess.y, guess.level)) p = guess;
+      if ((allowLevel || !guess.levelled) && !wetRing(b1, guess) && !avoidOf(bad)[guess.y * W + guess.x] && !padFloods(h, W, H, b1.water, guess.x, guess.y, guess.level) && !foulNear(guess)) p = guess;
       else {
         // (else a start the plan's water gives that is dry ground on the settled water too)
         const est = plannedWater(h, hy, W, H, true);
@@ -3059,6 +3063,7 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
         const av = avoidOf(bad);
         for (let i = 0; i < N; i++) if (b1.water[i] > 0.001) av[i] = 1;
         p = settlerOn(both, zero, moisture(h, both, zero, W, H, null), 3, av);
+        if (p && foulNear(p)) p = null;
         if (!p && landStage && allowLevel) markTried(landStage.tried, guess, W, H);
       }
       if (p) fixes.push("start from the plan");
@@ -3095,8 +3100,8 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
   const nextStart = (failed: StartPick): StartPick | null => {
     markTried(tried, failed, W, H);
     // (Easy start: another shaped place, or none)
-    if (easy) return landStage?.prepared.find((q) => !tried[q.y * W + q.x] && !avoidOf(bad)[q.y * W + q.x] && !wetRing(b1, q) && !padFloods(h, W, H, b1.water, q.x, q.y, q.level)) ?? null;
-    const ready = N <= 96 * 96 ? landStage?.prepared.find(q => !tried[q.y * W + q.x] && !avoidOf(bad)[q.y * W + q.x] && !wetRing(b1, q) && !padFloods(h, W, H, b1.water, q.x, q.y, q.level) && servedOnB1(q)) : null;
+    if (easy) return landStage?.prepared.find((q) => !tried[q.y * W + q.x] && !avoidOf(bad)[q.y * W + q.x] && !wetRing(b1, q) && !padFloods(h, W, H, b1.water, q.x, q.y, q.level) && !foulNear(q)) ?? null;
+    const ready = N <= 96 * 96 ? landStage?.prepared.find(q => !tried[q.y * W + q.x] && !avoidOf(bad)[q.y * W + q.x] && !wetRing(b1, q) && !padFloods(h, W, H, b1.water, q.x, q.y, q.level) && servedOnB1(q) && !foulNear(q)) : null;
     if (ready) return ready;
     return settlerOn(b1.water, b1.contamination, b1.moisture, 7, roomy(beyondBad(b1)), 1, near) ?? settlerOn(b1.water, b1.contamination, b1.moisture, 7, roomy(avoidOf(bad)), 1, near) ?? dryStart(h, W, H, b1.water, hy, { avoid: roomy(avoidOf(bad)), foot, minFoot, benchMin, near: guess, level: allowLevel }) ?? settlerOn(b1.water, b1.contamination, b1.moisture, 7, avoidOf(bad), 1, near);
   };

@@ -3,11 +3,14 @@
 // traded: a shore of clean water a pump reaches within the water rule's walk over the map's own
 // slopes (D153; on the start's own level with 5 tiles to spare, on another level over the slopes the
 // build would derive with 2 to spare), the 3×3 and its ring dry, the door onto level ground, the start's ground joined by one-level steps to a large share of the map (reach), and
-// moist land within 20 tiles' walk for food and wood. Among the places that qualify, the genome's
-// preferences (a lake shore, a river bank, a confluence, below a fall, a high bench, a spring's
-// stream), the intentions' preferences, the drought-aware preference (#59: water that stays
-// pumpable through the first Normal drought, preferred on Normal and Hard, required on Easy) and the
-// seed choose among the best few, kept 20 tiles apart, so starts differ as much as the land does.
+// moist land within 20 tiles' walk for food and wood. Among the places that qualify, the choice is
+// by what a place is worth (gen/startValue.ts, D(start-value)): its bench, the land it joins, the
+// ground for its wood, its ways out and its water against the rule's aim, with the drought-aware
+// cost (#59: water that stays pumpable through the first Normal drought, preferred on Normal and
+// Hard, required on Easy), uncapped, ties by a hash of the tile and the seed. Only among the best
+// few within `VALUE_MARGIN` of the best (kept 20 tiles apart) do the genome's preferences (a lake
+// shore, a river bank, a confluence, below a fall, a high bench, a spring's stream), the
+// intentions' and the settings' choose, and then the opening frame (D507).
 // The chosen place is turned for the game's opening camera (D493, analysis/opening.ts): among the
 // orientations whose door is on level ground, the one whose opening frame best holds a landmark (else
 // falls, open water, relief), the door nearest the water breaking ties.
@@ -135,8 +138,9 @@ export interface SettlerOptions {
 }
 
 /** Shore tiles: dry ground beside clean water 0.3+ deep whose surface a pump on that ground
- *  reaches (0 to PUMP_REACH levels below the ground's own level), as `pumpShoreDistance` reads them. */
-export function pumpShores(h: ArrayLike<number>, D: ArrayLike<number>, C: ArrayLike<number>, W: number, H: number): Uint8Array {
+ *  reaches (0 to PUMP_REACH levels below the ground's own level), as `pumpShoreDistance` reads them. With
+ *  `bad`, the same shores of water too foul to pump (contamination PUMP_CLEAN or more). */
+export function pumpShores(h: ArrayLike<number>, D: ArrayLike<number>, C: ArrayLike<number>, W: number, H: number, bad = false): Uint8Array {
   const N = W * H;
   const out = new Uint8Array(N);
   for (let i = 0; i < N; i++) {
@@ -149,7 +153,7 @@ export function pumpShores(h: ArrayLike<number>, D: ArrayLike<number>, C: ArrayL
       if (xx < 0 || yy < 0 || xx >= W || yy >= H) continue;
       const j = yy * W + xx;
       const s = h[j] + D[j];
-      if (D[j] >= PUMP_DEPTH && C[j] < PUMP_CLEAN && s >= h[i] - PUMP_REACH && s <= h[i] + 0.01) {
+      if (D[j] >= PUMP_DEPTH && (bad ? C[j] >= PUMP_CLEAN : C[j] < PUMP_CLEAN) && s >= h[i] - PUMP_REACH && s <= h[i] + 0.01) {
         out[i] = 1;
         break;
       }
@@ -161,11 +165,11 @@ export function pumpShores(h: ArrayLike<number>, D: ArrayLike<number>, C: ArrayL
 /** An optimistic estimate of the water rule's walk for the settler, before the slopes exist: the
  *  walk from every pump shore over steps of at most one level (a slope could join them), up to
  *  `limit` tiles. */
-export function shoreWalkAny(h: ArrayLike<number>, W: number, H: number, D: ArrayLike<number>, C: ArrayLike<number>, limit: number): Float64Array {
+export function shoreWalkAny(h: ArrayLike<number>, W: number, H: number, D: ArrayLike<number>, C: ArrayLike<number>, limit: number, bad = false): Float64Array {
   const N = W * H;
   const d = new Float64Array(N).fill(Infinity);
   const heap = new MinHeap();
-  const shore = pumpShores(h, D, C, W, H);
+  const shore = pumpShores(h, D, C, W, H, bad);
   for (let i = 0; i < N; i++)
     if (shore[i]) {
       d[i] = 0;
@@ -219,6 +223,34 @@ const S2 = Math.SQRT2;
 const SHORE_DEPTH = 0.35;
 const SHORE_CLEAN = 0.03;
 const SHORE_REACH = 1.9;
+
+/** Whether any water deep enough to pump is too foul to (contamination PUMP_CLEAN or more). */
+export function hasBadWater(D: ArrayLike<number>, C: ArrayLike<number>): boolean {
+  for (let i = 0; i < D.length; i++) if (D[i] >= PUMP_DEPTH && C[i] >= PUMP_CLEAN) return true;
+  return false;
+}
+
+/** Whether a start at (x, y) has water too foul to pump nearer than its clean water (each walked from its 3×3 over
+ *  steps of one level, up to `limit`): such a place is no place for the start (`pickStart` passes it over; the
+ *  places made ready as the land was shaped are asked this on the settled water). Read once a water. */
+export function badWaterNearer(h: ArrayLike<number>, W: number, H: number, D: ArrayLike<number>, C: ArrayLike<number>, limit: number): (x: number, y: number) => boolean {
+  if (!hasBadWater(D, C)) return () => false;
+  const clean = shoreWalkAny(h, W, H, D, C, limit);
+  const bad = shoreWalkAny(h, W, H, D, C, limit, true);
+  return (x, y) => {
+    let wc = Infinity;
+    let wb = Infinity;
+    for (let dy = -1; dy <= 1; dy++)
+      for (let dx = -1; dx <= 1; dx++) {
+        const xx = x + dx;
+        const yy = y + dy;
+        if (xx < 0 || yy < 0 || xx >= W || yy >= H) continue;
+        wc = Math.min(wc, clean[yy * W + xx]);
+        wb = Math.min(wb, bad[yy * W + xx]);
+      }
+    return wb < wc;
+  };
+}
 
 /** Walking distance on each level from that level's shores of pumpable water (no slopes). */
 export function shoreWalkFrom(h: Uint8Array, W: number, H: number, D: ArrayLike<number>, C: ArrayLike<number>, limit: number): Float64Array {
@@ -287,6 +319,9 @@ export function prepareStart(h: Uint8Array, W: number, H: number,
   const walk = shoreWalkFrom(h, W, H, D, water.contamination, waterRule);
   // the water rule: shores on other levels count when a walk over the map's own slopes reaches them
   const walkAny = shoreWalkAny(h, W, H, D, water.contamination, waterRule);
+  // (the walk to water too foul to pump, the same way: a place whose nearest water is bad is no place for the start,
+  // planning's condition on #236 of 2026-11-17; read only where the water holds any)
+  const walkBad = hasBadWater(D, water.contamination) ? shoreWalkAny(h, W, H, D, water.contamination, waterRule, true) : null;
   const walkKept = opts.kept && opts.drought ? shoreWalkAny(h, W, H, opts.kept, water.contamination, waterRule) : null;
   const wetNear = new Uint8Array(N);
   for (let i = 0; i < N; i++) if (D[i] > 0.02 || hydro.water[i] === 1 || hydro.water[i] === 2) wetNear[i] = 1;
@@ -353,7 +388,7 @@ export function prepareStart(h: Uint8Array, W: number, H: number,
   // what the opening camera would show from each place (D493), read once; for the chosen place's turn
   let opening: OpeningLand | null = null;
   const openingLand = (): OpeningLand => (opening ??= prepareOpening(h, W, H, D, fallsOf(h, D, W, H, 1.5)));
-  return { walk, walkAny, walkKept, dWet, boxSum, field, benches, dLake, dFall, dJoin, dSpring, medianLevel, margin, storeSum, foodSum, openingLand };
+  return { walk, walkAny, walkBad, walkKept, dWet, boxSum, field, benches, dLake, dFall, dJoin, dSpring, medianLevel, margin, storeSum, foodSum, openingLand };
 }
 
 export { benchAt, benchRegions };
@@ -374,7 +409,7 @@ export function pickStart(
   const avoid = opts.avoid ?? null;
   const N = W * H;
   const D = water.depth;
-  const { walk, walkAny, walkKept, dWet, boxSum, field, benches, dLake, dFall, dJoin, dSpring, medianLevel, margin: edgeMargin, storeSum, foodSum, openingLand } = opts.prepared ?? prepareStart(h, W, H, water, hydro, waterRule, opts);
+  const { walk, walkAny, walkBad, walkKept, dWet, boxSum, field, benches, dLake, dFall, dJoin, dSpring, medianLevel, margin: edgeMargin, storeSum, foodSum, openingLand } = opts.prepared ?? prepareStart(h, W, H, water, hydro, waterRule, opts);
   const margin = opts.margin ?? edgeMargin;
   const dams = opts.storage?.dams ?? null;
   const storedNear = (x: number, y: number): number => {
@@ -462,6 +497,12 @@ export function pickStart(
         const sameLevel = w <= waterAim3(waterRule, opts.waterExact) && (waterRule >= 7 || mid <= aimMid);
         if (!sameLevel && !(wa <= waterAim3(waterRule, opts.waterExact))) continue;
         if (!sameLevel) w = wa;
+        // (clean water only: a place whose nearest water is too foul to pump is passed over, its clean water however near)
+        if (walkBad) {
+          let wb = Infinity;
+          for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) wb = Math.min(wb, walkBad[(y + dy) * W + x + dx]);
+          if (wb < wa) continue;
+        }
         // (Easy start: its water at the pond's distance, and room for its clearing)
         let flat = 0;
         if (easy) {
