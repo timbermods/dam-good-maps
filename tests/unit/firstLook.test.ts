@@ -1,7 +1,7 @@
 // The map-making dialog's words (Kyler, 2026-10-05): each layout that reaches a stage takes that stage's next wording,
 // a stage a failed layout never reached keeps its place, and past the last the last stays.
 import { expect, test } from "vitest";
-import { countText, elapsedWords, progressText, sayStage, stageText, type Progress, type Said } from "../../src/ui/FirstLook";
+import { countText, elapsedWords, progressText, sayStage, stageText, whyText, type Progress, type Said } from "../../src/ui/FirstLook";
 
 const at = (said: Said | undefined, stage: string, attempt: number): Progress => ({ attempt, stage, land: null, said: sayStage(said, stage, attempt) });
 
@@ -39,4 +39,14 @@ test("the count line: the attempt and the time so far, said once the first secon
   expect(countText(at(first.said, "land", 2), 134)).toBe("Attempt 3 · 2 min 14 s");
   // the map that passed says its own words
   expect(countText({ ...first, candidate: {} as never }, 90)).toBe("");
+});
+
+test("the line under the count: why the last try was refused, from the second attempt on; a pause said until the next attempt", () => {
+  const first = at(undefined, "water", 0);
+  expect(whyText(null, false)).toBe("");
+  expect(whyText(first, false)).toBe("");
+  const second = { ...at(first.said, "land", 1), failed: "the start's water moved" };
+  expect(whyText(second, false)).toBe("Last try: the start's water moved");
+  expect(whyText(second, true)).toBe("Paused while the screen was off");
+  expect(whyText({ ...second, candidate: {} as Progress["candidate"] }, false)).toBe("");
 });
