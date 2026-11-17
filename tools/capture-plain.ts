@@ -146,9 +146,9 @@ function worksMaps(seed: number, size: number): { row: string; made: Made[] } | 
   const bands = (b: { green: number; dry: number; dead: number }) => `green ${pct(b.green)}, dry ${pct(b.dry)}, dead ${pct(b.dead)} of the floor`;
   const row = `seed ${seed} at ${size}²${m.held ? "" : " (did not hold)"}. start: level land ${n("start.level_land")}, reach ${n("start.reach")}, wood ${n("start.wood")} (fast ${n("start.wood_fast")}), water within ${n("start.water")}, food ${n("start.food")}, farmland ${n("start.farmland")}`;
   const caps = [
-    `as made: ${bands(pf.before.bands)}; ${pf.before.red} tiles of red water on the floor`,
+    `as made: ${bands(pf.before.bands)}; ${pf.before.red} tiles of red water on the floor; the small rungs listed: ${m.ladder.works.filter((w) => w.rung === "small" || w.rung === "first").map((w) => w.id).join(", ") || "none"}`,
     `after the turn (${pf.turn.tiles}-tile dam): ${bands(pf.turn.bands)}; red on the floor ${pf.turn.red}, over the lip ${pf.turn.lip}, at the Dry Fork's edge ${pf.turn.fork}, leaks ${pf.turn.leaks}${pf.turn.ok ? "" : " (not proved)"}`,
-    `after the river in (${pf.riverIn.tiles}-tile weir): ${bands(pf.riverIn.bands)}; on the start's ground ${pf.riverIn.start}${pf.riverIn.ok ? "" : " (not proved)"}`,
+    `after the river in (${pf.riverIn.tiles}-tile weir): ${bands(pf.riverIn.bands)}; on the start's ground ${pf.riverIn.start}; of the dry floor left ${pct(pf.riverIn.ditchable)} ditchable from the new course${pf.riverIn.ok ? "" : " (not proved)"}`,
   ];
   console.log(`${row}\n  ${caps.join("\n  ")}`);
   mkdirSync(resolve(".scratch/capture-plain"), { recursive: true });

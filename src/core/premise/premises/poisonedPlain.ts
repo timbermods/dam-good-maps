@@ -289,11 +289,14 @@ export function redClear(river: readonly Point[], riverBed: readonly number[], r
     }
   return least;
 }
-/** The sloughs (the design's §1, planning's ruling of 2026-11-15): one from a plain-side low place in the levee's
- *  middle third along the river (its upper half where the red stream joins the river); at 192² and over a second from a low place `apart` of the plain's length or more from the
- *  first; 2 or 3 wide; drawn as a meander `bend` times its width (the design's bend every 6 to 10 widths). `room`: the
- *  red stream turns off the backswamp this far below the lowest slough's mouth. */
-export const SLOUGH = { width: [2, 3], bend: 1.6, apart: 1 / 3, slant: [0.3, 0.6], room: 6 } as const;
+/** The sloughs (the design's §1, planning's rulings of 2026-11-15 and 2026-11-17): one from a plain-side low place in
+ *  the levee's middle third along the river (its upper half where the red stream joins the river), on the highest
+ *  level of the plain that range offers `reach` tiles of the river on (the plain's level read `side` tiles past the
+ *  river's half-width), within `near` of the river's length of that run's lower end; at 192² and over a second from a
+ *  low place `apart` of the plain's length or more above the first (a layout with no room for it is drawn
+ *  again); 2 or 3 wide; drawn as a meander `bend` times its width (the design's bend every 6 to 10 widths). `room`: the red stream turns off the backswamp this far below the
+ *  lowest slough's mouth. */
+export const SLOUGH = { width: [2, 3], bend: 1.6, apart: 1 / 3, slant: [0.3, 0.6], room: 6, side: 6, reach: 12, near: 0.04 } as const;
 /** The springs' pool at the river's head and the small pools (the brook's spring, the red source, the Red Fall's foot). */
 const POOL_R = { springs: 3, well: 1.5, red: 2, foot: 2 } as const;
 /** Layouts an attempt draws before it gives up. */
@@ -944,6 +947,8 @@ function layout(spec: MapSpec, attempt: number, t: number): Laid {
   // ---- the levees: width by noise, the low places, the crest runs; the sloughs from the low places to the backswamp
   const levee: PlainNumbers["levee"] = { width: { mid: 4.5, amp: 1.5, cell: r2(rng.range(LEVEE.cell[0], LEVEE.cell[1])), seed: seedOf() }, from: r2(sPlain), to: r2(S), plain: [], near: [], low: [] };
   const big = N >= 192;
+  // (a second slough only where the land offers its low place a third of the plain above the first, planning's ruling
+  // of 2026-11-17: a layout with no room for it is drawn again, never a slough laid where the land has no low place)
   const nSlough = big ? 2 : 1;
   const nLow = rng.int((big ? LEVEE.lows.large : LEVEE.lows.small)[0], (big ? LEVEE.lows.large : LEVEE.lows.small)[1] + 1);
   const sOfU = (u: number, from = sPlain) => {
@@ -965,26 +970,43 @@ function layout(spec: MapSpec, attempt: number, t: number): Laid {
   // the plain's length or more from it, up the valley or down it where there is room)
   // (in its upper half where the red stream joins the river, the join below the sloughs' mouths, a second slough then
   // above it)
-  // (where a second slough must stand above the first, the first is drawn where the river has passed the room for the
+  // (a second slough stands above the first (planning's ruling of 2026-11-17): the river in's weir lifts the river's
+  // reach above it over the second's mouth too, where a second below the first stayed dry, and the dry band above the
+  // first is the one a ditch cannot reach up a riser; so the first is drawn where the river has passed the room for the
   // second's low place above it: `upRoom` below holds one)
   const apart = SLOUGH.apart * Lp;
   let firstLeast = 1 / 3 + 0.02;
-  if (endJoin && nSlough > 1) {
+  const firstMost = endJoin ? 1 / 2 : 2 / 3 - 0.02;
+  if (nSlough > 1) {
     const want = plainFrom + 14 + apart + 1 + 4;
-    while (firstLeast < 1 / 2 && riverAt(sPlain + (S - sPlain) * firstLeast).p[0] < want) firstLeast += 0.005;
-    if (firstLeast >= 1 / 2) return { why: "no room for a second slough a third of the plain above the first" };
+    while (firstLeast < firstMost && riverAt(sPlain + (S - sPlain) * firstLeast).p[0] < want) firstLeast += 0.005;
+    if (firstLeast >= firstMost) return { why: "no room for a second slough a third of the plain above the first" };
   }
-  const firstS = sPlain + (S - sPlain) * rng.range(firstLeast, endJoin ? 1 / 2 : 2 / 3 - 0.02);
+  // (the first leaves from the highest level of the plain its range offers `SLOUGH.reach` of the river on: its water
+  // runs down to every level under it, and a player's ditch carries it there, but never up a riser to the plain above;
+  // and as far down that level as the range goes, within `SLOUGH.near` of its end: with the second slough above it,
+  // the two part the dry band nearest its middle, where a first early in its range left the plain below it dry)
+  const sideLevel = (f: number) => {
+    const q = riverAt(sPlain + (S - sPlain) * f);
+    const n0: Point = [-q.dir[1], q.dir[0]];
+    const n: Point = n0[1] >= 0 ? n0 : [-n0[0], -n0[1]];
+    return lv(q.p[0] + n[0] * (half + SLOUGH.side), q.p[1] + n[1] * (half + SLOUGH.side));
+  };
+  let firstTo = firstMost;
+  {
+    const top = sideLevel(firstLeast);
+    let f = firstLeast;
+    while (f < firstMost && sideLevel(f) >= top) f += 0.005;
+    if ((f - firstLeast) * (S - sPlain) >= SLOUGH.reach) firstTo = Math.min(firstMost, f - 0.005);
+  }
+  const firstS = sPlain + (S - sPlain) * rng.range(Math.max(firstLeast, firstTo - SLOUGH.near), firstTo);
   const first = riverAt(firstS).p[0];
   const upRoom: [number, number] = [plainFrom + 14, first - apart - 1];
-  const downRoom: [number, number] = [first + apart + 1, plainTo - RISER.end];
   const ups = upRoom[1] - upRoom[0] >= 4;
-  const downs = downRoom[1] - downRoom[0] >= 4;
   for (let k = 0; k < nSlough; k++) {
     const len = rng.int(LEVEE.low[0], LEVEE.low[1] + 1);
-    // (below the first only where the red stream leaves by its own exit: a join comes below every slough's mouth)
-    const span = ups && (!downs || endJoin || draw() < 0.65) ? upRoom : downRoom;
-    if (k > 0 && !ups && (!downs || endJoin)) return { why: "no room for a second slough a third of the plain from the first" };
+    const span = upRoom;
+    if (k > 0 && !ups) return { why: "no room for a second slough a third of the plain above the first" };
     const u = k === 0 ? first : span[0] + (span[1] - span[0]) * draw();
     const m = k === 0 ? firstS : sOfU(u);
     if (!free(m, len)) return { why: "no room for a slough's low place" };

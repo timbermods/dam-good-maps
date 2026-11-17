@@ -1,6 +1,7 @@
 // The poisoned floodplain's stage 4, the works and the ladder by number (docs/design/poisoned-floodplain.md §6, §7
-// "works", §9 row 4): on a map at 128² that holds on its first attempt, every rung has its site on the land and buys
-// its floor (`gives`), the turn's dam is six tiles or fewer and sends the red water over the col to the Dry Fork's
+// "works", §9 row 4): on a map at 128² that holds on its first attempt, every rung it lists has its site on the land
+// and buys its floor (`gives`; planning's ruling of 2026-11-17: `works.paid` decides the listing, the pond, the turn
+// and the river in listed on every map), the turn's dam is six tiles or fewer and sends the red water over the col to the Dry Fork's
 // edge, the river in's weir sends the river down the slough to the backswamp; and a hand-broken ladder for every works
 // check. The two proofs (the works built as operations on the settled map's session) are
 // premisePlainWorks.heavy.test.ts.
@@ -8,7 +9,7 @@
 import { describe, expect, it } from "vitest";
 import type { Ladder, WorkSite } from "../../src/core/premise/ladder";
 import { plainMap, type PlainMap } from "../../src/core/premise/plainMap";
-import { PLAIN_WORKS_BLOCKING, plainMeasure, plainWorksFailures, TURN } from "../../src/core/premise/plainWorks";
+import { LISTED, PLAIN_WORKS_BLOCKING, plainMeasure, plainWorksFailures, TURN } from "../../src/core/premise/plainWorks";
 import { plainOf } from "../../src/core/premise/premises/poisonedPlain";
 import { makeSpec } from "../../src/core/spec/mapspec";
 
@@ -27,8 +28,10 @@ describe("The poisoned floodplain's works", () => {
     expect(good.works).toEqual([]);
   });
 
-  it("sites every rung of its ladder on the land, each buying its floor", () => {
-    expect(good.ladder.works.map((w) => w.id).sort()).toEqual(plan.works.map((w) => w.id).sort());
+  it("lists the pond, the turn and the river in, and only rungs that buy their floor, each sited on the land", () => {
+    const listed = good.ladder.works.map((w) => w.id);
+    for (const id of LISTED) expect(listed, id).toContain(id);
+    for (const id of listed) expect(plan.works.map((w) => w.id), id).toContain(id);
     for (const s of good.ladder.works) {
       const work = plan.works.find((w) => w.id === s.id)!;
       expect(s.tiles.length, s.id).toBeGreaterThan(0);
@@ -45,7 +48,7 @@ describe("The poisoned floodplain's works", () => {
     const turn = site("turn");
     expect(turn.tiles.length).toBeLessThanOrEqual(TURN.most);
     expect(turn.level).toBe(plainOf(plan)!.col.level + TURN.over);
-    expect(turn.cleared).toBeGreaterThan(site("swampLevee").cleared!);
+    for (const id of ["lowLevee", "swampLevee"]) if (good.ladder.works.some((w) => w.id === id)) expect(turn.cleared, id).toBeGreaterThan(site(id).cleared!);
     expect(site("riverIn").green).toBeGreaterThan(turn.green);
   });
 });
@@ -56,8 +59,11 @@ describe("A broken poisoned-floodplain ladder fails its works checks", () => {
     return plainWorksFailures({ land: good.land, heights, ladder }).map((f) => f.id);
   };
 
-  it("works.sites: a rung with no site, a turn of more than six tiles", () => {
-    expect(ids((w) => (w.id === "brookPond" ? null : w))).toContain("works.sites");
+  it("works.sites: the pond, the turn or the river in with no site, the pond under its floor, a turn of more than six tiles", () => {
+    for (const id of LISTED) expect(ids((w) => (w.id === id ? null : w)), id).toContain("works.sites");
+    expect(ids((w) => (w.id === "brookPond" ? { ...w, paid: false, note: "holds 0" } : w))).toContain("works.sites");
+    // (a levee under its floor leaves the listing: not a failure)
+    expect(ids((w) => (w.id === "swampLevee" || w.id === "lowLevee" ? null : w))).not.toContain("works.sites");
     const turn = site("turn");
     const more = turn.tiles.slice();
     for (let i = 0; more.length <= TURN.most; i++) if (!more.includes(turn.tiles[0] + i + 1)) more.push(turn.tiles[0] + i + 1);

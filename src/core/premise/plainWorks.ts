@@ -39,14 +39,18 @@ const I = PLAIN_IDS;
  *  the col's own level, two over the narrows' floor as the design first had it, split the stream: on seed 1 at 128² 500
  *  of its 501 red tiles stayed on the floor); `most` tiles at most; sited within `reach` tiles along the gulch either
  *  side of its narrows (`step` apart), downstream of where the col's way leaves its floor, from wall to wall within
- *  `side` tiles of its line; where no line there is `most` tiles or fewer, anywhere on the gulch's floor below the
+ *  `side` tiles of its line (square to the gulch, or along a row or a column of the map); where no line there is `most` tiles or fewer, anywhere on the gulch's floor below the
  *  junction. */
 export const TURN = { over: 1, most: 6, reach: 3, step: 0.5, side: 8 } as const;
 /** The weir: how far each way across the river it runs to its banks, and along the river either side of its point it
  *  reads the river's line. */
 export const WEIR = { side: 16, chord: 3 } as const;
-/** The pond on the start's brook: its radius round its point, dug a level under the brook's bed. */
-export const POND = { r: 2.2 } as const;
+/** The pond on the start's brook: its radius round its point, dug a level under the brook's bed; where it holds less
+ *  than its floor, wider by `step` up to `most` (the brook's bed holds more on a larger map's floor). */
+export const POND = { r: 2.2, step: 0.4, most: 4.2 } as const;
+/** The rungs every map lists (§6): the pond, the turn and the river in; the levees only where they pay (planning's
+ *  ruling of 2026-11-17: `works.paid` decides the listing, `listPaid`). */
+export const LISTED = ["brookPond", "turn", "riverIn"] as const;
 /** The backswamp's levee: its tiles along the riser, and how near its first tile the plain's poisoned ground is
  *  counted to find where the dead band laps most. */
 export const SWAMP_LEVEE = { tiles: 20, near: 4 } as const;
@@ -126,9 +130,14 @@ export function turnSite(land: PlainLand, h: ArrayLike<number>, niche: [number, 
       const l = hypot(b[0] - a[0], b[1] - a[1]) || 1;
       const c = toMap(T, [a[0] + (b[0] - a[0]) * (s - k), a[1] + (b[1] - a[1]) * (s - k)]);
       const e = toMap(T, [a[0] + (b[0] - a[0]) * (s - k) - (b[1] - a[1]) / l, a[1] + (b[1] - a[1]) * (s - k) + (b[0] - a[0]) / l]);
-      const tiles = lineAcross(c, [e[0] - c[0], e[1] - c[1]], h, W, H, level, TURN.side);
-      if (!tiles.length) continue;
-      if (!best || tiles.length < best.tiles.length || (tiles.length === best.tiles.length && Math.abs(s - n0) < Math.abs(best.s - n0))) best = { tiles, level, s };
+      // (square to the gulch's line, or along a row or a column of the map as a player lays a dam: a line square to a
+      // slanting gulch steps diagonally and takes a corner tile at each step, 7 tiles where a row takes 5, seeds 5
+      // and 12 at 128²)
+      for (const n of [[e[0] - c[0], e[1] - c[1]], [1, 0], [0, 1]] as Point[]) {
+        const tiles = lineAcross(c, n, h, W, H, level, TURN.side);
+        if (!tiles.length) continue;
+        if (!best || tiles.length < best.tiles.length || (tiles.length === best.tiles.length && Math.abs(s - n0) < Math.abs(best.s - n0))) best = { tiles, level, s };
+      }
     }
   };
   look(Math.max(1, n0 - TURN.reach), Math.min(junction - 1, n0 + TURN.reach));
@@ -136,6 +145,82 @@ export function turnSite(land: PlainLand, h: ArrayLike<number>, niche: [number, 
   // narrowest line at that level is its narrows for the dam)
   if (!best || (best as { tiles: number[] }).tiles.length > TURN.most) look(1, junction - 1);
   return best;
+}
+
+/** The turn's pond spills only over the col (planning's ruling of 2026-11-17, "the pool's only sill is the lip", read
+ *  for the pond behind the turn's dam as for the gulch's water over the Red Fall): the gulch behind the dam fills to the
+ *  col's level and stands a little over it once the red stream runs over the col, so ground at the col's level beside
+ *  it, but the col's own way, poured the red water down to the valley's floor (seed 11 at 128²: the dam sited at the
+ *  gulch's mouth, a shelf of its wall at the col's level ran from the pond down to the floor; the turn by number and
+ *  as the core settles it left 400 red tiles there). The pond: the gulch's floor behind the dam (`site`'s tiles a wall)
+ *  under the col's level and what that water joins; each run of ground at the col's level beside it that reaches lower
+ *  ground the pond does not hold has its tiles beside the pond raised a level over it. The col's way to and from it, a
+ *  tile either side, and stage 1's water are kept. On `h`; how many tiles it raised (none where the pond reaches the
+ *  valley's floor: the dam does not hold there, `turn.byNumber` says so). */
+export function holdTurn(land: PlainLand, h: Uint8Array, site: { tiles: number[]; s: number }): number {
+  const { plan } = land;
+  const { W, H } = plan;
+  const N = W * H;
+  const p = plainOf(plan)!;
+  const L = p.col.level;
+  const sv = land.found.valley;
+  const len = sv.line.length - 1;
+  const t = valleyTiles(turnOf(plan, p), W, H, sv);
+  const half = (s: number) => sv.half[Math.max(0, Math.min(len, Math.round(s)))] ?? 2;
+  const near4 = (i: number) => {
+    const x = i % W;
+    return [x > 0 ? i - 1 : -1, x + 1 < W ? i + 1 : -1, i - W, i + W].filter((j) => j >= 0 && j < N);
+  };
+  const dam = new Uint8Array(N);
+  for (const i of site.tiles) dam[i] = 1;
+  const own = new Uint8Array(N);
+  for (const i of [...land.found.into, ...land.found.way]) {
+    own[i] = 1;
+    for (const j of near4(i)) own[j] = 1;
+  }
+  const r = land.water.raster;
+  const water = (i: number) => r.channel[i] || r.lake[i] || r.pool[i] || r.crest[i];
+  const floor = land.relief.floor;
+  const pond = new Uint8Array(N);
+  const q: number[] = [];
+  for (let i = 0; i < N; i++) {
+    if (t.s[i] < site.s + 1 || t.d[i] > half(t.s[i]) || h[i] >= L || dam[i]) continue;
+    pond[i] = 1;
+    q.push(i);
+  }
+  while (q.length) {
+    const i = q.pop()!;
+    if (floor[i]) return 0;
+    for (const j of near4(i)) {
+      if (pond[j] || dam[j] || h[j] >= L) continue;
+      pond[j] = 1;
+      q.push(j);
+    }
+  }
+  const seen = new Uint8Array(N);
+  const raise: number[] = [];
+  for (let i = 0; i < N; i++) {
+    if (seen[i] || pond[i] || own[i] || dam[i] || h[i] !== L || !near4(i).some((j) => pond[j])) continue;
+    const run: number[] = [];
+    let spills = false;
+    const st = [i];
+    seen[i] = 1;
+    while (st.length) {
+      const k = st.pop()!;
+      run.push(k);
+      for (const j of near4(k)) {
+        if (pond[j] || own[j] || dam[j]) continue;
+        if (h[j] < L) spills = true;
+        else if (h[j] === L && !seen[j]) {
+          seen[j] = 1;
+          st.push(j);
+        }
+      }
+    }
+    if (spills) for (const k of run) if (!water(k) && near4(k).some((j) => pond[j])) raise.push(k);
+  }
+  for (const i of raise) h[i] = L + 1;
+  return raise.length;
 }
 
 /** The weir's site: across the river at the plan's point, square to its line there (the chord `WEIR.chord` either
@@ -261,13 +346,13 @@ function swampLeveeSite(plan: PremisePlan, floor: Uint8Array, h: ArrayLike<numbe
 
 /** The pond on the start's brook: the tiles within `POND.r` of the plan's point dug to a level under the brook's bed
  *  there (the brook's own tiles and its banks: a round pond in its course). */
-function pondSite(plan: PremisePlan, w: StageWater, h: ArrayLike<number>): Change {
+function pondSite(plan: PremisePlan, w: StageWater, h: ArrayLike<number>, radius: number = POND.r): Change {
   const r = w.raster;
   const { W, H } = plan;
   const work = plan.works.find((x) => x.id === "brookPond");
   const k = plan.links.findIndex((l) => l.id === I.brook) + 1;
   if (!work || !k) return [];
-  const R = Math.ceil(POND.r);
+  const R = Math.ceil(radius);
   const cx = Math.floor(work.at[0]);
   const cy = Math.floor(work.at[1]);
   let bed = Infinity;
@@ -278,7 +363,7 @@ function pondSite(plan: PremisePlan, w: StageWater, h: ArrayLike<number>): Chang
       const y = cy + dy;
       if (x < 0 || y < 0 || x >= W || y >= H) continue;
       const i = y * W + x;
-      if ((x + 0.5 - work.at[0]) ** 2 + (y + 0.5 - work.at[1]) ** 2 > POND.r * POND.r) continue;
+      if ((x + 0.5 - work.at[0]) ** 2 + (y + 0.5 - work.at[1]) ** 2 > radius * radius) continue;
       if (r.lake[i] || r.pool[i] || (r.channel[i] && r.channel[i] !== k)) return [];
       if (r.channel[i] === k) bed = Math.min(bed, h[i]);
       near.push(i);
@@ -325,7 +410,12 @@ export function plainLadder(land: PlainLand, h: Uint8Array, niche: [number, numb
       measure = "cleared";
       bad = true;
     } else if (work.id === "brookPond") {
-      change = pondSite(plan, w, h);
+      // (the smallest pond that holds its floor, `POND`)
+      const floor = work.gives.reservoir?.[0] ?? 0;
+      for (let r = POND.r; r <= POND.most + 1e-9; r += POND.step) {
+        change = pondSite(plan, w, h, r);
+        if (!change.length || Math.round(waterOn(w, withChange(base, change)).held - day1.held) >= floor) break;
+      }
       s.does = "dig";
       measure = "reservoir";
     } else if (work.id === "swampLevee") {
@@ -408,6 +498,12 @@ export function settledClears(land: PlainLand, ladder: Ladder, built: { heights:
   }
 }
 
+/** The ladder as the map lists it (planning's ruling of 2026-11-17): the rungs that pay their floor, and the turn and
+ *  the river in whatever they measure (a map whose turn or river in does not work is drawn again). In place. */
+export function listPaid(ladder: Ladder): void {
+  ladder.works = ladder.works.filter((s) => s.paid || s.id === "turn" || s.id === "riverIn");
+}
+
 /** The measure each rung's `gives` floors: the tiles it clears (the levees, the turn), the water it holds (the pond), the
  *  tiles it turns green (the river in). */
 export function plainMeasure(s: WorkSite): number {
@@ -455,14 +551,17 @@ export function forkEnd(plan: PremisePlan): (i: number) => boolean {
   };
 }
 
-/** `works.sites` (§6): every rung stands on the land, its tiles and its level; the turn `TURN.most` tiles or fewer. */
+/** `works.sites` (§6): every rung the map lists stands on the land, its tiles and its level; the pond, the turn and
+ *  the river in are listed on every map (`LISTED`), the pond holding its floor; the turn `TURN.most` tiles or fewer. */
 const worksSites: PlainWorksInvariant = {
   id: "works.sites",
   test({ land, ladder }) {
     for (const w of land.plan.works) {
       const s = ladder.works.find((x) => x.id === w.id);
+      if (!s && !(LISTED as readonly string[]).includes(w.id)) continue;
       if (!s || !s.tiles.length) return no(`${w.id} has no site on the land`);
       if (s.level === undefined) return no(`${w.id} has no level`);
+      if (s.id === "brookPond" && !s.paid) return no(`The pond on the brook ${s.note ?? "holds under its floor"}`);
     }
     const turn = ladder.works.find((x) => x.id === "turn")!;
     if (turn.tiles.length > TURN.most) return no(`The turn's dam is ${turn.tiles.length} tiles (${TURN.most} at most)`);
@@ -470,7 +569,8 @@ const worksSites: PlainWorksInvariant = {
   },
 };
 
-/** `works.paid` (§6's `gives`): every rung buys its floor. */
+/** `works.paid` (§6's `gives`): every rung listed buys its floor (said, not blocking: the levees under theirs leave
+ *  the ladder, `listPaid`; the turn and the river in stay on it). */
 const worksPaid: PlainWorksInvariant = {
   id: "works.paid",
   test({ ladder }) {

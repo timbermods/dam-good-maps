@@ -1094,9 +1094,11 @@ export function sloughMouths(plan: PremisePlan, w: StageWater): { slough: string
   return out;
 }
 
-/** The gulch's floor holds its stream to the Red Fall's lip (step 3, round 3): a floor tile beside a drop off the floor,
- *  but onto stage 1's water, stands a level over it as a bank. The mouth's floor ran wider than the lip and spilled
- *  down the face beside the fall. On the land after the mend; how many tiles it raised. */
+/** The gulch's floor holds its stream to the Red Fall's lip (step 3, round 3; planning's ruling of 2026-11-17, "the
+ *  pool's only sill is the lip"): a floor tile beside a drop off the floor, but the lip's own, stands a level over it
+ *  as a bank. The mouth's floor ran wider than the lip and spilled down the face beside the fall; a floor tile beside
+ *  the Red Pool's stream below the lip poured a second curtain (seed 6 at 128²). On the land after the mend; how many
+ *  tiles it raised. */
 export function bankGulch(plan: PremisePlan, w: StageWater, h: Uint8Array, gulch: SideValley): number {
   const r = w.raster;
   const { W, H } = plan;
@@ -1105,12 +1107,17 @@ export function bankGulch(plan: PremisePlan, w: StageWater, h: Uint8Array, gulch
   const len = gulch.line.length - 1;
   const on = (i: number) => t.s[i] >= 0 && t.s[i] <= len && t.d[i] <= gulch.half[Math.max(0, Math.min(len, Math.round(t.s[i])))] + 0.5;
   const water = (i: number) => r.channel[i] || r.lake[i] || r.pool[i] || r.crest[i];
+  const lip = new Set(r.lips[I.redFall] ?? []);
+  const fall = plan.links.findIndex((l) => l.id === I.redFall) + 1;
+  // (a drop: off the floor, or onto other water than the fall's own, the Red Pool's stream running within the gulch's
+  // width below it)
+  const drop = (j: number) => !on(j) || (water(j) && r.channel[j] !== fall && r.crest[j] !== fall);
   const bank: number[] = [];
   for (let i = 0; i < N; i++) {
-    if (!on(i) || water(i)) continue;
+    if (!on(i) || water(i) || lip.has(i)) continue;
     const x = i % W;
     for (const j of [x > 0 ? i - 1 : -1, x < W - 1 ? i + 1 : -1, i - W, i + W])
-      if (j >= 0 && j < N && !on(j) && !water(j) && h[j] < h[i]) {
+      if (j >= 0 && j < N && drop(j) && h[j] < h[i]) {
         bank.push(i);
         break;
       }
@@ -1592,8 +1599,14 @@ export function mendGulch(plan: PremisePlan, h: Uint8Array, f: GulchFound, floor
   const cut = (i: number, to: number) => {
     if (i >= 0 && i < W * H && !floor[i] && h[i] > to) h[i] = to;
   };
-  // (the way up to the col from the gulch's floor, cut to the col's level)
-  for (const i of f.into) cut(i, f.col.level);
+  // (the way up to the col from the gulch's floor, cut to the col's level three wide, a tile either side, as the way on
+  // is: a notch a tile wide ran the red stream a level deep over the col once the turn's dam stood, so the pond behind
+  // the dam stood at its crest and spilled over it, 256² seed 2)
+  for (const i of f.into) {
+    cut(i, f.col.level);
+    const x = i % W;
+    for (const j of [x > 0 ? i - 1 : -1, x + 1 < W ? i + 1 : -1, i - W, i + W]) cut(j, f.col.level);
+  }
   // (the way stays at the col's level while it runs beside the gulch, its rim a tile and a half past its floor: the
   // gulch's water would pour over a lower tile there)
   const rim = (i: number) => tiles.s[i] >= 0 && tiles.d[i] <= halfAt(sv, tiles.s[i]) + 1.5;

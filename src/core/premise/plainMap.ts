@@ -16,13 +16,17 @@
 // - `fall.settled`: the Red Fall drops its drop over the backswamp (6 or 7) less half a level on the settled water (the
 //   Gate's `veil.settled`), lip to the Red Pool's water:
 //   the fall reads as a fall, not a rapid, from the start's first frame.
+// - `fall.whole` (planning's ruling of 2026-11-17): the Red Fall one whole curtain on the settled water by the shared
+//   fall judge (`curtain.ts`, `redFallCurtain`), never split by water pouring off the gulch beside its lip.
 // - `levee.holds`: in a badtide's water (the river red, its depth as settled) the game's soil rule poisons the plain
 //   only within 7 tiles of the river along a low place in the levee, beyond what day 1 has dead already.
+// - `riverIn.green` (planning's ruling of 2026-11-17): with the turn's dam and the river in's weir raised on the built
+//   ground, the core's settle and the game's soil (`riverInBands`, the proof's own green), the floor 60 % green or more.
 //
 // Its ladder is `plainWorks.ts`'s (step 4): a land whose works fail a blocking check by number (`PLAIN_WORKS_BLOCKING`)
 // is drawn again before its settle. Not offered (`premises/dev.ts`).
 
-import type { BuildResult } from "../features/build";
+import { modelOf, soilOnWater, type BuildResult } from "../features/build";
 import { featureId } from "../features/ids";
 import { footprintAt } from "../features/objects";
 import type { Feature, ForestFeature } from "../features/schema";
@@ -31,6 +35,7 @@ import { pickSeeds } from "../gen/blobs";
 import { distanceFrom, runsToTiles, tilesToRuns } from "../math/grid";
 import { stream } from "../math/rng";
 import { growGroveAt, NEAR_WALK, type BaselineGround } from "../resources/baseline";
+import { canonicalSettle } from "../sim/prefill";
 import { gameSoil } from "../sim/soil";
 import type { MapSpec } from "../spec/mapspec";
 import type { StyleTheme } from "./choice";
@@ -41,8 +46,9 @@ import type { Ladder } from "./ladder";
 import { LIFE } from "./life";
 import { premiseBase, premiseFinish, type PremiseLand, type PremiseMap } from "./map";
 import { courseGaps, plainAttempt, valleyTiles, type PlainLand, type PlainRelief } from "./plainLand";
-import { PLAIN_WORKS_BLOCKING, plainLadder, plainWorksFailures, settledClears } from "./plainWorks";
+import { holdTurn, listPaid, PLAIN_WORKS_BLOCKING, plainLadder, plainWorksFailures, settledClears, turnSite } from "./plainWorks";
 import { DEAD_SHARE, DRY_LEAST, PLAIN_IDS, plainLevel, plainOf, poisonedPlain, toLocal, turnOf, walk } from "./premises/poisonedPlain";
+import { curtains } from "./curtain";
 import { premiseStyle } from "./style";
 import type { PremisePlan, Point } from "./types";
 import type { StageWater } from "./water";
@@ -349,6 +355,33 @@ export function redFallDrop(plan: PremisePlan, w: StageWater, heights: ArrayLike
   return { drop: lip - med(foot), want: (plainOf(plan)?.gulch.h ?? 0) - VEIL_SHORT };
 }
 
+/** `fall.whole` (§7, planning's ruling of 2026-11-17): the Red Fall on the settled water judged as every fall is (the
+ *  shared curtain rule, `curtain.ts`, its height less the veil's half level): one whole curtain over its lip, never
+ *  split by water pouring off the gulch beside it, no ledge, no basin. Read within 8 tiles of the lip, the other
+ *  links' crests out. */
+export function redFallCurtain(plan: PremisePlan, w: StageWater, built: Pick<BuildResult, "heights" | "water">): { ok: boolean; note: string } {
+  const r = w.raster;
+  const N = plan.W * plan.H;
+  const k = plan.links.findIndex((l) => l.id === I.redFall);
+  const fall = plan.links[k];
+  const near = new Uint8Array(N);
+  for (const i of r.lips[fall.id] ?? []) {
+    const x = i % plan.W;
+    const y = (i - x) / plan.W;
+    for (let dy = -8; dy <= 8; dy++)
+      for (let dx = -8; dx <= 8; dx++) {
+        const xx = x + dx;
+        const yy = y + dy;
+        if (xx >= 0 && yy >= 0 && xx < plan.W && yy < plan.H) near[yy * plan.W + xx] = 1;
+      }
+  }
+  for (let i = 0; i < N; i++) if (r.crest[i] && r.crest[i] !== k + 1) near[i] = 0;
+  const depth = Float64Array.from(built.water, (d, i) => (near[i] ? d : 0));
+  const ground = Float64Array.from(built.heights, (h, i) => (near[i] ? h : 99));
+  const c = curtains({ W: plan.W, H: plan.H, before: ground, beforeDepth: new Float64Array(N), after: ground, depth, need: fall.fall!.height - VEIL_SHORT });
+  return { ok: c.ok, note: c.note };
+}
+
 /** `levee.holds` (§2 "A badtide", §7): the river's water red (contamination 1 on its channel and its springs' pool, the
  *  depth as settled) and the soil by the game's rule: the plain's tiles (from its head down) past the levee's banks (the
  *  banks hold it, §2; stage 1's own ground, the courses' beds and outlets, is not the plain) it poisons that day 1 has clean, and of those the ones farther than `LOW_REACH` from the river
@@ -380,6 +413,28 @@ export function badtideReach(plan: PremisePlan, w: StageWater, relief: Pick<Plai
     at ??= [i % W, Math.floor(i / W)];
   }
   return { poisoned, beyond, at };
+}
+
+// ------------------------------------------------------------------------------------------------- the river in, settled
+
+/** `riverIn.green` (§7, planning's ruling of 2026-11-17): the floor's least green with the turn and the river in. */
+export const RIVER_IN_GREEN = 0.6;
+
+/** The floor's bands with the turn's dam and the river in's weir built (§7 `riverIn.green`): their tiles raised to
+ *  their levels on the map's ground and objects (`modelOf`), one canonical settle and the game's soil on it
+ *  (`soilOnWater`), as the proof's session settles them (`plainProof.ts`). Null where a work has no site. */
+export function riverInBands(land: PlainLand, ladder: Ladder, built: Pick<BuildResult, "W" | "H" | "heights" | "entities">): ReturnType<typeof settledBands> | null {
+  const { plan } = land;
+  const heights = Uint8Array.from(built.heights);
+  for (const id of ["turn", "riverIn"]) {
+    const s = ladder.works.find((x) => x.id === id);
+    if (!s?.tiles.length || s.level === undefined) return null;
+    for (const i of s.tiles) heights[i] = Math.max(heights[i], s.level);
+  }
+  const m = { W: built.W, H: built.H, heights, entities: built.entities };
+  const settle = canonicalSettle(modelOf(m));
+  const soil = soilOnWater(m, settle.depth, settle.contamination);
+  return settledBands(floorTiles(plan, land.relief.floor), { water: settle.depth, moisture: soil.moisture, soilContamination: soil.contamination });
 }
 
 // ------------------------------------------------------------------------------------------------- the dead band's wood
@@ -445,6 +500,8 @@ export interface PlainSettled {
   leaks: ReturnType<typeof plainLeaks>;
   river: ReturnType<typeof riverRed>;
   fall: ReturnType<typeof redFallDrop>;
+  /** The Red Fall's curtain as settled (`redFallCurtain`). */
+  curtain: ReturnType<typeof redFallCurtain>;
   badtide: ReturnType<typeof badtideReach>;
   sources: ReturnType<typeof plainSources>;
   /** The river's steps and its water against its levees' crest and the plain (`riverStand`). */
@@ -464,6 +521,7 @@ export function settledFailures(s: PlainSettled): { id: string; reason: string }
   if (s.bands.dead < DEAD_SHARE[0] || s.bands.dead > DEAD_SHARE[1]) out.push({ id: "plain.bands", reason: `the settled dead band is ${pct(s.bands.dead)} of the floor (${DEAD_SHARE.map(pct).join(" to ")})` });
   else if (s.bands.dry < DRY_LEAST) out.push({ id: "plain.bands", reason: `the settled dry band is ${pct(s.bands.dry)} of the floor, under ${pct(DRY_LEAST)}` });
   if (!(s.fall.drop >= s.fall.want)) out.push({ id: "fall.settled", reason: `the Red Fall drops ${s.fall.drop.toFixed(2)} settled (${s.fall.want} or more)` });
+  if (!s.curtain.ok) out.push({ id: "fall.whole", reason: `the Red Fall is not one curtain (${s.curtain.note})` });
   if (s.badtide.beyond) out.push({ id: "levee.holds", reason: `a badtide poisons ${s.badtide.beyond} tiles of the plain beyond the levee's low places, the first at ${s.badtide.at?.join(", ")}` });
   return out;
 }
@@ -483,6 +541,9 @@ export interface PlainMap {
   attempt: number;
   held: boolean;
   failed: string[];
+  /** The floor's bands with the turn and the river in built and settled (`riverInBands`), once the map passes its
+   *  settled invariants. */
+  riverIn?: ReturnType<typeof settledBands> | null;
   ms: { land: number; settle: number; life: number; checks: number; settled: number; total: number };
 }
 
@@ -496,6 +557,7 @@ export function plainSettled(land: PlainLand, map: PremiseMap, deadTrees: number
     leaks: plainLeaks(plainCourses(plan, water, relief), b.water, plan.W),
     river: riverRed(cleanWater(plan, water), b.water, b.contamination),
     fall: redFallDrop(plan, water, b.heights, b.water),
+    curtain: redFallCurtain(plan, water, b),
     badtide: badtideReach(plan, water, relief, b),
     sources: plainSources(plan),
     stand: riverStand(plan, water, relief, b),
@@ -510,6 +572,12 @@ export function plainWorksOf(land: PlainLand): { heights: Uint8Array; niche: [nu
   const heights = land.heights.slice();
   const niche = redNiche(land.plan, land.water);
   if (niche) digNiche(heights, land.plan.W, niche);
+  // (the turn's pond held to the col: its rim at the col's level raised where it spills, `holdTurn`, the dam sited again
+  // on the raised ground)
+  for (let k = 0; k < 3; k++) {
+    const t = turnSite(land, heights, niche);
+    if (!t || !holdTurn(land, heights, t)) break;
+  }
   const ladder = plainLadder(land, heights, niche);
   return { heights, niche, ladder, works: plainWorksFailures({ land, heights, ladder, niche }) };
 }
@@ -537,6 +605,8 @@ export function plainMapOf(spec: MapSpec, land: PlainLand & { held: boolean }, t
   const settledFails = settledFailures(settled);
   // (the levees' clears read on the settled water, then the works checks again: `settledClears`)
   settledClears(land, ladder, map.built);
+  // (the ladder the map lists: the rungs that pay, `listPaid`)
+  listPaid(ladder);
   const worksFails = plainWorksFailures({ land, heights, ladder, niche });
   const t3 = performance.now();
   const ms = { land: land.ms.total, settle: Math.round(t1 - t0), life: map.ms.life, checks: map.ms.checks, settled: Math.round(t3 - t2), total: 0 };
@@ -581,6 +651,13 @@ export function plainMap(spec: MapSpec, theme: StyleTheme = "riverValley"): Plai
     }
     if (m.settledFails.length) {
       failed.push(`${m.settledFails[0].id}: ${m.settledFails[0].reason}`);
+      continue;
+    }
+    // (the river in on the settled map: a floor under `RIVER_IN_GREEN` with both works built is drawn again)
+    const ri = riverInBands(land, m.ladder, m.map.built);
+    out.riverIn = ri;
+    if (!ri || ri.green < RIVER_IN_GREEN) {
+      failed.push(`riverIn.green: ${ri ? `with the turn and the river in the floor is ${Math.round(100 * ri.green)} % green (${100 * RIVER_IN_GREEN} % or more)` : "a work has no site"}`);
       continue;
     }
     return { ...out, held: true };
