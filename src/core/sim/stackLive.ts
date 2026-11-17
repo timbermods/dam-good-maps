@@ -14,6 +14,7 @@
 // edit's is.
 
 import type { WaterColumns } from "./columns";
+import { HALO } from "./parallel";
 import { PREVIEW_JOB_DAYS, PREVIEW_MOVED, PREVIEW_TOL } from "./preview";
 import { STACK_CHECK_TICKS, stackThreads, type StackThreads } from "./stackParallel";
 import { columnFlows, columnOutflows, loadStack, retainedRows, staleStack, STACK_FIELD, STACK_INFO, STACK_OP, StackWater, type StackSettle } from "./stackWater";
@@ -95,14 +96,32 @@ const keyOf = (g: Pick<Graph, "N" | "target" | "floor">, c: number, k: number, d
  *  target is new (its ground changed). The edges off the map's edge carry theirs too: a river leaving the map kept
  *  running at the speed it had, not stopped at every build (#1181). */
 function carryMomentum(g: Graph, e: EdgeMomentum, out: Float64Array): void {
-  const old = new Map<number, number>();
-  for (let c = 0; c + 1 < e.start.length; c++) for (let k = e.start[c]; k < e.start[c + 1]; k++) if (e.out[k] !== 0) old.set(keyOf({ N: g.N, ...e }, c, k, e.dir[k]), e.out[k]);
-  if (!old.size) return;
-  for (let c = 0; c + 1 < g.start.length; c++)
-    for (let k = g.start[c]; k < g.start[c + 1]; k++) {
-      const v = old.get(keyOf(g, c, k, g.dir[k]));
-      if (v !== undefined) out[k] = v;
+  const N = g.N;
+  const slots = e.start.length - 1;
+  for (let c = 0; c + 1 < g.start.length; c++) {
+    const a = g.start[c];
+    const b = g.start[c + 1];
+    if (a === b) continue;
+    // (its column in `e`: the same tile and floor; an edge there: the same direction and target floor)
+    const f = g.floor[c];
+    let oc = -1;
+    for (let q = c % N; q < slots && oc < 0; q += N) if (e.floor[q] === f && e.start[q] < e.start[q + 1]) oc = q;
+    if (oc < 0) continue;
+    const oa = e.start[oc];
+    const ob = e.start[oc + 1];
+    for (let k = a; k < b; k++) {
+      const t = g.target[k];
+      const tf = t >= 0 ? g.floor[t] : 63;
+      const d = g.dir[k];
+      for (let j = oa; j < ob; j++) {
+        if (e.dir[j] !== d) continue;
+        const u = e.target[j];
+        if ((u >= 0 ? e.floor[u] : 63) !== tf) continue;
+        if (e.out[j] !== 0) out[k] = e.out[j];
+        break;
+      }
     }
+  }
 }
 
 /** Each edge's momentum in `g` from a settle's flows (four a column id, its column matched by tile and floor), on the
@@ -153,18 +172,82 @@ interface Built extends Graph {
   L: number;
 }
 
-/** The map's own water run on beside a force's, from the same water as if the force had gone no further
- *  (`StackLive.holdOwn`): `b`, its build, on `mask` (the front's walls as the force's run has them, the map's own
- *  ground) and `objects` (the map's own); `start`, the water it began with, on the columns it had then, with its flows
- *  and their momentum. */
+/** The map's own water beside a force's run, as if the force had gone no further (`StackLive.holdOwn`): `start`, the
+ *  water as the force began, on the columns it had then, with its flows and their momentum; `want`, the terrain the
+ *  map's own water stands on (the map's own ground, the front's walls as the force's run has them); `objects`, the
+ *  map's own; `strip`, the rows where the force's water may differ from it, run there (none before the force changes
+ *  anything); `was`, `start`'s momentum by edge (`edgeKey`), once asked for. */
 interface OwnWater {
-  b: Built;
-  mask: Uint32Array;
-  /** The terrain it is to run on (`reshape`'s `own`), where it differs from `mask` (a front's wall the force's run let
-   *  go): let go there too before the water could reach it (`wallsOwn`). */
-  want: Uint32Array | null;
-  objects: Float64Array;
   start: { count: Uint8Array; floor: Int16Array; ceil: Int16Array; depth: Float64Array; overflow: Float64Array; contamination: Float64Array; flows: Float32Array; edges: EdgeMomentum };
+  want: Uint32Array;
+  objects: Float64Array;
+  strip: OwnStrip | null;
+  was?: Map<number, number>;
+  wet?: Int32Array;
+}
+
+/** The map's own water run on a strip of the map's rows (`OwnWater.strip`), as the multi-core settle runs a strip
+ *  (stackParallel.ts): rows `lo` to `hi`, its own rows `y0` to `y1` and HALO rows of the force's run's water on each
+ *  side that is not the map's edge, taken in after every tick; `mask`, its rows' terrain as it is built. */
+interface OwnStrip extends Built {
+  lo: number;
+  hi: number;
+  y0: number;
+  y1: number;
+  mask: Uint32Array;
+}
+
+/** Rows kept between the force's changes and the edge of the strip's own rows (`OwnStrip`); rows at that edge checked
+ *  after every tick (a difference there grows the strip by GROW_ROWS): water that differs moves at most HALO rows a
+ *  tick, so it never reaches the halo, where the force's water stands for the map's own. */
+const STRIP_MARGIN = 8;
+const BAND_ROWS = 4;
+const GROW_ROWS = 16;
+
+/** The map's rows `lo` to `hi` (`mask`, theirs) built in the engine as a map of their own, as the multi-core settle
+ *  builds a strip (stackParallel.ts): with every object whose footprint may reach them, the stacked rules (build b = 1)
+ *  and no stored lakes (a run does not read them); its own rows `y0` to `y1`. */
+function stripColumns(W: number, H: number, lo: number, hi: number, y0: number, y1: number, mask: Uint32Array, objects: Float64Array): OwnStrip {
+  const kept: number[] = [];
+  for (let k = 0; k + 7 < objects.length; k += 8) {
+    const y = objects[k + 2];
+    if (y < lo - 4 || y >= hi + 4) continue;
+    for (let j = 0; j < 8; j++) kept.push(objects[k + j]);
+    kept[kept.length - 6] = y - lo;
+  }
+  const rows = hi - lo;
+  const m = new StackWater(W, rows, kept.length / 8, 0);
+  try {
+    (m.view(STACK_FIELD.masks) as Uint32Array).set(mask);
+    (m.view(STACK_FIELD.objects) as Float64Array).set(kept);
+    m.op(STACK_OP.build, 0, 1);
+    const n = W * rows;
+    const count = m.copy(STACK_FIELD.count) as Uint8Array;
+    let L = 1;
+    for (let i = 0; i < n; i++) if (count[i] > L) L = count[i];
+    m.op(STACK_OP.accept);
+    return {
+      m,
+      W,
+      H: rows,
+      N: n,
+      L,
+      count,
+      floor: m.copy(STACK_FIELD.floor) as Int16Array,
+      ceil: m.copy(STACK_FIELD.ceil) as Int16Array,
+      start: m.copy(STACK_FIELD.graphStart) as Uint32Array,
+      target: m.copy(STACK_FIELD.graphTarget) as Int32Array,
+      dir: m.copy(STACK_FIELD.graphDirection) as Uint8Array,
+      lo,
+      hi,
+      y0,
+      y1,
+      mask: mask.slice(),
+    };
+  } catch (e) {
+    m.close();
+    throw e;
+  }
 }
 
 /** One frame of the live water: every column (`stack`, not a settle), the water seen from above (each tile's top
@@ -314,7 +397,11 @@ export class StackLive {
    *  perhaps its objects (`objects`, stackWater.ts `stackObjectRows`: a source it took or moved): the engine is built
    *  on them again and the water as it stands carried over to it, its flows' momentum with it. */
   reshape(mask: Uint32Array, objects?: Float64Array, own?: Uint32Array): void {
-    if (own && this.own) this.own.want = own;
+    if (this.own) {
+      if (own) this.own.want = own;
+      // (the strip over every row the force now changes, from the water before it does)
+      this.ownCover(this.own, mask, objects ?? this.objects);
+    }
     const now = this.raw();
     const was = this.objects;
     if (objects) this.objects = objects;
@@ -334,15 +421,24 @@ export class StackLive {
   /** Run at most `ticks` more; true once the water stands still (the canonical settle's test) or its days ran out. */
   advance(ticks: number): boolean {
     if (this.finished) return true;
-    const before = this.ticks;
-    const done = this.run(ticks);
     const own = this.own;
-    if (own && this.ticks > before) {
-      // (the map's own water runs the same ticks, by the same rules as the settle's run, `Stack::run`)
-      this.wallsOwn(own, this.ticks - before);
-      own.b.m.op(STACK_OP.run, this.ticks - before, 1);
+    if (!own?.strip) return this.run(ticks);
+    // (the map's own water on its strip, a tick at a time beside the force's, its halo taken from it after each)
+    this.ownWalls(own, own.strip, ticks);
+    if (own.strip.lo === 0 && own.strip.hi === this.H) {
+      // (the whole map: no halo to take, so the same ticks in one run, as the force's)
+      const before = this.ticks;
+      this.run(ticks);
+      if (this.ticks > before) own.strip.m.op(STACK_OP.run, this.ticks - before, 1);
+      return this.finished;
     }
-    return done;
+    for (let left = Math.max(0, Math.floor(ticks)); left > 0 && !this.finished; left--) {
+      const before = this.ticks;
+      this.run(1);
+      if (this.ticks === before) break;
+      this.ownTick(own);
+    }
+    return this.finished;
   }
 
   private run(ticks: number): boolean {
@@ -480,178 +576,351 @@ export class StackLive {
   }
 
   /** The water of a force on this map (src/worker/session.ts `startForceStack`) changes only by what the force does
-   *  (#1181): from here, its water as it stands runs on beside it as well, the same ticks by the same rules, on the
-   *  map's own ground and objects (`objects`: none of the force's sources), its front's walls let go as the force's are
-   *  (`reshape`'s `own`), as if the force had gone no further. The water shown and handed on (`frame`, `state`) is the
-   *  water as it is now with what the force changed added (its run's water less that one's, column by column: depth,
-   *  pressure, badwater share, flows and their momentum); a column the force never reached is as it is now, to the last
-   *  bit. A stream in a cave can swing a few thousandths about where the settle stopped it, some sixty ticks a swing
-   *  (Highlands 96² seed 22's at (41–51, 68–69), 0.427 to 0.433 about the settle's 0.431, its run on alone settling
-   *  to 0.4295): shown as it ran, it rose and fell while a force worked far from it, and was handed on part way through
-   *  a swing. Call it before the first `advance`; not on several threads (a force's water runs on one). */
+   *  (#1181). The map's own water runs on beside it, the same ticks by the same rules, on the map's own ground and
+   *  objects (`objects`: none of the force's sources), its front's walls let go as the force's are (`reshape`'s `own`),
+   *  as if the force had gone no further. The water shown and handed on (`frame`, `state`) is the water as the force
+   *  began with what the force changed added (its run's water less the map's own, column by column: depth, pressure,
+   *  badwater share, flows and their momentum), so a column the force never reached is as it began, to the last bit. A
+   *  stream in a cave can swing a few thousandths about where the settle stopped it, some sixty ticks a swing
+   *  (Highlands 96² seed 22's at (41–51, 68–69), 0.427 to 0.433 about the settle's 0.431, its rest 0.4295), and every
+   *  wet column changes at every tick (it evaporates as its sources feed it), so there is no water at rest to skip:
+   *  shown as it ran, the stream rose and fell while a force worked far from it, and was handed on part way through a
+   *  swing.
+   *
+   *  Where the force's water does not differ from the map's own, it is the map's own, to the last bit: so the map's own
+   *  runs only on a strip of rows round what the force changed (`OwnStrip`), as the multi-core settle runs a strip
+   *  (stackParallel.ts, the same bytes as the whole map), its halo taken from the force's water after every tick, and
+   *  grows as the difference does; none runs before the force changes anything. Call it before the first `advance`;
+   *  not on several threads (a force's water runs on one). */
   holdOwn(objects: Float64Array): void {
     if (this.parallel) throw new Error("A force's water runs on one thread.");
-    this.own?.b.m.close();
+    this.own?.strip?.m.close();
     this.own = null;
     const now = this.raw();
-    const b = buildColumns(this.W, this.H, this.mask, objects, this.kept);
-    try {
-      loadStack(b.m, b, true, carryStack(now, b));
-      carryMomentum(b, now.edges!, b.m.view(STACK_FIELD.momentum) as Float64Array);
-      b.m.op(STACK_OP.accept);
-      const start = {
-        count: b.count,
-        floor: b.floor,
-        ceil: b.ceil,
-        depth: b.m.copy(STACK_FIELD.depth) as Float64Array,
-        overflow: b.m.copy(STACK_FIELD.overflow) as Float64Array,
-        contamination: b.m.copy(STACK_FIELD.contamination) as Float64Array,
-        flows: columnFlows(b.m, true),
-        edges: { start: b.start, target: b.target, dir: b.dir, floor: b.floor, out: b.m.copy(STACK_FIELD.momentum) as Float64Array },
-      };
-      this.own = { b, mask: this.mask.slice(), want: null, objects, start };
-    } catch (e) {
-      b.m.close();
-      throw e;
-    }
-  }
-
-  /** The map's own water beside a force's (`holdOwn`) on `mask`: the walls of a carve's front let go there as in
-   *  the force's run (src/worker/session.ts `forceStackMask`), its water as it stands carried over with its momentum,
-   *  as `reshape` carries the force's. */
-  private reshapeOwn(own: OwnWater, mask: Uint32Array): void {
-    const old = own.b;
-    const now: LiveStack = {
-      W: this.W,
-      H: this.H,
-      L: old.L,
-      stacked: true,
-      count: old.count,
-      floor: old.floor,
-      ceil: old.ceil,
-      depth: old.m.copy(STACK_FIELD.depth) as Float64Array,
-      overflow: old.m.copy(STACK_FIELD.overflow) as Float64Array,
-      contamination: old.m.copy(STACK_FIELD.contamination) as Float64Array,
-      sat: new Uint8Array(old.L * this.N),
-      settled: false,
-      ticks: this.ticks,
-      edges: { start: old.start, target: old.target, dir: old.dir, floor: old.floor, out: old.m.copy(STACK_FIELD.momentum) as Float64Array },
+    this.own = {
+      start: { count: this.count, floor: this.floor, ceil: this.ceil, depth: now.depth, overflow: now.overflow, contamination: now.contamination, flows: columnFlows(this.m, true), edges: now.edges! },
+      want: this.mask.slice(),
+      objects,
+      strip: null,
     };
-    const b = buildColumns(this.W, this.H, mask, own.objects, this.kept);
-    try {
-      loadStack(b.m, b, true, carryStack(now, b));
-      carryMomentum(b, now.edges!, b.m.view(STACK_FIELD.momentum) as Float64Array);
-      b.m.op(STACK_OP.accept);
-    } catch (e) {
-      b.m.close();
-      throw e;
-    }
-    old.m.close();
-    own.b = b;
-    own.mask = mask.slice();
+    this.ownCover(this.own, this.mask, this.objects);
   }
 
-  /** The front's walls the force's run let go (`OwnWater.want`) let go in the map's own run too, before it runs `ticks`
-   *  more, where its water could reach them by then: within two tiles a tick (a tick is two of the engine's steps, and
-   *  water moves a column a step) and one more of a wet column. A wall on dry ground no water reaches changes none of
-   *  its ticks, to the last bit; building the engine again at every frame's let-go walls would cost as much as the
-   *  force's own water. */
-  private wallsOwn(own: OwnWater, ticks: number): void {
-    const want = own.want;
-    if (!want) return;
-    const N = this.N;
+  /** The rows the force's run on `mask` and `objects` changes against the map's own (`OwnWater.want`, its objects),
+   *  with STRIP_MARGIN rows each way: [first, last) or null. An object's footprint reaches at most three tiles from
+   *  its anchor. */
+  private ownChanges(own: OwnWater, mask: Uint32Array, objects: Float64Array): [number, number] | null {
     const W = this.W;
-    const { b } = own;
-    let pending = 0;
-    for (let i = 0; i < N; i++) if (want[i] !== own.mask[i]) pending++;
-    if (!pending) {
-      own.want = null;
-      return;
+    let y0 = this.H;
+    let y1 = -1;
+    for (let i = 0; i < mask.length; i++)
+      if (mask[i] !== own.want[i]) {
+        const y = (i / W) | 0;
+        if (y < y0) y0 = y;
+        if (y > y1) y1 = y;
+      }
+    const rows = (o: Float64Array) => {
+      const out = new Map<string, number>();
+      for (let k = 0; k + 7 < o.length; k += 8) {
+        const key = Array.prototype.join.call(o.subarray(k, k + 8), ",");
+        out.set(key, (out.get(key) ?? 0) + 1);
+      }
+      return out;
+    };
+    const a = rows(objects);
+    const b = rows(own.objects);
+    for (const [m, n] of [
+      [a, b],
+      [b, a],
+    ])
+      for (const [key, k] of m)
+        if ((n.get(key) ?? 0) !== k) {
+          const y = Number(key.split(",")[2]);
+          if (y - 4 < y0) y0 = y - 4;
+          if (y + 4 > y1) y1 = y + 4;
+        }
+    if (y1 < 0) return null;
+    return [Math.max(0, y0 - STRIP_MARGIN), Math.min(this.H, y1 + 1 + STRIP_MARGIN)];
+  }
+
+  /** The strip's own rows over every row the force's run on `mask` and `objects` changes (`ownChanges`), made or grown
+   *  from the force's water as it stands, which is the map's own outside the strip (call it before the force's run
+   *  takes the change). */
+  private ownCover(own: OwnWater, mask: Uint32Array, objects: Float64Array): void {
+    const rows = this.ownChanges(own, mask, objects);
+    if (!rows) return;
+    const s = own.strip;
+    if (s && rows[0] >= s.y0 && rows[1] <= s.y1) return;
+    this.ownStrip(own, s ? Math.min(s.y0, rows[0]) : rows[0], s ? Math.max(s.y1, rows[1]) : rows[1]);
+  }
+
+  /** The strip on own rows `a` to `b` (to the map's edge when within HALO + GROW_ROWS of it): its water the strip's own where it
+   *  had rows of its own, the force's elsewhere (the map's own there). */
+  private ownStrip(own: OwnWater, a: number, b: number): void {
+    const { W, H } = this;
+    // (to the map's edge when near it: a strip of a few rows there would cost its halo's exchange at every tick)
+    const y0 = a <= HALO + GROW_ROWS ? 0 : a;
+    const y1 = b >= H - HALO - GROW_ROWS ? H : b;
+    const lo = Math.max(0, y0 - HALO);
+    const hi = Math.min(H, y1 + HALO);
+    const old = own.strip;
+    // its terrain: the strip's own where it had rows of its own (a front's wall not yet let go there), the force's run's
+    // elsewhere (the map's own: none of the force's changes lie there)
+    const mask = this.mask.slice(lo * W, hi * W);
+    if (old) mask.set(old.mask.subarray((old.y0 - old.lo) * W, (old.y1 - old.lo) * W), (old.y0 - lo) * W);
+    const s = stripColumns(W, H, lo, hi, y0, y1, mask, own.objects);
+    try {
+      if (old) {
+        if (lo < old.y0) this.ownTake(s, this.m, lo, old.y0, 0);
+        this.ownTake(s, old.m, old.y0, old.y1, old.lo);
+        if (old.y1 < hi) this.ownTake(s, this.m, old.y1, hi, 0);
+      } else this.ownTake(s, this.m, lo, hi, 0);
+    } catch (e) {
+      s.m.close();
+      throw e;
     }
-    // (each tile's distance to the nearest wet column of the map's own water, in tiles, eight ways: two passes)
-    const reach = 2 * ticks + 1;
+    old?.m.close();
+    own.strip = s;
+  }
+
+  /** Rows `r0` to `r1` of the map (of `from`, an engine whose first row is the map's row `base`) into the strip `s`, as
+   *  the strips hand them on (stack.rs `export_rows`, `import_rows`), with the momentum of the strip's first and last
+   *  rows where they are the map's top and bottom rows (their edges are the map's there; import_rows keeps a strip's
+   *  own). */
+  private ownTake(s: OwnStrip, from: StackWater, r0: number, r1: number, base: number): void {
+    if (r1 <= r0) return;
+    from.op(STACK_OP.exportRows, r0 - base, r1 - base);
+    const v = (from.view(STACK_FIELD.rowsOut) as Float64Array).slice();
+    s.m.op(STACK_OP.inbox, v.length);
+    (s.m.view(STACK_FIELD.rowsIn) as Float64Array).set(v);
+    s.m.op(STACK_OP.importRows, r0 - s.lo, r1 - s.lo);
+    const W = this.W;
+    const rows = s.hi - s.lo;
+    const edge = (r: number) => (r === 0 && s.lo === 0) || (r === this.H - 1 && s.hi === this.H);
+    if (!edge(r0) && !edge(r1 - 1)) return;
+    const momentum = s.m.view(STACK_FIELD.momentum) as Float64Array;
+    const n = rows * W;
+    const theirs = v[0];
+    let p = 3 + 4 * theirs * (r1 - r0) * W;
+    for (let q = 0; q < theirs; q++)
+      for (let r = r0; r < r1; r++) {
+        const len = v[p++];
+        const lr = r - s.lo;
+        if (edge(r) && q < s.L && s.start[q * n + (lr + 1) * W] - s.start[q * n + lr * W] === len) momentum.set(v.subarray(p, p + len), s.start[q * n + lr * W]);
+        p += len;
+      }
+  }
+
+  /** The front's walls the force's run let go (`OwnWater.want`) let go on the strip too, before it runs `ticks` more: at
+   *  once in its halo and the rows next to it (their columns must be the force's run's there), elsewhere where its water
+   *  could reach them by then: water moves at most a column a step, two steps a tick, and a step reads the columns two
+   *  round each wet one, so a wall more than 2·ticks + 2 tiles from every wet column enters none of those ticks. A wall
+   *  on dry ground no water reaches changes none of its ticks, to the last bit. When one must go, they all go (the far
+   *  ones change nothing either way): one build for as many as can wait. */
+  private ownWalls(own: OwnWater, s: OwnStrip, ticks: number): void {
+    const W = this.W;
+    const { lo, hi } = s;
+    const rows = hi - lo;
+    const n = rows * W;
+    const want = own.want.subarray(lo * W, hi * W);
+    let pending = false;
+    for (let i = 0; i < n && !pending; i++) if (want[i] !== s.mask[i]) pending = true;
+    if (!pending) return;
+    const reach = 2 * Math.max(1, ticks) + 2;
     const far = reach + 1;
-    const dist = new Int32Array(N).fill(far);
-    const bd = b.m.view(STACK_FIELD.depth) as Float64Array;
-    const bo = b.m.view(STACK_FIELD.overflow) as Float64Array;
-    for (let i = 0; i < N; i++)
-      for (let q = 0; q < b.count[i]; q++) {
-        const c = q * N + i;
-        if (bd[c] > 0 || bo[c] > 0) {
+    const dist = new Int32Array(n).fill(far);
+    const d = s.m.view(STACK_FIELD.depth) as Float64Array;
+    const o = s.m.view(STACK_FIELD.overflow) as Float64Array;
+    for (let i = 0; i < n; i++)
+      for (let q = 0; q < s.count[i]; q++)
+        if (d[q * n + i] > 0 || o[q * n + i] > 0) {
           dist[i] = 0;
           break;
         }
-      }
-    for (let i = 0; i < N; i++) {
+    for (let i = 0; i < n; i++) {
       const x = i % W;
-      let d = dist[i];
-      if (x > 0 && dist[i - 1] + 1 < d) d = dist[i - 1] + 1;
+      let e = dist[i];
+      if (x > 0 && dist[i - 1] + 1 < e) e = dist[i - 1] + 1;
       if (i >= W) {
-        if (dist[i - W] + 1 < d) d = dist[i - W] + 1;
-        if (x > 0 && dist[i - W - 1] + 1 < d) d = dist[i - W - 1] + 1;
-        if (x < W - 1 && dist[i - W + 1] + 1 < d) d = dist[i - W + 1] + 1;
+        if (dist[i - W] + 1 < e) e = dist[i - W] + 1;
+        if (x > 0 && dist[i - W - 1] + 1 < e) e = dist[i - W - 1] + 1;
+        if (x < W - 1 && dist[i - W + 1] + 1 < e) e = dist[i - W + 1] + 1;
       }
-      dist[i] = d;
+      dist[i] = e;
     }
-    for (let i = N - 1; i >= 0; i--) {
+    for (let i = n - 1; i >= 0; i--) {
       const x = i % W;
-      let d = dist[i];
-      if (x < W - 1 && dist[i + 1] + 1 < d) d = dist[i + 1] + 1;
-      if (i + W < N) {
-        if (dist[i + W] + 1 < d) d = dist[i + W] + 1;
-        if (x < W - 1 && dist[i + W + 1] + 1 < d) d = dist[i + W + 1] + 1;
-        if (x > 0 && dist[i + W - 1] + 1 < d) d = dist[i + W - 1] + 1;
+      let e = dist[i];
+      if (x < W - 1 && dist[i + 1] + 1 < e) e = dist[i + 1] + 1;
+      if (i + W < n) {
+        if (dist[i + W] + 1 < e) e = dist[i + W] + 1;
+        if (x < W - 1 && dist[i + W + 1] + 1 < e) e = dist[i + W + 1] + 1;
+        if (x > 0 && dist[i + W - 1] + 1 < e) e = dist[i + W - 1] + 1;
       }
-      dist[i] = d;
+      dist[i] = e;
     }
-    let mask: Uint32Array | null = null;
-    for (let i = 0; i < N; i++)
-      if (want[i] !== own.mask[i] && dist[i] <= reach) {
-        mask ??= own.mask.slice();
-        mask[i] = want[i];
-      }
-    if (mask) this.reshapeOwn(own, mask);
+    // (its halo and the rows next to it: from its first row to BAND_ROWS into its own, and the same at its last)
+    const near = (r: number) => (lo > 0 && r < s.y0 - lo + BAND_ROWS) || (hi < this.H && r >= s.y1 - lo - BAND_ROWS);
+    let due = false;
+    for (let i = 0; i < n && !due; i++) if (want[i] !== s.mask[i] && (dist[i] <= reach || near((i / W) | 0))) due = true;
+    if (!due) return;
+    const mask = want.slice();
+    // (built again on them, its water carried over with its momentum, as `reshape` carries the force's)
+    const now: LiveStack = {
+      W,
+      H: rows,
+      L: s.L,
+      stacked: true,
+      count: s.count,
+      floor: s.floor,
+      ceil: s.ceil,
+      depth: s.m.copy(STACK_FIELD.depth) as Float64Array,
+      overflow: s.m.copy(STACK_FIELD.overflow) as Float64Array,
+      contamination: s.m.copy(STACK_FIELD.contamination) as Float64Array,
+      sat: new Uint8Array(s.L * n),
+      settled: false,
+      ticks: this.ticks,
+      edges: { start: s.start, target: s.target, dir: s.dir, floor: s.floor, out: s.m.copy(STACK_FIELD.momentum) as Float64Array },
+    };
+    const t = stripColumns(W, this.H, lo, hi, s.y0, s.y1, mask, own.objects);
+    try {
+      loadStack(t.m, t, true, carryStack(now, t));
+      carryMomentum(t, now.edges!, t.m.view(STACK_FIELD.momentum) as Float64Array);
+      t.m.op(STACK_OP.accept);
+    } catch (e) {
+      t.m.close();
+      throw e;
+    }
+    s.m.close();
+    own.strip = t;
   }
 
-  /** `w` (this run's water, on its columns) as the map's own water began with what the force changed added
-   *  (`holdOwn`): on each column the map's own run also has (the same tile, slot, floor and ceiling), its value as it
-   *  began (none on a column it began without: a front's wall let go) plus this run's less the map's own; a column only
-   *  this run has (the ground the force changed) as this run has it. Its flows (`flows`, four a column) or its edges'
-   *  momentum (`out`) the same way. Each is kept to what the engine takes (no depth below none or over its room, no
-   *  share over one, no flow back), as the water carried over to a new build is (`loadStack`). */
+  /** A tick of the map's own water on its strip, after the force's run's: its halo then taken from the force's water
+   *  (the map's own there), and the rows next to it checked: where they differ from the force's, the strip grows. */
+  private ownTick(own: OwnWater): void {
+    const s = own.strip!;
+    s.m.op(STACK_OP.run, 1, 1);
+    if (s.lo > 0) this.ownTake(s, this.m, s.lo, s.y0, 0);
+    if (s.hi < this.H) this.ownTake(s, this.m, s.y1, s.hi, 0);
+    const differs = (r0: number, r1: number) => {
+      this.m.op(STACK_OP.exportRows, r0, r1);
+      const a = this.m.view(STACK_FIELD.rowsOut) as Float64Array;
+      const av = a.slice();
+      s.m.op(STACK_OP.exportRows, r0 - s.lo, r1 - s.lo);
+      const b = s.m.view(STACK_FIELD.rowsOut) as Float64Array;
+      if (av.length !== b.length) return true;
+      for (let k = 0; k < b.length; k++) if (av[k] !== b[k]) return true;
+      return false;
+    };
+    const up = s.lo > 0 && differs(s.y0, s.y0 + BAND_ROWS);
+    const down = s.hi < this.H && differs(s.y1 - BAND_ROWS, s.y1);
+    if (up || down) this.ownStrip(own, up ? s.y0 - GROW_ROWS : s.y0, down ? s.y1 + GROW_ROWS : s.y1);
+  }
+
+  /** The columns (slot·N + tile) where the water as the force began is not none (`OwnWater.start`: depth, pressure,
+   *  badwater share or flows). */
+  private ownWet(own: OwnWater): Int32Array {
+    if (own.wet) return own.wet;
+    const { start } = own;
+    const at: number[] = [];
+    for (let c = 0; c < start.depth.length; c++)
+      if (start.depth[c] !== 0 || start.overflow[c] !== 0 || start.contamination[c] !== 0 || start.flows[4 * c] !== 0 || start.flows[4 * c + 1] !== 0 || start.flows[4 * c + 2] !== 0 || start.flows[4 * c + 3] !== 0) at.push(c);
+    return (own.wet = Int32Array.from(at));
+  }
+
+  /** `w` (this run's water, on its columns) as the water as the force began with what the force changed added
+   *  (`holdOwn`): on each column of the strip's own rows that the map's own also has (the same tile, slot, floor and
+   *  ceiling), its value as it began (none on a column it began without: a front's wall let go) plus this run's less
+   *  the map's own; on every column outside them (where this run's water is the map's own) its value as it began; a
+   *  column only this run has (the ground the force changed) as this run has it. Its flows (`flows`, four a column) or
+   *  its edges' momentum (`out`) the same way. Each is kept to what the engine takes (no depth below none or over its
+   *  room, no share over one, no flow back), as the water carried over to a new build is (`loadStack`). */
   private ownPlus(own: OwnWater, w: StackSettle, flows: Float32Array | null, out: Float64Array | null): void {
-    const N = this.N;
-    const { b, start } = own;
-    const bd = b.m.view(STACK_FIELD.depth) as Float64Array;
-    const bo = b.m.view(STACK_FIELD.overflow) as Float64Array;
-    const bc = b.m.view(STACK_FIELD.contamination) as Float64Array;
-    const bm = b.m.view(STACK_FIELD.momentum) as Float64Array;
+    const { N, W } = this;
+    const { start, strip: s } = own;
+    const n = s ? (s.hi - s.lo) * W : 0;
+    const bd = s ? (s.m.view(STACK_FIELD.depth) as Float64Array) : null;
+    const bo = s ? (s.m.view(STACK_FIELD.overflow) as Float64Array) : null;
+    const bc = s ? (s.m.view(STACK_FIELD.contamination) as Float64Array) : null;
+    const bm = s ? (s.m.view(STACK_FIELD.momentum) as Float64Array) : null;
+    const first = s && s.lo > 0 ? s.y0 * W : s ? 0 : N;
+    const last = s && s.hi < this.H ? s.y1 * W : s ? N : N;
+    const off = s ? s.lo * W : 0;
     const sum = new Float64Array(4);
-    // (each edge's momentum by its key, `edgeKey`: the map's own as it began, and as it is)
+    // (each edge's momentum by its key, `edgeKey`: as the map's own began, and as it is on the strip)
     let was: Map<number, number> | null = null;
     let is: Map<number, number> | null = null;
     if (out) {
-      was = new Map();
-      is = new Map();
-      const e = start.edges;
-      for (let c = 0; c + 1 < e.start.length; c++) for (let k = e.start[c]; k < e.start[c + 1]; k++) was.set(keyOf({ N, ...e }, c, k, e.dir[k]), e.out[k]);
-      for (let c = 0; c + 1 < b.start.length; c++) for (let k = b.start[c]; k < b.start[c + 1]; k++) is.set(keyOf(b, c, k, b.dir[k]), bm[k]);
+      was = own.was ??= (() => {
+        const m = new Map<number, number>();
+        const e = start.edges;
+        const eg = { N, ...e };
+        for (let c = 0; c + 1 < e.start.length; c++) for (let k = e.start[c]; k < e.start[c + 1]; k++) if (e.out[k] !== 0) m.set(keyOf(eg, c, k, e.dir[k]), e.out[k]);
+        return m;
+      })();
+      if (s && bm) {
+        is = new Map();
+        for (let c = 0; c + 1 < s.start.length; c++) {
+          const tile = (c % n) + off;
+          for (let k = s.start[c]; k < s.start[c + 1]; k++) {
+            const t = s.target[k];
+            is.set(edgeKey(N, tile, s.floor[c], s.dir[k], t >= 0 ? s.floor[t] : 63), bm[k]);
+          }
+        }
+      }
     }
     const g = this.graph();
-    for (let i = 0; i < N; i++)
+    // (a frame, on the force's columns laid out as they began: outside the strip's own rows the water as it began,
+    // copied whole, then none on a column it began without where it began with water; then the strip's own rows)
+    const fast = !out && w.depth.length === start.depth.length;
+    if (fast) {
+      for (let q = 0; q < this.L; q++)
+        for (const [a, b] of [
+          [q * N, q * N + first],
+          [q * N + last, (q + 1) * N],
+        ]) {
+          if (b <= a) continue;
+          w.depth.set(start.depth.subarray(a, b), a);
+          w.overflow.set(start.overflow.subarray(a, b), a);
+          w.contamination.set(start.contamination.subarray(a, b), a);
+          if (flows) flows.set(start.flows.subarray(4 * a, 4 * b), 4 * a);
+        }
+      for (const c of this.ownWet(own)) {
+        const i = c % N;
+        if (i >= first && i < last) continue;
+        const q = (c - i) / N;
+        if (q < this.count[i] && q < start.count[i] && start.floor[c] === this.floor[c] && start.ceil[c] === this.ceil[c]) continue;
+        w.depth[c] = 0;
+        w.overflow[c] = 0;
+        w.contamination[c] = 0;
+        if (flows) flows.fill(0, 4 * c, 4 * c + 4);
+      }
+    }
+    for (let i = fast ? first : 0; i < (fast ? last : N); i++)
       for (let q = 0; q < this.count[i]; q++) {
         const c = q * N + i;
         const f = this.floor[c];
         const top = this.ceil[c];
-        if (q >= b.count[i] || b.floor[c] !== f || b.ceil[c] !== top) continue;
         const began = q < start.count[i] && start.floor[c] === f && start.ceil[c] === top;
-        const same = w.depth[c] === bd[c] && w.overflow[c] === bo[c] && w.contamination[c] === bc[c];
+        if (i < first || i >= last) {
+          // (the map's own water, as it began)
+          w.depth[c] = began ? start.depth[c] : 0;
+          w.overflow[c] = began ? start.overflow[c] : 0;
+          w.contamination[c] = began ? start.contamination[c] : 0;
+          if (flows) for (let d4 = 4 * c; d4 < 4 * c + 4; d4++) flows[d4] = began ? start.flows[d4] : 0;
+          if (out && was) for (let k2 = this.start[c]; k2 < this.start[c + 1]; k2++) out[k2] = began ? (was.get(keyOf(g, c, k2, this.dir[k2])) ?? 0) : 0;
+          continue;
+        }
+        const li = i - off;
+        const b = q * n + li;
+        if (!s || !bd || !bo || !bc || !bm || q >= s.count[li] || s.floor[b] !== f || s.ceil[b] !== top) continue;
+        const same = w.depth[c] === bd[b] && w.overflow[c] === bo[b] && w.contamination[c] === bc[b];
         const cap = top - f;
-        const d = (began ? start.depth[c] : 0) + (w.depth[c] - bd[c]);
+        const d = (began ? start.depth[c] : 0) + (w.depth[c] - bd[b]);
         w.depth[c] = d > 0 ? (d < cap ? d : cap) : 0;
-        const o = (began ? start.overflow[c] : 0) + (w.overflow[c] - bo[c]);
+        const o = (began ? start.overflow[c] : 0) + (w.overflow[c] - bo[b]);
         w.overflow[c] = o > 0 ? o : 0;
-        const k = (began ? start.contamination[c] : 0) + (w.contamination[c] - bc[c]);
+        const k = (began ? start.contamination[c] : 0) + (w.contamination[c] - bc[b]);
         w.contamination[c] = k > 0 ? (k < 1 ? k : 1) : 0;
         if (flows) {
           // (the map's own flows summed as `columnFlows` sums them, where its water differs from this run's: where it
@@ -659,7 +928,7 @@ export class StackLive {
           if (same) for (let d4 = 4 * c; d4 < 4 * c + 4; d4++) flows[d4] = began ? start.flows[d4] : 0;
           else {
             sum.fill(0);
-            for (let e = b.start[c]; e < b.start[c + 1]; e++) sum[b.dir[e]] += bm[e];
+            for (let e = s.start[b]; e < s.start[b + 1]; e++) sum[s.dir[e]] += bm[e];
             for (let d = 0; d < 4; d++) flows[4 * c + d] = Math.max(0, (began ? start.flows[4 * c + d] : 0) + (flows[4 * c + d] - Math.fround(sum[d])));
           }
         }
@@ -717,7 +986,7 @@ export class StackLive {
     this.threads?.free();
     this.threads = null;
     this.m.close();
-    this.own?.b.m.close();
+    this.own?.strip?.m.close();
     this.own = null;
   }
 }
