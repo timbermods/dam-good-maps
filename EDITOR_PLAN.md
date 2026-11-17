@@ -212,7 +212,7 @@ place of its bottom rule.
   Select's settings, a tap again puts them and any selection down. **Show**, a button at the view's top right, opens a
   sheet of what the map shows, at most 40 % of the view so the map changes above it, ending after a whole row, or a
   whole line of Land's numbers, the Legend or a key under the chips (fitted again whenever what it holds changes; the
-  rest scroll up into view), a longer name ("Caves and overhangs") taking two chips' room: under small headings, each an even grid of chips, **What to show** (the Show row's toggles,
+  rest scroll up into view), a longer name ("Caves and overhangs") taking two chips' room, and under a wider font a name taking a second line inside its chip, never cut: under small headings, each an even grid of chips, **What to show** (the Show row's toggles,
   Legend and its key), **Camera** (Top-down, Reset view, First view, the compass, **Saved views** (§7), **Layers shown**: the slice, ∞ for
   every layer, and Look, whose choices open in the sheet's own flow under its button, the sheet scrolling them into
   sight), **Minimap**, **Weather** (the weather days; a double tap on the day types one, as its tooltip tells a finger: the two taps counted by the page, since WebKit sends no dblclick for them, and the day in the field left selected so the typed one replaces it) and **Forces and sound** (Slow forces, the sound

@@ -474,14 +474,19 @@
   justify-content: flex-start;
 }
 
+/* (a chip holds its name whatever the font: the sides and the gap trimmed so "See-through" and "Hide objects" keep one
+   line in a phone's three chips to a row, and under a wider font than ours a name takes a second line inside the chip,
+   still a finger's 44px, never cut at the chip's side) */
 .editor:is([data-phone], [data-tablet]) .ps-grid .show-row {
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 0 10px;
+  gap: 6px;
+  padding: 0 6px;
   text-align: left;
-  white-space: nowrap;
+  white-space: normal;
+  overflow-wrap: anywhere;
   font-size: 14px;
+  line-height: 16px;
 }
 
 /* (a name longer than a chip, "Caves and overhangs", takes two chips' room: its words lay over the next chip) */
@@ -490,6 +495,7 @@
 }
 
 .editor:is([data-phone], [data-tablet]) .ps-grid .show-row .cb {
+  flex: none;
   width: 18px;
   height: 18px;
 }

@@ -1546,6 +1546,11 @@ for (const phone of PHONES) {
         return Math.max(w.right - r.right, r.left - w.left, w.bottom - r.bottom, r.top - w.top);
       });
       expect(spill, "Caves and overhangs: its words past its chip (px)").toBeLessThanOrEqual(0.5);
+      // under a wider font than ours (CI's, or a phone's fallback: the letters spread here to stand for it) a name takes
+      // a second line inside its chip and is not cut at its side
+      const spread = await page.addStyleTag({ content: ".phone-show .ps-grid .show-row { letter-spacing: 1.5px; }" });
+      expect(await phoneClipped(page), "Show under a wider font: words cut short").toEqual([]);
+      await spread.evaluate((e) => (e as HTMLStyleElement).remove());
       // (and it is a chip like the rest: one height, its row no taller for it)
       const heights = await sheet.locator(".ps-grid").first().evaluate((g) => [...new Set([...g.children].map((e) => Math.round(e.getBoundingClientRect().height)))]);
       expect(heights, "What to show: its chips' heights").toEqual([44]);
@@ -1596,8 +1601,9 @@ for (const phone of PHONES) {
       await expect(dayField).toBeFocused();
       await dayField.press("Escape");
       await expect(dayField).toHaveCount(0);
-      // a finger's own two taps, by their own times: the mouse press the browser sends for the second comes after the
-      // field is drawn, and the day in the field stays selected, so the day typed takes its place
+      // a finger's own two taps, by their own times: the day in the field stays selected, so the day typed takes its
+      // place. (This only guards the flow: the fault, the mouse press the browser sends for the second tap dropping the
+      // selection so a typed 7 over Day 9 made Day 79, shows only in WebKit; Chrome kept the selection before the fix too.)
       const cdp = await page.context().newCDPSession(page);
       const b = (await day.boundingBox())!;
       const at = [{ x: b.x + b.width / 2, y: b.y + b.height / 2 }];
