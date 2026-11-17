@@ -105,7 +105,9 @@ export function usePhone(ed: Ed): PhoneSlice {
   const room = useRef<{ x: number; y: number; phone: PhoneLayout | "tablet" } | null>(null);
   const aim = useRef<{ target: [number, number, number]; until: number } | null>(null);
   const selected = !!ed.selection.current.count;
-  const slideOn = [phone, tablet, phoneSheet, sheetTall, phoneSelect, brushTool, tool, block, shelf, selected, ed.ready];
+  // (Show's sheet grown or shrunk by what it holds, Land's numbers or the Legend under its chips: the room changed too)
+  const [showFitted, setShowFitted] = useState(0);
+  const slideOn = [phone, tablet, phoneSheet, sheetTall, phoneSelect, brushTool, tool, block, shelf, selected, ed.ready, showFitted];
   // (whether a slide is still to come: the page has drawn a change the effect below has not yet measured, or its frame
   // is waiting; tests wait on it, `roomSettled`)
   const slideWanted = useRef(slideOn);
@@ -168,14 +170,30 @@ export function usePhone(ed: Ed): PhoneSlice {
     const id = requestAnimationFrame(fit);
     const watch = typeof ResizeObserver === "undefined" ? null : new ResizeObserver(() => requestAnimationFrame(fit));
     watch?.observe(sheet.parentElement ?? sheet);
+    // (and when what it holds changes: Land's numbers, the Legend or a key coming under the chips, a chip a map gains)
+    const grown =
+      typeof MutationObserver === "undefined"
+        ? null
+        : new MutationObserver(() =>
+            requestAnimationFrame(() => {
+              const was = sheet.offsetHeight;
+              fit();
+              if (Math.abs(sheet.offsetHeight - was) >= 1) setShowFitted((n) => n + 1);
+            }),
+          );
+    grown?.observe(sheet, { childList: true, subtree: true });
     return () => {
       cancelAnimationFrame(id);
       watch?.disconnect();
+      grown?.disconnect();
     };
   }, [phone, tablet, phoneSheet]);
 
   return { phone, tablet, phoneSheet, setPhoneSheet, sheetTall, setSheetTall, phoneSelect, setPhoneSelect, roomSettled };
 }
+
+/** The lines of a panel under Show's chips (Land's numbers, the Legend's entries, a key's parts). */
+const PANEL_LINES = ".land-line, .pick-list > li, .panel-head, .overlay-legend, .layer-legend, .toggle-row";
 
 /** The Show sheet's height stops where the room would cut a row of chips or a line: at that row's top, or at the top of
  *  the heading above it when that heading would be left with nothing under it. */
@@ -186,10 +204,16 @@ export function endShowOnWhole(sheet: HTMLElement): void {
   if (sheet.scrollHeight <= room + 1) return;
   const pad = parseFloat(getComputedStyle(sheet).paddingBottom) || 0;
   const top = sheet.getBoundingClientRect().top - sheet.scrollTop;
-  const pieces = [...sheet.querySelectorAll<HTMLElement>(".ps-head, .ps-grid > *, .ps-line, .legend-panel, .show-key, .water-bar > *, .minimap")]
-    .map((el) => ({ el, r: el.getBoundingClientRect() }))
-    .filter((p) => p.r.height > 0)
-    .map((p) => ({ head: p.el.classList.contains("ps-head"), t: p.r.top - top, b: p.r.bottom - top }));
+  const pieces: { head: boolean; t: number; b: number }[] = [];
+  for (const el of sheet.querySelectorAll<HTMLElement>(".ps-head, .ps-grid > *, .ps-line, .legend-panel, .show-key, .water-bar > *, .minimap")) {
+    const r = el.getBoundingClientRect();
+    if (!(r.height > 0)) continue;
+    // (a panel of lines, Land's numbers, the Legend or a key, ends on a whole line of its own: its first line holds the
+    // panel's top edge, its last its foot)
+    const lines = el.matches(".legend-panel, .show-key") ? [...el.querySelectorAll<HTMLElement>(PANEL_LINES)].map((l) => l.getBoundingClientRect()).filter((l) => l.height > 0) : [];
+    if (lines.length > 1) lines.forEach((l, i) => pieces.push({ head: false, t: (i === 0 ? r.top : l.top) - top, b: (i === lines.length - 1 ? r.bottom : l.bottom) - top }));
+    else pieces.push({ head: el.classList.contains("ps-head"), t: r.top - top, b: r.bottom - top });
+  }
   const limit = room - pad;
   let cut = Infinity;
   for (const p of pieces) if (p.b > limit + 0.5) cut = Math.min(cut, p.t);
@@ -199,5 +223,8 @@ export function endShowOnWhole(sheet: HTMLElement): void {
   // (the scrolling box shows its content through its padding too: the box ends a gap above the row it leaves out)
   // (and below that the home bar's inset, a border under what scrolls)
   const foot = parseFloat(getComputedStyle(sheet).borderBottomWidth) || 0;
-  sheet.style.maxHeight = `${Math.max(88, Math.floor(Math.min(sheet.offsetHeight, cut - 6 + foot)))}px`;
+  // (lines nearer than that, a panel's: the box ends at the foot of the last whole one)
+  const above = Math.max(-Infinity, ...pieces.filter((p) => p.b <= cut + 0.5).map((p) => p.b));
+  const gap = Math.min(6, Math.max(0, cut - above));
+  sheet.style.maxHeight = `${Math.max(88, Math.floor(Math.min(sheet.offsetHeight, cut - gap + foot)))}px`;
 }

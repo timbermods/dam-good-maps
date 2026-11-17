@@ -6,6 +6,7 @@
 
 import { useEffect, useRef, useState } from "preact/hooks";
 import type { GenProgress } from "../worker/api";
+import type { RunningClock } from "./makingClock";
 
 export interface Progress {
   attempt: number;
@@ -15,6 +16,8 @@ export interface Progress {
   candidate?: Extract<GenProgress, { kind: "candidate" }> | null;
   /** Which of each stage's wordings it shows now (`sayStage`). */
   said?: Said;
+  /** Why the last attempt was refused, in the generator's own short phrase (`gen/failWords.ts`); absent before any was. */
+  failed?: string;
 }
 
 /** Each stage's words, one for each layout that reaches it (Kyler, 2026-10-05: a failed layout starts again from the
@@ -71,22 +74,32 @@ export function countText(p: Progress | null, seconds: number): string {
   return `Attempt ${p.attempt + 1} · ${elapsedWords(seconds)}`;
 }
 
-/** The count line of the progress dialog, under its words: it keeps its own clock (a second's tick re-draws only this line),
- *  started when the first progress arrives and stopped when it ends. */
-export function MakingCount({ progress }: { progress: Progress | null }) {
-  const since = useRef<number | null>(null);
+/** The line under the count: while the page is back from being hidden, that it paused; otherwise, from the second attempt
+ *  on, why the last one was refused ("Last try: the start's water moved"). */
+export function whyText(p: Progress | null, paused: boolean): string {
+  if (!p || p.candidate) return "";
+  if (paused) return "Paused while the screen was off";
+  return p.failed ? `Last try: ${p.failed}` : "";
+}
+
+/** The count line of the progress dialog, under its words, and the line under it: they keep their own tick (a second's
+ *  tick re-draws only these lines), reading the generate's running clock (`makingClock.ts`: hidden time not counted). */
+export function MakingCount({ progress, clock }: { progress: Progress | null; clock: RunningClock | null }) {
   const [, tick] = useState(0);
-  const running = progress !== null;
-  if (running && since.current === null) since.current = Date.now();
-  if (!running) since.current = null;
+  const running = progress !== null && clock !== null;
   useEffect(() => {
     if (!running) return;
     const t = setInterval(() => tick((n) => n + 1), 1000);
     return () => clearInterval(t);
   }, [running]);
-  const seconds = since.current === null ? 0 : (Date.now() - since.current) / 1000;
-  // (the line's room is kept, so the card never changes height as the count appears)
-  return <p class="making-count">{countText(progress, seconds) || "\u00a0"}</p>;
+  const seconds = running ? clock!.seconds() : 0;
+  // (the lines' room is kept, so the card never changes height as they appear)
+  return (
+    <>
+      <p class="making-count">{(running && countText(progress, seconds)) || "\u00a0"}</p>
+      <p class="making-why">{(running && whyText(progress, clock!.paused)) || "\u00a0"}</p>
+    </>
+  );
 }
 
 /** The land shaded by height, the planned water blue. */

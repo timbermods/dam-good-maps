@@ -12,6 +12,7 @@
 import { expect, test, type Page } from "@playwright/test";
 import { legendEntries, objectLegend } from "../../src/render3d/palette";
 import { openLayoutMap as openEditor, settle } from "./helpers";
+import { openSaved } from "./open";
 import { applyInsets, hitTargets, phoneClipped, phoneControls, phoneFaults } from "./phone";
 
 // (its tests stand alone: they run in parallel, so the browser shards and their two workers share them; one worker
@@ -1168,6 +1169,50 @@ for (const phone of PHONES) {
       await idle();
       expect(Math.abs((await pos()) - end), "a setting moved pulled the row back to the tool in hand").toBeLessThan(1);
     });
+
+    // (the wheel or a trackpad's pan on the row mid-glide takes it as a finger or the mouse does: the row rests where the
+    // pan left it, never going back to the tool in hand. The wheel is sent from the page the frame the glide is seen to
+    // move, so the glide is certainly still on, and its pan is the row scrolled to its start in the same frame)
+    test(`at ${phone.viewport.width}×${phone.viewport.height}: a wheel on the row during the glide to the tool in hand takes the row`, async ({ page }) => {
+      test.setTimeout(120_000);
+      await openEditor(page);
+      const bar = page.locator(".tool-dock > .tool-bar");
+      const inRow = () =>
+        bar.evaluate((b) => {
+          const q = b.getBoundingClientRect();
+          const r = b.querySelector("button[aria-label^='Craterize']")!.getBoundingClientRect();
+          return r.left >= q.left - 0.5 && r.right <= q.right + 0.5 && r.top >= q.top - 0.5 && r.bottom <= q.bottom + 0.5;
+        });
+      const pos = () => bar.evaluate((b) => (b.scrollWidth > b.clientWidth + 1 ? b.scrollLeft : b.scrollTop));
+      await bar.evaluate((b) => b.scrollTo({ left: 0, top: 0, behavior: "instant" }));
+      await page.evaluate(() => new Promise((r) => setTimeout(r, 500)));
+      expect(await inRow(), "Craterize out of view before it is picked").toBe(false);
+
+      const taken = bar.evaluate(
+        (b) =>
+          new Promise<void>((resolve, reject) => {
+            const across = b.scrollWidth > b.clientWidth + 1;
+            const at = () => (across ? b.scrollLeft : b.scrollTop);
+            const t0 = performance.now();
+            const tick = () => {
+              if (at() > 2) {
+                b.dispatchEvent(new WheelEvent("wheel", { bubbles: true, cancelable: true, deltaX: across ? -120 : 0, deltaY: across ? 0 : -120 }));
+                b.scrollTo({ left: 0, top: 0, behavior: "instant" });
+                resolve();
+              } else if (performance.now() - t0 > 10_000) reject(new Error("the row never began to glide to the tool in hand"));
+              else requestAnimationFrame(tick);
+            };
+            requestAnimationFrame(tick);
+          }),
+      );
+      await page.keyboard.press("Shift+Digit2");
+      await taken;
+      await expect(page.locator(".tool-bar button[aria-label^='Craterize']")).toHaveAttribute("aria-pressed", "true");
+      // (past the row's wait for rest and any glide back to the tool in hand)
+      await page.evaluate(() => new Promise((r) => setTimeout(r, 1200)));
+      expect(await pos(), "the row went back to the tool in hand after the wheel took it").toBeLessThan(1);
+      expect(await inRow(), "Craterize back in view after the wheel took the row").toBe(false);
+    });
   });
 }
 
@@ -1355,6 +1400,53 @@ for (const [W, H] of TABLETS) {
   });
 }
 
+// a tablet is a finger's too: its first hints are the finger's (the objects under Objects, an object pressed, dragged and
+// lifted into place; a finger's tap places nothing), never the mouse's "click" and "on the right"
+test.describe("a tablet's first hints and a kept map's name", () => {
+  test.use({ viewport: { width: 820, height: 1180 }, deviceScaleFactor: 2, isMobile: true, hasTouch: true });
+
+  test("at 820×1180: the first hints say what a finger does, and a kept map is renamed in a field its tile's width", async ({ page }) => {
+    test.setTimeout(300_000);
+    await page.goto("./#s=4242&z=96&d=n&t=riverValley");
+    await page.waitForFunction(() => !!window.dgmEditor && !!window.dgm3d, null, { timeout: 120_000 });
+    await expect(page.locator(".editor[data-tablet]")).toHaveCount(1);
+    const hints = page.locator(".first-run");
+    await expect(hints).toBeVisible();
+    await expect(hints).toContainText("Shape the land: pick a brush, then drag a finger on the map.");
+    await expect(hints).toContainText("Place things: tap Objects, pick one, then press the map, drag to the spot and lift.");
+    await expect(hints).toContainText("Add water: in Objects, pick Water source, then press the map and lift where the water starts.");
+    await expect(hints).not.toContainText(/click|on the right/);
+    await expect(page.locator(".tablet-objects-button")).toBeVisible();
+
+    // and a kept map's name is renamed in a field the tile's width (it was a finger's 44px wide, most of the name out of sight)
+    await page.getByRole("button", { name: "No more hints" }).tap();
+    const head = (name: string) => page.locator("header.editor-bar").getByRole("button", { name, exact: true }).first();
+    await head("File").tap();
+    await page.getByRole("menuitem", { name: "Clear everything", exact: true }).tap();
+    await expect.poll(() => page.evaluate(() => window.dgmEditor!.info().history.length), { timeout: 30_000 }).toBeGreaterThan(0);
+    await head("Your maps").tap();
+    // (a tablet's way to it: a long press selects the tile, Rename on the heading row)
+    const kept = page.locator(".your-maps li[data-id]").first();
+    await expect(kept).toBeVisible({ timeout: 30_000 });
+    const k = (await kept.boundingBox())!;
+    const cdp = await page.context().newCDPSession(page);
+    await cdp.send("Input.dispatchTouchEvent", { type: "touchStart", touchPoints: [{ x: Math.round(k.x + k.width / 2), y: Math.round(k.y + k.height * 0.6) }] });
+    await page.waitForTimeout(800);
+    await cdp.send("Input.dispatchTouchEvent", { type: "touchEnd", touchPoints: [] });
+    await expect(page.locator(".your-maps li.selected")).toHaveCount(1);
+    await page.locator(".maps-panel .ym-act", { hasText: "Rename" }).tap();
+    const rename = page.locator(".your-maps input.ym-rename");
+    await expect(rename).toBeFocused();
+    const r = (await rename.boundingBox())!;
+    const tile = (await page.locator(".your-maps li[data-id]:has(input.ym-rename) .ym-tile").boundingBox())!;
+    expect(r.height, "a kept map's field: a finger tall").toBeGreaterThanOrEqual(43.5);
+    expect(r.width, "a kept map's field: the tile's width").toBeGreaterThanOrEqual(tile.width - 20);
+    await rename.fill("Kept by a finger");
+    await rename.press("Enter");
+    await expect(kept).toContainText("Kept by a finger");
+  });
+});
+
 // ---- the phone layouts' polish (#1074): Show at most 40 % of the view (upright its height, on its side its width), so
 // the map changes above it as its toggles are tapped; a picked object closes the objects' sheet to one row saying what
 // is in hand; a sheet or the panel opening or closing slides the view so the ground in the middle of the room left
@@ -1472,6 +1564,135 @@ for (const phone of PHONES) {
         expect(menu.bottom, "the menu ends on the screen").toBeLessThanOrEqual(phone.viewport.height);
       }
       expect(menu.right, "the menu ends on the screen").toBeLessThanOrEqual(phone.viewport.width);
+    });
+
+    test(`at ${phone.viewport.width}×${phone.viewport.height}: in Show a long name is whole inside its chip, Look's choices open in the sheet and on the screen, and the sheet ends on a whole line of Land's numbers`, async ({ page }) => {
+      test.setTimeout(300_000);
+      const { width: W, height: H } = phone.viewport;
+      // (the Look button as on a computer with a graphics card: CI draws in software, where there is no look to choose)
+      await page.addInitScript(() => ((window as unknown as { dgmLookTest: unknown }).dgmLookTest = { gpu: true }));
+      // (a map with terrain above terrain: its Show has Caves and overhangs, the longest chip)
+      await openSaved(page, "s=2&z=96&d=n&t=riverValley");
+      await page.getByRole("button", { name: "No more hints" }).click().catch(() => undefined);
+      await page.locator(".phone-show-button").tap();
+      const sheet = page.locator(".phone-show");
+      await expect(sheet).toBeVisible();
+      const chip = sheet.getByRole("checkbox", { name: "Caves and overhangs" });
+      await expect(chip).toBeVisible();
+      await chip.scrollIntoViewIfNeeded();
+      expect(await phoneClipped(page), "Show: words cut short").toEqual([]);
+      // (and its words lie over no neighbour)
+      const spill = await chip.evaluate((e) => {
+        const r = e.getBoundingClientRect();
+        const range = document.createRange();
+        range.selectNodeContents(e);
+        const w = range.getBoundingClientRect();
+        return Math.max(w.right - r.right, r.left - w.left, w.bottom - r.bottom, r.top - w.top);
+      });
+      expect(spill, "Caves and overhangs: its words past its chip (px)").toBeLessThanOrEqual(0.5);
+      // under a wider font than ours (CI's, or a phone's fallback: the letters spread here to stand for it) a name takes
+      // a second line inside its chip and is not cut at its side
+      const spread = await page.addStyleTag({ content: ".phone-show .ps-grid .show-row { letter-spacing: 1.5px; }" });
+      expect(await phoneClipped(page), "Show under a wider font: words cut short").toEqual([]);
+      await spread.evaluate((e) => (e as HTMLStyleElement).remove());
+      // (and it is a chip like the rest: one height, its row no taller for it)
+      const heights = await sheet.locator(".ps-grid").first().evaluate((g) => [...new Set([...g.children].map((e) => Math.round(e.getBoundingClientRect().height)))]);
+      expect(heights, "What to show: its chips' heights").toEqual([44]);
+
+      // the sheet at its top ends on a whole chip or line, with Land's numbers under the chips too
+      const cutAtFoot = () =>
+        sheet.evaluate((e) => {
+          e.scrollTop = 0;
+          const s = e.getBoundingClientRect();
+          const foot = s.bottom - (parseFloat(getComputedStyle(e).borderBottomWidth) || 0);
+          return [...e.querySelectorAll<HTMLElement>(".ps-head, .ps-grid > *, .ps-line, .land-line, .pick-list > li")]
+            .map((el) => ({ name: (el.textContent ?? "").trim().slice(0, 24), r: el.getBoundingClientRect() }))
+            .filter((p) => p.r.height > 0 && p.r.top < foot - 1 && p.r.bottom > foot + 0.5)
+            .map((p) => p.name);
+        });
+      expect(await cutAtFoot(), "Show at rest: cut by the sheet's foot").toEqual([]);
+      const land = sheet.getByRole("checkbox", { name: "Land", exact: true });
+      await sheet.evaluate((e) => (e.scrollTop = 0));
+      const landInView = await land.evaluate((e) => e.getBoundingClientRect().bottom <= e.closest(".phone-show")!.getBoundingClientRect().bottom);
+      await land.tap();
+      await expect(sheet.locator(".land-shares")).toHaveCount(1);
+      await page.waitForTimeout(400);
+      await expect.poll(cutAtFoot, { message: "Show with Land on: cut by the sheet's foot" }).toEqual([]);
+      // (upright the Land chip is in the first screenful, and its numbers come under the chips: some of them show at once)
+      if (landInView && W < H) expect(await sheet.locator(".land-line").evaluateAll((els) => els.filter((l) => l.getBoundingClientRect().bottom <= l.closest(".phone-show")!.getBoundingClientRect().bottom).length), "Land's lines in sight").toBeGreaterThan(0);
+      await land.tap();
+      await expect(sheet.locator(".land-shares")).toHaveCount(0);
+
+      // the weather's day: its tooltip tells a finger the double tap (a key cap shows only where there are keys), and two
+      // taps open its field with no dblclick from the browser (WebKit, the iPhone's, sends none for a double tap: only
+      // each tap's own events, sent here as it sends them)
+      const day = sheet.locator(".day-label");
+      await expect(day).toHaveAttribute("title", "Double tap to type a day");
+      await sheet.getByRole("button", { name: "Drought" }).tap();
+      await expect(day).toContainText(/Day \d/, { timeout: 60_000 });
+      await day.scrollIntoViewIfNeeded();
+      await day.evaluate((e) => {
+        const r = e.getBoundingClientRect();
+        const at = { clientX: r.left + r.width / 2, clientY: r.top + r.height / 2, pointerType: "touch", pointerId: 7, bubbles: true, isPrimary: true };
+        for (let k = 0; k < 2; k++) {
+          e.dispatchEvent(new PointerEvent("pointerdown", at));
+          e.dispatchEvent(new PointerEvent("pointerup", at));
+          e.dispatchEvent(new MouseEvent("click", { clientX: at.clientX, clientY: at.clientY, bubbles: true }));
+        }
+      });
+      const dayField = day.locator("input.day-field");
+      await expect(dayField).toBeVisible();
+      await expect(dayField).toBeFocused();
+      await dayField.press("Escape");
+      await expect(dayField).toHaveCount(0);
+      // a finger's own two taps, by their own times: the day in the field stays selected, so the day typed takes its
+      // place. (This only guards the flow: the fault, the mouse press the browser sends for the second tap dropping the
+      // selection so a typed 7 over Day 9 made Day 79, shows only in WebKit; Chrome kept the selection before the fix too.)
+      const cdp = await page.context().newCDPSession(page);
+      const b = (await day.boundingBox())!;
+      const at = [{ x: b.x + b.width / 2, y: b.y + b.height / 2 }];
+      const t0 = Date.now() / 1000;
+      for (const t of [0, 0.15]) {
+        await cdp.send("Input.dispatchTouchEvent", { type: "touchStart", touchPoints: at, timestamp: t0 + t });
+        await cdp.send("Input.dispatchTouchEvent", { type: "touchEnd", touchPoints: [], timestamp: t0 + t + 0.05 });
+      }
+      await expect(dayField).toBeFocused();
+      await expect(dayField).toHaveValue(/^\d+$/);
+      // (the browser's mouse events for the tap, sent after it)
+      await page.waitForTimeout(300);
+      await page.keyboard.type("3");
+      await expect(dayField).toHaveValue("3");
+      await dayField.press("Escape");
+      await expect(dayField).toHaveCount(0);
+      await sheet.getByRole("button", { name: "Drought" }).tap();
+      await expect(day).toHaveText("Day –");
+
+      // Look: its choices open in the sheet, under its button, each on the screen and to be tapped
+      const look = sheet.getByRole("button", { name: /^Look: / });
+      await look.scrollIntoViewIfNeeded();
+      await look.tap();
+      const menu = page.locator("#look-menu");
+      await expect(menu).toBeVisible();
+      await page.waitForTimeout(300);
+      const s = (await sheet.boundingBox())!;
+      const m = (await menu.boundingBox())!;
+      expect(m.x >= s.x - 0.5 && m.x + m.width <= s.x + s.width + 0.5, `the Look menu ${JSON.stringify(m)} inside the sheet ${JSON.stringify(s)} across`).toBe(true);
+      expect(m.y, "the Look menu starts in the sheet").toBeGreaterThanOrEqual(s.y);
+      expect(m.y, "the Look menu starts in sight").toBeLessThan(s.y + s.height - 44);
+      for (const b of await menu.getByRole("button").all()) {
+        await b.scrollIntoViewIfNeeded();
+        const hit = await b.evaluate((e) => {
+          const r = e.getBoundingClientRect();
+          const at = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2);
+          return { reached: !!at && (at === e || e.contains(at)), on: r.left >= 0 && r.top >= 0 && r.right <= innerWidth && r.bottom <= innerHeight, h: r.height };
+        });
+        expect(hit, `Look's "${(await b.textContent())?.trim()}": on the screen, a finger tall, nothing over it`).toMatchObject({ reached: true, on: true });
+        expect(hit.h).toBeGreaterThanOrEqual(43.5);
+      }
+      expect(await page.evaluate(() => ({ w: document.documentElement.scrollWidth, h: document.documentElement.scrollHeight, x: window.scrollX, y: window.scrollY })), "the page neither scrolled nor grown").toEqual({ w: W, h: H, x: 0, y: 0 });
+      await look.scrollIntoViewIfNeeded();
+      await look.tap();
+      await expect(menu).toBeHidden();
     });
 
     test(`at ${phone.viewport.width}×${phone.viewport.height}: the first steps' hints never cover the map's middle`, async ({ page }) => {
