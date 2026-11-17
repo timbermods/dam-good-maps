@@ -50,6 +50,11 @@ export const PLAIN_SIDE = [128, 256] as const;
  *  over the river's length on the plain) on seeds 1 and 2 at 128², 192² and 256²: 5.9 to 8.8, a mean of 7.4. Its mean
  *  is over 6, so the levee's low places are not widened. */
 export const M_REACH = 7;
+/** Each rung's floor per tile of the side (§6: two thirds of the first build's mean gain, `plainWorks.ts` measuring
+ *  as `ladder.ts` measures, seeds 1 to 12 at 128², 192² and 256², `tools/plain-works.ts`): the levees' and the turn's
+ *  tiles cleared of poison, the pond's water held (tile-levels), the river in's tiles turned green. Its most is twice
+ *  its floor. */
+export const GIVES = { lowLevee: 0.087, brookPond: 0.057, swampLevee: 0.064, turn: 7.41, riverIn: 23.95 } as const;
 /** The dry band's least share of the plain and the backswamp together on day 1 (the design's §2). */
 export const DRY_LEAST = 0.3;
 /** Day 1's dead band's share of the floor (the design's §2, planning's ruling of 2026-11-15: 8 to 25 %). */
@@ -1104,6 +1109,13 @@ function layout(spec: MapSpec, attempt: number, t: number): Laid {
     return m;
   };
   const beside: number[] = rs.map((q) => besideOf(q.s));
+  // (at each slough's mouth the ceiling is its bed: the slough's head reaches the river through its low place, a level
+  // under the plain, `plainLand.ts` `sloughMouths`; the river's water stands under it on day 1, so the slough is dry,
+  // and the weir below it lifts the river over it, step 4)
+  sloughs.forEach((sl, k) => {
+    const o = sloughLows[k];
+    for (let s = Math.max(0, Math.floor(o.from) - 1); s <= Math.min(beside.length - 1, Math.ceil(o.to) + 1); s++) beside[s] = Math.min(beside[s], sl.bed[0]);
+  });
   const redOver = (join: number, turn: number): number => {
     // (the red stream's bed on its way across the plain: two under the lowest ground from its turn to the river)
     const a: Point = [turn, swampV(turn)];
@@ -1315,15 +1327,14 @@ function layout(spec: MapSpec, attempt: number, t: number): Laid {
   const slough0 = sloughLows[0];
   const sAfter = Math.min(S - 2, slough0.to + rng.range(3, 6));
   const weirAt = rp(riverAt(sAfter).p);
-  // what each buys, by the plan's arithmetic (the floors wait for the first build's gains: step 4)
-  const deadTiles = Math.round(((swampTo - uM) * swampMean) + (endJoin ? 14 * dist(redL[redL.length - 1], [swampTo, swampV(swampTo)]) : 0));
-  const dryTiles = Math.round(Lp * (P - M_REACH - swampMean));
+  // what each buys: its floor by the side (`GIVES`, the first builds' gains), its most twice that
+  const gives = (f: number): [number, number] => [Math.round(f * N), Math.round(2 * f * N)];
   const works: Work[] = [
-    { id: "lowLevee", rung: "first", kind: "levee", on: I.river, at: firstLow.at, tiles: Math.round(firstLow.to - firstLow.from), needs: [], gives: { green: [0, Math.round(7 * (firstLow.to - firstLow.from))] }, region: "wet" },
-    { id: "brookPond", rung: "small", kind: "damToPond", on: I.brook, at: rp(brookMid), tiles: 4, needs: [], gives: { green: [0, 30], reservoir: [0, 40] }, region: "home" },
-    { id: "swampLevee", rung: "small", kind: "levee", on: I.red, at: lapAt, tiles: 20, needs: [], gives: { green: [0, 40] }, region: "low" },
-    { id: "turn", rung: "medium", kind: "damToPond", on: I.redFall, at: map(nAt), tiles: nWidth + 2, needs: [], gives: { green: [0, deadTiles] }, tradeoff: "The gulch behind the dam and the Dry Fork stay red", region: "top" },
-    { id: "riverIn", rung: "large", kind: "raisedSill", on: I.river, at: map(weirAt), tiles: Math.round(2 * half + 2 + (slough0.to - slough0.from)), needs: [], gives: { green: [0, dryTiles + deadTiles] }, region: "dry" },
+    { id: "lowLevee", rung: "first", kind: "levee", on: I.river, at: firstLow.at, tiles: Math.round(firstLow.to - firstLow.from), needs: [], gives: { green: gives(GIVES.lowLevee) }, region: "wet" },
+    { id: "brookPond", rung: "small", kind: "damToPond", on: I.brook, at: rp(brookMid), tiles: 4, needs: [], gives: { green: [0, 30], reservoir: gives(GIVES.brookPond) }, region: "home" },
+    { id: "swampLevee", rung: "small", kind: "levee", on: I.red, at: lapAt, tiles: 20, needs: [], gives: { green: gives(GIVES.swampLevee) }, region: "low" },
+    { id: "turn", rung: "medium", kind: "damToPond", on: I.redFall, at: map(nAt), tiles: nWidth + 2, needs: [], gives: { green: gives(GIVES.turn) }, tradeoff: "The gulch behind the dam and the Dry Fork stay red", region: "top" },
+    { id: "riverIn", rung: "large", kind: "raisedSill", on: I.river, at: map(weirAt), tiles: Math.round(2 * half + 2 + (slough0.to - slough0.from)), needs: [], gives: { green: gives(GIVES.riverIn) }, region: "dry" },
   ];
 
   // ---- the regions, the ridges, the names, the line

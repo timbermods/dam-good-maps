@@ -192,12 +192,21 @@ the first build's mean gain, per tile of the side.
 | Small | A notch and a pond on the start's brook | A reserve for the first drought |
 | Small | A levee of 4 to 8 tiles across the nearest low place | The green band there kept from a badtide's tongue |
 | Small | A levee along 20 tiles of the backswamp's riser where the dead band laps onto the plain | A field won back |
-| Medium, **the turn** | A dam of 6 tiles or fewer at the gulch's narrows, two levels high: the red water rises over the col and runs down the Dry Fork to its own edge | The Red Fall stops; the stream's bed in the backswamp goes dry; the dead band's soil clears |
+| Medium, **the turn** | A dam of 6 tiles or fewer at the gulch's narrows (or, where the narrows' shoulders stand too low, the gulch's narrowest line below the col's way), below the red source and a level over the col: the red water rises over the col and runs down the Dry Fork to its own edge | The Red Fall stops; the stream's bed in the backswamp goes dry; the dead band's soil clears |
 | Large, **the river in** | A weir on the river just below the slough's low place lifts the river one level; it runs through the low place, down the slough and along the old red bed. A gate at the low place shuts it for a badtide | The dry band and the old dead band watered: the floor's green 70 % or more |
 | Either order | The river in before the turn dilutes the red stream below the slough's mouth. Where the mix settles under 0.5, the soil below the mouth clears and the band above it stays dead | A second answer; never required, never refused |
 
 After the turn the gulch behind its dam and the Dry Fork are the places that stay red. The Dry Fork was bare, so
 nothing the player valued is spent.
+
+*As built (step 4, `plainWorks.ts`).* The dam stands a level over the col, not at it: at the col's own level the pond
+behind it spills both ways and the stream splits (seed 1 at 128²: 500 of 501 red tiles stayed on the floor). The
+river in's weir stands at the first slough's bed, a level under the plain, and the slough's mouth is cut to that bed
+through its low place to the river (`plainLand.ts` `sloughMouths`; the river's day-1 stage held under it, so the slough
+is dry until the weir): a mouth level with the plain let a weir lift the river over the plain as a sheet (seed 1 at
+128²: 1,573 tiles). The backswamp's levee stands on whichever riser the dead band laps over most. Each rung's floor
+is two thirds of its mean measured gain per tile of the side (`poisonedPlain.ts` `GIVES`), the levees' gains read on
+the settled water (`settledClears`).
 
 ## 7. The invariants
 
@@ -272,8 +281,35 @@ frames, judged by planning.
   then (the 9, puddles off the floor in the gulch, dried by day 12). So the dead band clears within the first day after
   the turn; the player sees the plain green as soon as the river in waters it. No probe batch: the rule and
   the settled maps agree.
-- Whether moisture from the old red bed climbs the backswamp's riser far enough for 70 %: step 4's table decides
-  (§7, `riverIn.proved`).
+- *Answered (step 4), and short*: whether the river in greens 70 % of the floor. The two proofs on seeds 1 to 12 at
+  each size (`tools/plain-works.ts`; the turn and the weir built as operations on the settled map's session):
+
+  | Size | First attempt holds | `turn.proved` | `riverIn.proved` | Green after the river in, seeds 1 to 12 (%) |
+  |---|---|---|---|---|
+  | 128² | 6 of 12 | 12 of 12 | 6 of 12 | 70.6, 78.8, 72.3, 84.1, 76.5, 45.8, 72.9, 67.4, 63.1, 64.0, 67.1, 63.6 |
+  | 192² | 8 of 12 | 12 of 12 | 6 of 12 | 69.1, 51.2, 86.1, 41.3, 88.8, 73.7, 61.6, 75.6, 50.0, 73.6, 90.9, 69.4 |
+  | 256² | 10 of 12 | 11 of 12 | 5 of 12 | 71.5, 74.8, 39.1, 63.4, 44.3, 66.4, 44.8, 79.7, 75.2, 64.7, 62.6, 72.3 |
+
+  Moisture does not reach 70 % on 19 of 36: short by 1 to 31 points (a median of 63 % on the short ones). Where: the
+  plain's dry band beyond the moisture's reach (7 tiles, `M_REACH`) of the slough and the old red bed, the only
+  courses the river in waters. On seed 6 at 128² (46 %) the plain's far half, some 30 tiles across, has no course
+  through it, and the slough runs within a few tiles of the old red bed, so their green overlaps. The cause is the
+  slough's course and count (one at 128², two over, planning's ruling of 2026-11-15), not the moisture's rule; the
+  mend is the slough laid through the dry band's middle (or one more slough on the plain's far side), found where the
+  plan's dry band lies. Not built here: it changes planning's ruling, so it goes to planning. The river in also floods
+  the plain where the plain steps down beside the slough (a sheet of 1,000 tiles or more on 6 of 36: seeds 6, 7 and 9 at 192², seeds 6, 8 and 12
+  at 256²); open with the slough.
+- *Findings (step 4).* (1) The red source's niche took the bed's first 3 × 3 wherever it lay; on seed 4 at 128² that
+  was the gulch's mouth, under the dam, so the dam held nothing back. It now stands within `NICHE_NEAR` of the plan's
+  source point, and `turn.byNumber` runs the red water from the niche. (2) Where the narrows' shoulders stand under the
+  dam's level, the turn's dam takes the gulch's narrowest line below the col's way; a land whose narrowest line is
+  over 6 tiles (seeds 3, 5 and 12 at 128², among others) or whose gulch spills before the col (`turn.byNumber`) is
+  drawn again: these cost the first attempt on 12 of 36. (3) Open: seed 2 at 256², where 323 tiles of red water stay
+  standing on the floor below the fall once the stream is turned (the dead band falls from 10 % to 2 %); and seed 4 at
+  256², whose Red Fall splits where the Red Pool's water reaches the gulch's floor beside the lip (x 94, y 177 to 179).
+  The two misses step 3 named hold now on later attempts (seed 12 at 128² and seed 3 at 256², whole), not mended at
+  their cause. (4) The small rungs are uneven: the backswamp's levee clears under its floor on 16 of 36 (the risers
+  hold, and little of the dead band laps over them), the low place's levee on 10.
 - Pairing beyond River Valley and Delta: after step 5, on the judged maps.
 - *Findings (step 3, round 2).* (1) A step of one level does not cut the reach above it off from the red water: the
   river stands about 1.5 deep, over the reach above's bed, and the settle's eddies carry traces up it, 1e-39 to 1e-323

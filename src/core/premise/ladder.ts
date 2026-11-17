@@ -13,6 +13,7 @@
 // `NOTCH_SHUT` says so.
 
 import { tilesToRuns, type Runs } from "../math/grid";
+import { soilContamination } from "../sim/contamination";
 import { clusterSaturation } from "../sim/moisture";
 import { flowThrough, prefillFrom } from "../sim/prefill";
 import { designLevel } from "./levels";
@@ -50,6 +51,8 @@ export interface WorkSite {
   green: number;
   wet: number;
   reservoir: number;
+  /** Tiles whose soil it clears of poison (the poisoned floodplain's, `estimateGain`'s `poison`). */
+  cleared?: number;
   /** The tiles it turns green or wet, as runs (the ladder's readout shows them, §8). */
   reach: Runs;
   /** What stage 0's second pass estimated it buys where it sited it (`Work.estimate`), beside the measure (`green`). */
@@ -305,7 +308,7 @@ function bankBasin(plan: PremisePlan, r: WaterRaster, heights: Uint8Array, bi: n
 // ------------------------------------------------------------------------------------------------- water by number
 
 /** The water of one state of the land: depths and badwater, and the water its ponds hold (tile-levels). */
-interface Water {
+export interface Water {
   depth: Float64Array;
   contamination: Float64Array;
   held: number;
@@ -316,7 +319,7 @@ type Change = [tile: number, floor: number][];
 
 /** The water `flowThrough` gives the land `floor` with the plan's sources: `prefillFrom`'s depths, each pond a head
  *  over its spill. */
-function waterOn(w: StageWater, floor: Float64Array): Water {
+export function waterOn(w: StageWater, floor: Float64Array): Water {
   const m = { ...stageModel(w), floor };
   const flow = flowThrough(m);
   const s = prefillFrom(m, flow);
@@ -470,8 +473,15 @@ export function soilReach(heights: ArrayLike<number>, water: { depth: ArrayLike<
 }
 
 /** What a change of water turns green or wet (`estimateGain`, §2.2 stage 4): the soil's reach of the water after
- *  against before, in the window round the tiles whose water differs; of them, the tiles newly water. */
-export function estimateGain(heights: ArrayLike<number>, W: number, H: number, before: { depth: ArrayLike<number>; contamination: ArrayLike<number> }, after: { depth: ArrayLike<number>; contamination: ArrayLike<number> }): { green: number; wet: number; tiles: number[] } {
+ *  against before, in the window round the tiles whose water differs; of them, the tiles newly water. With `poison`
+ *  (the poisoned floodplain's design §8: the contaminated share counted), the soil's contamination too (the
+ *  steady state of `sim/contamination.ts`, water at 0.5 or more poisoning it): a tile is green only where it is moist
+ *  and clean, and `cleared` counts the tiles poisoned before and clean after, so a work that turns bad water away gains
+ *  the tiles it clears. `tiles` is every tile it turns green or clears. `heights` is the ground after where the work
+ *  changes it (a levee raised on dry ground changes no water, only the soil's way): the changed tiles join the window
+ *  and the after soil is read on it. Without either the reading is the lake stair's and the gate's, unchanged. */
+export function estimateGain(heights: ArrayLike<number>, W: number, H: number, before: { depth: ArrayLike<number>; contamination: ArrayLike<number> }, after: { depth: ArrayLike<number>; contamination: ArrayLike<number> }, opts: { poison?: boolean; heights?: ArrayLike<number> } = {}): { green: number; wet: number; cleared: number; tiles: number[] } {
+  const later = opts.heights ?? heights;
   let x0 = Infinity;
   let y0 = Infinity;
   let x1 = -Infinity;
@@ -479,7 +489,7 @@ export function estimateGain(heights: ArrayLike<number>, W: number, H: number, b
   for (let i = 0; i < W * H; i++) {
     const a = before.depth[i];
     const b = after.depth[i];
-    if (Math.abs(a - b) < SAME && a > 0 === b > 0 && Math.abs(before.contamination[i] - after.contamination[i]) < 0.01) continue;
+    if (Math.abs(a - b) < SAME && a > 0 === b > 0 && Math.abs(before.contamination[i] - after.contamination[i]) < 0.01 && later[i] === heights[i]) continue;
     const x = i % W;
     const y = (i - x) / W;
     if (x < x0) x0 = x;
@@ -487,21 +497,34 @@ export function estimateGain(heights: ArrayLike<number>, W: number, H: number, b
     if (y < y0) y0 = y;
     if (y > y1) y1 = y;
   }
-  if (x0 > x1) return { green: 0, wet: 0, tiles: [] };
+  if (x0 > x1) return { green: 0, wet: 0, cleared: 0, tiles: [] };
   // (counted within the soil's reach of the change; read from the water within its reach of those)
   const inner: [number, number, number, number] = [Math.max(0, x0 - REACH), Math.max(0, y0 - REACH), Math.min(W - 1, x1 + REACH), Math.min(H - 1, y1 + REACH)];
   const outer: [number, number, number, number] = [Math.max(0, inner[0] - REACH), Math.max(0, inner[1] - REACH), Math.min(W - 1, inner[2] + REACH), Math.min(H - 1, inner[3] + REACH)];
   const a = soilReach(heights, before, W, H, outer);
-  const b = soilReach(heights, after, W, H, outer);
+  const b = soilReach(later, after, W, H, outer);
+  // (the soil's contamination before and after, the whole map's: its reach is the water's, 7 tiles at most)
+  const ground = opts.poison ? Uint8Array.from(heights) : null;
+  const pa = ground ? soilContamination(ground, Float64Array.from(before.depth), Float64Array.from(before.contamination), W, H) : null;
+  const pb = ground ? soilContamination(Uint8Array.from(later), Float64Array.from(after.depth), Float64Array.from(after.contamination), W, H) : null;
   const tiles: number[] = [];
+  let green = 0;
   let wet = 0;
+  let cleared = 0;
   for (let y = inner[1]; y <= inner[3]; y++)
     for (let x = inner[0]; x <= inner[2]; x++) {
       const i = y * W + x;
-      if (b[i] && !a[i]) tiles.push(i);
+      const deadA = pa ? pa[i] > 0 : false;
+      const deadB = pb ? pb[i] > 0 : false;
+      const greenA = a[i] && !deadA;
+      const greenB = b[i] && !deadB;
+      const clear = deadA && !deadB;
+      if (greenB && !greenA) green++;
+      if (clear) cleared++;
+      if ((greenB && !greenA) || clear) tiles.push(i);
       if (b[i] === 2 && a[i] !== 2) wet++;
     }
-  return { green: tiles.length, wet, tiles };
+  return { green, wet, cleared, tiles };
 }
 
 // ------------------------------------------------------------------------------------------------- the templates

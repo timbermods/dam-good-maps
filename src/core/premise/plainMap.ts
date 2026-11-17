@@ -19,7 +19,8 @@
 // - `levee.holds`: in a badtide's water (the river red, its depth as settled) the game's soil rule poisons the plain
 //   only within 7 tiles of the river along a low place in the levee, beyond what day 1 has dead already.
 //
-// Not offered (`premises/dev.ts`); the premise's works and its ladder are step 4's.
+// Its ladder is `plainWorks.ts`'s (step 4): a land whose works fail a blocking check by number (`PLAIN_WORKS_BLOCKING`)
+// is drawn again before its settle. Not offered (`premises/dev.ts`).
 
 import type { BuildResult } from "../features/build";
 import { featureId } from "../features/ids";
@@ -36,10 +37,11 @@ import type { StyleTheme } from "./choice";
 import { PLAN_TRIES } from "./draw";
 import { startNumbers, VEIL_SHORT } from "./gateMap";
 import { dist } from "./geom";
-import { ladderOf, type Ladder } from "./ladder";
+import type { Ladder } from "./ladder";
 import { LIFE } from "./life";
 import { premiseBase, premiseFinish, type PremiseLand, type PremiseMap } from "./map";
 import { courseGaps, plainAttempt, valleyTiles, type PlainLand, type PlainRelief } from "./plainLand";
+import { PLAIN_WORKS_BLOCKING, plainLadder, plainWorksFailures, settledClears } from "./plainWorks";
 import { DEAD_SHARE, DRY_LEAST, PLAIN_IDS, plainLevel, plainOf, poisonedPlain, toLocal, turnOf, walk } from "./premises/poisonedPlain";
 import { premiseStyle } from "./style";
 import type { PremisePlan, Point } from "./types";
@@ -65,10 +67,16 @@ export const START_WOOD_CLEAR = NEAR_WALK + 2;
 
 // ------------------------------------------------------------------------------------------------- the sources
 
+/** How far from the plan's source point the red source's 3 × 3 may stand (its middle, tiles): the Red Spring's pool's
+ *  radius and two. Farther, the bed's first 3 × 3 can be the gulch's mouth (seed 4 at 128²: 20 tiles down the gulch,
+ *  under the turn's dam, so the dam held nothing back). */
+export const NICHE_NEAR = 4;
+
 /** The red source's 3 × 3 at the gulch's head: of the 3 × 3s whose nine tiles all lie on the Red Spring's pool (stage
  *  1's tiles of that body), or failing one on the pool and the Red Fall's bed together, the one nearest the plan's
- *  source point; its min corner, or null where the head holds none. Its ground is levelled to its lowest tile
- *  (`digNiche`), so the source stands on one floor (the game's `entities.placement`). */
+ *  source point within `NICHE_NEAR` of it; failing both, the 3 × 3 round the source point itself. Its min corner, or
+ *  null where the plan has no red source. Its ground is levelled to its lowest tile (`digNiche`), so the source stands
+ *  on one floor (the game's `entities.placement`). */
 export function redNiche(plan: PremisePlan, w: StageWater): [number, number] | null {
   const r = w.raster;
   const { W, H } = plan;
@@ -87,11 +95,11 @@ export function redNiche(plan: PremisePlan, w: StageWater): [number, number] | n
         const dx = x + 1.5 - src.at[0];
         const dy = y + 1.5 - src.at[1];
         const d = dx * dx + dy * dy;
-        if (d < bd) [bd, best] = [d, [x, y]];
+        if (d <= NICHE_NEAR * NICHE_NEAR && d < bd) [bd, best] = [d, [x, y]];
       }
     if (best) return best;
   }
-  return null;
+  return [Math.max(0, Math.min(W - 3, Math.floor(src.at[0]) - 1)), Math.max(0, Math.min(H - 3, Math.floor(src.at[1]) - 1))];
 }
 
 /** The niche's ground levelled to its lowest tile, taking ground away only. */
@@ -465,6 +473,8 @@ export function settledFailures(s: PlainSettled): { id: string; reason: string }
 export interface PlainMap {
   land: PlainLand & { held: boolean };
   ladder: Ladder;
+  /** The works checks by number it fails (`plainWorks.ts`; `works.paid` is said, the rest are blocking). */
+  works: { id: string; reason: string }[];
   map: PremiseMap;
   settled: PlainSettled;
   settledFails: { id: string; reason: string }[];
@@ -494,16 +504,23 @@ export function plainSettled(land: PlainLand, map: PremiseMap, deadTrees: number
   };
 }
 
+/** A land's ground as the map is built on it (the red source's niche dug) and its ladder on that ground, with the
+ *  works checks it fails (`plainWorks.ts`). */
+export function plainWorksOf(land: PlainLand): { heights: Uint8Array; niche: [number, number] | null; ladder: Ladder; works: { id: string; reason: string }[] } {
+  const heights = land.heights.slice();
+  const niche = redNiche(land.plan, land.water);
+  if (niche) digNiche(heights, land.plan.W, niche);
+  const ladder = plainLadder(land, heights, niche);
+  return { heights, niche, ladder, works: plainWorksFailures({ land, heights, ladder, niche }) };
+}
+
 /** One land's map: its sources, the settle, its life and dead band, the build again and its checks, then the settled
  *  measures. */
-export function plainMapOf(spec: MapSpec, land: PlainLand & { held: boolean }, theme: StyleTheme = "riverValley"): Omit<PlainMap, "failed" | "held"> {
+export function plainMapOf(spec: MapSpec, land: PlainLand & { held: boolean }, theme: StyleTheme = "riverValley", ground: ReturnType<typeof plainWorksOf> = plainWorksOf(land)): Omit<PlainMap, "failed" | "held"> {
   const { plan, water } = land;
   const t0 = performance.now();
-  const heights = land.heights.slice();
-  const niche = redNiche(plan, water);
-  if (niche) digNiche(heights, plan.W, niche);
+  const { heights, niche, ladder } = ground;
   const pl: PremiseLand = { water, heights, niches: niche ? { badwater: niche } : {}, laid: { plugs: {}, banks: {} }, notes: niche ? [] : ["the red source finds no room in the Red Spring's pool"], standsOffStart: START_WOOD_CLEAR };
-  const ladder = ladderOf(plan, water, heights, pl.laid);
   const s: MapSpec = { ...JSON.parse(JSON.stringify(spec)), accepted: { attempt: land.attempt, candidate: 0 } };
   const style = premiseStyle(theme, spec, land.attempt);
   const base = premiseBase(s, plan, pl, land.frame.start, ladder, style);
@@ -518,14 +535,17 @@ export function plainMapOf(spec: MapSpec, land: PlainLand & { held: boolean }, t
   const t2 = performance.now();
   const settled = plainSettled(land, map, trees);
   const settledFails = settledFailures(settled);
+  // (the levees' clears read on the settled water, then the works checks again: `settledClears`)
+  settledClears(land, ladder, map.built);
+  const worksFails = plainWorksFailures({ land, heights, ladder, niche });
   const t3 = performance.now();
   const ms = { land: land.ms.total, settle: Math.round(t1 - t0), life: map.ms.life, checks: map.ms.checks, settled: Math.round(t3 - t2), total: 0 };
   ms.total = ms.land + Math.round(t3 - t0);
-  return { land, ladder, map, settled, settledFails, start: startNumbers(map), attempt: land.attempt, ms };
+  return { land, ladder, works: worksFails, map, settled, settledFails, start: startNumbers(map), attempt: land.attempt, ms };
 }
 
 /** The poisoned floodplain's map for a spec in a theme's style (River Valley by default): the first attempt whose land
- *  holds, whose map passes every blocking check (the start's among them) and every settled invariant, within
+ *  holds, whose works pass the blocking checks by number, whose map passes every blocking check (the start's among them) and every settled invariant, within
  *  `PLAN_TRIES` attempts and `PLAIN_SETTLES` settles; or the last map with its failures, or why none was made. */
 export function plainMap(spec: MapSpec, theme: StyleTheme = "riverValley"): PlainMap | { reason: string; failed: string[] } {
   const why = poisonedPlain.eligible(spec);
@@ -543,8 +563,15 @@ export function plainMap(spec: MapSpec, theme: StyleTheme = "riverValley"): Plai
       failed.push(land.landFails.length ? `${land.landFails[0].id}: ${land.landFails[0].reason}` : `frame.start: ${land.frame.reason}`);
       continue;
     }
+    // (the works by number, before the settle: a land whose turn or river in does not work is drawn again)
+    const ground = plainWorksOf(land);
+    const block = ground.works.find((f) => (PLAIN_WORKS_BLOCKING as readonly string[]).includes(f.id));
+    if (block) {
+      failed.push(`${block.id}: ${block.reason}`);
+      continue;
+    }
     settles++;
-    const m = plainMapOf(spec, land, theme);
+    const m = plainMapOf(spec, land, theme, ground);
     const out: PlainMap = { ...m, failed, held: false };
     last = out;
     if (!m.map.report.passed) {

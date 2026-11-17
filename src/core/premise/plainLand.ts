@@ -1042,7 +1042,56 @@ export function plainRelief(plan: PremisePlan, w: StageWater, upland: Uint8Array
       for (const j of [x > 0 ? i - 1 : -1, x < W - 1 ? i + 1 : -1, i - W, i + W])
         if (j >= 0 && j < N && !cut[j] && !r.channel[j] && !r.lake[j] && !r.pool[j] && !r.crest[j] && h[j] <= m.bed) h[j] = Math.min(sky, m.bed + 1);
     }
+  // the sloughs' mouths (step 4): each slough's head reaches the river's water through its low place, at its bed
+  for (const m of sloughMouths(plan, w))
+    for (const i of m.tiles) {
+      h[i] = Math.min(h[i], m.bed);
+      banks.over[i] = 0;
+      if (floor[i] === 1 || floor[i] === 2) floor[i] = 4;
+    }
   return { heights: h, floor, valleys, bank: banks.over, levee };
+}
+
+/** Where each slough's head reaches the river (step 4: the old flood channel was cut from the river, so its head opens
+ *  on the river's water through the low place it left by): the tiles from its first point to the river's water tile
+ *  nearest it, its half-width and a third either side, but stage 1's own, cut to the slough's head bed, a level under
+ *  the plain. The river's water stands under that bed on day 1 (the plan's `riverSteps` ceiling there), so the slough
+ *  stays dry; a weir below lifts the river over it (the river in, `plainWorks.ts`). With the river's water at its
+ *  bed and the plain round it a level over, it never runs onto the plain: a mouth level with the plain flooded the
+ *  plain in a sheet once the river stood over it (seed 1 at 128², 1,573 tiles). */
+export function sloughMouths(plan: PremisePlan, w: StageWater): { slough: string; tiles: number[]; bed: number }[] {
+  const r = w.raster;
+  const { W, H } = plan;
+  const p = plainOf(plan);
+  const riverK = plan.links.findIndex((l) => l.id === I.river) + 1;
+  if (!p || !riverK) return [];
+  const out: { slough: string; tiles: number[]; bed: number }[] = [];
+  for (const sl of p.sloughs) {
+    const a = sl.path[0];
+    let best = -1;
+    let bd = Infinity;
+    for (let i = 0; i < W * H; i++) {
+      if (r.channel[i] !== riverK) continue;
+      const d = (i % W + 0.5 - a[0]) ** 2 + (Math.floor(i / W) + 0.5 - a[1]) ** 2;
+      if (d < bd) [bd, best] = [d, i];
+    }
+    if (best < 0) continue;
+    const b: Point = [(best % W) + 0.5, Math.floor(best / W) + 0.5];
+    const reach = sl.half + 0.35;
+    const x0 = Math.max(0, Math.floor(Math.min(a[0], b[0]) - reach - 1));
+    const x1 = Math.min(W - 1, Math.ceil(Math.max(a[0], b[0]) + reach + 1));
+    const y0 = Math.max(0, Math.floor(Math.min(a[1], b[1]) - reach - 1));
+    const y1 = Math.min(H - 1, Math.ceil(Math.max(a[1], b[1]) + reach + 1));
+    const tiles: number[] = [];
+    for (let y = y0; y <= y1; y++)
+      for (let x = x0; x <= x1; x++) {
+        const i = y * W + x;
+        if (r.fixed[i] || r.channel[i] || r.lake[i] || r.pool[i]) continue;
+        if (pathDist(x + 0.5, y + 0.5, [a, b]).d <= reach) tiles.push(i);
+      }
+    out.push({ slough: sl.id, tiles, bed: sl.bed[0] });
+  }
+  return out;
 }
 
 /** The gulch's floor holds its stream to the Red Fall's lip (step 3, round 3): a floor tile beside a drop off the floor,
