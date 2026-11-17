@@ -14,6 +14,12 @@ import { generateButton, openDrawer, openEditor } from "./open";
  *  small, so it opens and comes back after the stop quickly in WebKit too. */
 const EASY = "s=3&z=64&d=n&t=riverValley&es=1";
 
+// (no service worker: the tests' preview sends the isolation headers, so the page registers it for its cache once the map
+// is editable, and in WebKit it could not fetch the new generator worker's script when the stop replaced the worker,
+// "FetchEvent.respondWith received an error: Load failed", the map never brought back; the site never gives WebKit the
+// worker, platform/isolation.ts, and this spec is of the making's bounds, not the cache)
+test.use({ serviceWorkers: "block" });
+
 test("a generate says why its last try failed, offers the map without Easy start, and stops itself with a reason, the open map kept", async ({ page }) => {
   test.setTimeout(300_000);
   // a screen wake lock that counts what is held
