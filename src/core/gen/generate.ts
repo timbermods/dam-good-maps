@@ -2125,6 +2125,10 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
     keepOff: (weir ? pool : null) as Uint8Array | null,
     // (the ditches follow the field's own drainage, as the rivers' courses do)
     field: land.E,
+    // (Designed for pulls the badwater near the start on Hard, away on Easy: D(new-ditch) (6))
+    prefer: (spec.designedFor === "hard" ? "near" : spec.designedFor === "easy" ? "far" : undefined) as "near" | "far" | undefined,
+    // (the places prepared for the start, set once they are: no gully turns bad their nearest clean water, D(new-ditch) (13))
+    starts: null as { x: number; y: number }[] | null,
   };
   // (the mine sites' squares, found or padded as the land was shaped, D363: the hollows keep off them)
   const mineKeep = from ? from.mineKeep : new Uint8Array(N);
@@ -2494,6 +2498,7 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
       // (D348: the badwater hollows are dug as the land is shaped, before it is shown, from the plan's
       // start on the planned water; the land shown holds them, and every attempt on it keeps them)
       const bare = h.slice();
+      badAsk.starts = [guess, second, ...prepared].filter((p): p is StartPick => !!p).map((p) => ({ x: p.x, y: p.y }));
       if (guess && badAsk.count > 0) bad = badAt(est, guess, 0);
       // (and the sources are read on the pre-fill, the water the settle starts from, before the land
       // is shown: a spring river, or an inflow other than the main river, whose source another's water
