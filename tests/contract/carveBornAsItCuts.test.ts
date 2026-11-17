@@ -10,6 +10,8 @@ import { decodeProject } from "../../src/core/doc/document";
 import { MapSession } from "../../src/core/doc/session";
 import { DEFAULTS } from "../../src/core/forces/carve/run";
 import { STEPS_PER_SECOND } from "../../src/core/forces/force";
+import { StackLive } from "../../src/core/sim/stackLive";
+import { loadStack, retainedRows, STACK_FIELD, STACK_OP, StackWater } from "../../src/core/sim/stackWater";
 import { WET, type WaterView } from "../../src/render3d/model";
 import * as ed from "../../src/worker/session";
 import { fixtureInEditor, namedInEditor } from "../fixtureEditor";
@@ -38,7 +40,8 @@ function farFromStart(s: MapSession): [number, number] {
 
 /** Highlands 96² seed 22 as generator 0.10.27 made it (#1181): a stream in a cave at (41–51, 68–69), 13 tiles from the
  *  carve's origin, that swings a few thousandths about where the settle stopped it (0.427 to 0.433 at (41, 68) about
- *  the settle's 0.431), so a carve's water that ran it on alone showed it falling while the carve worked far from it. */
+ *  the settle's 0.431, #1229), so a carve's water that held its walls round every dry tile on the map showed it falling
+ *  while the carve worked far from it. */
 const CAVE_STREAM = "preview-highlands-96-22-carve.damgoodmaps";
 
 async function open(seed = 21): Promise<{ origin: [number, number]; ground: Uint8Array; water: number[]; roofed: Map<string, number> }> {
@@ -88,6 +91,75 @@ function poolsKept(roofed: Map<string, number>, v: WaterView, heights: Uint8Arra
   return off;
 }
 
+type Since = NonNullable<ReturnType<typeof ed.forceStackSince>>;
+
+/** The map's own water run on the same ticks as the force's so far, without the force (#1181): from the water the
+ *  force's started from, with its flows' momentum, on the map's own ground and objects, every column. (On an engine of
+ *  its own, run as the force's runs, never stopped by the settle's test.) */
+function ownRun(since: Since): Float64Array {
+  const start = new StackLive(since.model, since.from, since.flows);
+  const st = start.state();
+  start.close();
+  const t = since.model.stacked!;
+  const kept = retainedRows(since.model.retained ?? []);
+  const m = new StackWater(since.model.W, since.model.H, t.objects.length / 8, kept.length / 4);
+  try {
+    (m.view(STACK_FIELD.masks) as Uint32Array).set(t.mask);
+    (m.view(STACK_FIELD.objects) as Float64Array).set(t.objects);
+    (m.view(STACK_FIELD.retained) as Float64Array).set(kept);
+    m.op(STACK_OP.build, 0);
+    loadStack(m, st, true, st);
+    (m.view(STACK_FIELD.momentum) as Float64Array).set(st.edges!.out);
+    if (since.ticks > 0) m.op(STACK_OP.run, since.ticks, 1);
+    return m.copy(STACK_FIELD.depth) as Float64Array;
+  } finally {
+    m.close();
+  }
+}
+
+/** Where the carve's water does not reach, the force's water (`since.now`) against the map's own run the same ticks
+ *  (`ownRun`): the columns off by more than `tol`, and how many were compared (`under`, those under a roof). The carve
+ *  reaches the tiles within 3 of what it changes (`land` against `ground`; its front's walls reach 2) and every tile
+ *  joined to them by water (a column wet in either run). */
+function offOwn(since: Since, ground: Uint8Array, land: Uint8Array, tol: number): { off: string[]; compared: number; under: number } {
+  const own = ownRun(since);
+  const st = since.now;
+  const wet = new Uint8Array(N);
+  for (let i = 0; i < N; i++) for (let q = 0; q < st.count[i]; q++) if (st.depth[q * N + i] > 0 || own[q * N + i] > 0) wet[i] = 1;
+  const reach = new Int32Array(N).fill(-1);
+  const queue: number[] = [];
+  for (let i = 0; i < N; i++) if (land[i] !== ground[i]) (reach[i] = 0), queue.push(i);
+  for (let head = 0; head < queue.length; head++) {
+    const i = queue[head];
+    const x = i % W;
+    const y = (i - x) / W;
+    for (let dy = -1; dy <= 1; dy++)
+      for (let dx = -1; dx <= 1; dx++) {
+        const u = x + dx;
+        const v = y + dy;
+        if (u < 0 || v < 0 || u >= W || v >= W) continue;
+        const j = v * W + u;
+        if (reach[j] >= 0 || (reach[i] >= 3 && !(wet[i] && wet[j]))) continue;
+        reach[j] = reach[i] + 1;
+        queue.push(j);
+      }
+  }
+  const off: string[] = [];
+  let compared = 0;
+  let under = 0;
+  for (let i = 0; i < N; i++) {
+    if (reach[i] >= 0) continue;
+    for (let q = 0; q < st.count[i]; q++) {
+      const c = q * N + i;
+      if (!(st.depth[c] > 0 || own[c] > 0)) continue;
+      compared++;
+      if (st.floor[c] < ground[i]) under++;
+      if (Math.abs(st.depth[c] - own[c]) > tol) off.push(`${i % W},${Math.floor(i / W)} at ${st.floor[c]}: ${own[c]} → ${st.depth[c]}`);
+    }
+  }
+  return { off, compared, under };
+}
+
 /** Tiles the carve lowered (shown now, against the ground before it), and those holding water. */
 function wetCut(ground: Uint8Array, now: Uint8Array, depth: ArrayLike<number>): { cut: number; wet: number } {
   let cut = 0;
@@ -105,8 +177,9 @@ describe("Carve's river is born as it cuts (D371)", () => {
   // since generator 0.10.19's dry washes, D517, D148: seed 21's channel holds no more water at the cut's end than halfway.
   // Seed 22 on generator 0.10.27's land, `CAVE_STREAM`, #1181, D148: the cases went to seed 23 with 0.10.27, then to
   // 0.10.25's seed 22 as a fixture, because 19 of this land's cave stream's columns fell while the carve was shown,
-  // (41, 68) 0.431 to 0.429, the most 0.003; the carve's water now changes only what the carve does (stackLive.ts
-  // `holdOwn`): its own river reaches the stream and moves it by under 0.0004, the stream's own swing none)
+  // (41, 68) 0.431 to 0.429, the most 0.003. The stream swings that much on its own (#1229), so its water is measured
+  // against the map's own run the same ticks, `offOwn`: where the carve's water does not reach, it is the map's own,
+  // the stream with it. It was not: the front held a wall round every dry tile on the map, FRONT_MARGIN now)
   it.each([24, 22])("the water flows into the channel as it is cut, from the carve's source; kept, the map's water flows on from it (seed %i)", async (seed) => {
     const { origin, ground, water, roofed } = await open(seed);
     const st = ed.forceStart({ verb: "carve", settings: { ...DEFAULTS, power: 70 }, origin, cut: null });
@@ -133,6 +206,7 @@ describe("Carve's river is born as it cuts (D371)", () => {
     expect(mid.wet).toBeGreaterThan(0);
     expect(seen.at(-1)!.wet).toBeGreaterThan(mid.wet);
     const last = ed.flowForceWater(0)!;
+    const since = ed.forceStackSince();
     // kept: the map's water flows on from the water shown, not from the water before it
     const kept = ed.forceStop();
     expect(kept.kept).toBe(true);
@@ -141,13 +215,22 @@ describe("Carve's river is born as it cuts (D371)", () => {
     for (let i = 0; i < N; i++) off = Math.max(off, Math.abs(d[i] - shown(last[i])));
     expect(off).toBeLessThan(1e-4);
     expect(wetCut(ground, land, d).wet).toBe(seen.at(-1)!.wet);
+    if (seed === 22) {
+      // (on a map with caves, where the carve's water does not reach, the water handed on is the map's own as it ran on
+      // the same ticks without the carve, every column, the cave's stream's with them)
+      const own = offOwn(since!, ground, land, 1e-9);
+      expect(own.off).toEqual([]);
+      expect(own.compared).toBeGreaterThan(1000);
+      expect(own.under, "columns under a roof compared").toBeGreaterThan(15);
+    }
     // (and the water under a roof, which the frames above don't hold: none of the map's own lost where the carve cut nothing)
-    expect(poolsKept(roofed, kept.view.water!, land, ground, 1e-3)).toEqual([]);
+    else expect(poolsKept(roofed, kept.view.water!, land, ground, 1e-3)).toEqual([]);
     ed.settleWater();
   });
 
-  // (seed 22 on `CAVE_STREAM`, #1181, D148: Esc handed on 17 of its cave stream's columns low by up to 0.003, caught part
-  // way through the stream's own swing; now exactly as they were, to the bit)
+  // (seed 22 on `CAVE_STREAM`, #1181, D148: Esc handed on 17 of its cave stream's columns low by up to 0.003 against the
+  // water before the carve, the stream's own swing, #1229; now, where the carve's water does not reach, exactly the map's
+  // own run the same ticks, to the bit)
   it.each([21, 22])("undo stops it and puts the map's own water back; Esc skips to the end and hands on the water flowing then; a dry canyon flows none (seed %i)", async (seed) => {
     const { origin, ground, water, roofed } = await open(seed);
     if (seed === 22) expect(roofed.size, "seed 22's water under a roof").toBeGreaterThan(0);
@@ -162,6 +245,7 @@ describe("Carve's river is born as it cuts (D371)", () => {
       return now;
     };
     // undo (the force taken back by its gesture, D341): its water stops, and the map's own comes back
+    const was = ed.waterOf(ed.collabSession()!);
     partWay(7001);
     const back = ed.forceCancel(7001);
     expect(back.taken).toBe("work");
@@ -172,16 +256,23 @@ describe("Carve's river is born as it cuts (D371)", () => {
     const backRoofed = underRoof(back.water!, ed.terrainNow().heights);
     expect(poolsKept(roofed, back.water!, ed.terrainNow().heights, ground, 1e-4, true)).toEqual([]);
     expect([...backRoofed.keys()].filter((key) => !roofed.has(key))).toEqual([]);
+    // (exactly the water as the force found it, to the bit, every column)
+    for (const key of ["tile", "floor", "depth", "contamination"] as const) expect(Array.from(back.water![key]), key).toEqual(Array.from(was[key]));
     // Esc (skipped to its end, kept): the map's water flows on from the water flowing when it came
     const now = partWay(7002);
+    const since = ed.forceStackSince();
     const kept = ed.forceStop(7002);
     expect(kept.kept).toBe(true);
     expect(ed.flowForceWater(1)).toBeNull();
     const k = depths(kept.view.water!, ed.terrainNow().heights);
     for (let i = 0; i < N; i++) expect(k[i]).toBeCloseTo(shown(now[i]), 4);
-    // (on seed 22 to the last bit: the carve's water there reaches none of the stream's columns, so they are the map's
-    // own as the carve began, stackLive.ts `holdOwn`)
-    expect(poolsKept(roofed, kept.view.water!, ed.terrainNow().heights, ground, seed === 22 ? 0 : 1e-3, seed === 22)).toEqual([]);
+    if (seed === 22) {
+      // (where the carve's water does not reach, the map's own as it ran on the same ticks without the carve, to the bit)
+      const own = offOwn(since!, ground, ed.terrainNow().heights, 0);
+      expect(own.off).toEqual([]);
+      expect(own.compared).toBeGreaterThan(1000);
+      expect(own.under, "columns under a roof compared").toBeGreaterThan(15);
+    } else expect(poolsKept(roofed, kept.view.water!, ed.terrainNow().heights, ground, 1e-3)).toEqual([]);
     ed.undo();
     ed.settleWater();
     // a dry canyon: no source, no water of its own

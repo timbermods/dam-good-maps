@@ -3029,6 +3029,10 @@ let force: {
   heatSent: boolean;
   /** When the page last got the force's water and objects (they go at most every FORCE_VIEW_MS). */
   viewAt: number;
+  /** The map's water as the force found it, still flowing after an edit (`flowing`, a heightfield's; `stack`, a map
+   *  with caves', on its columns with its momentum), or null when it stood settled: taken back, the force leaves it
+   *  exactly so, and it flows on from there (`forceCancel`). */
+  waterBefore: { flowing: WarmState | null; stack: LiveStack | null } | null;
 } | null = null;
 
 /** A force's objects go to the page at most this often (and always with its last frame): each is a
@@ -3148,6 +3152,7 @@ function startForce(s: MapSession, base: FullForceMap, req: ForceRequest, roll?:
   const flowing = waterInFlight(s);
   // (on a map with caves or overhangs: the stacked water in flight, or the map's own with its last settle's flows)
   const stackFrom = s.built.waterModel.stacked ? stackStart(s) : null;
+  const stackFlowed = !!stackFrom && !!stackFlowing(s);
   stopWater();
   prepToken++;
   for (const run of Object.values(weatherRuns)) if (run) run.show = null;
@@ -3172,6 +3177,7 @@ function startForce(s: MapSession, base: FullForceMap, req: ForceRequest, roll?:
     lastEntities: s.built.entities,
     heatSent: false,
     viewAt: -Infinity,
+    waterBefore: flowing || stackFlowed ? { flowing, stack: stackFlowed ? stackFrom!.from : null } : null,
   };
   startForceWater(force, flowing, stackFrom);
   // (the settings it ran with, and what its Auto picked in the run, for the row to show: D309)
@@ -3509,9 +3515,11 @@ function mapFlows(s: MapSession, depth: ArrayLike<number>, flowing: WarmState | 
  *  runs from the first step, and the land its course takes mostly runs downhill already, so its water
  *  would race down it ahead of the cut; instead each dry tile is held, a wall to the water, until the
  *  front reaches it: the step of the showing at which the tile's ground first changes as shown (shown
- *  from its end, A5: its last change, the first shown), and for a tile the carve never changes, its
- *  nearest changed tile's. A held tile's own film of water (a damp tile's) is set aside, shown as it
- *  was, and goes when the front arrives; deeper water ahead (a lake, a river) flows on as it does. */
+ *  from its end, A5: its last change, the first shown), and for a tile the carve never changes within
+ *  FRONT_MARGIN of one, its nearest changed tile's. A held tile's own film of water (a damp tile's) is set
+ *  aside, shown as it was, and goes when the front arrives; deeper water ahead (a lake, a river) flows on as
+ *  it does. The land farther off is never held: the map's own water there runs on exactly as it would without
+ *  the carve, until the carve's water reaches it (#1181). */
 interface CarveFront {
   /** The step of the showing at which the front reaches each tile. */
   reach: Int32Array;
@@ -3526,6 +3534,12 @@ interface CarveFront {
 
 /** A floor no water climbs: a wall round the tiles the front hasn't reached. */
 const FRONT_WALL = 1024;
+/** How far from the tiles a carve changes its front holds the land (tiles, the eight neighbours a step): its banks and
+ *  the land beside them, where its water would run ahead of the cut. Held everywhere, the walls took the films off every
+ *  dry tile's edge on the map and stopped water spreading there, so a lake or a cave's stream 40 tiles from the carve
+ *  ran differently (up to 0.02 on Highlands 96² seed 22, #1181); at 3 the films at the edge of the next valley's water
+ *  still were (2e-4 there); at 2 none is. */
+const FRONT_MARGIN = 2;
 /** Water up to this deep ahead of the front is a film on damp ground, held with its tile. */
 const FRONT_FILM = 0.05;
 
@@ -3557,11 +3571,13 @@ function carveFront(p: CarvePlay, model: WaterModel, depth: Float64Array, contam
         const i = changes[s][j];
         if (reach[i] < 0 && changes[s][j + 1] !== before[i]) reach[i] = s;
       }
+  const far = new Uint8Array(N);
   for (let i = 0; i < N; i++) if (reach[i] >= 0) queue[tail++] = i;
   if (!tail) reach.fill(0);
-  // (each other tile: its nearest changed tile's step, breadth first over the eight neighbours)
+  // (each other tile within FRONT_MARGIN: its nearest changed tile's step, breadth first over the eight neighbours)
   for (let head = 0; head < tail; head++) {
     const i = queue[head];
+    if (far[i] >= FRONT_MARGIN) continue;
     const x = i % W;
     const y = (i - x) / W;
     for (let dy = -1; dy <= 1; dy++)
@@ -3572,6 +3588,7 @@ function carveFront(p: CarvePlay, model: WaterModel, depth: Float64Array, contam
         const j = yy * W + xx;
         if (reach[j] >= 0) continue;
         reach[j] = reach[i];
+        far[j] = far[i] + 1;
         queue[tail++] = j;
       }
   }
@@ -3853,8 +3870,9 @@ async function runForceWater(token: number): Promise<void> {
 let forceStack: {
   force: Parameters<typeof forceFrame>[0];
   live: StackLive;
-  /** The map's water model when the force started (its stored lakes, its removals). */
+  /** The map's water model when the force started (its stored lakes, its removals), and the water it started from. */
   model: WaterModel;
+  start: NonNullable<ReturnType<typeof stackStart>>;
   /** Each tile's terrain as the force's map has it (its voxels), the ground shown (its heights), and the masks the
    *  engine is on (the ground, with the front's walls). */
   base: Uint32Array;
@@ -3863,9 +3881,6 @@ let forceStack: {
   objects: readonly EntitySpec[];
   rows: Float64Array;
   front: CarveFront | null;
-  /** The map's own terrain and ground as the force began, for the water run on beside the force's (`holdOwn`). */
-  ownBase: Uint32Array;
-  ownGround: Uint8Array;
   seen: SeenWater;
   seenTicks: number;
   sent?: Float64Array;
@@ -3879,12 +3894,10 @@ function stackRowsOf(entities: readonly EntitySpec[]): Float64Array {
 }
 
 /** Each tile's top as the force's water stands on it: the ground shown, or a wall where a carve's front holds it. */
-function forceStackMask(w: NonNullable<typeof forceStack>, own = false): Uint32Array {
+function forceStackMask(w: NonNullable<typeof forceStack>): Uint32Array {
   const out = new Uint32Array(w.base.length);
   const held = w.front?.held;
-  const base = own ? w.ownBase : w.base;
-  const ground = own ? w.ownGround : w.ground;
-  for (let i = 0; i < out.length; i++) out[i] = reshapeTop(base[i], held && held[i] ? TERRAIN_LAYERS : ground[i]);
+  for (let i = 0; i < out.length; i++) out[i] = reshapeTop(w.base[i], held && held[i] ? TERRAIN_LAYERS : w.ground[i]);
   return out;
 }
 
@@ -3916,17 +3929,21 @@ function startForceStack(f: NonNullable<typeof force>, start: NonNullable<Return
       from.contamination[c] = 0;
     }
   }
-  const w: NonNullable<typeof forceStack> = { force: f, live: null as unknown as StackLive, model, base, ground: m.heights.slice(), mask: base, objects: m.entities, rows, front, ownBase: base.slice(), ownGround: m.heights.slice(), seen: null as unknown as SeenWater, seenTicks: 0 };
+  const w: NonNullable<typeof forceStack> = { force: f, live: null as unknown as StackLive, model, start, base, ground: m.heights.slice(), mask: base, objects: m.entities, rows, front, seen: null as unknown as SeenWater, seenTicks: 0 };
   w.mask = forceStackMask(w);
   w.live = new StackLive({ ...model, stacked: { mask: w.mask.slice(), objects: rows } }, from, start.flows);
-  // (its water run on beside it on the map's own ground and objects, the front's walls let go as the force's are: the
-  // water shown is the map's own as it began plus what the force changed, so a column the force never reaches stays as
-  // it began, #1181)
-  w.live.holdOwn(model.stacked!.objects);
   const f0 = w.live.frame();
   w.seen = new SeenWater(f0.depth, f0.contamination);
   forceStack = w;
   if (autoWater) setTimeout(() => void runForceStack(token), 0);
+}
+
+/** The water a force's water on a map with caves started from, on the map's own ground and objects, the ticks it has
+ *  run since and its water now, every column (tests/contract/carveBornAsItCuts.test.ts runs the map's own water the
+ *  same ticks beside it); null with no such force at work. */
+export function forceStackSince(): { model: WaterModel; from: LiveStack; flows: StackSettle | null; ticks: number; now: LiveStack } | null {
+  const w = forceStack;
+  return w && force === w.force ? { model: w.model, from: w.start.from, flows: w.start.flows, ticks: w.live.ticks, now: w.live.state() } : null;
 }
 
 /** Whether the force's water flows now (as `forceWaterFlows`), the engine brought to the land and objects shown and
@@ -3970,7 +3987,7 @@ function forceStackFlows(w: NonNullable<typeof forceStack>): boolean {
     if (!same) {
       w.mask = mask;
       try {
-        w.live.reshape(mask.slice(), rows, forceStackMask(w, true));
+        w.live.reshape(mask.slice(), rows);
       } catch {
         // (its ground has no cave or overhang left: the force's water stops here, and flows on once it is kept)
         endForceWater();
@@ -4055,7 +4072,7 @@ function forceStackState(f: NonNullable<typeof force>): { model: WaterModel; sta
   if (mask.some((v, i) => v !== w.mask[i])) {
     w.mask = mask;
     try {
-      w.live.reshape(mask.slice(), undefined, forceStackMask(w, true));
+      w.live.reshape(mask.slice());
     } catch {
       return null;
     }
@@ -4089,6 +4106,22 @@ function restoreView(s: MapSession): ViewUpdate {
   return view;
 }
 
+/** The map's water as a force found it, flowing (`waterBefore`), as a view. */
+function waterBeforeView(s: MapSession, b: NonNullable<NonNullable<typeof force>["waterBefore"]>): WaterView {
+  if (!b.stack) return waterOf(s, { depth: b.flowing!.water.depth, contamination: b.flowing!.water.contamination, out: b.flowing!.water.out ?? null });
+  const st = b.stack;
+  const N = st.count.length;
+  const depth = new Float64Array(N);
+  const contamination = new Float64Array(N);
+  for (let i = 0; i < N; i++) {
+    if (!st.count[i]) continue;
+    const c = (st.count[i] - 1) * N + i;
+    depth[i] = st.depth[c];
+    contamination[i] = st.contamination[c];
+  }
+  return waterOf(s, { depth, contamination, stack: st, out: null });
+}
+
 /** Esc (or undo) for a force (D341): all of it goes at once, whenever it arrives, and the map's water
  *  carries on. `gesture` names the force (the page's); left out, the force at work. At work, it is
  *  dropped; already kept and still the latest step (its keep was on its way when Esc came), it is
@@ -4102,9 +4135,15 @@ export function forceCancel(gesture?: number): ForceTakenBack {
     const flowing = forceWater?.force === f || forceStack?.force === f;
     endForceWater();
     if (!s || f.session !== s) return { taken: null };
+    // the map's water as the force found it, exactly (a copy taken then): still flowing after an edit, it flows on
+    // from there, not from the settle before the edit
+    const before = f.waterBefore && s.waterStale ? f.waterBefore : null;
+    const water = before ? waterBeforeView(s, before) : waterOf(s);
     // (the force's water frames still on their way give way to the map's water)
-    if (flowing) listener?.({ kind: "water", version, water: waterOf(s), done: 1, ticks: 0, draft: true });
-    const view = restoreView(s);
+    if (flowing) listener?.({ kind: "water", version, water, done: 1, ticks: 0, draft: true });
+    const view = { ...restoreView(s), water };
+    if (before?.stack) stackRest = { session: s, model: s.built.waterModel, stack: before.stack };
+    else if (before) handoff = before.flowing;
     kickWater();
     return { ...view, taken: "work" };
   }
