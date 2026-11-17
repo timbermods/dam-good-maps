@@ -131,6 +131,15 @@ export function analysisFixtures(): AnalysisJob[] {
     add("dams, any distance, deep", frame("damSites", W, H, [Infinity, 1, 1, 0.5], [h, channel, surface, [], [1, 2, 3, 4]]));
     for (const [want, lo, firm] of [[1, 8, 0], [2, 12, 2], [3, 6, 2], [2, 30.5, 0]])
       add(`room for ${want}, ${lo} out, firm ${firm}`, frame("roomMap", W, H, [want, lo, firm], [h, depth, blocked]));
+    // (the hydrology's hollow flood, kernel 10, on the ground's whole levels: at the wettest tile and at the
+    // middle, with and without a budget, a highest sill and a sea; land/hollow.ts `hollowInTs` gave the same)
+    const levels = Uint8Array.from(h, (v) => Math.max(0, Math.min(255, Math.floor(v))));
+    let wettest = 0;
+    for (let i = 0; i < N; i++) if (depth[i] > depth[wettest]) wettest = i;
+    const middle = Math.floor(H / 2) * W + Math.floor(W / 2);
+    for (const [at, where] of [[wettest, "wettest"], [middle, "middle"]] as const)
+      for (const [rise, budget, top, sea] of [[1, Infinity, Infinity, 0], [3, 0.05 * N, Infinity, 0], [4, 12, levels[at] + 2, 0], [3, 12, Infinity, 1]])
+        add(`hollow at the ${where} tile, ${rise} up, budget ${budget}, top ${top}, sea ${sea}`, frame("hollow", W, H, [at, levels[at] + rise, budget, top, sea], [levels]));
   }
   return jobs;
 }

@@ -7,10 +7,12 @@
 //!  7 `spillLevels` (sim/prefill.ts)       every tile's spill level (priority flood)
 //!  8 `damSites` (analysis/damsites.ts)    the best dam per sampled channel tile
 //!  9 `roomMap` (land/minePads.ts)         where a start has room for its mine sites
+//! 10 `hollow` (land/hydro.ts, land.rs)    a hollow's lake: the hydrology's flood, its outlet cut to its budget
 //!
 //! One call is one kernel: `analysis_execute` reads a frame of binary64 values (the kernel, W, H, its
 //! numbers, its arrays; src/core/analysis/rust/bridge.ts `encode`) and returns the result as binary64.
 //! Traversal orders, tie-breaks and arithmetic follow the TypeScript exactly; no FMA, no approximate maths.
+pub mod land;
 use std::cmp::Ordering;
 use std::collections::BinaryHeap;
 use std::marker::PhantomData;
@@ -714,6 +716,7 @@ pub fn execute(input: &[f64]) -> Vec<f64> {
         7 => (0, 3, 3),
         8 => (4, 5, 3),
         9 => (3, 3, 3),
+        10 => (5, 1, 1),
         _ => panic!("unknown kernel"),
     };
     assert_eq!(p.len(), params, "parameter shape");
@@ -741,7 +744,26 @@ pub fn execute(input: &[f64]) -> Vec<f64> {
         7 => spill(&a, w, h),
         8 => dams(&a, p, w, h),
         9 => room(&a, p, w, h),
+        10 => hollow_frame(a[0], p, w, h),
         _ => unreachable!(),
+    }
+}
+
+/// Kernel 10's frame: parameters (seed tile, sill, budget, highest sill, sea 0 or 1), the ground's levels; the
+/// result is empty for no lake, else its sill and then its tiles in order.
+fn hollow_frame(ground: &[f64], p: &[f64], w: usize, h: usize) -> Vec<f64> {
+    let levels: Vec<u8> = ground
+        .iter()
+        .map(|&v| {
+            assert!((0.0..=255.0).contains(&v) && v.floor() == v, "ground level");
+            v as u8
+        })
+        .collect();
+    assert!(p[0] >= 0.0 && p[0].floor() == p[0], "seed tile");
+    let mut q = Vec::new();
+    match land::hollow(&levels, w, h, p[0] as usize, p[1], p[2], p[3], p[4] != 0.0, &mut q) {
+        None => vec![],
+        Some(sill) => std::iter::once(sill).chain(q.iter().map(|&t| t as f64)).collect(),
     }
 }
 
@@ -914,4 +936,33 @@ pub unsafe extern "C" fn analysis_execute(p: *const f64, n: usize, out_len: *mut
     let out = execute(std::slice::from_raw_parts(p, n)).into_boxed_slice();
     *out_len = out.len();
     Box::into_raw(out) as *mut f64
+}
+/// The hydrology's hollow flood called straight from the generator (land/hydro.ts, through
+/// src/core/analysis/rust/bridge.ts `hollowInRust`): the ground's `w`·`h` levels at `ground`, its tiles written to
+/// `out` (room for `w`·`h`) and their count to `out_len`; returns the lake's sill, or NaN for no lake.
+///
+/// # Safety
+/// `ground` holds `w`·`h` bytes and `out` room for `w`·`h` values; `out_len` is writable.
+#[cfg_attr(feature = "exports", no_mangle)]
+#[allow(clippy::too_many_arguments)]
+pub unsafe extern "C" fn land_hollow(ground: *const u8, w: usize, h: usize, seed: usize, sill: f64, budget: f64, max_sill: f64, sea: u32, out: *mut u32, out_len: *mut usize) -> f64 {
+    let n = w * h;
+    let ground = std::slice::from_raw_parts(ground, n);
+    LAND_QUEUE.with(|q| {
+        let mut q = q.borrow_mut();
+        match land::hollow(ground, w, h, seed, sill, budget, max_sill, sea != 0, &mut q) {
+            None => {
+                *out_len = 0;
+                f64::NAN
+            }
+            Some(s) => {
+                std::ptr::copy_nonoverlapping(q.as_ptr(), out, q.len());
+                *out_len = q.len();
+                s
+            }
+        }
+    })
+}
+thread_local! {
+    static LAND_QUEUE: std::cell::RefCell<Vec<u32>> = const { std::cell::RefCell::new(Vec::new()) };
 }
