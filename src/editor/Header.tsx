@@ -184,7 +184,8 @@ function TitleName(p: {
     const el = card.current;
     const title = el?.parentElement;
     const bar = title?.closest(".editor-bar");
-    if (el && title && bar) el.style.top = `${bar.getBoundingClientRect().bottom - title.getBoundingClientRect().top + 6}px`;
+    // (measured from the box the card is placed in: the title on a desktop, the bar on a phone, where the title is in the bar's row)
+    if (el && title && bar) el.style.top = `${bar.getBoundingClientRect().bottom - (el.offsetParent ?? title).getBoundingClientRect().top + 6}px`;
   });
   const input = useRef<HTMLInputElement>(null);
   const open = (name: string) => {
