@@ -16,6 +16,7 @@ import { cutLevel, pondWater, shapeEasyStart } from "../../src/core/land/easySta
 import { runsToTiles } from "../../src/core/math/grid";
 import { stream } from "../../src/core/math/rng";
 import { mapObjects } from "../../src/core/sim/model";
+import { canonicalSettle } from "../../src/core/sim/prefill";
 import { decodeSpecFragment, encodeSpecFragment, makeSpec } from "../../src/core/spec/mapspec";
 import { validateMap } from "../../src/core/validate/checks";
 
@@ -280,21 +281,48 @@ describe("a generated map with Easy start on", () => {
     expect(m.metal.value).toBeLessThanOrEqual(EASY_START.ruins);
     expect(m.hazards.value).toBe(0);
     expect(m.view.value).toBe(1);
-    // (D453: the start's clearing and pond were shaped on the settled water of the kept land, never on the plan's
-    // estimate of it: the water its cut joins stands, on the map's own settled water, where the shape read it; the
-    // clearing is a level over the cut, the cut under that water and the clearing dry over it. Six maps read it
-    // within 0.002 but one, a shallow river whose cut's mouth drew its surface down 0.18: a quarter of a level
-    // holds them all, where the plan's estimate stood a level off as often as not)
-    const e = r.info.easy!;
-    const surface = r.built.heights[e.water] + r.built.water[e.water];
-    expect(r.built.water[e.water]).toBeGreaterThan(0.05);
-    expect(Math.abs(surface - e.surface)).toBeLessThan(0.25);
-    expect(r.built.start!.z).toBe(e.level);
-    expect(surface).toBeGreaterThan(e.level - 1);
-    expect(e.level - surface).toBeGreaterThan(0.1);
+    // (the start stands on its clearing, whichever water its shape was cut on, D453: below)
+    expect(r.built.start!.z).toBe(r.info.easy!.level);
     // (the map without it has no such rows: the setting changes nothing when off)
     const off = generate(makeSpec({ seed: 2, theme: "any" }), { maxAttempts: 1 });
     expect(off.report.checks.some((c) => c.id.startsWith("start.easy_"))).toBe(false);
+  });
+
+  // (D453, planning's rulings on #1227: no start is accepted or thrown away on the plan's estimate of the water. The
+  // plan's shape is tried as it stands on the land's one settle and kept where it passes every start check: the map
+  // settles once. Where it fails, the place is shaped on the settled water and its land settled once more. Either
+  // way the file's water is the canonical settle of the land the file holds, D455. Lake Basin 128², seeds 2 and 1,
+  // each made on its first attempt, without the 3D forms, whose own water is settled again: a generator change that
+  // moves them takes other seeds, tools/attempts.ts --easy lists each map's `easyOn`)
+  it("keeps the plan's shape where it holds on the land's one settle, and shapes on the settled water where it does not", () => {
+    const made = (seed: number) => {
+      const spec = makeSpec({ seed, theme: "lakeBasin" });
+      spec.settings.start.easyStart = true;
+      const r = generate(spec, { forms: false });
+      expect(r.report.passed).toBe(true);
+      expect(r.attempts).toBe(1);
+      expect(r.built.start!.z).toBe(r.info.easy!.level);
+      // (the file's water: the settle of its final land, cold from the pre-fill)
+      const again = canonicalSettle(r.built.waterModel);
+      expect(Array.from(again.depth)).toEqual(Array.from(r.built.water));
+      return r;
+    };
+    const kept = made(2);
+    expect(kept.info.easy!.on).toBe("plan");
+    expect(kept.info.settles).toBe(1);
+    const shaped = made(1);
+    const e = shaped.info.easy!;
+    expect(e.on).toBe("settled");
+    expect(shaped.info.settles).toBe(2);
+    // (shaped on the settled water: the water its cut joins stands, on the map's own settled water, where the shape
+    // read it; the clearing is a level over the cut, the cut under that water and the clearing dry over it. Six
+    // maps read it within 0.002 but one, a shallow river whose cut's mouth drew its surface down 0.18: a quarter of
+    // a level holds them all, where the plan's estimate stood a level off as often as not)
+    const surface = shaped.built.heights[e.water] + shaped.built.water[e.water];
+    expect(shaped.built.water[e.water]).toBeGreaterThan(0.05);
+    expect(Math.abs(surface - e.surface)).toBeLessThan(0.25);
+    expect(surface).toBeGreaterThan(e.level - 1);
+    expect(e.level - surface).toBeGreaterThan(0.1);
   });
 
   // (D453, the long map that took minutes: the read on the start's build found no start, the build stopped before

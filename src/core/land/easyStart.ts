@@ -1,7 +1,8 @@
-// Easy start's ground (D495), shaped on the settled water of the kept land (D453: the generator settles the land
-// as it is, shapes the place on that water and settles once more; the plan's water only finds the places and reserves
-// their ground), before the land is shown (D348): a level clearing round the start and a backwater pond beside it,
-// so a player can build and pump at once. Nothing is stamped: the clearing's
+// Easy start's ground (D495), before the land is shown (D348): a level clearing round the start and a backwater pond
+// beside it, so a player can build and pump at once. It is cut as the land is planned, on the planned water, and kept
+// where it passes every start check on the land's settled water; where it does not, the generator takes it out of
+// the land again and shapes the place on the settled water, then settles once more (D453: no start is accepted or
+// thrown away on the plan's estimate). Nothing is stamped: the clearing's
 // outline, its rim, the pond's shore and the cut's course follow a noise field the seed draws and the land's own
 // levels, so each reads as ground the water and the weather made.
 //
@@ -12,8 +13,8 @@
 //   turns bad at once. Its shore grows out from its middle over the lower ground first, as water pools; the cut
 //   takes the low ground's way to the water, bending where the land does, a tile wide at the pond and opening
 //   to the water's mouth, its banks sloping back up to the land.
-// - The clearing: the start stands a level above the cut and a fifth of a level or more above the water's
-//   surface (a third on the plan's estimate), so it stays dry and a pump on its own ground draws the pond after a
+// - The clearing: the start stands a level above the cut and a third of a level or more above the water's
+//   planned surface (a fifth above the settled one), so it stays dry and a pump on its own ground draws the pond after a
 //   drought too (a pump reaches 2 levels down; a drought leaves the pond half a level under its sill). Its ground within about 13 tiles, joined
 //   to it, is made level at that level: higher ground cut down (a start planned up to three levels higher sits in
 //   a clearing cut into its bench), a dip filled only well away from water (filling never dams water: D290, D328).
@@ -53,11 +54,11 @@ export interface EasyPlace {
   level: number;
 }
 
-/** The water a place is shaped on. `settled` (the generator, D453): the settled water of the kept land, read as it
- *  stands: `depth` alone says where water is (the plan's channels the water left are ground), its surface is the
- *  floor and the depth, and the water a pond is joined to is `SETTLED.feeds` deep or more. Otherwise the water the
- *  land was planned with (`water`: the hydrology's 1 channels, 2 lakes), an estimate: what the plan-time search and
- *  the reservation of a place's ground read. */
+/** The water a place is shaped on. `settled` (the generator, D453, once the plan's shape failed): the settled water
+ *  of the kept land, read as it stands: `depth` alone says where water is (the plan's channels the water left are
+ *  ground), its surface is the floor and the depth, and the water a pond is joined to is `SETTLED.feeds` deep or
+ *  more. Otherwise the water the land was planned with (`water`: the hydrology's 1 channels, 2 lakes), an estimate:
+ *  what the plan's search reads and what the plan's shapes are cut on. */
 export interface EasyWater {
   depth: ArrayLike<number>;
   water: ArrayLike<number> | null;
@@ -139,9 +140,9 @@ export interface EasyShape {
   surface: number;
 }
 
-/** Shapes the start's clearing and pond on `h`, on the water `w` (the settled water of the kept land; or the water
- *  the land was planned with, for the plan's search and the ground it reserves), keeping off `off` (a river's head,
- *  badwater) and `taken` (the ground other starts' shapes hold). Null, `h` unchanged, when the place has no water a
+/** Shapes the start's clearing and pond on `h`, on the water `w` (the water the land was planned with, as the land
+ *  is planned; or the settled water of the kept land, where no plan's shape held on it), keeping off `off` (a
+ *  river's head, badwater) and `taken` (the ground other starts' shapes hold). Null, `h` unchanged, when the place has no water a
  *  pond can be joined to (`pondWater`), no room for a pond, no way to the water for its cut, or would reach ground
  *  `taken` holds. */
 export function shapeEasyStart(h: Uint8Array, W: number, H: number, p: EasyPlace, w: EasyWater, rng: Rng, off: Uint8Array | null = null, taken: Uint8Array | null = null): EasyShape | null {

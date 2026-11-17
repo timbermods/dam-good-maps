@@ -124,7 +124,7 @@ for (const [x, y] of shapes)
         }
         row = {
           theme, shape: `${x}x${y}`, seed, easy, ok: r.report.passed, attempts: r.attempts, s: round1(cpu() - c0), wall: round1((performance.now() - t0) / 1000),
-          settles: tries.reduce((n, t) => n + t.settles, 0), genomes: r.info.genomes, start: st ? [st.x, st.y] : null, sha: createHash("sha256").update(r.bytes).digest("hex").slice(0, 12), ...(r.easyShort ? { easyShort: r.easyShort } : {}), ...shown, tries,
+          settles: tries.reduce((n, t) => n + t.settles, 0), genomes: r.info.genomes, start: st ? [st.x, st.y] : null, sha: createHash("sha256").update(r.bytes).digest("hex").slice(0, 12), ...(r.easyShort ? { easyShort: r.easyShort } : {}), ...(r.info.easy ? { easyOn: r.info.easy.on } : {}), ...shown, tries,
         };
       } catch (e) {
         row = { theme, shape: `${x}x${y}`, seed, easy, ok: false, crash: String(e), s: round1(cpu() - c0), wall: round1((performance.now() - t0) / 1000), tries };
