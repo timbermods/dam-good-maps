@@ -107,7 +107,10 @@ import * as ed from "../../src/worker/session";
 // and generator 0.10.39 over the cap: `7006d8e4…` before it, the version alone (D(plates-turned) moves a premise's plates, never a
 // theme's land), on the land the cap (#1213, merged in
 // from dev) gives; against this branch's own pin before the merge (`9bd38788…`, the floor pass's cap alone) it moved by land too, D148
-const LIVE_SHA = "947612897543c6556f85f56174e03289219f5ba743b645bf27474eefb9f95ab6";
+// and generator 0.10.41's gullies and sea steps (D(new-ditch), D(sea-steps)): `94761289…` before it, not the version alone (with
+// the version set back to 0.10.39 the branch gives `2159e2bd…`): its pits' gullies move its land, the map made on its second
+// attempt, every check passing, D148
+const LIVE_SHA = "a81e89f117104333d15ad4c47013a3a2ccfab75310023a9dd7acc8db7bc79aa6";
 const spec = () => makeSpec({ seed: 4242, size: { x: 128, y: 128 }, theme: "riverValley", designedFor: "normal" });
 
 describe("mine sites and ruins, models of our own", () => {
