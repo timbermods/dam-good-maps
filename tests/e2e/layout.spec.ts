@@ -1614,7 +1614,10 @@ for (const phone of PHONES) {
         for (const e of g.children) {
           const r = e.getBoundingClientRect();
           if (!(r.height > 0)) continue;
-          const span = getComputedStyle(e).gridColumnEnd.startsWith("span") ? Number(getComputedStyle(e).gridColumnEnd.slice(5)) : 1;
+          // (`grid-column: span 2` puts the span on the start)
+          const cs = getComputedStyle(e);
+          const on = [cs.gridColumnStart, cs.gridColumnEnd].find((v) => v.startsWith("span"));
+          const span = on ? Number(on.slice(5)) : 1;
           by.set(Math.round(r.top), (by.get(Math.round(r.top)) ?? 0) + span);
         }
         return { across, filled: [...by.entries()].sort((a, b) => a[0] - b[0]).map((r) => r[1]) };

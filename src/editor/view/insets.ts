@@ -37,15 +37,26 @@ export function firstInsets(view: HTMLElement): FrameInsets {
   return measureInsets(view, true);
 }
 
-/** The first steps' hints, shown, as a piece over the view (`hints`): low and wide, over the foot; else at the side it
- *  stands in. */
+/** How wide a map stands to its height as first framed (its orbit view from the south-east, walls and all): the room a
+ *  first view keeps is judged by the map it can hold, `hintsReach`. */
+const MAP_ASPECT = 1.5;
+
+/** The first steps' hints, shown, as a piece over the view (`hints`): the map is framed above their card or beside it,
+ *  whichever leaves it the bigger room (upright, a card across the foot: above it; a card low at one side: beside it only
+ *  when that holds a bigger map, as on a phone on its side; a room beside the card took all its height on a small tablet
+ *  and left the map too small to work on). */
 function hintsReach(view: HTMLElement, v: DOMRect, out: FrameInsets, reach: (n: number) => number): void {
   const el = view.querySelector<HTMLElement>(".tool-dock > .first-run");
   const b = el?.getBoundingClientRect();
   if (!el || !b?.width || !b.height || el.closest("[hidden]") || getComputedStyle(el).visibility === "hidden") return;
-  if (b.width >= v.width / 2 || b.top + b.height / 2 > v.top + (v.height * 2) / 3) out.bottom = Math.max(out.bottom, reach(v.bottom - b.top));
-  else if (b.left + b.width / 2 < v.left + v.width / 2) out.left = Math.max(out.left, reach(b.right - v.left));
-  else out.right = Math.max(out.right, reach(v.right - b.left));
+  const leftHalf = b.left + b.width / 2 < v.left + v.width / 2;
+  const options: FrameInsets[] = [
+    { ...out, bottom: Math.max(out.bottom, reach(v.bottom - b.top)) },
+    leftHalf ? { ...out, left: Math.max(out.left, reach(b.right - v.left)) } : { ...out, right: Math.max(out.right, reach(v.right - b.left)) },
+  ];
+  // (the map each room holds: its width, or its height times the map's aspect, whichever is short)
+  const holds = (i: FrameInsets) => Math.min(v.width - i.left - i.right, (v.height - i.top - i.bottom) * MAP_ASPECT);
+  Object.assign(out, holds(options[1]) > holds(options[0]) ? options[1] : options[0]);
 }
 
 /** A phone's layout (#1074): each piece over the view by where it stands: the tool row and a sheet over the foot (as

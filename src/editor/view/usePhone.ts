@@ -144,9 +144,9 @@ export function usePhone(ed: Ed): PhoneSlice {
       if (show) endShowOnWhole(show);
       const was = room.current;
       const layout = phone ?? ("tablet" as const);
-      // (the room the map was first framed in counts the first steps' hints, as its first view did, `firstInsets`: the
-      // ground in its middle is the map's middle, kept there by the next slide)
-      const ins = measureInsets(view, !was);
+      // (the room leaves the first steps' hints out: only the map's first view counts them, `firstInsets`; a room that
+      // counted them once slid the ground in its middle by their height at the next change)
+      const ins = measureInsets(view);
       r.setFrameInsets(ins);
       const now = { ...roomCentre(r.canvas.getBoundingClientRect(), ins), phone: layout };
       room.current = now;

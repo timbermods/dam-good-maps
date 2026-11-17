@@ -237,8 +237,8 @@ place of its bottom rule.
   first steps' hints say what a finger does (on a tablet too: the objects under Objects, an object pressed, dragged
   and lifted into place, never "click") and stand above the sheet, never over a control or the map's middle (they
   step aside while a sheet is pulled up), and their × puts them away for good. A map's first view is framed clear of
-  them (planning, #1074: their card took a fifth of the screen upright, the map's left on its side; `view/insets.ts`
-  `firstInsets`); later framings let them float over the map. **The rest of the page** (#1074, slice 4;
+  them, above their card or beside it, whichever leaves the bigger room (planning, #1074: their card took a fifth of the
+  screen upright, the map's left on its side; `view/insets.ts` `firstInsets`); later framings let them float over the map. **The rest of the page** (#1074, slice 4;
   `tests/e2e/phonePages.spec.ts`): each of the menu's panels (Map Generator, Real places, Your maps, History) is a page
   the whole screen under the bar, **Map** at its top going back to the map, the page scrolling inside itself; Wherever such a page covers more than half the view (a phone's, a
   tablet's), it closes when a new map opens (Generate, a Real place, a map reopened), so the map shows; the menu reopens it
