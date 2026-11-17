@@ -66,7 +66,9 @@ import { decodeSpecFragment, encodeSpecFragment, makeSpec, type MapSpec } from "
 // `c42349c0…` byte for byte, Generous's forms kept in and a small map's gentle rescue land not reaching this map, D148)
 // and generator 0.10.38's version alone (the dead-stand cap): with the version set back to 0.10.37 the branch gives
 // `a7b0b746…` byte for byte, D148
-const SHA = "966388376923fe804fbde2f18504b7062b5e3eb611adebcc1d51ba4b28b88eda";
+// and generator 0.10.40's version alone (#1193, small maps at their own scale, not reaching a 128² map): with the version
+// set back to 0.10.38 the branch gives `96638837…` byte for byte, D148
+const SHA = "a6e7f057d1d1a2c8574a1871177017e549c9e218216fe5ef9dabf5e912c1844f";
 
 // (a Hard map whose start lake parts as it falls: the single analytic reading stood 0.32 over the run there, PR #1040;
 // seed 5 for 7 since D518 with dev's ways out by a ramp's line (#1061), D148: seed 7's Hard lake stair holds no plan now

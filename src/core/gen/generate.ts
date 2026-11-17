@@ -56,7 +56,7 @@ import { makeField } from "../land/field";
 import { shapeLakeBasin } from "../land/lakeBasin";
 import { shapeCanyon } from "../land/canyon";
 import { shapeHighlands } from "../land/highlands";
-import { BED_FLOOR, drawGenome, leanGenome, type Genome } from "../land/genome";
+import { BED_FLOOR, drawGenome, leanGenome, ownScaleFor, type Genome } from "../land/genome";
 import { joinReach, mainWater, planBadwater, standingTheme, type Hazards } from "../land/hazards";
 import { besideCourses, blockedCourses, closeBackEdges, closeSideEdges, drownedHeads, sealedMouths } from "../land/courses";
 import { mouthTilesOf } from "../features/raster/terrain";
@@ -767,12 +767,12 @@ function attemptRound(specIn: MapSpec, optsIn: GenerateOptions, t0: number, roun
       const drawn = round * ROUND_GENOMES + genomes;
       // (a late rescue round draws its land nearer the theme's settings, D471)
       const asked = easedSettings(specIn.settings, specIn.theme, opts.ease ?? 0);
-      // (a map under 128² at its own scale, `DrawOptions.ownScale`: its parts by area, its levels' spread and its rivers'
-      // incision by the root of its side's ratio to 128 from the first round, by the ratio itself from the eighth, its
-      // gentle land; a 48² map drew a 128²'s parts and 13 levels, and took 40 attempts, 8 now. Highlands keeps a 128²'s
-      // land until the eighth: its promise is height, four levels over its water, and at its own scale it held on 2 maps
-      // in 12 at 64², against 7, and took more attempts, not fewer)
-      const g = drawGenome(specIn.theme, seed, W, H, drawn, { vt: asked.terrain.verticality, intentions: keep, variety: opts.variety ?? asked.terrain.variety, ...(specIn.variation ? { variation: specIn.variation } : {}), ...(W * H < 128 * 128 && ((opts.ease ?? 0) >= 8 || specIn.theme !== "highlands") ? { ownScale: (opts.ease ?? 0) >= 8 ? "side" : "root" } : {}) });
+      // (a map narrower than 96 at its own scale from the first round, #1193, `ownScaleFor`: its parts by area, its
+      // levels' spread and its rivers' incision by the root of its narrower side's ratio to 128; a 48² map drew a 128²'s
+      // parts and 13 levels, and took 40 attempts, 8 now; Highlands from the eighth, and from the eighth, under 128²,
+      // every theme's gentle land at the ratio itself, D471)
+      const own = ownScaleFor(specIn.theme, W, H, opts.ease ?? 0);
+      const g = drawGenome(specIn.theme, seed, W, H, drawn, { vt: asked.terrain.verticality, intentions: keep, variety: opts.variety ?? asked.terrain.variety, ...(specIn.variation ? { variation: specIn.variation } : {}), ...(own ? { ownScale: own } : {}) });
       leanGenome(g, asked, W, H, seed, drawn, specIn.designedFor);
       // (Lake Basin round 2, D453, D458: one valley basin in a stronger radial catchment, on every
       // Lake Basin map, whatever its settings, intentions or siblings: Kyler, 2026-10-03)

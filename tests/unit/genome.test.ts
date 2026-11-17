@@ -2,10 +2,10 @@
 // from "Any" (D208, D209), deterministically, with Verticality's heights above 16 from 70 (D172).
 
 import { describe, expect, it } from "vitest";
-import { drawGenome, EDITOR_TOP, GAME_TOP, LEANINGS, VT_HIGH, tallTop, type Genome } from "../../src/core/land/genome";
+import { drawGenome, EDITOR_TOP, GAME_TOP, LEANINGS, leanGenome, ownScaleFor, VT_HIGH, tallTop, type Genome } from "../../src/core/land/genome";
 import { ACTIVE, drawIntentions, clashes } from "../../src/core/land/intentions";
 import { stream } from "../../src/core/math/rng";
-import { VT_DEFAULT } from "../../src/core/spec/mapspec";
+import { makeSpec, VT_DEFAULT } from "../../src/core/spec/mapspec";
 
 const THEMES = ["any", ...LEANINGS] as const;
 
@@ -90,5 +90,38 @@ describe("the genome", () => {
     expect(counts[0]).toBe(0);
     expect(counts[1]).toBeGreaterThan(200);
     expect(counts[2]).toBeGreaterThan(100);
+  });
+
+  // #1193: a map narrower than 96 draws its land at its own scale from the first round, not a 128²'s squeezed in;
+  // 96² and up keep a 128²'s land (but for a late rescue round's gentle land, D471), and Highlands, whose promise is
+  // height, waits for the eighth round
+  it("draws a map narrower than 96 at its own scale from the first round, and a 96² map at a 128²'s", () => {
+    const relief = (theme: "delta" | "riverValley", n: number, seed: number) => {
+      const own = ownScaleFor(theme, n, n, 0);
+      const g = drawGenome(theme, seed, n, n, 0, own ? { ownScale: own } : {});
+      leanGenome(g, makeSpec({ seed, size: { x: n, y: n }, theme }).settings, n, n, seed, 0, "normal");
+      return { relief: g.relief, parts: g.parts.length, own: g.ownScale };
+    };
+    expect(ownScaleFor("delta", 48, 48, 0)).toBe("root");
+    expect(ownScaleFor("riverValley", 64, 192, 0)).toBe("root");
+    expect(ownScaleFor("delta", 96, 96, 0)).toBeNull();
+    expect(ownScaleFor("highlands", 48, 48, 0)).toBeNull();
+    expect(ownScaleFor("highlands", 48, 48, 8)).toBe("side");
+    let bigParts = 0, smallParts = 0;
+    for (const theme of ["delta", "riverValley"] as const)
+      for (let seed = 1; seed <= 6; seed++) {
+        const big = relief(theme, 128, seed);
+        const small = relief(theme, 48, seed);
+        expect(small.own, `${theme} ${seed}: 48² at its own scale`).toBeCloseTo(Math.sqrt(48 / 128), 9);
+        // (its levels' spread a root of 48/128 of what a 128²'s would be)
+        expect(small.relief, `${theme} ${seed}: 48²'s levels under 128²'s`).toBeLessThan(big.relief);
+        bigParts += big.parts;
+        smallParts += small.parts;
+        const at96 = relief(theme, 96, seed);
+        expect(at96.own, `${theme} ${seed}: 96² at a 128²'s scale`).toBeUndefined();
+        expect(at96.relief, `${theme} ${seed}: 96²'s levels a 128²'s`).toBe(big.relief);
+      }
+    // (and its parts by its area: a theme's few parts round alike now and then, so counted over the twelve)
+    expect(smallParts).toBeLessThan(bigParts * 0.75);
   });
 });
