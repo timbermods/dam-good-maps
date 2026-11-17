@@ -1168,6 +1168,50 @@ for (const phone of PHONES) {
       await idle();
       expect(Math.abs((await pos()) - end), "a setting moved pulled the row back to the tool in hand").toBeLessThan(1);
     });
+
+    // (the wheel or a trackpad's pan on the row mid-glide takes it as a finger or the mouse does: the row rests where the
+    // pan left it, never going back to the tool in hand. The wheel is sent from the page the frame the glide is seen to
+    // move, so the glide is certainly still on, and its pan is the row scrolled to its start in the same frame)
+    test(`at ${phone.viewport.width}×${phone.viewport.height}: a wheel on the row during the glide to the tool in hand takes the row`, async ({ page }) => {
+      test.setTimeout(120_000);
+      await openEditor(page);
+      const bar = page.locator(".tool-dock > .tool-bar");
+      const inRow = () =>
+        bar.evaluate((b) => {
+          const q = b.getBoundingClientRect();
+          const r = b.querySelector("button[aria-label^='Craterize']")!.getBoundingClientRect();
+          return r.left >= q.left - 0.5 && r.right <= q.right + 0.5 && r.top >= q.top - 0.5 && r.bottom <= q.bottom + 0.5;
+        });
+      const pos = () => bar.evaluate((b) => (b.scrollWidth > b.clientWidth + 1 ? b.scrollLeft : b.scrollTop));
+      await bar.evaluate((b) => b.scrollTo({ left: 0, top: 0, behavior: "instant" }));
+      await page.evaluate(() => new Promise((r) => setTimeout(r, 500)));
+      expect(await inRow(), "Craterize out of view before it is picked").toBe(false);
+
+      const taken = bar.evaluate(
+        (b) =>
+          new Promise<void>((resolve, reject) => {
+            const across = b.scrollWidth > b.clientWidth + 1;
+            const at = () => (across ? b.scrollLeft : b.scrollTop);
+            const t0 = performance.now();
+            const tick = () => {
+              if (at() > 2) {
+                b.dispatchEvent(new WheelEvent("wheel", { bubbles: true, cancelable: true, deltaX: across ? -120 : 0, deltaY: across ? 0 : -120 }));
+                b.scrollTo({ left: 0, top: 0, behavior: "instant" });
+                resolve();
+              } else if (performance.now() - t0 > 10_000) reject(new Error("the row never began to glide to the tool in hand"));
+              else requestAnimationFrame(tick);
+            };
+            requestAnimationFrame(tick);
+          }),
+      );
+      await page.keyboard.press("Shift+Digit2");
+      await taken;
+      await expect(page.locator(".tool-bar button[aria-label^='Craterize']")).toHaveAttribute("aria-pressed", "true");
+      // (past the row's wait for rest and any glide back to the tool in hand)
+      await page.evaluate(() => new Promise((r) => setTimeout(r, 1200)));
+      expect(await pos(), "the row went back to the tool in hand after the wheel took it").toBeLessThan(1);
+      expect(await inRow(), "Craterize back in view after the wheel took the row").toBe(false);
+    });
   });
 }
 

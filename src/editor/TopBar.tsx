@@ -753,7 +753,8 @@ export function TopBar(p: TopBarProps) {
       showHeld(b);
     };
     // (still for a moment and nothing on it: it rests on a tool's start; never while a finger or the mouse is on it. A
-    // glide to the tool in hand goes on to it instead, until it stands there)
+    // glide to the tool in hand goes on to it instead, until it stands there, unless a finger, the mouse or the wheel took
+    // the row)
     let idle = 0;
     let touching = false;
     const rest = () => {
@@ -778,6 +779,9 @@ export function TopBar(p: TopBarProps) {
     // down)
     const fingerUp = (e: TouchEvent) => e.touches.length === 0 && off();
     const mouseDown = (e: PointerEvent) => e.pointerType !== "touch" && on();
+    // (a wheel or a trackpad's pan takes the row too: it has no release to wait for, so the glide's mark goes and the
+    // row's scrolls rest it where it was left)
+    const wheel = () => showing.delete(b);
     const mouseUp = (e: PointerEvent) => e.pointerType !== "touch" && off();
     fit();
     const watch = typeof ResizeObserver === "undefined" ? null : new ResizeObserver(fit);
@@ -787,6 +791,7 @@ export function TopBar(p: TopBarProps) {
     window.addEventListener("touchend", fingerUp, true);
     window.addEventListener("touchcancel", fingerUp, true);
     b.addEventListener("pointerdown", mouseDown, { passive: true });
+    b.addEventListener("wheel", wheel, { passive: true });
     window.addEventListener("pointerup", mouseUp, true);
     window.addEventListener("pointercancel", mouseUp, true);
     return () => {
@@ -797,6 +802,7 @@ export function TopBar(p: TopBarProps) {
       window.removeEventListener("touchend", fingerUp, true);
       window.removeEventListener("touchcancel", fingerUp, true);
       b.removeEventListener("pointerdown", mouseDown);
+      b.removeEventListener("wheel", wheel);
       window.removeEventListener("pointerup", mouseUp, true);
       window.removeEventListener("pointercancel", mouseUp, true);
       b.style.removeProperty("--tool-along");
