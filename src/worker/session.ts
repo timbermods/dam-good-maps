@@ -1744,9 +1744,10 @@ async function driveWeather(run: WeatherRun): Promise<void> {
   try {
     while (run.kept.length - 1 < run.want) {
       const day = run.kept.length;
-      // (a step's ticks: 24 on a heightfield, as ever; one on a map with caves or overhangs, where a tick of a big map
-      // takes as long as a whole slice, so an edit never waits behind more than one; fixed, so the days are the same
-      // on any machine)
+      // (a step's ticks: 24 on a heightfield, as ever; one on a map with caves or overhangs, its badtide's share set
+      // before each tick; fixed, so the days are the same on any machine. A tick of a 256² map with caves takes about
+      // a millisecond, so a slice runs several: the engine no longer checks its whole state again after each share
+      // is set, rust/water/src/stack_memory.rs, #1210)
       const stepTicks = run.run.stack ? 1 : 24;
       let t = 0;
       while (t < TICKS_PER_DAY) {

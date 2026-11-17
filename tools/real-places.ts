@@ -13,6 +13,10 @@
 //                                          springs, start and plants as they are; writes as a full run would)
 //   npm run places -- --shards 1           (one place after another on this process: the places run on one
 //                                          process a core by default, the same log, files and verdicts)
+//   npm run places -- --check --shard 2/5  (checks only shard 2 of 5's places, tools/lib/placeShards.ts, and the whole
+//                                          set's index and files as committed: the Nightly's `places (i/n)` jobs; every
+//                                          place is in one shard, so the shards together are the full --check)
+//   npm run places -- --times              (a line under each place of where its time went: each step, the settles made)
 //
 // For every named place in the library (the three random-land controls are survey controls, not
 // places, and stay out) it writes:
@@ -68,6 +72,7 @@ import { decodeTiles as decodeGaps } from "../src/core/places/place";
 import { keepNearest, settlePlants, startWood, startWoodSpecies } from "./lib/placePlants";
 import { flaggedSources, mendSources } from "./lib/placeSources";
 import { searchFeeds } from "./lib/placeFeeds";
+import { claimOrder as placeClaimOrder, parseShard, shardPlaces, type Shard } from "./lib/placeShards";
 import { DEAD_TREES_KEEP_LOGS, LOG_FLOOR_WALK, LOGS_PER_TREE_SPECIES } from "../src/core/data/logFloor";
 import { startWalkField } from "../src/core/resources/baseline";
 import { writeTimber } from "../src/core/format/timber";
@@ -205,6 +210,14 @@ type Fixture = {
   metres: number;
 };
 
+/** The place's one name (D522, Kyler: "Mount Fuji", not "Near Mount Fuji"): the survey's name without its "Near", its
+ *  scale and its sample's direction. Its id is `slug(name)`. */
+function placeName(item: LibraryItem): string {
+  const survey = item.name.replace(/, \d+ m per tile$/, "").replace(/ \((north|south|east|west|northeast|northwest|southeast|southwest) sample\)$/, "").trim();
+  if (!/^Near /.test(survey)) throw new Error(`${item.id}: unexpected survey name ${survey}`);
+  return RENAME[item.id] ?? survey.replace(/^Near /, "");
+}
+
 /** A library fixture as place data. Every object is checked against what the place's builders
  *  write, so the map is the survey's, object for object. */
 function toPlace(item: LibraryItem, fx: Fixture): PlaceData {
@@ -237,11 +250,7 @@ function toPlace(item: LibraryItem, fx: Fixture): PlaceData {
     edgeLip(heights, W, H, { row: [s.y * W + s.x], surface: heights[s.y * W + s.x] + 1, keep: heads, reach: EDGE_LIP_REACH });
   }
   if (heights.some((v) => v > EDITOR_LEVEL)) throw new Error(`${item.id}: land above level ${EDITOR_LEVEL}`);
-  // the place's one name (D522, Kyler: "Mount Fuji", not "Near Mount Fuji"): the survey's name without its "Near",
-  // its scale and its sample's direction
-  const survey = item.name.replace(/, \d+ m per tile$/, "").replace(/ \((north|south|east|west|northeast|northwest|southeast|southwest) sample\)$/, "").trim();
-  if (!/^Near /.test(survey)) throw new Error(`${item.id}: unexpected survey name ${survey}`);
-  const name = RENAME[item.id] ?? survey.replace(/^Near /, "");
+  const name = placeName(item);
   const fam = FAMILIES[item.family];
   if (!fam) throw new Error(`${item.id}: no family text for ${item.family}`);
   const kinds: Record<"bushes" | "pines" | "birches" | "oaks" | "deadPines" | "ruins", number[]> = { bushes: [], pines: [], birches: [], oaks: [], deadPines: [], ruins: [] };
@@ -340,16 +349,47 @@ function withStart(place: PlaceData, at: [number, number]): PlaceData {
 
 const counts = (c: CheckResult) => !c.ok && !c.advisory && c.applicable !== false && !c.approximate;
 
+/** `--times`: a line under each place of where its run's time went: each step of `runPlace` in turn, and over the
+ *  whole place the builds it checked (`buildChecked`), the settles they made (the rest came from `settles`) and the
+ *  time in their builds and in their checks. Information only: the files are the same. */
+const timesOn = process.argv.includes("--times");
+/** The settle cache, counting the settles it did not hold (each one made). */
+class CountedSettles extends SettleCache {
+  made = 0;
+  override get(m: Parameters<SettleCache["get"]>[0]) {
+    const w = super.get(m);
+    if (!w) this.made++;
+    return w;
+  }
+}
+const spent = { steps: [] as [string, number][], at: 0, builds: 0, build: 0, check: 0 };
+/** Ends the step of the place's run named `name` (`--times`). */
+function lap(name: string): void {
+  const now = performance.now();
+  spent.steps.push([name, now - spent.at]);
+  spent.at = now;
+}
+function timesLine(): string {
+  const s = (ms: number) => `${(ms / 1000).toFixed(1)} s`;
+  const steps = spent.steps.filter(([, ms]) => ms >= 50).map(([k, ms]) => `${k} ${s(ms)}`);
+  return `   times: ${steps.join(", ")}; ${spent.builds} builds checked, ${settles.made} settles made, ${s(spent.build)} building, ${s(spent.check)} checking`;
+}
+
 /** A place built and checked: the export profile (`v`, what the editor's export asks) and every
  *  check of the generate profile (`strict`), with the failures of each that count. */
 /** The settles of the place being run (`runPlace`): its candidates (a start moved, plants moved or planted, a spring
  *  added) are each built and checked, and those whose objects alone differ leave the water as it was, so its settle is
  *  made once, not once a candidate (Katherine Gorge: 44 builds of 7.6 s each). */
-let settles = new SettleCache();
+let settles = new CountedSettles();
 function buildChecked(place: PlaceData) {
+  const t = performance.now();
   const built = buildPlace(place, settles);
+  const t1 = performance.now();
   const v = validatePlace(built);
   const strict = validateMap(built.file, { profile: "generate", designedFor: "normal", features: [], water: { model: built.model, settled: built.settle } });
+  spent.builds++;
+  spent.build += t1 - t;
+  spent.check += performance.now() - t1;
   return { built, v, strict, blocking: v.report.checks.filter(counts), strictFails: strict.report.checks.filter(counts).map((c) => c.id) };
 }
 
@@ -542,6 +582,11 @@ const only = arg("only")?.split(",") ?? null;
 const library = JSON.parse(readFileSync(join(LIBRARY, "index.json"), "utf8")) as { items: LibraryItem[] };
 const items = library.items.filter((it) => it.family !== "random");
 const skipped = library.items.filter((it) => it.family === "random");
+/** `--check --shard i/n` (the Nightly's `places (i/n)` jobs): this run builds and checks only shard i's places
+ *  (tools/lib/placeShards.ts), and the whole set's index and files are checked from what is committed (`checkShard`). */
+const shard = arg("shard") ? parseShard(arg("shard")!) : null;
+if (shard && (!check || only || relayRuins || process.argv.includes("--write"))) throw new Error("--shard i/n goes with --check alone (not --only, --ruins or --write)");
+const mine = shard ? new Set(shardPlaces(items.map((it) => it.size), shard)) : null;
 
 const files = new Map<string, Uint8Array>();
 const entries: PlaceIndexEntry[] = [];
@@ -565,7 +610,8 @@ interface Outcome {
 function runPlace(item: LibraryItem): Outcome | null {
   const fx = JSON.parse(new TextDecoder().decode(gunzipSync(new Uint8Array(readFileSync(join(LIBRARY, item.fixture)))))) as Fixture;
   const out: Outcome = { id: "", lines: [], withheld: [], entries: [], files: [], failed: false };
-  settles = new SettleCache();
+  settles = new CountedSettles();
+  Object.assign(spent, { steps: [], at: performance.now(), builds: 0, build: 0, check: 0 });
   const say = (line: string) => void out.lines.push(line);
   const { withheld, entries } = out;
   const files = { set: (k: string, b: Uint8Array) => void out.files.push([k, b]) };
@@ -602,8 +648,10 @@ function runPlace(item: LibraryItem): Outcome | null {
   // none lies it goes. Before the sources' mend, so a source the new lake takes in merges as any other.
   const basin = basinsFor(item.id, place);
   place = basin.place;
+  lap("basins");
   const mend = mendSources(place);
   place = mend.place;
+  lap("sources");
   const mendNote = mend.merges.length || mend.left.length ? `  sources: ${mend.merges.length} merged${mend.left.length ? `, ${mend.left.length} left in a flow (${mend.left.map((l) => `${l.at.join(",")} ${l.why}`).join("; ")})` : ""}` : "";
   let { built, v, strict, blocking, strictFails } = buildChecked(place);
   // A start the opened rivers flood, or that reaches no water a source feeds, moves (D245: the best
@@ -665,6 +713,7 @@ function runPlace(item: LibraryItem): Outcome | null {
   // spring by its start where no spot gives it water (D245's water floor, src/core/places/spring.ts):
   // opening the edges never leaves a place without the water it had. The best spring the checks
   // pass wins: one that costs nothing ends the search; otherwise the wider tier is tried too.
+  lap("start");
   let spring: [number, number, number][] | null = null;
   if (strictFails.includes("start.water") && !buildChecked({ ...opened, heights: encodeHeights(fx.heights) }).strictFails.includes("start.water")) {
     const had = new Set(strictFails);
@@ -690,6 +739,7 @@ function runPlace(item: LibraryItem): Outcome | null {
   // shore within `WIDE_SHORE_WALK`, a few tiles apart, that passes `start.water` with the room floor (`start.level_land`)
   // on the settled water, its wood grown where it falls short (objects only), and nothing else it passed then failing;
   // the best wins. Where none does, `start.water` stands: the place keeps D445's note.
+  lap("spring");
   let everySpot = "";
   if (strictFails.includes("start.water")) {
     const had = new Set(strictFails);
@@ -724,12 +774,14 @@ function runPlace(item: LibraryItem): Outcome | null {
   // strong it is; kept only where no check the place passed then fails and no film above floor 0 stands. After the start
   // has found its water (a move, a spring by it, every spot), so a spring the start drinks from is never the one taken
   // away; before the berries and plants, which settle on the water the springs leave
+  lap("every spot");
   const feeds = feedsFor(item.id, place);
   if (feeds.place !== place) {
     place = feeds.place;
     ({ built, v, strict, blocking, strictFails } = buildChecked(place));
   }
   const feedNote = feeds.note;
+  lap("springs searched");
   // A start short of berries (after a move or a spring, or on its own land) gets the bushes the
   // `start.food` check's own fix plants (the editor's one-click fix: moist tiles within 20 tiles'
   // walk of the start, nearest first; objects only, never land, D331). Where the fix finds too few
@@ -776,6 +828,7 @@ function runPlace(item: LibraryItem): Outcome | null {
   // it, which stay where they stood as the dead trees they are in the game (DEAD_TREES_KEEP_LOGS); where that is
   // short, the wood moves, not the rule: pines (birches where the place leans to them) on the moist ground nearest
   // it, the fast species `start.wood_fast` (D515) counts, so an oak never lowers its share. The log says so.
+  lap("berries");
   const survive = strict.report.checks.find((c) => c.id === "plants.survive");
   let plants = "";
   let floorsFail = false;
@@ -848,6 +901,7 @@ function runPlace(item: LibraryItem): Outcome | null {
   }
   // The starting-logs floor met by groves (D245): a start still short of `start.wood` or `start.wood_floor` gets fast
   // trees on the moist ground nearest it (`growFastWood`, objects only), kept only where nothing it passed then fails
+  lap("plants");
   let groves = "";
   if (!floorsFail && strict.analysis && (strictFails.includes("start.wood") || strictFails.includes("start.wood_floor"))) {
     const walk = startWalkField(built.heights, place.W, place.H, placeEntities(place, built.heights), { x: place.start[0] + 1, y: place.start[1] + 1 });
@@ -858,6 +912,7 @@ function runPlace(item: LibraryItem): Outcome | null {
       groves = `  ${g.planted} ${g.kind} planted for the start's wood`;
     }
   }
+  lap("groves");
   if (floorsFail) {
     // (a start that cannot keep its wood once its plants stand on ground they live on: never forgotten, never offered)
     withheld.push(place.name);
@@ -888,11 +943,13 @@ function finishPlace(item: LibraryItem, place: PlaceData, columns: number, t: nu
   // Ruin fields along the land (D(new-ruins)): the survey's ruled squares go and the generator's laying (D518) lays the
   // place's columns again on its settled ground, objects only. The water and soil they are read from stay as they are
   // (the build throws if the water moved), and a laying that fails a check the place passed is not kept.
+  lap("before the ruins");
   const bare = { ...place, ruins: encodeTiles([]) };
   const laid = layRuins(bare, buildChecked(bare), columns);
   place = laid.place;
   const { built, v, strict, blocking, strictFails } = laid.checked;
   const ruinNote = laid.note;
+  lap("ruins");
   const bytes = writeTimber(built.file);
   const ms = Math.round(performance.now() - t);
   // the conversion's known faults (every place has them, D200) and the places' own recorded
@@ -933,9 +990,12 @@ function finishPlace(item: LibraryItem, place: PlaceData, columns: number, t: nu
   // what opens is what the game keeps (planning's rule, #236: no known list): the file's water model settled again,
   // as the first edit settles it, keeps the wet tiles within 1 % and every body of 30 tiles or more; and no film above
   // floor 0. A floor-0 sheet the edge's spill holds (D303) is allowed and counted, over real water and real dry land.
+  lap("files");
   const w = waterVerdict(item.id, built);
   say(w.line);
   if (w.failed) out.failed = true;
+  lap("water verdict");
+  if (timesOn) say(timesLine());
   return out;
 }
 
@@ -981,7 +1041,7 @@ if (claimDir) {
     // written whole, then renamed, so a run stopped part-way never leaves half an outcome for `--resume`
     writeFileSync(join(claimDir, `out-${i}.json.part`), JSON.stringify(o ? { ...o, files: o.files.map(([f, b]) => [f, Buffer.from(b).toString("base64")]) } : null));
     renameSync(join(claimDir, `out-${i}.json.part`), join(claimDir, `out-${i}.json`));
-    if (o) console.error(`done ${items[i].id} (${o.id}) in ${Math.round((performance.now() - t) / 1000)} s; ${readdirSync(claimDir).filter((f) => /^out-\d+\.json$/.test(f)).length} of ${items.length} places`);
+    if (o) console.error(`done ${items[i].id} (${o.id}) in ${Math.round((performance.now() - t) / 1000)} s; ${readdirSync(claimDir).filter((f) => /^out-\d+\.json$/.test(f)).length} of ${mine?.size ?? items.length} places`);
   }
   process.exit(0);
 }
@@ -1001,13 +1061,13 @@ for (const o of outcomes) {
 /** The order the processes claim the places in: the biggest maps first (their settles are the longest), the library's
  *  order among equals. */
 function claimOrder(): number[] {
-  return items.map((_, i) => i).sort((a, b) => items[b].size - items[a].size || a - b);
+  return placeClaimOrder(items.map((it) => it.size)).filter((i) => !mine || mine.has(i));
 }
 
 /** Every place's outcome, in the library's order: on `SHARDS` processes (no more than `--only` names), or on this one for a single place or a machine of one core. */
 async function runShards(): Promise<(Outcome | null)[]> {
-  const n = Math.min(SHARDS, only ? only.length : items.length);
-  if (n <= 1) return items.map((item) => runPlace(item));
+  const n = Math.min(SHARDS, only ? only.length : (mine?.size ?? items.length));
+  if (n <= 1) return items.map((item, i) => (mine && !mine.has(i) ? null : runPlace(item)));
   // `--resume <dir>`: the places' outcomes are kept in <dir> (one file each, as each place ends), and a run started again
   // with the same <dir> and the same code skips the places already done there; a place claimed but never finished (the
   // run stopped) is claimed again
@@ -1035,6 +1095,7 @@ async function runShards(): Promise<(Outcome | null)[]> {
       ),
     );
     return items.map((_, i) => {
+      if (mine && !mine.has(i)) return null;
       const raw = JSON.parse(readFileSync(join(dir, `out-${i}.json`), "utf8")) as (Omit<Outcome, "files"> & { files: [string, string][] }) | null;
       return raw ? { ...raw, files: raw.files.map(([f, b]): [string, Uint8Array] => [f, new Uint8Array(Buffer.from(b, "base64"))]) } : null;
     });
@@ -1043,15 +1104,72 @@ async function runShards(): Promise<(Outcome | null)[]> {
   }
 }
 
+/**
+ * `--check --shard i/n`: what a full `--check` says, split so the shards together say it. This shard's places, built
+ * fresh: each offered one's data and card are the committed bytes and its index entry is the committed one; each withheld
+ * one has no entry, data or card. The whole set, from what is committed (no build, every shard): index.json is the bytes
+ * the tool makes from its own entries, those entries are library places in the library's order, once each, and every
+ * file under data/ and cards/ is one an entry names. Every place is in exactly one shard, so the shards' union is the
+ * full check: the same files compared, the same entries, no place offered that a fresh run withholds or the reverse.
+ */
+function checkShard(s: Shard): never {
+  const differ: string[] = [];
+  const committed = JSON.parse(readFileSync(join(OUT, "index.json"), "utf8")) as PlaceIndex;
+  const byId = new Map(committed.places.map((e) => [e.id, e]));
+  let offered = 0;
+  for (const o of outcomes) {
+    if (!o) continue;
+    for (const [k, b] of o.files) {
+      const p = join(OUT, k);
+      if (!existsSync(p) || sha256(new Uint8Array(readFileSync(p))) !== sha256(b)) differ.push(k);
+    }
+    for (const e of o.entries) {
+      offered++;
+      if (JSON.stringify(byId.get(e.id)) !== JSON.stringify(e)) differ.push(`index.json (${e.id})`);
+    }
+    if (o.withheld.length) {
+      if (byId.has(o.id)) differ.push(`index.json (${o.id}, withheld)`);
+      for (const k of [`data/${o.id}.json.gz`, `cards/${o.id}.jpg`]) if (existsSync(join(OUT, k))) differ.push(`${k} (withheld)`);
+    }
+  }
+  // the whole set, from the committed files
+  const ids = items.map((it) => slug(placeName(it)));
+  if (new Set(ids).size !== ids.length) throw new Error("two library places have one id");
+  const at = committed.places.map((e) => ids.indexOf(e.id));
+  if (at.some((k, j) => k < 0 || (j > 0 && k <= at[j - 1]))) differ.push("index.json (its places are not library places once each, in the library's order)");
+  if (sha256(new Uint8Array(readFileSync(join(OUT, "index.json")))) !== sha256(indexBytes(committed.places))) differ.push("index.json (not the tool's index of its own entries)");
+  const named = new Set(committed.places.flatMap((e) => [e.data, e.image]));
+  for (const dir of ["data", "cards"]) {
+    if (!existsSync(join(OUT, dir))) continue;
+    for (const f of readdirSync(join(OUT, dir))) if (!named.has(`${dir}/${f}`)) differ.push(`${dir}/${f} (no index entry names it)`);
+  }
+  console.log(
+    `shard ${s.i} of ${s.n}: ${offered} offered, ${withheld.length} withheld${withheld.length ? `: ${withheld.join(", ")}` : ""} of its ${mine!.size} places; ${Math.round((performance.now() - t0) / 1000)} s. ` +
+      `The whole set as committed: ${committed.places.length} offered of ${items.length}; left out ${skipped.length} random-land controls (${skipped.map((x) => x.id).join(", ")}).`,
+  );
+  if (differ.length) {
+    console.error(`${OUT} differs from a fresh run: ${differ.join(", ")}. Run npm run places.`);
+    process.exit(1);
+  }
+  console.log(`${OUT} matches a fresh run for shard ${s.i} of ${s.n}, and the whole set's index and files hold together`);
+  process.exit(0);
+}
+
 if (failures) {
   console.error(`${failures} place(s) failed a check: nothing written`);
   process.exit(1);
 }
 
-// the gallery keeps the library's order: rounds of one place per family, so neighbours differ
-const families = [...new Set(entries.map((e) => e.family))].map((id) => ({ id, name: FAMILIES[id].name })).sort((a, b) => a.name.localeCompare(b.name));
-const index: PlaceIndex = { format: 1, count: entries.length, families, sizes: [...new Set(entries.map((e) => e.size))].sort((a, b) => a - b), places: entries };
-files.set("index.json", strToU8(JSON.stringify(index, null, 1) + "\n"));
+if (shard) checkShard(shard);
+
+/** index.json's bytes for these entries (the offered places, in the library's order: the gallery keeps it, rounds of one
+ *  place per family, so neighbours differ). */
+function indexBytes(entries: PlaceIndexEntry[]): Uint8Array {
+  const families = [...new Set(entries.map((e) => e.family))].map((id) => ({ id, name: FAMILIES[id].name })).sort((a, b) => a.name.localeCompare(b.name));
+  const index: PlaceIndex = { format: 1, count: entries.length, families, sizes: [...new Set(entries.map((e) => e.size))].sort((a, b) => a - b), places: entries };
+  return strToU8(JSON.stringify(index, null, 1) + "\n");
+}
+files.set("index.json", indexBytes(entries));
 
 const total = [...files.values()].reduce((s, b) => s + b.length, 0);
 const dataBytes = [...files].filter(([k]) => k.startsWith("data/")).reduce((s, [, b]) => s + b.length, 0);

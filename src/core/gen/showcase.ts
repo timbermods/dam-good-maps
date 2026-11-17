@@ -491,7 +491,7 @@ export function scoreCandidate(r: GenerateResult, index: number, spec: MapSpec):
 
 /**
  * Makes the asked map's siblings in order (`showcaseSpec`), scores each by its arc, and keeps the best
- * three that passed every absolute, never two on the same land (the better of two is kept). It yields
+ * three that passed every absolute, never two on the same land or under the same name (the better of two is kept). It yields
  * between candidates, so a worker hears a stop while it runs. Deterministic for the spec and the number of candidates made.
  */
 export async function showcaseSearch(spec: MapSpec, opts: ShowcaseOptions = {}): Promise<ShowcaseResult> {
@@ -511,10 +511,11 @@ export async function showcaseSearch(spec: MapSpec, opts: ShowcaseOptions = {}):
     const r = generate(s);
     const c = scoreCandidate(r, tried, s);
     tried++;
-    // (a sibling on a kept pick's land replaces it when it ranks before it, else is passed over)
-    const twin = c.arc ? best.findIndex((p) => sameLand(p.result.built.heights, r.built.heights)) : -1;
-    if (c.arc && (twin < 0 || before(c, best[twin]))) {
-      if (twin >= 0) best.splice(twin, 1);
+    // (a sibling on a kept pick's land, or under its name, replaces it when it ranks before it, else is passed over: no
+    // two cards on one land, and none under one name)
+    const twins = c.arc ? best.filter((p) => sameLand(p.result.built.heights, r.built.heights) || (!!c.name && p.name === c.name)) : [];
+    if (c.arc && twins.every((p) => before(c, p))) {
+      for (const p of twins) best.splice(best.indexOf(p), 1);
       let at = best.length;
       while (at > 0 && before(c, best[at - 1])) at--;
       if (at < SHOWCASE_KEEP) {
