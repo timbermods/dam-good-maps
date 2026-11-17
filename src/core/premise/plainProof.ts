@@ -9,6 +9,7 @@ import { MapSession } from "../doc/session";
 import type { BuildResult } from "../features/build";
 import { startMiddleTile } from "../format/footprints";
 import { tilesToRuns } from "../math/grid";
+import { hypot } from "../math/portable";
 import type { MapSpec } from "../spec/mapspec";
 import { floorTiles, leftToWin, settledBands, WET, type PlainMap } from "./plainMap";
 import { PLAIN_IDS, plainOf } from "./premises/poisonedPlain";
@@ -109,7 +110,7 @@ export function plainProof(spec: MapSpec, m: PlainMap, file?: (bytes: Uint8Array
   const onStart = (i: number) => Math.abs((i % W) - sx) <= START_KEEP && Math.abs(Math.floor(i / W) - sy) <= START_KEEP;
   const p = plainOf(plan)!;
   const fe = p.fork.path[p.fork.path.length - 1];
-  const forkEdge = (i: number) => edgeOf(i, W, H) >= 0 && Math.hypot((i % W) + 0.5 - fe[0], Math.floor(i / W) + 0.5 - fe[1]) <= FORK_EDGE * W;
+  const forkEdge = (i: number) => edgeOf(i, W, H) >= 0 && hypot((i % W) + 0.5 - fe[0], Math.floor(i / W) + 0.5 - fe[1]) <= FORK_EDGE * W;
   let lip = 0;
   let fork = 0;
   let leaks = 0;
@@ -141,7 +142,7 @@ export function plainProof(spec: MapSpec, m: PlainMap, file?: (bytes: Uint8Array
       if (m.land.relief.floor[i] !== 4) continue;
       const x = (i % W) + 0.5;
       const y = Math.floor(i / W) + 0.5;
-      if (!sl.path.some((q) => Math.hypot(q[0] - x, q[1] - y) <= sl.half + 1)) continue;
+      if (!sl.path.some((q) => hypot(q[0] - x, q[1] - y) <= sl.half + 1)) continue;
       n++;
       if (b2.water[i] >= WET) wet++;
     }

@@ -363,7 +363,9 @@ function pondSite(plan: PremisePlan, w: StageWater, h: ArrayLike<number>, radius
       const y = cy + dy;
       if (x < 0 || y < 0 || x >= W || y >= H) continue;
       const i = y * W + x;
-      if ((x + 0.5 - work.at[0]) ** 2 + (y + 0.5 - work.at[1]) ** 2 > radius * radius) continue;
+      const ex = x + 0.5 - work.at[0];
+      const ey = y + 0.5 - work.at[1];
+      if (ex * ex + ey * ey > radius * radius) continue;
       if (r.lake[i] || r.pool[i] || (r.channel[i] && r.channel[i] !== k)) return [];
       if (r.channel[i] === k) bed = Math.min(bed, h[i]);
       near.push(i);

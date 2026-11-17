@@ -1072,7 +1072,9 @@ export function sloughMouths(plan: PremisePlan, w: StageWater): { slough: string
     let bd = Infinity;
     for (let i = 0; i < W * H; i++) {
       if (r.channel[i] !== riverK) continue;
-      const d = (i % W + 0.5 - a[0]) ** 2 + (Math.floor(i / W) + 0.5 - a[1]) ** 2;
+      const dx = (i % W) + 0.5 - a[0];
+      const dy = Math.floor(i / W) + 0.5 - a[1];
+      const d = dx * dx + dy * dy;
       if (d < bd) [bd, best] = [d, i];
     }
     if (best < 0) continue;
