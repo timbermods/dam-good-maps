@@ -192,8 +192,9 @@ jobs:
           retention-days: 7
 
   # A pull request into dev that touches the forces (a force's Rust, its Wasm, the TypeScript round it, its settings or its
-  # row: `forces` from tools/ci-changes.mjs `isForces`, light mode only) runs the forces' browser specs before the merge, on
-  # the same steps as the page job: two merges of a force went red on dev without them (#1054: glaciate.spec.ts's Size).
+  # row, the worker that runs it, src/worker/session.ts and generator.worker.ts, or the water it steps: `forces` from
+  # tools/ci-changes.mjs `isForces`, light mode only) runs the forces' browser specs before the merge, on the same steps as
+  # the page job: merges went red on dev without them (#1054: glaciate.spec.ts's Size; #1222: a take-back left the land).
   # About 9 minutes of tests on one worker (glaciate, forces, forceKeys, forceSpeed, force-save, erode and carve), so three
   # shards. Any other pull request and every other event skips it: dev's tip still runs all the browser specs.
   forces:
