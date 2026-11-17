@@ -1929,7 +1929,7 @@ input.set-typed:disabled {
 }
 
 /* the count under the words (the attempt and the time so far): quiet, its line kept even while empty */
-.making-dialog p.making-count {
+.making-dialog p:is(.making-count, .making-why) {
   margin-top: 2px;
   font-size: 13px;
   font-weight: 400;

@@ -48,6 +48,7 @@ import type { GeneratorModel, YourMapRow } from "../editor/generator/model";
 import { fetchIndex, fetchPlace, placeFromHash } from "../places/data";
 import { FirstLook, MakingCount, MakingWater, progressText, sayStage, stageText, type Progress } from "./FirstLook";
 import { tip } from "./Tooltip";
+import { boundOf, startMaking, STOP_AFTER_S, type Bound, type RunningClock } from "./makingClock";
 import { IdeaCard } from "../editor/generator/IdeaCard";
 import { Together, type Keep } from "../collab/together";
 import { useShowcase } from "./useShowcase";
@@ -72,6 +73,9 @@ declare global {
       committing?(): boolean;
       /** The e2e build only: true while a test (window.__dgmForceFail, a count) wants the next map to fail its checks. */
       forceFail?(): boolean;
+      /** The e2e build only: how fast a generate's running clock runs (window.__dgmMakingRate; 1 for players), so a test
+       *  reaches its bounds (`makingClock.ts`) without waiting them out. */
+      makingRate?(): number;
     };
   }
 }
@@ -98,6 +102,7 @@ window.dgm = {
           if (n > 0) w.__dgmForceFail = n - 1;
           return n > 0;
         },
+        makingRate: () => Number((window as unknown as { __dgmMakingRate?: number }).__dgmMakingRate ?? 1),
       }
     : {}),
   current() {
@@ -145,6 +150,12 @@ function rememberEasy(on: boolean): void {
     // (the setting still holds for this visit)
   }
 }
+/** The same settings without Easy start, for a generate that ran long with it on (the nearest thing that works); null
+ *  when it is off. */
+function withoutEasy(s: MapSpec | null): MapSpec | null {
+  return s?.settings.start.easyStart === true ? { ...s, settings: withEasy(s.settings, false) } : null;
+}
+
 /** `s` with Easy start on or off (off is no field at all, as a spec without it reads). */
 function withEasy(s: Settings, on: boolean): Settings {
   const start = { ...s.start };
@@ -250,7 +261,7 @@ export function App() {
   const [opened, setOpened] = useState<{ key: number; data: SessionOpen; keepView?: boolean; carry?: ResizeCarry } | null>(null);
   /** A map being made over the open one (Generate, Surprise me, Another like this): the modal says so, and nothing
    *  else can be clicked or started; "back" while Cancel puts the open map back; the words when it failed. */
-  const [making, setMaking] = useState<"making" | "back" | { failed: string } | null>(null);
+  const [making, setMaking] = useState<"making" | "back" | { failed: string; easier?: MapSpec | null } | null>(null);
   /** The open map as it was when a new one was asked for: Cancel opens it again, its edits and history with it. */
   const back = useRef<{ entry: YourMapEntry; bytes: Uint8Array; kept: boolean } | null>(null);
   /** That project while it is still being taken (Cancel waits for it before ending the worker it comes from), and a
@@ -310,6 +321,34 @@ export function App() {
     setSealed(on);
   };
   committingNow = () => committing.current;
+  /** The generate under way: its running clock (hidden time not counted) and the screen held on, `makingClock.ts`; where it
+   *  stands against its bounds; the spec it makes. */
+  const makingRun = useRef<ReturnType<typeof startMaking> | null>(null);
+  const [clock, setClock] = useState<RunningClock | null>(null);
+  const [bound, setBound] = useState<Bound>("trying");
+  const boundNow = useRef<Bound>("trying");
+  const makingSpec = useRef<MapSpec | null>(null);
+  /** A first map stopped by its bound: the same settings without Easy start, offered beside Make a new map. */
+  const [stoppedEasier, setStoppedEasier] = useState<MapSpec | null>(null);
+  const progressNow = useRef<Progress | null>(null);
+  const sealedNow = useRef(false);
+  function beginClock(s: MapSpec) {
+    endClock();
+    const m = startMaking({ rate: window.dgm?.makingRate });
+    makingRun.current = m;
+    makingSpec.current = s;
+    boundNow.current = "trying";
+    setBound("trying");
+    setClock(m.clock);
+  }
+  function endClock(m = makingRun.current) {
+    if (!m || makingRun.current !== m) return;
+    m.end();
+    makingRun.current = null;
+    boundNow.current = "trying";
+    setBound("trying");
+    setClock(null);
+  }
   /** The open map's land and water as the editor shows it, for Your maps' picture. */
   const picture = useRef<(() => MapPicture | null) | null>(null);
   const nameRef = useRef("");
@@ -1056,6 +1095,7 @@ export function App() {
     const id = ++runId.current;
     stopBackground();
     setBusy(true);
+    setStoppedEasier(null);
     if (!keepError) setError(null);
     const over = !!session;
     if (over) {
@@ -1077,6 +1117,9 @@ export function App() {
       }
       holding = false;
       setProgress({ attempt: 0, stage: "land", land: null });
+      // (the clock starts with the generate, and the screen is held on until it ends)
+      beginClock(s);
+      const mine = makingRun.current;
       // (a seed typed as a word names the saved file, D345 B10)
       const word = seedText.trim();
       const seedWord = word && !/^\d+$/.test(word) && seedFromText(word) === s.seed ? word : undefined;
@@ -1084,15 +1127,17 @@ export function App() {
       performance.mark("dgm:sent");
       const r = await (maker?.api ?? generator).generate(
         s,
-        proxy((p: GenProgress) =>
+        proxy((p: GenProgress) => {
+          // (a new attempt puts a pause behind it)
+          if (p.kind === "stage" && (p.attempt !== progressNow.current?.attempt || p.failed !== progressNow.current?.failed)) mine?.clock.attemptBegan();
           setProgress((q) =>
             p.kind === "stage"
-              ? { attempt: p.attempt, stage: p.stage, land: q?.land ?? null, candidate: q?.candidate ?? null, said: sayStage(q?.said, p.stage, p.attempt) }
+              ? { attempt: p.attempt, stage: p.stage, land: q?.land ?? null, candidate: q?.candidate ?? null, said: sayStage(q?.said, p.stage, p.attempt), ...(p.failed ? { failed: p.failed } : {}) }
               : p.kind === "candidate"
-                ? { attempt: p.attempt, stage: q?.stage ?? "check", land: q?.land ?? null, candidate: q?.candidate ?? p, said: q?.said }
-                : { attempt: p.attempt, stage: q?.stage ?? "land", land: p, candidate: q?.candidate ?? null, said: q?.said },
-          ),
-        ),
+                ? { attempt: p.attempt, stage: q?.stage ?? "check", land: q?.land ?? null, candidate: q?.candidate ?? p, said: q?.said, failed: q?.failed }
+                : { attempt: p.attempt, stage: q?.stage ?? "land", land: p, candidate: q?.candidate ?? null, said: q?.said, failed: q?.failed },
+          );
+        }),
         seedWord,
       );
       if (id !== runId.current) return null;
@@ -1172,27 +1217,29 @@ export function App() {
         discardAllowed.current = false;
         setBusy(false);
         setProgress(null);
+        endClock();
       }
     }
   }
 
   /** Cancel a map being made: the generator's work stops at once (its worker ends), and the map that was open comes
    *  back exactly as it was, its edits and history with it, the view where it was, in a new worker. */
-  async function cancelMaking() {
-    if (cancelling.current || committing.current) return;
+  async function cancelMaking(then: { failed: string; easier?: MapSpec | null } | null = null): Promise<boolean> {
+    if (cancelling.current || committing.current) return false;
     cancelling.current = true;
     runId.current++;
+    endClock();
     stopBackground();
     // (a map made for a shared session is made in a worker of its own: stopping it leaves the session and its map as they are)
     if (sharedGen.current) {
       sharedGen.current.stop();
       sharedGen.current = null;
       together.cancelAnnounce();
-      setMaking(null);
+      setMaking(then);
       setProgress(null);
       setBusy(false);
       cancelling.current = false;
-      return;
+      return true;
     }
     setMaking("back");
     setProgress(null);
@@ -1221,19 +1268,80 @@ export function App() {
       old.stop();
       back.current = null;
       backReady.current = null;
-      if (!b) return void setMaking(null);
+      if (!b) {
+        setMaking(then);
+        return true;
+      }
       const [wasKeeping, wasState] = [keeping.current, saveState];
       enterEditor(await generator.openProject(b.bytes), { entry: b.entry, kept: b.kept }, undefined, true);
       keeping.current = wasKeeping;
       setSaveState(wasState);
-      setMaking(null);
+      setMaking(then);
+      return true;
     } catch (e) {
       setMaking({ failed: words(e) });
+      return false;
     } finally {
       cancelling.current = false;
       setBusy(false);
     }
   }
+
+  /** A first map being made (no map open to go back to) ends where it is: its worker ends and a new one takes its place. */
+  function endFirstMaking() {
+    runId.current++;
+    endClock();
+    stopBackground();
+    const old = gen;
+    gen = createGeneratorWorker();
+    generator = gen.api;
+    void generator.deferChecks();
+    old.stop();
+    setProgress(null);
+    setBusy(false);
+  }
+
+  /** The generate ran `STOP_AFTER_S` of running time without a kept map: it stops, and the card says so with the last try's
+   *  reason, the nearest thing that works (Easy start off) and Close. The settings stay as the player set them, and the map
+   *  that was open comes back as it was. */
+  async function stopMaking() {
+    const why = progressNow.current?.failed;
+    const failed = `No map was kept in ${Math.round(STOP_AFTER_S / 60)} minutes${why ? `: ${why}` : ""}.`;
+    const easier = withoutEasy(makingSpec.current);
+    if (session) return void (await cancelMaking({ failed, easier }));
+    endFirstMaking();
+    setError(failed);
+    setStoppedEasier(easier);
+  }
+
+  /** The nearest thing that works, offered after `OFFER_AFTER_S` (and on the stopped card): the same settings without Easy
+   *  start, once; the panel's settings stay as they were. */
+  async function makeEasier(s: MapSpec) {
+    if (making === "making") {
+      if (!(await cancelMaking())) return;
+    } else if (busy) endFirstMaking();
+    else setMaking(null);
+    void run(s);
+  }
+
+  const stopNow = useRef(stopMaking);
+  stopNow.current = stopMaking;
+  // the bounds of a generate, on its running clock: the offer, then the stop (never once the map passed or is opening)
+  progressNow.current = progress;
+  sealedNow.current = sealed;
+  useEffect(() => {
+    if (!clock) return;
+    const t = setInterval(() => {
+      const p = progressNow.current;
+      if (!p || p.candidate || sealedNow.current) return;
+      const b = boundOf(clock.seconds());
+      if (b === boundNow.current) return;
+      boundNow.current = b;
+      setBound(b);
+      if (b === "stop") void stopNow.current();
+    }, 1000);
+    return () => clearInterval(t);
+  }, [clock]);
 
   /** Another like this (D278 (1c)): a sibling of the map open, the same theme, settings and intentions on
    *  different land, with its own share link; never a clone of the map it came from (a sibling whose land
@@ -1529,23 +1637,36 @@ export function App() {
     window.addEventListener("keydown", hold, true);
     return () => window.removeEventListener("keydown", hold, true);
   }, [making, sealed]);
+  /** The nearest thing that works, after `OFFER_AFTER_S` of running time with Easy start on. */
+  const offered = bound !== "trying" && clock ? withoutEasy(makingSpec.current) : null;
+  const easierButton = (s: MapSpec) => (
+    <button type="button" class="ghost making-easier" title="Make this map without Easy start" onClick={() => void makeEasier(s)}>
+      Without Easy start
+    </button>
+  );
   const makingDialog = making ? (
     <div class="dialog-backdrop making-backdrop">
       <div class="dialog making-dialog" role={typeof making === "object" ? "alertdialog" : "dialog"} aria-modal="true" aria-labelledby="making-words">
         <p id="making-words" role="status">
           {typeof making === "object" ? making.failed : making === "back" ? "Opening your map…" : sealed ? "Opening the map…" : (makingWords ?? stageText(progress))}
         </p>
-        {typeof making === "object" ? null : <MakingCount progress={making === "making" && !makingWords && !sealed ? progress : null} />}
+        {typeof making === "object" ? null : <MakingCount progress={making === "making" && !makingWords && !sealed ? progress : null} clock={clock} />}
         {typeof making === "object" ? null : <MakingWater />}
         <footer>
           {typeof making === "object" ? (
-            <button type="button" class="ghost" title="Back to the map" onClick={() => setMaking(null)} autoFocus>
-              Close
-            </button>
+            <>
+              {making.easier ? easierButton(making.easier) : null}
+              <button type="button" class="ghost" title="Back to the map" onClick={() => setMaking(null)} autoFocus>
+                Close
+              </button>
+            </>
           ) : (
-            <button type="button" class="ghost" disabled={making === "back" || sealed} {...(sealed ? tip("The map is opening") : tip("Stop making the map", "Esc"))} onClick={() => void cancelMaking()} autoFocus>
-              Cancel
-            </button>
+            <>
+              {offered && making === "making" && !makingWords && !sealed ? easierButton(offered) : null}
+              <button type="button" class="ghost" disabled={making === "back" || sealed} {...(sealed ? tip("The map is opening") : tip("Stop making the map", "Esc"))} onClick={() => void cancelMaking()} autoFocus>
+                Cancel
+              </button>
+            </>
           )}
         </footer>
       </div>
@@ -1651,14 +1772,17 @@ export function App() {
               <p id="making-words" role="status">
                 {stuck ? error : words}
               </p>
-              {stuck ? null : <MakingCount progress={opening ? null : progress} />}
+              {stuck ? null : <MakingCount progress={opening ? null : progress} clock={clock} />}
               {stuck ? null : <MakingWater />}
               {stuck ? (
                 <footer>
+                  {stoppedEasier ? easierButton(stoppedEasier) : null}
                   <button type="button" class="primary" title="Make a map with another seed" onClick={again}>
                     Make a new map
                   </button>
                 </footer>
+              ) : offered && !opening ? (
+                <footer>{easierButton(offered)}</footer>
               ) : null}
             </div>
           </div>
