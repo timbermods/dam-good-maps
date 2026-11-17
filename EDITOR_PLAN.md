@@ -159,7 +159,16 @@ place of its bottom rule.
   they were picked, for the next try; **a real place opened over a map** shows the same dialog, "Opening Crater Lake…", with Cancel, which brings the
   open map back as it was; in a Together session, once the new map is built and being put into the session's worker (the last step before it opens), Cancel is off ("The map is opening"), Esc does nothing and the words read "Opening the map…". **A long wait counts itself** (a 256² map can take minutes): under the words the dialog says
   the attempt under way and the time so far ("Attempt 3 · 2 min 14 s"), from the fourth second or the second attempt, in a
-  quiet line whose room is kept so the card never changes height (`FirstLook.tsx` `MakingCount`). The shelf's pictures are kept from one map to the next (`shelf/iconCache.ts`), never grey.
+  quiet line whose room is kept so the card never changes height (`FirstLook.tsx` `MakingCount`), and under it, from the
+  second attempt, why the last one was refused, in the generator's own words ("Last try: the start's water moved",
+  `gen/failWords.ts`). **A generate is bounded** (`ui/makingClock.ts`): its clock counts only the time the page was shown
+  (a locked phone or a tab put away holds the worker still and uses none of it; back from that, the line says "Paused
+  while the screen was off" until the next attempt), and the screen is held on (a screen wake lock, where the browser has
+  one) from its start to its end or Cancel, taken again when the page comes back. After 30 s of that time without a kept
+  map, with Easy start on, **Without Easy start** stands beside Cancel: the same settings without it, once, the panel's
+  settings untouched. After 5 minutes it stops by itself and the card reads as a refusal ("No map was kept in 5 minutes:
+  no place for the start.") with the same way forward and Close (Make a new map for a first map); the map that was open
+  comes back as it was, the settings as the player set them. The shelf's pictures are kept from one map to the next (`shelf/iconCache.ts`), never grey.
   A real place has one name everywhere, the one in its file ("Crater Lake"). Every map is made for Normal until the core drops difficulty
   after M9b's release. Every Generate makes a new map named for its theme ("River Valley") and replaces the open one
   without asking: edits never replay onto new land (D336), and the map it replaces, if kept, is in Your maps, which a quiet note says
