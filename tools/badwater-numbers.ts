@@ -17,6 +17,7 @@
 import { appendFileSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
+import { hypot, sqrt } from "../src/core/math/portable";
 import { encodePng } from "./png";
 
 const arg = (name: string, fallback: string) => {
@@ -135,14 +136,14 @@ async function measure(): Promise<void> {
         for (let y = 0; y < H; y++)
           for (let x = 0; x < W; x++) {
             const i = y * W + x;
-            const t = b.water[i] > 0.05 ? Math.sqrt(Math.min(1, Math.max(0, b.contamination[i]))) : 0;
+            const t = b.water[i] > 0.05 ? sqrt(Math.min(1, Math.max(0, b.contamination[i]))) : 0;
             put(x, y, [0, 1, 2].map((k) => Math.round(rgb[i * 3 + k] * (1 - t) + MAGENTA[k] * t)));
           }
         for (const s of b.sources) if (s.template === "BadwaterSource") for (let dy = -2; dy <= 2; dy++) for (let dx = -2; dx <= 2; dx++) put(s.x + dx, s.y + dy, Math.max(Math.abs(dx), Math.abs(dy)) === 2 ? [120, 60, 0] : [255, 205, 0]);
         if (b.start)
           for (let dy = -6; dy <= 6; dy++)
             for (let dx = -6; dx <= 6; dx++) {
-              const d = Math.hypot(dx, dy);
+              const d = hypot(dx, dy);
               if (d >= 4 && d <= 6) put(b.start.x + dx, b.start.y + dy, d < 5 ? [255, 255, 255] : [30, 30, 30]);
             }
         writeFileSync(join(pngDir, `${theme}-${seed}.png`), encodePng(img, W, H));
