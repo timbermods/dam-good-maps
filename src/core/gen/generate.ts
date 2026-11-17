@@ -37,7 +37,7 @@ import { entityJson, type EntitySpec } from "../format/entities";
 import { mapObjects, type MapObject } from "../sim/model";
 import { placementOf } from "../format/entities";
 import type { JsonObject } from "../format/json";
-import { pumpShoreDistance, reachAt, startWaterShore, walkDistance, walkWorld } from "../analysis/walk";
+import { PUMP_CLEAN, PUMP_DEPTH, pumpShoreDistance, reachAt, startWaterShore, tileShoreWalk, walkDistance, walkWorld } from "../analysis/walk";
 import type { FieldData } from "../doc/document";
 import { buildMap, SettleCache, type BuildResult, type GeneratedField } from "../features/build";
 import { previewSettle } from "../sim/preview";
@@ -1264,6 +1264,23 @@ function startWaterServed(b: BuildResult, within: number, days: number): number 
   const d = startWalk(b, false);
   if (!d) return Infinity;
   return startWaterShore(d, b.heights, b.W, b.H, b.water, b.contamination, b.waterModel.emitters, droughtStorage(b.waterModel, b.water, days), within).distance;
+}
+
+/** The walk to the nearest water too foul to pump (contamination `PUMP_CLEAN` or more), as `start.water` walks to
+ *  clean water: over the map's own slopes to a shore a pump on it would reach (planning's condition of 2026-11-17,
+ *  #236: a start is valued by clean water only, and one whose nearest water is bad gives way to another). */
+function startBadWaterWalk(b: BuildResult): number {
+  let any = false;
+  for (let i = 0; i < b.water.length && !any; i++) if (b.water[i] >= PUMP_DEPTH && b.contamination[i] >= PUMP_CLEAN) any = true;
+  if (!any) return Infinity;
+  const d = startWalk(b, false);
+  if (!d) return Infinity;
+  const { W, H } = b;
+  const walk = new Float64Array(W * H);
+  for (let i = 0; i < walk.length; i++) walk[i] = reachAt(d, W, H, i);
+  let best = Infinity;
+  for (let i = 0; i < W * H; i++) if (b.contamination[i] >= PUMP_CLEAN) best = Math.min(best, tileShoreWalk(walk, b.heights, W, H, i, b.water[i], true));
+  return best;
 }
 
 /** D330's fix on a shown land (D348): a spring by the start, when the settled water left the start
@@ -3233,6 +3250,13 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
     // its badwater comes to rest, gives way to another start on the same settled water, as a start
     // whose water moved does (not on the last attempt, whose map is the one kept when none passes)
     if (!why && !lastAttempt && b.start && badwaterNear(b, b.start) < badWithin) why = "start.badwater";
+    // (clean water only, planning's condition of 2026-11-17 (#236): a start whose nearest water, walked as `start.water`
+    // walks to its clean water, is too foul to pump gives way to another on the same settled water; a land where none
+    // passes is refused with that reason, as the other start reasons are)
+    if (!why && !lastAttempt && b.start) {
+      const foul = startBadWaterWalk(b);
+      if (foul < Infinity && foul < startWaterServed(b, rule, droughtDays)) why = "start water bad";
+    }
     // (D471: in a rescue round, a start whose 20 tiles' walk holds less dry land than the wood and
     // berries the start rules ask need gives way to another, as one whose water moved does: a 48²
     // start asked for 800 logs and 200 bushes in a pocket of land got neither)
