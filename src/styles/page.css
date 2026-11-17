@@ -1099,6 +1099,29 @@
   line-height: 30px;
 }
 
+/* the list, cut by a short window: a soft fade into the plate's colour at its foot says more items lie below (a Mac's overlay
+   scrollbar shows only once the list scrolls), and goes once the foot is reached. It reaches into the list's padding at the
+   sides, never over the scrollbar, and its height is taken back by the margin, so the list scrolls just as far with or
+   without it; the rows under it still take the pointer. A phone's and a tablet's sheets have none */
+.objects-menu > .shelf-more {
+  position: sticky;
+  bottom: 0;
+  height: 36px;
+  margin: -36px -6px 0;
+  background: linear-gradient(transparent, var(--panel) 85%);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.15s;
+}
+
+.objects-menu > .shelf-more.on {
+  opacity: 1;
+}
+
+.editor:is([data-phone], [data-tablet]) .objects-menu > .shelf-more {
+  display: none;
+}
+
 /* the groups (the water objects, the plants, the landmarks, the core and reserves) divided by a hairline in the clear
    borders above each one's first row: no extra height */
 .objects-menu .shelf-item.shelf-first::before {

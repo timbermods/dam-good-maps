@@ -196,7 +196,9 @@ place of its bottom rule.
   scrolls sideways, icon over name, 56px tall: Select, **Objects**, the brushes, Block, the forces. **At rest the row
   stands on whole tools** (Kyler's phone, 2026-11-14): as many as it holds at 64px, each grown to fill it exactly
   (`TopBar.tsx` `fitToolRow`), the row snapping to each, a fade at an end where more tools lie; the tool in hand is
-  brought whole into view, clear of that fade. The tool in hand's
+  brought whole into view, clear of that fade, its glide going on to it however long a frame takes (the row, still for
+  a moment, rests on the nearest tool's start only once the tool in hand stands in view or a finger, the mouse or the wheel took the row).
+  The tool in hand's
   settings stand in a sheet above the row with a grab handle: one row by default (Size and the tool's main choice, the
   first two settings of its first row; where the sheet is too narrow for both, the second under the first, never a row
   that scrolls sideways unannounced), every setting in up to half the screen when the handle is tapped or pulled up,
@@ -535,7 +537,8 @@ place of its bottom rule.
     as the core's `placeComponents`; an object picked on the map shows the same window and changes its own settings in
     place (`setOptionsOp`, one undo step for a slider's run). Relics' Medium and Large are the Relic's Size; the Mine site
     is the underground ruins. Still to come: the core's **Show after it goes off** view. The list scrolls inside itself when the window is short, keeping the
-    picked row in view;
+    picked row in view, a soft fade at its foot saying more items lie below until the foot is reached (drawn by the page:
+    a Mac's overlay scrollbar shows only once the list scrolls; none on a phone's or tablet's sheet; `shelf.spec.ts`);
     `fluidModelAt` gives each source's strength on a given day for the day-by-day view. Terrain brushes and forces
     never use the placement path (D425).
 - **The Show toggles** (D287) in one row at the top left, each a 14px checkbox at the left of its name (as in
