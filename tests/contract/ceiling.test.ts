@@ -21,6 +21,7 @@ import { makeSpec } from "../../src/core/spec/mapspec";
 import { validateMap } from "../../src/core/validate/checks";
 import { runGenerate } from "../../src/worker/api";
 import * as ed from "../../src/worker/session";
+import { fixtureInEditor } from "../fixtureEditor";
 
 const W = 96;
 const max = (h: ArrayLike<number>) => {
@@ -113,8 +114,11 @@ ${TALL_NOTE}`);
   });
 
   it("the forces build up to the ceiling on any map, never past it", async () => {
-    await runGenerate(makeSpec({ seed: 3, theme: "highlands", size: { x: W, y: W } }));
-    ed.refine();
+    // (the forces need ground at the corner they start from, the far one from the start, high enough that the biggest
+    // eruption there rises past 16: Highlands 96² seed 3's saved land (generator 0.10.22's), D148, where that corner, (70, 70),
+    // stands at level 8 and the eruption reaches 18. Generated live, seed 3's land moves with the generator: at 0.10.28 its
+    // corner, (70, 24), stood at level 5 with nothing over 7 within 6 tiles, and the eruption topped out at 16)
+    fixtureInEditor("highlands", W, 3);
     const s = MapSession.open(decodeProject(ed.project().bytes));
     const st = s.built.start!;
     const at: [number, number] = [st.x < W / 2 ? 70 : 24, st.y < W / 2 ? 70 : 24];

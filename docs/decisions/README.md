@@ -92,6 +92,8 @@ Read this index, then [how-we-work.md](how-we-work.md), then only the topic file
 ## [The generator](generator.md)
 
 - D(ruled-water): No course runs beside another: it joins the one it would run beside; Delta's arms step diagonally
+- D(new-ditch): The badwater ditch takes a gully's shape: down its fall line, wandering, 1 to 3 wide, stepped banks, at most 40 tiles, ending in water D476 and D498 let it join, at another gully, or at the edge last
+- D(sea-steps): The sea steps keep the sea below a course's last edge: an inflow's own edge is never lowered under the water standing on its course
 - D(plates-turned): A premise's plates are turned off the grid and their rims ragged by noise at every size; D518's 128² cap is gone
 - D(new-leaks): A course's water leaves only by its own way: pools only inside banks that hold them, never a raised lip; nothing beside a course lowered under its water; Delta courses join the fan by plan; no channel left under its reach downstream
 - D527: Every move of a generator control changes the next map, or the control is greyed with its reason

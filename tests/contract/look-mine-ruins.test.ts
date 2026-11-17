@@ -107,10 +107,14 @@ import * as ed from "../../src/worker/session";
 // and generator 0.10.39 over the cap: `7006d8e4…` before it, the version alone (D(plates-turned) moves a premise's plates, never a
 // theme's land), on the land the cap (#1213, merged in
 // from dev) gives; against this branch's own pin before the merge (`9bd38788…`, the floor pass's cap alone) it moved by land too, D148
-// and generator 0.10.40's version alone (#1225, small maps at their own scale, which a 128² map never reaches), D148
-// and generator 0.10.42's version alone (the merge with dev 0.10.40 and the joins of #1162, ruled water, D(ruled-water), which
-// move none of this map): with the version set back to 0.10.40 the merge gives `a7d8de7f…` byte for byte, D148
-const LIVE_SHA = "424ccea06be2078d9896157ab49285e7ca8348ecbaa87d0e045cea9e8b7a8337";
+// and generator 0.10.40's version alone on dev (#1225, small maps at their own scale, which a 128² map never reaches: dev's
+// `a7d8de7f…`), D148
+// and generator 0.10.41's gullies and sea steps (D(new-ditch), D(sea-steps)): `94761289…` before it, not the version alone (with
+// the version set back to 0.10.39 the branch gives `2159e2bd…`): its pits' gullies move its land, the map made on its second
+// attempt, every check passing, D148
+// and generator 0.10.43's version alone (the merge of #1162's ruled water, D(ruled-water), with #1195, which moves none of
+// this map): with the version set back to 0.10.41 the merge gives `a81e89f1…` byte for byte, D148
+const LIVE_SHA = "ce7c8565022a092ce056db75b1074200546d23e1505027fabaeed5c020aef993";
 const spec = () => makeSpec({ seed: 4242, size: { x: 128, y: 128 }, theme: "riverValley", designedFor: "normal" });
 
 describe("mine sites and ruins, models of our own", () => {

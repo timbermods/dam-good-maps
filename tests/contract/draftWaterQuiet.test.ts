@@ -21,6 +21,7 @@ import { TICKS_PER_DAY, type WaterModel } from "../../src/core/sim/water";
 import { makeSpec } from "../../src/core/spec/mapspec";
 import { runGenerate } from "../../src/worker/api";
 import * as ed from "../../src/worker/session";
+import { fixtureSession } from "../fixtureProjects";
 
 const W = 96;
 
@@ -31,8 +32,8 @@ function model(theme: "riverValley" | "lakeBasin" = "riverValley", seed = 3): { 
 }
 
 describe("a stroke's water after a force (D244's measurements)", () => {
-  const fillsFromDry = (seed: number) => {
-    const { m } = model("lakeBasin", seed);
+  const fillsFromDry = (seed: number, saved?: "v0.10.29") => {
+    const m = saved ? fixtureSession("lakeBasin", W, seed, saved).built.waterModel : model("lakeBasin", seed).m;
     // from a dry map: the rivers take more than a day to fill it
     const N = W * W;
     const dry = { model: m, water: { settled: false, ticks: 0, depth: new Float64Array(N), contamination: new Float64Array(N), sat: new Uint8Array(N) } };
@@ -60,8 +61,10 @@ describe("a stroke's water after a force (D244's measurements)", () => {
   // passes, `fails` comes off. On 0.8.1's maps (D148) seed 1's lake fills in 3.1 days and settles, so the
   // problem is gone there; it still shows on seed 7 (still filling at the four-day cap), where it is kept. On generator
   // 0.10.16's ground with grade (D148) seed 7's lake fills in 3.67 days and settles; it shows again on seed 1 (and on 6, 10,
-  // 13, 17, 19 and 20 of seeds 1–20), where it is kept.
-  it.fails("Lake Basin seed 1: its lake still fills at the four-day preview cap, so it never ends settled", () => fillsFromDry(1));
+  // 13, 17, 19 and 20 of seeds 1–20), where it is kept. Since generator 0.10.30 (D(new-ditch), D148) seed 1's land as
+  // generated settles; the case stays on seed 1's land as 0.10.29 made it, saved (scenario-lakeBasin-96-1-v0.10.29), where
+  // the lake still fills at the cap, so a land change no longer moves it.
+  it.fails("Lake Basin seed 1: its lake still fills at the four-day preview cap, so it never ends settled", () => fillsFromDry(1, "v0.10.29"));
 
   it("the warm start keeps water the old ground's canonical start didn't reach either; water that lost its feed still drains (D260)", () => {
     const { m, depth } = model();

@@ -11,6 +11,7 @@ import { makeSpec } from "../../src/core/spec/mapspec";
 import { build, t3CaveWater } from "../../tools/terrain3d-maps";
 import { runGenerate } from "../../src/worker/api";
 import * as ed from "../../src/worker/session";
+import { fixtureInEditor } from "../fixtureEditor";
 
 const W = 96;
 
@@ -174,8 +175,11 @@ describe("describeTile: what is on a tile, in plain data (D347, B11)", () => {
     // follow the land, D476, D148: seed 1 has none; seed 5 since generator 0.10.18's dead stands on the dry land, D516,
     // D148: seed 2 has none clear of objects now, seed 5's is at (80, 26), level 14; seed 1 since generator 0.10.20's contour edges, D518, D148: seed 5 has none now, and of seeds 1–60 36 have one, seed 1 the first, at (12, 47), level 8; seed 1 → 5 at 0.10.29 (#1186), D148: the disc's land (the weathering's disc of the square's area, the washes' brush and swing)
     // leaves seed 1 no such ground; of seeds 1–8 only 5, 7 and 8 hold it, seed 5 at (12, 39), level 10)
-    await runGenerate(makeSpec({ seed: 5, theme: "riverValley", size: { x: W, y: W } }));
-    ed.refine();
+    // (the test needs a dry, flat, empty 7×7 at level 5 or above, 6 tiles clear of the water: River Valley 96² seed 1's saved
+    // land, D148, where the search below finds one at (40, 14), level 10, so a land change does not move it; generated live
+    // at generator 0.10.30, D(new-ditch), seed 5's land holds none, and of the saved River Valley 96² lands seed 1 is the first
+    // that does)
+    fixtureInEditor("riverValley", W, 1);
     const s = MapSession.open(decodeProject(ed.project().bytes));
     const b0 = s.built;
     // dry, flat ground far from any water and anything standing

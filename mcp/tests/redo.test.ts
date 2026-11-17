@@ -6,6 +6,7 @@ import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { lakesOf, waterfallsOf } from "../src/describe";
 import { closeAll, generateMap } from "../src/maps";
 import { callTool } from "../src/server";
 
@@ -45,9 +46,21 @@ describe("redo", () => {
   });
 });
 
+/** The first Canyon 96² map from seed 12 on with a waterfall (a drop of 2 levels or more) and a lake holding water. */
+function withFallsAndLake(): ReturnType<typeof generateMap> {
+  for (let seed = 12; seed < 32; seed++) {
+    const m = generateMap({ theme: "canyon", size: 96, seed });
+    if (waterfallsOf(m.session).length && lakesOf(m.session).some((l) => l.wet.length > 0)) return m;
+  }
+  throw new Error("no Canyon 96² map from seed 12 to 31 has a waterfall and a lake");
+}
+
 describe("falls, lakes, the nearest tile and the crater's size", () => {
   it("lists falls and lakes in describe and marks them on the picture", async () => {
-    const { handle } = generateMap({ theme: "canyon", size: 96, seed: 12 });
+    // (the test needs a map with a waterfall and a lake: the first Canyon 96² seed from 12 whose built map has a drop of 2
+    // levels or more along a river's channel and standing water off it, found by that, so a land change does not move it
+    // (D148: at generator 0.10.30 seed 12's map has no waterfall describe lists))
+    const { handle } = withFallsAndLake();
     const d = JSON.parse(textOf(await callTool("describe", { map: handle, checks: false })));
     const falls = d.features.filter((f: { kind: string }) => f.kind === "waterfall");
     expect(falls.length).toBeGreaterThan(0);
@@ -65,8 +78,10 @@ describe("falls, lakes, the nearest tile and the crater's size", () => {
     const { handle, session: s } = generateMap({ theme: "riverValley", size: 96, seed: 2 });
     const W = s.size.x;
     const id = s.built.entities.find((e) => e.template === "StartingLocation")!.id;
+    // (the first tile of a river's channel holding water: the test needs a start refused "in a river", D148: at generator
+    // 0.10.30 the map's first tile with water over 0.5 is a lake's, refused "under water")
     let wet = 0;
-    while (!(s.built.water[wet] > 0.5)) wet++;
+    while (!(s.built.water[wet] > 0.5 && s.built.channel[wet])) wet++;
     const r = await callTool("apply", { map: handle, ops: [{ op: "moveEntity", params: { id, x: wet % W, y: Math.floor(wet / W) } }] });
     expect(r.isError).toBe(true);
     const m = /^the start can't stand there: in a river\. The nearest tile where it can go is X (\d+) · Y (\d+)$/.exec(textOf(r));

@@ -6,7 +6,9 @@
 // around it, width 1, 3 or 5), at a bed level that never rises along the route, and the tiles
 // around the channel are raised to one level above the bed where they are lower (banks), so the
 // water stays in it. A bed that follows the ground down where the ground falls, and cuts through it
-// where it rises, drains whatever the terrain.
+// where it rises, drains whatever the terrain. A badwater ditch's bed narrows and widens (D(new-ditch)):
+// `side` names the tiles beside its route that its bed takes too, each at the level of the lowest
+// route tile beside it, with banks round them as round the route.
 
 import type { BuildTarget } from "./target";
 import type { Feature } from "./schema";
@@ -20,6 +22,35 @@ export interface ChannelPlan {
   width: number;
   /** Where the water goes: "edge", or the id of the river or lake it joins. */
   to: string;
+  /** Tiles beside the route the bed takes too, as x0, y0, x1, y1, … (a badwater ditch's widenings,
+   *  D(new-ditch)): each at the level of the lowest route tile it lies beside, side to side. */
+  side?: number[];
+}
+
+/** The bed level of each of a channel's `side` tiles (as `side` lists them): the lowest level of the
+ *  route tiles beside it, side to side; NaN for one beside none. */
+export function sideLevels(c: Pick<ChannelPlan, "tiles" | "levels" | "side">, W: number): number[] {
+  const side = c.side ?? [];
+  if (!side.length) return [];
+  const at = new Map<number, number>();
+  for (let k = 0; k < c.levels.length; k++) {
+    const i = c.tiles[2 * k + 1] * W + c.tiles[2 * k];
+    const b = at.get(i);
+    if (b === undefined || c.levels[k] < b) at.set(i, c.levels[k]);
+  }
+  const out: number[] = [];
+  for (let k = 0; k + 1 < side.length; k += 2) {
+    const x = side[k];
+    const y = side[k + 1];
+    let lv = NaN;
+    for (const [dx, dy] of [[0, -1], [-1, 0], [0, 1], [1, 0]]) {
+      if (x + dx < 0 || x + dx >= W) continue;
+      const b = at.get((y + dy) * W + x + dx);
+      if (b !== undefined && !(b >= lv)) lv = b;
+    }
+    out.push(lv);
+  }
+  return out;
 }
 
 // ------------------------------------------------------------------------------------ carving
@@ -50,14 +81,35 @@ export function channelTiles(c: ChannelPlan, W: number, H: number): { bed: Map<n
         }
       }
   }
+  // (and the tiles beside the route its bed takes too, with their banks)
+  const side = c.side ?? [];
+  const sl = sideLevels(c, W);
+  for (let k = 0; 2 * k + 1 < side.length; k++) {
+    const x = side[2 * k];
+    const y = side[2 * k + 1];
+    const lv = sl[k];
+    if (!(lv >= 0) || x < 0 || y < 0 || x >= W || y >= H) continue;
+    const i = y * W + x;
+    const b = bed.get(i);
+    if (b === undefined || lv < b) bed.set(i, lv);
+    for (let dy = -1; dy <= 1; dy++)
+      for (let dx = -1; dx <= 1; dx++) {
+        const nx = x + dx;
+        const ny = y + dy;
+        if ((!dx && !dy) || nx < 0 || ny < 0 || nx >= W || ny >= H) continue;
+        const n = ny * W + nx;
+        const a = bank.get(n);
+        if (a === undefined || lv + 1 > a) bank.set(n, lv + 1);
+      }
+  }
   for (const i of bed.keys()) bank.delete(i);
   return { bed, bank };
 }
 
 /** Carve a stored channel into the target: beds exactly, banks raised where lower. Tiles in `keep`
  *  (the piece's own body, written after) and the last route tile's goal water are left to their
- *  owners. */
-export function carveChannel(c: ChannelPlan, t: BuildTarget, f: Feature, keep?: (i: number) => boolean): void {
+ *  owners; tiles in `bankKeep` get no bank (a badwater gully's join, the bed it joins). */
+export function carveChannel(c: ChannelPlan, t: BuildTarget, f: Feature, keep?: (i: number) => boolean, bankKeep?: (i: number) => boolean): void {
   const { bed, bank } = channelTiles(c, t.W, t.H);
   const h = t.heights;
   for (const [i, lv] of bed) {
@@ -68,7 +120,7 @@ export function carveChannel(c: ChannelPlan, t: BuildTarget, f: Feature, keep?: 
     t.protect(i);
   }
   for (const [i, lv] of bank) {
-    if (!t.inRegion(i) || !t.writable(i, f) || keep?.(i) || t.channel[i]) continue;
+    if (!t.inRegion(i) || !t.writable(i, f) || keep?.(i) || t.channel[i] || bankKeep?.(i)) continue;
     if (h[i] < lv) h[i] = lv;
   }
 }
@@ -90,6 +142,13 @@ export function channelBounds(c: ChannelPlan): { x0: number; y0: number; x1: num
     x1 = Math.max(x1, x + r);
     y1 = Math.max(y1, y + r);
   }
+  const side = c.side ?? [];
+  for (let k = 0; k + 1 < side.length; k += 2) {
+    x0 = Math.min(x0, side[k] - 1);
+    y0 = Math.min(y0, side[k + 1] - 1);
+    x1 = Math.max(x1, side[k] + 1);
+    y1 = Math.max(y1, side[k + 1] + 1);
+  }
   return { x0, y0, x1, y1 };
 }
 
@@ -105,6 +164,16 @@ export function checkChannel(c: ChannelPlan, W: number, H: number): string[] {
     if (!Number.isInteger(lv) || lv < 0 || lv > 16) return ["the outflow channel's levels are 0–16"];
     if (k > 0 && lv > c.levels[k - 1]) return ["the outflow channel's bed rises: water would not drain"];
     if (k > 0 && Math.abs(x - c.tiles[2 * k - 2]) + Math.abs(y - c.tiles[2 * k - 1]) !== 1) return ["the outflow channel's tiles must join side to side"];
+  }
+  if (c.side !== undefined) {
+    if (!Array.isArray(c.side) || c.side.length % 2) return ["the outflow channel's widenings are malformed"];
+    const sl = sideLevels(c, W);
+    for (let k = 0; k + 1 < c.side.length; k += 2) {
+      const x = c.side[k];
+      const y = c.side[k + 1];
+      if (!Number.isInteger(x) || !Number.isInteger(y) || !(x >= 0 && y >= 0 && x < W && y < H)) return ["the outflow channel leaves the map"];
+      if (!(sl[k >> 1] >= 0)) return ["each of the outflow channel's widenings lies beside its route"];
+    }
   }
   return [];
 }
