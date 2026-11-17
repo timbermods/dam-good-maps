@@ -108,7 +108,9 @@ import * as ed from "../../src/worker/session";
 // theme's land), on the land the cap (#1213, merged in
 // from dev) gives; against this branch's own pin before the merge (`9bd38788…`, the floor pass's cap alone) it moved by land too, D148
 // and generator 0.10.40's version alone (#1225, small maps at their own scale, which a 128² map never reaches), D148
-const LIVE_SHA = "a7d8de7fc67234e372c521b5c05bd6d5c935401ea4994e62e2a6612ba486fa08";
+// and generator 0.10.42's version alone (#1227, Easy start shaped on the settled water, which a map without Easy start never
+// reaches): with the version set back to 0.10.40 the branch gives `a7d8de7f…` byte for byte, D148
+const LIVE_SHA = "424ccea06be2078d9896157ab49285e7ca8348ecbaa87d0e045cea9e8b7a8337";
 const spec = () => makeSpec({ seed: 4242, size: { x: 128, y: 128 }, theme: "riverValley", designedFor: "normal" });
 
 describe("mine sites and ruins, models of our own", () => {

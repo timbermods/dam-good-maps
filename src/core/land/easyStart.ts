@@ -1,18 +1,20 @@
-// Easy start's ground (D495), shaped as the land is shaped, before it is shown (D348): a level clearing round the
-// start and a backwater pond beside it, so a player can build and pump at once. Nothing is stamped: the clearing's
+// Easy start's ground (D495), shaped on the settled water of the kept land (D453: the generator settles the land
+// as it is, shapes the place on that water and settles once more; the plan's water only finds the places and reserves
+// their ground), before the land is shown (D348): a level clearing round the start and a backwater pond beside it,
+// so a player can build and pump at once. Nothing is stamped: the clearing's
 // outline, its rim, the pond's shore and the cut's course follow a noise field the seed draws and the land's own
 // levels, so each reads as ground the water and the weather made.
 //
 // - The pond: a small backwater between the start and its water (a river, or a lake), 3 tiles or more off the
 //   water, dug two levels below a cut (one near the beds' floor, item 47) that joins it to the water: the cut
-//   stands just under the water's planned surface, so the water fills the pond, a drought leaves it holding water
+//   stands just under the water's surface, so the water fills the pond, a drought leaves it holding water
 //   (its sill is the cut), and its dead end keeps a badtide's water out of it for days, where the river itself
 //   turns bad at once. Its shore grows out from its middle over the lower ground first, as water pools; the cut
 //   takes the low ground's way to the water, bending where the land does, a tile wide at the pond and opening
 //   to the water's mouth, its banks sloping back up to the land.
-// - The clearing: the start stands a level above the cut and a third of a level or more above the water's
-//   surface, so it stays dry and a pump on its own ground draws the pond after a drought too (a pump reaches 2
-//   levels down; a drought leaves the pond half a level under its sill). Its ground within about 13 tiles, joined
+// - The clearing: the start stands a level above the cut and a fifth of a level or more above the water's
+//   surface (a third on the plan's estimate), so it stays dry and a pump on its own ground draws the pond after a
+//   drought too (a pump reaches 2 levels down; a drought leaves the pond half a level under its sill). Its ground within about 13 tiles, joined
 //   to it, is made level at that level: higher ground cut down (a start planned up to three levels higher sits in
 //   a clearing cut into its bench), a dip filled only well away from water (filling never dams water: D290, D328).
 //   Its rim eases back into the ground round it, gently in one place and in a short bluff in another, never an
@@ -51,9 +53,23 @@ export interface EasyPlace {
   level: number;
 }
 
-/** The surface of tile j's water as planned (a channel at least `CHANNEL_DEPTH` deep). */
-function surfaceAt(h: ArrayLike<number>, depth: ArrayLike<number>, water: ArrayLike<number>, j: number): number {
-  return h[j] + (water[j] === 1 ? Math.max(depth[j], CHANNEL_DEPTH) : depth[j]);
+/** The water a place is shaped on. `settled` (the generator, D453): the settled water of the kept land, read as it
+ *  stands: `depth` alone says where water is (the plan's channels the water left are ground), its surface is the
+ *  floor and the depth, and the water a pond is joined to is `SETTLED.feeds` deep or more. Otherwise the water the
+ *  land was planned with (`water`: the hydrology's 1 channels, 2 lakes), an estimate: what the plan-time search and
+ *  the reservation of a place's ground read. */
+export interface EasyWater {
+  depth: ArrayLike<number>;
+  water: ArrayLike<number> | null;
+  settled?: boolean;
+}
+/** The settled water's reading: water is `wet` deep or more, a pond's water `feeds` or more, and the clearing stands
+ *  `margin` above its surface at the least (the surface is the settle's own, so a smaller margin than the plan's). */
+export const SETTLED = { wet: 0.05, feeds: 0.25, margin: 0.2 } as const;
+
+/** The surface of tile j's water (as planned: a channel at least `CHANNEL_DEPTH` deep). */
+function surfaceAt(h: ArrayLike<number>, w: EasyWater, j: number): number {
+  return h[j] + (!w.settled && w.water?.[j] === 1 ? Math.max(w.depth[j], CHANNEL_DEPTH) : w.depth[j]);
 }
 /** A planned channel's least depth, and how far the clearing stands above the water's planned surface at the least
  *  (the settled water runs a little higher than the plan: the clearing stays dry). */
@@ -63,19 +79,19 @@ const DRY_MARGIN = 0.35;
 /** The level a cut from tile j's water stands at, or NaN where none suits: the water's surface less a tenth,
  *  rounded down (the water flows in over it, and a drought leaves the pond full to it), where the level above it,
  *  the clearing's, stands `DRY_MARGIN` or more over the surface. */
-export function cutLevel(h: ArrayLike<number>, depth: ArrayLike<number>, water: ArrayLike<number>, j: number): number {
-  const s = surfaceAt(h, depth, water, j);
+export function cutLevel(h: ArrayLike<number>, w: EasyWater, j: number): number {
+  const s = surfaceAt(h, w, j);
   const c = Math.floor(s - 0.1);
-  return c + 1 - s >= DRY_MARGIN ? c : NaN;
+  return c + 1 - s >= (w.settled ? SETTLED.margin : DRY_MARGIN) ? c : NaN;
 }
 
-const isWater = (depth: ArrayLike<number>, water: ArrayLike<number>, i: number) => depth[i] > 0.02 || water[i] === 1 || water[i] === 2;
+const isWater = (w: EasyWater, i: number) => (w.settled ? w.depth[i] > SETTLED.wet : w.depth[i] > 0.02 || w.water?.[i] === 1 || w.water?.[i] === 2);
 
 /** The water tile a start at `p` would have its pond joined to: water 13–24 tiles from its middle whose cut stands
  *  1–3 levels under the start's ground, with room for the pond's floor two levels under it above the beds' floor;
  *  the nearest, a level under the start first (the least cut), off `off` (a river's head, whose sources its water
  *  must not reach, D171); −1 when none. */
-export function pondWater(h: ArrayLike<number>, W: number, H: number, depth: ArrayLike<number>, water: ArrayLike<number>, p: EasyPlace, off: Uint8Array | null = null): number {
+export function pondWater(h: ArrayLike<number>, W: number, H: number, w: EasyWater, p: EasyPlace, off: Uint8Array | null = null): number {
   let best = -1;
   let bestScore = Infinity;
   const r = POND_WATER.hi;
@@ -87,8 +103,8 @@ export function pondWater(h: ArrayLike<number>, W: number, H: number, depth: Arr
       const y = p.y + dy;
       if (x < 1 || y < 1 || x >= W - 1 || y >= H - 1) continue;
       const j = y * W + x;
-      if (!isWater(depth, water, j) || off?.[j]) continue;
-      const c = cutLevel(h, depth, water, j);
+      if (!isWater(w, j) || off?.[j] || (w.settled && w.depth[j] < SETTLED.feeds)) continue;
+      const c = cutLevel(h, w, j);
       const drop = p.level - c;
       if (!Number.isFinite(c) || drop < 1 || drop > POND_DROP || c - 1 < BED_FLOOR) continue;
       const score = portable.sqrt(d2) + 6 * (drop - 1);
@@ -119,22 +135,25 @@ export interface EasyShape {
   level: number;
   /** Every tile the shape changed or holds (its clearing, rim, pond and cut): another start's shape keeps off it. */
   area: number[];
+  /** The surface of the water the cut joins, as `w` read it: the pond and its cut stand full to it. */
+  surface: number;
 }
 
-/** Shapes the start's clearing and pond on `h`, on the water the land was planned with (`depth`, and the
- *  hydrology's `water`: 1 channels, 2 lakes), keeping off `off` (a river's head) and `taken` (the ground other
- *  starts' shapes hold). Null, `h` unchanged, when the place has no water a pond can be joined to (`pondWater`),
- *  no room for a pond, no way to the water for its cut, or would reach ground `taken` holds. */
-export function shapeEasyStart(h: Uint8Array, W: number, H: number, p: EasyPlace, depth: ArrayLike<number>, water: ArrayLike<number>, rng: Rng, off: Uint8Array | null = null, taken: Uint8Array | null = null): EasyShape | null {
+/** Shapes the start's clearing and pond on `h`, on the water `w` (the settled water of the kept land; or the water
+ *  the land was planned with, for the plan's search and the ground it reserves), keeping off `off` (a river's head,
+ *  badwater) and `taken` (the ground other starts' shapes hold). Null, `h` unchanged, when the place has no water a
+ *  pond can be joined to (`pondWater`), no room for a pond, no way to the water for its cut, or would reach ground
+ *  `taken` holds. */
+export function shapeEasyStart(h: Uint8Array, W: number, H: number, p: EasyPlace, w: EasyWater, rng: Rng, off: Uint8Array | null = null, taken: Uint8Array | null = null): EasyShape | null {
   const N = W * H;
-  const j = pondWater(h, W, H, depth, water, p, off);
+  const j = pondWater(h, W, H, w, p, off);
   if (j < 0) return null;
-  const cut = cutLevel(h, depth, water, j);
+  const cut = cutLevel(h, w, j);
   const L = cut + 1;
   // (cut on a copy, written back once the whole shape stands)
   const g = h.slice();
   const wet = new Uint8Array(N);
-  for (let i = 0; i < N; i++) if (isWater(depth, water, i)) wet[i] = 1;
+  for (let i = 0; i < N; i++) if (isWater(w, i)) wet[i] = 1;
   const wetD = distanceFrom(wet, W, H);
   const angle = (x: number, y: number) => portable.atan2(y - p.y, x - p.x);
   const outline = wobble(rng, 0.16);
@@ -291,8 +310,8 @@ export function shapeEasyStart(h: Uint8Array, W: number, H: number, p: EasyPlace
   if (pond.length < POND_LEAST) return null;
   // the cut: the low ground's way from the pond to the water whose surface the cut was set by (a river's head
   // aside), the least to cut first, bending with the noise; a tile wide at the pond
-  const surface = surfaceAt(h, depth, water, j);
-  const goal = (n: number) => wet[n] === 1 && !off?.[n] && Math.abs(surfaceAt(h, depth, water, n) - surface) < 0.3;
+  const surface = surfaceAt(h, w, j);
+  const goal = (n: number) => wet[n] === 1 && !off?.[n] && Math.abs(surfaceAt(h, w, n) - surface) < 0.3;
   const cost = new Float64Array(N).fill(Infinity);
   const prev = new Int32Array(N).fill(-1);
   const heap = new MinHeap();
@@ -388,5 +407,5 @@ export function shapeEasyStart(h: Uint8Array, W: number, H: number, p: EasyPlace
   for (let i = 0; i < N; i++) if (g[i] !== h[i] || seen[i] || isPond[i] || isCut[i]) area.push(i);
   if (taken) for (const i of area) if (taken[i]) return null;
   h.set(g);
-  return { pond, cut: path, mouth, water: j, clearing, level: L, area };
+  return { pond, cut: path, mouth, water: j, clearing, level: L, area, surface };
 }

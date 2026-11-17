@@ -71,7 +71,9 @@ import { decodeSpecFragment, encodeSpecFragment, makeSpec, type MapSpec } from "
 // with the cap merged in and without it), D148
 // and generator 0.10.40's version alone (#1225, small maps at their own scale): with the version set back to 0.10.39 the
 // branch gives `1eed1d4c…` byte for byte, D148
-const SHA = "5e8e12c9b1ef575728fd309a8e6edee4ad6428172a6616cb8a317c9fb8cee779";
+// and generator 0.10.42's version alone (#1227, Easy start shaped on the settled water, which a map without Easy start never
+// reaches): with the version set back to 0.10.40 the branch gives `5e8e12c9…` byte for byte, D148
+const SHA = "4dd5345edaf07f1330f4c07741490871da89f9074c85013285fd501756c705b9";
 
 // (a Hard map whose start lake parts as it falls: the single analytic reading stood 0.32 over the run there, PR #1040;
 // seed 5 for 7 since D518 with dev's ways out by a ramp's line (#1061), D148: seed 7's Hard lake stair holds no plan now
