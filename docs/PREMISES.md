@@ -476,8 +476,9 @@ and bands. Measured on seeds 1 to 3 at 128² and Four Lakes (`tools/premise-map.
   ribbon's tiles aside), the lake's deeper floor under the foot raised to it.
 - **The uplands are plates** (`raster/relief.ts`, the idea of `rust/forces/src/levels.rs`): land past a bowl's own rise
   (5 levels over its water, give or take 3 by noise) and 16 tiles or more from the start is cut into irregular
-  plates (8 + W/16 points on a jittered grid, the nearest under a warp), each standing at one level, the outlands'
-  mean under it plus up to 1.2. Plates meet at bold scarps; no rings round the waters and no bands along the edges.
+  plates (8 + W/16 points on a jittered grid turned off the tile grid by 3-4-5 at every size, the nearest under a warp,
+  each point's distance pushed by up to 3 tiles of noise so two plates meet on a wandering line, D518, D(plates-turned)),
+  each standing at one level, the outlands' mean under it plus up to 1.2. Plates meet at bold scarps; no rings round the waters and no bands along the edges.
   A bowl's rise is capped at the outlands, never under its meadow; rims are 6 tiles (at 3.2 the top lake's guard
   stood over its lower land as a `terrain.dam_wall`). Each bowl's distance transform runs on its own box (its reach
   of 30 tiles past its meadow), and the noise fields are read once, coarse and shared. `reliefBetween` takes 65 to

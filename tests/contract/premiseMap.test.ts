@@ -66,9 +66,12 @@ import { decodeSpecFragment, encodeSpecFragment, makeSpec, type MapSpec } from "
 // `c42349c0…` byte for byte, Generous's forms kept in and a small map's gentle rescue land not reaching this map, D148)
 // and generator 0.10.38's version alone (the dead-stand cap): with the version set back to 0.10.37 the branch gives
 // `a7b0b746…` byte for byte, D148;
-// and generator 0.10.39's version alone (Easy start's read and ruin field, D453, which no map without Easy start meets):
-// with the version set back to 0.10.38 the branch gives `96638837…` byte for byte, D148
-const SHA = "2ea398d4005c2216c1e50da400605edd61ca53dbeef9d0a263e1aeda7faf86a4";
+// and generator 0.10.39's plates (D(plates-turned)) over the cap: `96638837…` before it; each plate's rim ragged by noise moves its
+// uplands, every property above unchanged (the cap's stands (#1213) move this map no further: the branch gives `1eed1d4c…`
+// with the cap merged in and without it), D148
+// and generator 0.10.40's version alone (#1225, small maps at their own scale): with the version set back to 0.10.39 the
+// branch gives `1eed1d4c…` byte for byte, D148
+const SHA = "5e8e12c9b1ef575728fd309a8e6edee4ad6428172a6616cb8a317c9fb8cee779";
 
 // (a Hard map whose start lake parts as it falls: the single analytic reading stood 0.32 over the run there, PR #1040;
 // seed 5 for 7 since D518 with dev's ways out by a ramp's line (#1061), D148: seed 7's Hard lake stair holds no plan now

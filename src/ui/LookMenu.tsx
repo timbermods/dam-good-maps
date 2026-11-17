@@ -57,6 +57,13 @@ export function LookMenu(props: { renderer: MapRenderer | null; buttonClass?: st
       window.removeEventListener("keydown", key);
     };
   }, [open]);
+  // in a phone's Show sheet the choices open in the sheet's own flow, under the button: the sheet scrolls the button to
+  // its top, so they are in sight (the sheet's own scroll only: nothing else on the page moves)
+  useEffect(() => {
+    const sheet = open ? wrap.current?.closest<HTMLElement>(".phone-show") : null;
+    if (!sheet || !wrap.current) return;
+    sheet.scrollTop += wrap.current.getBoundingClientRect().top - sheet.getBoundingClientRect().top - (parseFloat(getComputedStyle(sheet).paddingTop) || 0);
+  }, [open, menu.mounted]);
   if (!r || r.look === "light") return null;
   const choice = r.lookChoice;
   const look = r.look;
