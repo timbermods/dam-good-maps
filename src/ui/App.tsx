@@ -46,7 +46,7 @@ import { thumbnailMaker } from "./thumbnails";
 import { discardPreparedRenderer, prepareRenderer } from "../render3d/prepared";
 import type { GeneratorModel, YourMapRow } from "../editor/generator/model";
 import { fetchIndex, fetchPlace, placeFromHash } from "../places/data";
-import { refusingGenerate } from "./refusingGenerate";
+import { refusingMake } from "./refusingGenerate";
 import { FirstLook, MakingCount, MakingWater, progressText, sayStage, stageText, type Progress } from "./FirstLook";
 import { tip } from "./Tooltip";
 import { boundOf, offers, startMaking, STOP_AFTER_S, type Bound, type RunningClock } from "./makingClock";
@@ -1130,8 +1130,10 @@ export function App() {
       const seedWord = word && !/^\d+$/.test(word) && seedFromText(word) === s.seed ? word : undefined;
       // (the map is asked for: the click's lag ends here, generateLag.spec.ts)
       performance.mark("dgm:sent");
-      // (the end-to-end build lets a test make a generate that keeps no map, each attempt refused: dgm.neverKeep)
-      const make = window.dgm?.neverKeep?.() ? (_: MapSpec, heard: (p: GenProgress) => void, _w?: string) => refusingGenerate(() => id === runId.current, heard) : (maker?.api ?? generator).generate;
+      // (the end-to-end build lets a test make a generate that keeps no map, each attempt refused: dgm.neverKeep;
+      //  `refusingMake` is there in that build alone, so the published page carries none of that code)
+      const refusing = window.dgm?.neverKeep?.() ? refusingMake : undefined;
+      const make = refusing ? (_: MapSpec, heard: (p: GenProgress) => void, _w?: string) => refusing(() => id === runId.current, heard) : (maker?.api ?? generator).generate;
       const r = await make(
         s,
         proxy((p: GenProgress) => {
