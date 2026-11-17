@@ -837,7 +837,7 @@ function attemptRound(specIn: MapSpec, optsIn: GenerateOptions, t0: number, roun
       a.result.outcomes = o;
       // its name and how it plays (D278 (1b)), from its standout and what the map holds
       const said = a.result.intentions.find((x) => x.ok && x.id === o.standout)?.say;
-      const words = mapWords({ seed, theme: specIn.theme, standout: o.standout, signature: o.signature, seaLayout: a.result.info.genome?.seaLayout ?? null, facts: playFacts(a.result), ...(said ? { say: said } : {}) });
+      const words = mapWords({ seed, variation: specIn.variation ?? 0, theme: specIn.theme, standout: o.standout, signature: o.signature, seaLayout: a.result.info.genome?.seaLayout ?? null, facts: playFacts(a.result), ...(said ? { say: said } : {}) });
       a.result.name = words.name;
       a.result.description = words.description;
       // Sources: None (D330): the map as generated, then its sources and their water removed
