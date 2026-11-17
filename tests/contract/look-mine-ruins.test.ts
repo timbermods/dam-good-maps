@@ -101,7 +101,10 @@ import * as ed from "../../src/worker/session";
 // buttes, cones and knolls are a sixth wider, and the dead stands' floor pass: not the version alone, at 0.10.29's version the
 // branch gives `0ce281af…`, D148); `841215d6…` before generator 0.10.37's version alone (the Nightly of 2026-11-16: with the
 // version set back to 0.10.36 the branch gives it byte for byte, D148)
-const LIVE_SHA = "64928c3753d64b6fe6cae7c58aae420ab99fbdde7c8783bf90d35690b52c0d51";
+// and generator 0.10.38's dead-stand cap: not the version alone; the cap holds every stand to D516's 60 in its floor pass,
+// its crowding pass and its joins, its old oaks counted, and moves this map's stands (`9bd38788…` with the floor pass's
+// cap alone, the version alone over 0.10.37's `64928c37…`), the map still passing its checks, D148
+const LIVE_SHA = "7006d8e4a068cc1fa8d7b5074f77c2fb6cc11393f8e6f07ed6adafd5f3b08c6b";
 const spec = () => makeSpec({ seed: 4242, size: { x: 128, y: 128 }, theme: "riverValley", designedFor: "normal" });
 
 describe("mine sites and ruins, models of our own", () => {
