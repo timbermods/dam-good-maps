@@ -196,7 +196,9 @@ place of its bottom rule.
   scrolls sideways, icon over name, 56px tall: Select, **Objects**, the brushes, Block, the forces. **At rest the row
   stands on whole tools** (Kyler's phone, 2026-11-14): as many as it holds at 64px, each grown to fill it exactly
   (`TopBar.tsx` `fitToolRow`), the row snapping to each, a fade at an end where more tools lie; the tool in hand is
-  brought whole into view, clear of that fade. The tool in hand's
+  brought whole into view, clear of that fade, its glide going on to it however long a frame takes (the row, still for
+  a moment, rests on the nearest tool's start only once the tool in hand stands in view or a finger took the row).
+  The tool in hand's
   settings stand in a sheet above the row with a grab handle: one row by default (Size and the tool's main choice, the
   first two settings of its first row; where the sheet is too narrow for both, the second under the first, never a row
   that scrolls sideways unannounced), every setting in up to half the screen when the handle is tapped or pulled up,
@@ -932,7 +934,8 @@ on one shared forces core, `src/core/forces/` (D203, D206, D220; see its README)
   result as it is painted, kept when let go; Slide shows the fault while it is painted, then its block slides
   along it, 2 to 20 tiles (D361 (3)), the way the drawn line runs there (where level ground slides along level
   ground and nothing would show, the ground splits along the fault a level up and down, D356), and a river that crossed the fault is
-  joined again along it. A crack runs along the fault and dust rises at its head. Objects ride with the land (a
+  joined again along it. A Lift on the map's edge whose raised side lies off the map, changing fewer than 9 tiles,
+  splits the ground the same way (D356). A crack runs along the fault and dust rises at its head. Objects ride with the land (a
   rigid one on flat ground of its own), trees on the fault go (D321 item 7), the start is carried to level ground
   when its own breaks (D257); it never adds water.
 - **Erupt** (D206, D216, D226; key 0): raises a volcano. A click vents, a drag opens a fissure (D289). **Power**,
@@ -1557,7 +1560,7 @@ Make a valley, drop a source, and there's a river.
   badwater lies, so Day 0 to the last day turns green land to dry earth and veins). Any
   edit while a hazard is shown ends the view at once (D269). The game's weather rules, unchanged. Each runs from the
   water the map shows (an unedited import's own), on every map, caves and overhangs included (#391; there a day's soil
-  is worked out per run top, and no plant withers yet). **An Unstable Core's
+  is worked out per run top, and each plant withers by its own ground's, below). **An Unstable Core's
   moment** (D339): with a hazard held, a quiet line under the water row says where each core on the map goes off against
   that cycle's hazard ("Unstable core: goes off 2 to 7 days before cycle 6's drought or badtide": a range, because a cycle's
   temperate days are drawn), lit on the days it may go off on; the picture is the map as it is, never after the explosion
@@ -1591,7 +1594,10 @@ Two looks (Map look 2, D147, D242, D250, D284):
   D201's amendment, 2026-10-29; its rough water below falls with D334's water terms, 2026-11-07). Visible seasons (D250, D286 (4)): on a held Drought or Badtide day, in every look (D242 as amended 2026-10-29), the
   plants the game would surely have killed by then are drawn withered: dry for 1.1 x the species' `DaysToDieDry` in a row
   (the run resets when moisture returns; succulents exempt), or on contaminated soil for two days running; dead for good once
-  dead (`core/sim/withering.ts`, given to the page with the held day). A living plant whose cause of death runs on the ground shown is drawn dying, as the game's `#Dying` model is (D242 as amended 2026-10-29), on Day 0 as on any held day: dry ground for a land plant, moist ground for a succulent, contamination, or water over its base outside its band (`withering.ts` `dyingCause`, read by the renderer from the soil and water it shows; `render3d/dying.ts` makes the forms). A held drought or badtide day turns the haze to
+  dead (`core/sim/withering.ts`, given to the page with the held day). Each plant reads the ground it stands on: on a map
+  with caves or overhangs a plant on a cave's floor or a ledge under a roof reads that run top's soil, never its roof's
+  (`withering.ts` `plantGround`, the renderer's `objectSoilAt` the same rule), and a dead plant is named by its level and
+  tile, so of two plants on one tile only the one that died is drawn dead. A living plant whose cause of death runs on the ground shown is drawn dying, as the game's `#Dying` model is (D242 as amended 2026-10-29), on Day 0 as on any held day: dry ground for a land plant, moist ground for a succulent, contamination, or water over its base outside its band (`withering.ts` `dyingCause`, read by the renderer from the soil and water it shows; `render3d/dying.ts` makes the forms). A held drought or badtide day turns the haze to
   the game's fog colour for it, in both looks (`Sun.blueprint`, `high/seasons.ts` `FOG`; the map's own haze is its
   temperate fog), as the game does and nothing more: its ground dries by the day's soil like any dry tile (D250 as
   amended 2026-10-29). Day 0 shows the map as it is.

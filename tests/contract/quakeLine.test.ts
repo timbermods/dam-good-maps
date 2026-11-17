@@ -95,6 +95,31 @@ describe.each([
       });
 });
 
+// A Lift on the map's edge with its raised side off the map still shows (D356): the Nightly's forceEverywhere found
+// a 12-tile fault along column 127 at Power 10 that raised only the 4 or 5 tiles on the fault itself, which passed
+// as seen because a Lift's fallback fired only when nothing changed at all, where a Slide's fires below 9 tiles.
+describe.each([
+  ["canyon", 5],
+  ["islands", 5],
+  ["highlands", 3],
+] as [ThemeId, number][])("a Lift on the map's edge shows on %s", (theme, seed) => {
+  const s = MapSession.fromGenerated(generate(makeSpec({ seed, theme, size: { x: W, y: W } })));
+  const base = fullForceMapOf(s.built, { rockLayers: [], lava: null, down: new Map(), usedIds: new Set() });
+  for (const [P, Q] of [
+    [{ x: W - 1, y: 40 }, { x: W - 1, y: 52 }],
+    [{ x: 0, y: 70 }, { x: 0, y: 82 }],
+    [{ x: 50, y: 0 }, { x: 62, y: 0 }],
+  ])
+    for (const power of [0, 10])
+      for (const side of [1, -1] as const)
+        it(`(${P.x}, ${P.y})–(${Q.x}, ${Q.y}) at Power ${power}, side ${side}: at least 9 tiles change`, () => {
+          const p = quake(snapshotMap(base), { ...QUAKE_DEFAULTS, mode: "lift", power }, { path: [P, Q], side });
+          let changed = 0;
+          for (let i = 0; i < p.map.heights.length; i++) if (p.map.heights[i] !== base.heights[i]) changed++;
+          expect(changed).toBeGreaterThanOrEqual(9);
+        });
+});
+
 describe("the margin and the travel", () => {
   it("the margin grows with Power, from 2 to 8 tiles; a long Slide still moves a block 1.3 times its length, a Lift never past 20 tiles", () => {
     expect([quakeMargin(0), quakeMargin(50), quakeMargin(100)]).toEqual([2, 5, 8]);

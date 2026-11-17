@@ -170,6 +170,14 @@ impl Engine {
             }
         }
     }
+    /// The emitters' parameters alone are well formed (`validate`'s last check): what a run or an advance checks
+    /// when only they were handed out since the state was last checked (stack_memory.rs `Session::params_trusted`).
+    pub fn validate_params(&self) -> Result<(), Refusal> {
+        match &self.flow {
+            Flow::Stacked(s) => crate::stack::validate_params(&s.params, s.emitters.len()),
+            Flow::Flat(s) => crate::stack::validate_params(&s.params, s.emitters.len()),
+        }
+    }
     fn params(&mut self) -> Result<(), Refusal> {
         match &mut self.flow {
             Flow::Stacked(s) => s.read_params(),

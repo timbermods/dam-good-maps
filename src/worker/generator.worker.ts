@@ -60,7 +60,7 @@ function eventBuffers(e: ed.EditorEvent): Transferable[] {
 ed.setAutoWater(true);
 
 // A hazard day's soil (the Weather view's soil and withered plants, D250) is one whole-map pass of the game's soil, 150 to 350 ms
-// on a 256² map: it is worked out in a worker of its own, started when first needed, so a stroke, a force or a water message
+// on a 256² map (50 to 80 ms with caves, per run top): it is worked out in a worker of its own, started when first needed, so a stroke, a force or a water message
 // never waits behind it (daySoil.ts). The run's map goes over once, then each day's water. A failing worker is made again and the job tried once more;
 // failing twice, the session sends the day without its soil, never working it out itself.
 if (typeof Worker !== "undefined") {
@@ -91,7 +91,7 @@ if (typeof Worker !== "undefined") {
         waiting.set(id, { resolve, reject });
         const first = sent?.base !== job.base;
         if (first) sent = { id: (sent?.id ?? 0) + 1, base: job.base };
-        soilWorker.postMessage({ id, baseId: sent!.id, ...(first ? { base: job.base } : {}), depth: job.depth, contamination: job.contamination });
+        soilWorker.postMessage({ id, baseId: sent!.id, ...(first ? { base: job.base } : {}), depth: job.depth, contamination: job.contamination, stack: job.stack ?? null });
       });
   // (a failed worker is made again and the job tried once more; failing twice, the session sends the day without soil)
   ed.setSoilRunner((job) => attempt(job).catch(() => attempt(job)));
