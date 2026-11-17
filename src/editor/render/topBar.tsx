@@ -84,7 +84,7 @@ export function topBar(ed: Ed, props: EditorProps) {
       hints={
         <FirstRun
           done={firstRun}
-          touch={!!phone}
+          touch={!!phone || tablet}
           onHelp={() => showHelpPanel("help")}
           onClose={() => {
             const all = new Set<FirstStep>(["paint", "place", "water"]);

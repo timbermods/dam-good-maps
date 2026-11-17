@@ -3,9 +3,10 @@
 // change again), and the header's dot says "Settling…" while it does (Kyler, 2026-10-04: one status). The camera never moves by itself (D265: no Follow).
 // Built from the shared bar and button styles (D176).
 
-import { useEffect, useRef, useState } from "preact/hooks";
+import { useEffect, useLayoutEffect, useRef, useState } from "preact/hooks";
 import type { CoreNote } from "../core/sim/coreMoment";
 import type { Hazard } from "../core/sim/weather";
+import { DOUBLE_TAP_MS, DOUBLE_TAP_PX } from "../render3d/touch";
 import { tip } from "../ui/Tooltip";
 
 export interface WaterBarProps {
@@ -30,6 +31,8 @@ export interface WaterBarProps {
 /** The days the box takes typed. */
 const DAY_MAX = 99;
 
+/** The pointer is a finger (a phone or a tablet): what a double click does there is a double tap's. */
+const fingerPointer = () => typeof matchMedia === "function" && matchMedia("(pointer: coarse)").matches;
 
 export function WaterBar({ weather, onWeather, day, target, counting, onStep, onDay, coreNotes = [], length = null }: WaterBarProps) {
   const shown = target ?? day;
@@ -37,14 +40,34 @@ export function WaterBar({ weather, onWeather, day, target, counting, onStep, on
   const [typing, setTypingState] = useState<string | null>(null);
   // (the field's words as typed, read when it closes: Esc empties it first, so the blur that follows shows nothing)
   const typed = useRef<string | null>(null);
+  // (when a finger's taps opened the field, by the tap's own time: the mouse press the browser sends for that same tap,
+  // after the field is drawn, would put a caret in it and drop the selection, and a typed day would join the old one
+  // instead of replacing it)
+  const opened = useRef(-Infinity);
   const setTyping = (t: string | null) => {
     typed.current = t;
     setTypingState(t);
   };
   const field = useRef<HTMLInputElement>(null);
-  useEffect(() => {
-    if (typing !== null) field.current?.select();
+  // (as the field is drawn, still in the tap that asked for it: a phone opens its keyboard only for a focus a touch made)
+  useLayoutEffect(() => {
+    if (typing === null) return;
+    field.current?.focus();
+    field.current?.select();
   }, [typing !== null]);
+  const typeDay = () => weather && setTyping(shown === null ? "" : String(shown));
+  // a finger's double tap: WebKit sends no dblclick for two taps (the iPhone's browser), so the taps are counted here,
+  // by the events' own times, as the view counts its own (render3d/touch.ts)
+  const lastTap = useRef<{ t: number; x: number; y: number } | null>(null);
+  const tapped = (e: PointerEvent) => {
+    if (e.pointerType !== "touch" || typing !== null) return;
+    const was = lastTap.current;
+    lastTap.current = { t: e.timeStamp, x: e.clientX, y: e.clientY };
+    if (!was || e.timeStamp - was.t > DOUBLE_TAP_MS || Math.hypot(e.clientX - was.x, e.clientY - was.y) > DOUBLE_TAP_PX) return;
+    lastTap.current = null;
+    opened.current = e.timeStamp;
+    typeDay();
+  };
   // (the hazard put away: the typing goes with it)
   useEffect(() => {
     if (!weather) setTyping(null);
@@ -99,8 +122,10 @@ export function WaterBar({ weather, onWeather, day, target, counting, onStep, on
           class={`day-label${weather && counting !== null ? " counting" : ""}${typing !== null ? " typing" : ""}`}
           aria-live="polite"
           // (no tooltip while a day is typed: it would open on the field's focus, a box under the day box)
-          {...(typing === null ? tip("Type a day", "Double-click") : {})}
-          onDblClick={() => weather && setTyping(shown === null ? "" : String(shown))}
+          // (to a finger the words say the double tap: a key cap shows only where there are keys, Tooltip.tsx)
+          {...(typing === null ? (fingerPointer() ? tip("Double tap to type a day") : tip("Type a day", "Double-click")) : {})}
+          onDblClick={typeDay}
+          onPointerUp={tapped}
         >
           {weather && counting !== null && typing === null ? <span class="day-fill" style={{ width: `${Math.round(counting * 100)}%` }} aria-hidden="true" /> : null}
           {typing !== null ? (
@@ -118,6 +143,9 @@ export function WaterBar({ weather, onWeather, day, target, counting, onStep, on
                 e.stopPropagation();
                 if (e.key === "Enter") commit();
                 else if (e.key === "Escape") setTyping(null);
+              }}
+              onMouseDown={(e) => {
+                if (e.timeStamp - opened.current <= DOUBLE_TAP_MS) e.preventDefault();
               }}
               onBlur={commit}
             />
