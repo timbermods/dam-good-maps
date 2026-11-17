@@ -191,7 +191,9 @@ place of its bottom rule.
   wide the phone held upright, under 500 tall the phone on its side; anything else keeps the layout
   above (a tablet takes this layout's Show, objects and pages, below). One editor: the same controls and operations (D342), only placed for a finger. **Upright:** one slim bar at the
   top: a menu (**Map Generator**, **Real places**, **Your maps**, **History**, **Help and keys**, then File's entries),
-  the map's name (two lines at most), Undo, Redo, the checks' dot (a tap opens the checks under the bar) and **Save**
+  the map's name (two lines at most; a tap renames it in a field the name's room wide, a finger tall, its type 16px so
+  the browser never zooms, the description's card the screen's width under the bar with what the page adds after the
+  description whole), Undo, Redo, the checks' dot (a tap opens the checks under the bar) and **Save**
   (Save to Timberborn's or Download .timber's call). The view fills the rest. At the foot the tools in one row that
   scrolls sideways, icon over name, 56px tall: Select, **Objects**, the brushes, Block, the forces. **At rest the row
   stands on whole tools** (Kyler's phone, 2026-11-14): as many as it holds at 64px, each grown to fill it exactly
@@ -208,10 +210,12 @@ place of its bottom rule.
   of that control's line, so the names and the sliders of two cards side by side stand level; Select's shapes four to
   a line (Whole map two cells), its words under them. Tapping the tool in hand puts it down. Select rests in hand with its sheet closed; a tap on it opens
   Select's settings, a tap again puts them and any selection down. **Show**, a button at the view's top right, opens a
-  sheet of what the map shows, at most 40 % of the view so the map changes above it, ending after a whole row (the rest
-  scroll up into view): under small headings, each an even grid of chips, **What to show** (the Show row's toggles,
+  sheet of what the map shows, at most 40 % of the view so the map changes above it, ending after a whole row, or a
+  whole line of Land's numbers, the Legend or a key under the chips (fitted again whenever what it holds changes; the
+  rest scroll up into view), a longer name ("Caves and overhangs") taking two chips' room: under small headings, each an even grid of chips, **What to show** (the Show row's toggles,
   Legend and its key), **Camera** (Top-down, Reset view, First view, the compass, **Saved views** (§7), **Layers shown**: the slice, ∞ for
-  every layer, and Look), **Minimap**, **Weather** (the weather days) and **Forces and sound** (Slow forces, the sound
+  every layer, and Look, whose choices open in the sheet's own flow under its button, the sheet scrolling them into
+  sight), **Minimap**, **Weather** (the weather days; a double tap on the day types one, as its tooltip tells a finger: the two taps counted by the page, since WebKit sends no dblclick for them, and the day in the field left selected so the typed one replaces it) and **Forces and sound** (Slow forces, the sound
   and its volume, always shown: a phone has no hover).
   **Objects** opens a sheet of large tiles, half the view at the most; a tile picked closes it to one row saying what
   is in hand (its picture, its name, **Put it down**), its settings under it when the sheet is pulled up. A picked
@@ -219,8 +223,10 @@ place of its bottom rule.
   closes Show and the objects. **The map keeps to the room left** (planning, #1074; on a phone or a tablet only, the desktop's
   view never moves for a panel, D265): a sheet or the panel opening or closing slides the view, its zoom and angle
   kept, so the ground in the middle of the room the controls leave stays in its middle, and Reset view frames the map
-  in that room (`view/usePhone.ts`, `view/insets.ts`). The tapped tile's readout sits at the view's top left. The
-  first steps' hints say what a finger does and stand above the sheet, never over a control or the map's middle (they
+  in that room (`view/usePhone.ts`, `view/insets.ts`). The tapped tile's readout sits at the view's top left (upright, under
+  Cancel while a finger's press is on: its lines reach across the view's top). The
+  first steps' hints say what a finger does (on a tablet too: the objects under Objects, an object pressed, dragged
+  and lifted into place, never "click") and stand above the sheet, never over a control or the map's middle (they
   step aside while a sheet is pulled up), and their × puts them away for good. **The rest of the page** (#1074, slice 4;
   `tests/e2e/phonePages.spec.ts`): each of the menu's panels (Map Generator, Real places, Your maps, History) is a page
   the whole screen under the bar, **Map** at its top going back to the map, the page scrolling inside itself; Map
@@ -233,7 +239,7 @@ place of its bottom rule.
   **Branch from here** under the step the map is at; Real places and Your maps show two cards a row upright (four on its
   side), each picture whole and every name in full; the page's own head names History and Your maps, so their panels'
   headings step aside (Your maps keeps its row of actions). Each of Your maps' tiles has a **⋯** (Compare,
-  Download .timber, Rename, Delete: what the right-click gives). The dialogs (Help and keys, About, New blank map,
+  Download .timber, Rename, Delete: what the right-click gives; Rename's field the tile's width and a finger tall). The dialogs (Help and keys, About, New blank map,
   Description, the time-lapse, a question before a map is replaced, the map being made) are sheets the screen's width,
   scrolling inside with their buttons kept in sight at their foot, the map being made centred on the screen with its whole
   line; Together opens from the menu as a sheet under the
@@ -294,7 +300,7 @@ place of its bottom rule.
   Auto going under it where the line has no room, so no name is ever cut short. Under 1,280 wide the dock takes the view's
   whole width (its cells shrink to 44px, never narrower than a tool's word whatever the font; where the row can't hold
   them it scrolls sideways, as a phone's does, the tool in hand scrolled into view; Select's shapes alike) and the editor fills the box the browser pins fixed elements to (as a phone's, above); under
-  1,100 the header takes two lines. Every control at least 44px, fields 16px, no iOS callout on a long press but in a
+  1,100 the header takes two lines. Every control at least 44px, fields 16px (a kept map's name renamed in a field its tile's width, as on a phone), no iOS callout on a long press but in a
   field or a link, the same gestures (§7, "Touch").
 - **Together** (D362, D431, D486; `docs/COLLAB-BRIEF.md`; part 6a): two players edit one map through a relay and a
   room-code function, in the page's own panel style. One quiet button in the header's right group, before **File**

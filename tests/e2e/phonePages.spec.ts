@@ -6,7 +6,9 @@
 // closes it, and no word cut short (no ellipsis, no clipped label). Save to Timberborn hands the map's file to the share
 // sheet where the browser has one for files. The second pass: Generate the page's one green button at its foot, Keep quiet
 // beside the seed; History's rows the page's width; two cards a row upright; Help to a finger, the gestures first; the map
-// being made centred; a long press in Your maps selecting as Ctrl+click does.
+// being made centred; a long press in Your maps selecting as Ctrl+click does. The phone pass (slice 5): the map's name
+// and a kept map's renamed in a field a finger can use, the description's card under the bar; the first hints and Help
+// telling a finger that an object is pressed, dragged and lifted into place (a tap places nothing).
 
 import { expect, test, type Locator, type Page } from "@playwright/test";
 import { openLayoutMap as openEditor } from "./helpers";
@@ -181,6 +183,9 @@ for (const phone of PHONES) {
       await expect(help.locator("h3").first()).toHaveText("Controls");
       for (const words of ["Pinch to zoom", "Double tap to zoom in where you tap. On an object, the first tap also selects it.", "Tap with two fingers to undo, with three to redo.", "hold a map to select several"]) await expect(help).toContainText(words);
       await expect(help).not.toContainText(/mouse|Middle-drag|scroll zooms|Keyboard shortcuts|click/i);
+      // what a finger does with something in hand, as the view takes it (EDITOR_PLAN §7, "Touch": a tap applies nothing)
+      for (const words of ["With a brush in hand, drag on the map to paint.", "With an object, a force or Block in hand, press the map and drag.", "lifting places or applies it. A tap changes nothing."]) await expect(help).toContainText(words);
+      await expect(help).not.toContainText(/tap or drag on the map/);
       await help.locator("footer").getByRole("button", { name: "Close" }).tap();
     });
 
@@ -242,6 +247,67 @@ for (const phone of PHONES) {
       await page.locator(".maps-panel .ym-done").tap();
       await expect(page.locator(".your-maps li.selected")).toHaveCount(0);
       await expect(page.locator(".maps-panel .ym-done")).toHaveCount(0);
+    });
+
+    test(`at ${W}×${H}: the map's name and a kept map's are renamed in a field a finger can use, the description's card under the bar`, async ({ page }) => {
+      test.setTimeout(300_000);
+      await openEditor(page);
+      // the name in the bar: a tap opens its field where the name was, a finger tall, its type 16px, all of it in sight
+      const name = page.locator(".phone-bar .editor-title .title-button");
+      const was = (await name.boundingBox())!;
+      await name.tap();
+      const field = page.locator(".phone-bar .editor-title input[aria-label='Map name']");
+      await expect(field).toBeFocused();
+      const f = (await field.boundingBox())!;
+      expect(f.height, "the name's field: a finger tall").toBeGreaterThanOrEqual(43.5);
+      expect(f.width, "the name's field: the name's room wide").toBeGreaterThanOrEqual(was.width - 1);
+      const shown = await field.evaluate((e) => {
+        const r = e.getBoundingClientRect();
+        const at = (y: number) => document.elementFromPoint(r.left + r.width / 2, y) === e;
+        return { top: at(r.top + 3), foot: at(r.bottom - 3), font: parseFloat(getComputedStyle(e).fontSize) };
+      });
+      expect(shown, "the name's field: whole, its type 16px").toEqual({ top: true, foot: true, font: 16 });
+      // the description's card: under the bar, on the screen, what the page adds after the description whole
+      const bar = (await page.locator(".phone-bar").boundingBox())!;
+      const card = (await page.locator(".title-desc").boundingBox())!;
+      expect(card.y, "the description's card hangs under the bar").toBeGreaterThanOrEqual(bar.y + bar.height);
+      expect(card.x >= 0 && card.x + card.width <= W, "the description's card is on the screen").toBe(true);
+      await check(page, W, H, "the name being renamed");
+      await field.fill("Named by a finger");
+      await field.press("Enter");
+      await expect(name).toHaveText("Named by a finger");
+      await expect(page.locator(".title-desc")).toHaveCount(0);
+
+      // a kept map's name, from its ⋯: a field the tile's width, a finger tall
+      await fromMenu(page, "Clear everything");
+      await expect.poll(() => page.evaluate(() => window.dgmEditor!.info().history.length), { timeout: 30_000 }).toBeGreaterThan(0);
+      await fromMenu(page, "Your maps");
+      await expect(page.locator(".ym-more").first()).toBeVisible({ timeout: 30_000 });
+      await page.locator(".ym-more").first().tap();
+      await page.getByRole("menuitem", { name: "Rename", exact: true }).tap();
+      const rename = page.locator(".your-maps input.ym-rename");
+      await expect(rename).toBeFocused();
+      const r = (await rename.boundingBox())!;
+      const tile = (await page.locator(".your-maps li[data-id]:has(input.ym-rename) .ym-tile").boundingBox())!;
+      expect(r.height, "a kept map's field: a finger tall").toBeGreaterThanOrEqual(43.5);
+      expect(r.width, "a kept map's field: the tile's width").toBeGreaterThanOrEqual(tile.width - 20);
+      await check(page, W, H, "a kept map being renamed");
+      await rename.fill("Kept by a finger");
+      await rename.press("Enter");
+      await expect(page.locator(".your-maps li[data-id]").first()).toContainText("Kept by a finger");
+    });
+
+    test(`at ${W}×${H}: the first hints tell a finger to press, drag and lift an object into place`, async ({ page }) => {
+      test.setTimeout(300_000);
+      await page.goto("./#s=4242&z=96&d=n&t=riverValley");
+      await page.waitForFunction(() => !!window.dgmEditor && !!window.dgm3d, null, { timeout: 120_000 });
+      const hints = page.locator(".first-run");
+      await expect(hints).toBeVisible();
+      // (with an object in hand a tap places nothing, touch.spec: the press shows it above the finger and the lift places it)
+      await expect(hints).toContainText("Place things: tap Objects, pick one, then press the map, drag to the spot and lift.");
+      await expect(hints).toContainText("Add water: in Objects, pick Water source, then press the map and lift where the water starts.");
+      await expect(hints).not.toContainText(/then tap (the map|where)/);
+      expect(await phoneClipped(page), "the first hints: words cut short").toEqual([]);
     });
 
     test(`at ${W}×${H}: Save to Timberborn hands the map's file to the share sheet`, async ({ page }) => {
