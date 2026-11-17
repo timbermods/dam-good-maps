@@ -140,18 +140,20 @@ export interface MapWords {
   description: string;
 }
 
-export function mapWords(o: { seed: number; theme: ThemeId; standout: IntentionId | FormId | null; signature: Signature; seaLayout?: SeaLayout | null; facts: PlayFacts; say?: string }): MapWords {
+export function mapWords(o: { seed: number; theme: ThemeId; standout: IntentionId | FormId | null; signature: Signature; seaLayout?: SeaLayout | null; facts: PlayFacts; say?: string; variation?: number }): MapWords {
   const land = landNoun(o.theme, o.signature, o.seaLayout);
   const pool = o.standout ? TITLES[o.standout] : FALLBACK;
   // (the seed walks the pool, offset by the theme and the standout: thirty seeds in a row of one
-  // theme never land three on one title of a pool of fifteen or more, and the next title is tried
-  // where one is forbidden)
+  // theme never land three on one title of a pool of fifteen or more. The titles allowed are taken in order from
+  // there, and a sibling's variation steps on along them, so the siblings of one seed, which share its standout,
+  // each draw the next title: a search's maps never share a name, and variation 0 is the name it always was)
   const k0 = (Math.abs(o.seed) + hash32(0, "name", o.theme, o.standout ?? "none")) % pool.length;
-  let name = "";
-  for (let k = 0; k < pool.length && !name; k++) {
+  const titles: string[] = [];
+  for (let k = 0; k < pool.length; k++) {
     const title = pool[(k0 + k) % pool.length].replace("{land}", land);
-    if (allowedName(title)) name = title;
+    if (allowedName(title)) titles.push(title);
   }
+  let name = titles.length ? titles[Math.abs(o.variation ?? 0) % titles.length] : "";
   // (never a seed or an invented word: the land alone)
   if (!name) name = `The ${land}`;
   // (the standout in the map's own numbers where its check gave them, else in general words)
