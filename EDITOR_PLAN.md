@@ -741,11 +741,16 @@ on one shared forces core, `src/core/forces/` (D203, D206, D220; see its README)
   frame. Water rides the ground it stands on and flows on from there: into a crater or a rift as it opens, off a cone
   or a lifted fault, along with a Slide's block; a glacier's tarn and meltwater river fill from its springs at the
   water's own pace once its land is final; the map's sources run on while it plays. A carve's river is **born as it cuts**: its source runs
-  from the first step, so the water follows the cutting edge down the new channel and never leads it (each dry or damp
-  tile is held until the front reaches it; water already there flows on as it flowed)
+  from the first step, so the water follows the cutting edge down the new channel and never leads it (the land along
+  and beside its course is held until the front reaches it: within two tiles of it any dry or damp tile, farther off only
+  land with no water at all, so the carve's water never spills past its banks and downhill ahead of the cut, #1222; water
+  already there flows on as it flowed, and the map's own water runs on exactly as it would without the carve until the
+  carve's water reaches it, #1181)
   (shown as a stroke's water is, at a steady two game minutes a second, so a breakthrough drains at a pace
   the eye follows); kept (or skipped to its end), the map's water flows on from that water, so
-  nothing jumps, and settles as after any edit; undo puts the map's own water back. **Nothing pops in after the animation** (D368 (9)): the last frame shown is the land kept
+  nothing jumps, and settles as after any edit; taking back a force still at work (Esc, or undo
+  while it works, or a keep refused) puts the map's water back exactly as the force found it (a copy taken then: water
+  still flowing after an edit flows on from where it was); undo after it was kept is the edit's undo, as for any edit. **Nothing pops in after the animation** (D368 (9)): the last frame shown is the land kept
   (`tests/contract/forcePop.test.ts` holds every force and mode to it, in both paces), and **the force is over the
   moment its land is final**: what is left of its showing changes nothing on the ground, so its objects take their
   places at once and it is kept (its row back, the next edit at once), its effects' tails playing out (a glacier's
