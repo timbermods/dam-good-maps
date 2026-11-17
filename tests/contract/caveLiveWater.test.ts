@@ -11,6 +11,7 @@
 import { afterEach, describe, expect, it } from "vitest";
 import { writeTimber, type TimberFile } from "../../src/core/format/timber";
 import { emptySimulationSingletons, GAME_VERSION, LAYERS, voxelsFromHeights } from "../../src/core/format/world";
+import { DEFAULTS } from "../../src/core/forces/carve/run";
 import { canonicalSettle } from "../../src/core/sim/prefill";
 import { carryStack, StackLive } from "../../src/core/sim/stackLive";
 import { decodeProject } from "../../src/core/doc/document";
@@ -159,6 +160,33 @@ describe("live water on a map with caves (D99, D197)", () => {
     let differ = 0;
     for (let i = 0; i < N; i++) if (canon[i] > 0.05 !== shown[i] > 0.05 || Math.abs(canon[i] - shown[i]) > 0.1) differ++;
     expect(differ, "tiles where the live water's end differs from the settle").toBeLessThanOrEqual(N * 0.01);
+  });
+
+  it("a force taken back while the water still flows after an edit leaves the water as it found it, flowing on from there (#1222)", async () => {
+    const frames = openRiver();
+    ed.setAutoWater(true);
+    const before = topOf(ed.sessionView().view.water);
+    const cells: [number, number, number][] = [];
+    for (let y = TRENCH.y0; y <= TRENCH.y1; y++) cells.push([y, DAM_X, DAM_X]);
+    expect(ed.apply({ op: "sculpt", params: { mode: "flatten", cells, level: DAM } }, "user", "Raise").errors).toEqual([]);
+    const v = ed.sessionInfo().version;
+    const upstream = 19 * W + DAM_X - 3;
+    // the river rising behind the dam, part way
+    await until(() => frames.some((f) => f.version === v && !f.draft && topOf(f.water)[upstream] > before[upstream] + 0.3));
+    const risen = topOf(frames.filter((f) => f.version === v && !f.draft).at(-1)!.water)[upstream];
+    // a dry canyon picked up far from the river, then taken back
+    const st = ed.forceStart({ verb: "carve", settings: { ...DEFAULTS, power: 20, dry: true }, origin: [30, 6], cut: null });
+    expect(st.errors).toEqual([]);
+    const back = ed.forceCancel();
+    expect(back.taken).toBe("work");
+    // the water as it was when the force was picked up, not the settle before the edit
+    expect(Math.abs(topOf(back.water!)[upstream] - risen)).toBeLessThan(0.05);
+    // and it flows on from there, never back towards the settle before the edit (0.35 here); not held near `risen`: it
+    // sways about its level as it comes to stand (3.31, 3.29, 3.31, 3.30 in one run; 3.24 seen under load)
+    const n = frames.length;
+    await until(() => frames.length > n + 1);
+    for (const f of frames.slice(n)) expect(topOf(f.water)[upstream]).toBeGreaterThan((before[upstream] + risen) / 2);
+    await until(() => !ed.waterSettling());
   });
 
   it("an edit's water starts flowing at once, the cave included, from the water in flight", async () => {
