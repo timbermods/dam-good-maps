@@ -116,11 +116,15 @@ export function usePhone(ed: Ed): PhoneSlice {
   const slideFrame = useRef(0);
   const sheetsRef = useRef(sheets);
   sheetsRef.current = sheets;
+  // (Show's refits waiting for their frame: a change in what it holds is fitted a frame later, and a fit that changes its
+  // height slides the view again, so the room is not settled until they have run; a test that waited on it straight after
+  // a Show toggle went on a frame early, #1226's review)
+  const fitFrames = useRef(new Set<number>());
   const roomSettled = useRef(() => {
     if (!sheetsRef.current) return true;
     const ran = slideMeasured.current;
     const want = slideWanted.current;
-    return !slideFrame.current && !!ran && ran.length === want.length && ran.every((v, k) => v === want[k]) && !ed.renderer.current?.touchGliding;
+    return !slideFrame.current && !fitFrames.current.size && !!ran && ran.length === want.length && ran.every((v, k) => v === want[k]) && !ed.renderer.current?.touchGliding;
   }).current;
   useEffect(() => {
     slideMeasured.current = slideOn;
@@ -138,10 +142,13 @@ export function usePhone(ed: Ed): PhoneSlice {
       // the slide, #1074 slice 6)
       const show = view.querySelector<HTMLElement>(".phone-show");
       if (show) endShowOnWhole(show);
-      const ins = measureInsets(view);
-      r.setFrameInsets(ins);
-      const now = { ...roomCentre(r.canvas.getBoundingClientRect(), ins), phone: phone ?? ("tablet" as const) };
       const was = room.current;
+      const layout = phone ?? ("tablet" as const);
+      // (the room the map was first framed in counts the first steps' hints, as its first view did, `firstInsets`: the
+      // ground in its middle is the map's middle, kept there by the next slide)
+      const ins = measureInsets(view, !was);
+      r.setFrameInsets(ins);
+      const now = { ...roomCentre(r.canvas.getBoundingClientRect(), ins), phone: layout };
       room.current = now;
       // (turned to its other side: a new view, nothing to keep in place)
       if (!was || was.phone !== now.phone || Math.hypot(now.x - was.x, now.y - was.y) < 1) return;
@@ -166,24 +173,31 @@ export function usePhone(ed: Ed): PhoneSlice {
   useEffect(() => {
     const sheet = document.querySelector<HTMLElement>(".editor:is([data-phone], [data-tablet]) .phone-show");
     if (!sheet) return;
+    const frames = fitFrames.current;
+    /** A refit in the next frame, counted until it has run (`roomSettled`). */
+    const soon = (f: () => void) => {
+      const id = requestAnimationFrame(() => {
+        frames.delete(id);
+        f();
+      });
+      frames.add(id);
+    };
     const fit = () => endShowOnWhole(sheet);
-    const id = requestAnimationFrame(fit);
-    const watch = typeof ResizeObserver === "undefined" ? null : new ResizeObserver(() => requestAnimationFrame(fit));
+    // (fitted again whenever the room changes, and when what it holds changes: Land's numbers, the Legend or a key coming
+    // under the chips, a chip a map gains; a fit that changes its height moves the room, so the view slides with it)
+    const refit = () => {
+      const was = sheet.offsetHeight;
+      fit();
+      if (Math.abs(sheet.offsetHeight - was) >= 1) setShowFitted((n) => n + 1);
+    };
+    soon(fit);
+    const watch = typeof ResizeObserver === "undefined" ? null : new ResizeObserver(() => soon(fit));
     watch?.observe(sheet.parentElement ?? sheet);
-    // (and when what it holds changes: Land's numbers, the Legend or a key coming under the chips, a chip a map gains)
-    const grown =
-      typeof MutationObserver === "undefined"
-        ? null
-        : new MutationObserver(() =>
-            requestAnimationFrame(() => {
-              const was = sheet.offsetHeight;
-              fit();
-              if (Math.abs(sheet.offsetHeight - was) >= 1) setShowFitted((n) => n + 1);
-            }),
-          );
+    const grown = typeof MutationObserver === "undefined" ? null : new MutationObserver(() => soon(refit));
     grown?.observe(sheet, { childList: true, subtree: true });
     return () => {
-      cancelAnimationFrame(id);
+      for (const id of frames) cancelAnimationFrame(id);
+      frames.clear();
       watch?.disconnect();
       grown?.disconnect();
     };

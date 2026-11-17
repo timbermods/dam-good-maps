@@ -2,7 +2,8 @@
 // under the count gives the last try's reason, after 30 s of running time the card offers the same settings without Easy
 // start, after 5 minutes the generate stops by itself and the card says no map was kept and why, the open map and the
 // settings as they were. The screen is held on only while it runs. The e2e build's running clock is sped up
-// (window.__dgmMakingRate) once the first reason shows, so the bounds come without waiting them out.
+// (window.__dgmMakingRate) once the first reason shows, and again once the offer is read, so the bounds come without
+// waiting them out.
 
 import { expect, test } from "@playwright/test";
 import { generateButton, openDrawer, openEditor } from "./open";
@@ -52,7 +53,9 @@ test("a generate says why its last try failed, offers the map without Easy start
   await expect(easier).toHaveAttribute("title", "Make this map without Easy start");
   await expect(card.getByRole("button", { name: "Cancel" })).toBeVisible();
 
-  // 5 minutes: it stops by itself, a refusal with the last reason, the same way forward and Close
+  // 5 minutes: it stops by itself, a refusal with the last reason, the same way forward and Close (the clock run on fast
+  // once the offer is read: the stop comes at once rather than seconds later)
+  await page.evaluate(() => ((window as unknown as { __dgmMakingRate: number }).__dgmMakingRate = 2000));
   await expect(page.locator("#making-words")).toHaveText(/^No map was kept in 5 minutes: [a-z].*\.$/, { timeout: 60_000 });
   await expect(page.getByRole("alertdialog")).toBeVisible();
   await expect(card.getByRole("button", { name: "Without Easy start" })).toBeVisible();

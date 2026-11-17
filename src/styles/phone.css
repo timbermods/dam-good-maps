@@ -121,6 +121,16 @@
   text-align: left;
 }
 
+/* while the name is renamed its field takes the bar's width (planning, #1074): the menu and the bar's buttons step aside
+   until the field gives way, so the whole name is in sight */
+.phone-bar:has(.editor-title h1.title-editing) > :is(.menu-wrap, .editor-actions) {
+  display: none;
+}
+
+.phone-bar:has(.editor-title h1.title-editing) .editor-title {
+  margin: 0;
+}
+
 /* the description's card under it: the screen's width under the bar, what the page adds after the description whole */
 .phone-bar .editor-title .title-desc {
   left: max(8px, var(--safe-l));
@@ -457,6 +467,9 @@
 .editor:is([data-phone], [data-tablet]) .ps-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(112px, 1fr));
+  /* (a chip that takes two chips' room and no longer fits its row goes to the next, and the chip after it fills the cell it
+     left: no empty cell beside Irrigation on a phone on its side) */
+  grid-auto-flow: row dense;
   gap: 6px;
 }
 
@@ -622,6 +635,46 @@
   width: 44px;
 }
 
+/* ---- the × that closes or puts down, and the layers' ▾ ▴, drawn rather than typed on a phone or a tablet: the font's
+   glyphs stood small and off their buttons' middle (WebKit drew ▾ ▴ as dots in a 44px box). The words stay for the
+   desktop's mouse, where they are drawn at their own size. */
+.editor:is([data-phone], [data-tablet]) :is(.icon-close, .held-close, .together-close, .put-down, .ow-close, .hist-close, .dock-notes > * > button[aria-label="Dismiss"]),
+.editor:is([data-phone], [data-tablet]) .ps-line .layer-widget button {
+  font-size: 0;
+  line-height: 0;
+}
+
+.editor:is([data-phone], [data-tablet]) :is(.icon-close, .held-close, .together-close, .put-down, .ow-close, .hist-close, .dock-notes > * > button[aria-label="Dismiss"])::before,
+.editor:is([data-phone], [data-tablet]) .ps-line .layer-widget button::before {
+  content: "";
+  display: block;
+  width: 14px;
+  height: 14px;
+  margin: auto;
+  background: currentColor;
+  -webkit-mask: var(--drawn) center / contain no-repeat;
+  mask: var(--drawn) center / contain no-repeat;
+}
+
+.editor:is([data-phone], [data-tablet]) :is(.icon-close, .held-close, .together-close, .put-down, .ow-close, .hist-close, .dock-notes > * > button[aria-label="Dismiss"]) {
+  --drawn: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 14 14'%3E%3Cpath d='M2 2l10 10M12 2L2 12' stroke='%23000' stroke-width='1.8' stroke-linecap='round'/%3E%3C/svg%3E");
+}
+
+.editor:is([data-phone], [data-tablet]) .ps-line .layer-widget button:first-child {
+  --drawn: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 14 14'%3E%3Cpath d='M2 4.5l5 5 5-5' fill='none' stroke='%23000' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+}
+
+.editor:is([data-phone], [data-tablet]) .ps-line .layer-widget button:last-child {
+  --drawn: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 14 14'%3E%3Cpath d='M2 9.5l5-5 5 5' fill='none' stroke='%23000' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+}
+
+/* (the layers' value between them, the same size as the chips' words) */
+.editor:is([data-phone], [data-tablet]) .ps-line .layer-widget output {
+  min-width: 32px;
+  font-size: 18px;
+  text-align: center;
+}
+
 .editor:is([data-phone], [data-tablet]) .phone-show :is(.water-bar, .minimap, .legend-panel, .show-key) {
   position: static;
   inset: auto;
@@ -676,6 +729,8 @@
 .editor:is([data-phone], [data-tablet]) .objects-menu .shelf-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(84px, 1fr));
+  /* (every row the tallest tile's height: a name on two lines made its row taller than the rest) */
+  grid-auto-rows: 1fr;
   gap: 6px;
   margin: 0;
 }
@@ -1396,7 +1451,7 @@ html[data-phone] .phone-only {
   width: auto;
   max-height: calc(var(--room-h, 100dvh) - 72px - var(--safe-t) - var(--safe-b));
   overflow-y: auto;
-  padding-top: 52px;
+  padding-top: 16px;
 }
 
 .phone-bar .together-panel > .together-close {
@@ -1406,6 +1461,15 @@ html[data-phone] .phone-only {
   width: 44px;
   height: 44px;
   font-size: 22px;
+}
+
+/* (the panel's name on the ×'s line, so the line above its first field is never an empty band) */
+.phone-bar .together-panel > .together-title {
+  display: flex;
+  align-items: center;
+  min-height: 44px;
+  margin: -12px 48px 0 0;
+  font-size: 17px;
 }
 
 /* ---- the dialogs' buttons stay in sight at their foot while the dialog scrolls */

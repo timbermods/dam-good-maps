@@ -1259,6 +1259,14 @@ for (const [W, H] of TABLETS) {
       const tap = (l: ReturnType<Page["locator"]>) => l.first().tap();
 
       await check("at rest");
+      // the map's name renamed in the header: a field, so 16px, though the name shown is the header's 13px (planning, #1074)
+      await tap(page.locator(".editor-title .title-button"));
+      const named = page.locator(".editor-title input[aria-label='Map name']");
+      await expect(named).toBeFocused();
+      expect((await named.boundingBox())!.height, "the name's field: a finger tall").toBeGreaterThanOrEqual(43.5);
+      await check("the map's name renamed");
+      await page.keyboard.press("Escape");
+      await expect(named).toHaveCount(0);
       await tap(page.locator(".tool-bar button[aria-label^='Raise']"));
       await expect(page.locator(".tool-settings")).toBeVisible();
       await check("Raise in hand");
@@ -1598,6 +1606,20 @@ for (const phone of PHONES) {
       // (and it is a chip like the rest: one height, its row no taller for it)
       const heights = await sheet.locator(".ps-grid").first().evaluate((g) => [...new Set([...g.children].map((e) => Math.round(e.getBoundingClientRect().height)))]);
       expect(heights, "What to show: its chips' heights").toEqual([44]);
+      // (and no empty cell where it would not fit a row's end: the chip after it fills the cell, every row but the last full;
+      // on its side Irrigation stood alone in its row)
+      const rows = await sheet.locator(".ps-grid").first().evaluate((g) => {
+        const across = getComputedStyle(g).gridTemplateColumns.split(" ").length;
+        const by = new Map<number, number>();
+        for (const e of g.children) {
+          const r = e.getBoundingClientRect();
+          if (!(r.height > 0)) continue;
+          const span = getComputedStyle(e).gridColumnEnd.startsWith("span") ? Number(getComputedStyle(e).gridColumnEnd.slice(5)) : 1;
+          by.set(Math.round(r.top), (by.get(Math.round(r.top)) ?? 0) + span);
+        }
+        return { across, filled: [...by.entries()].sort((a, b) => a[0] - b[0]).map((r) => r[1]) };
+      });
+      expect(rows.filled.slice(0, -1).filter((n) => n < rows.across), "What to show: a row with an empty cell before the last").toEqual([]);
 
       // the sheet at its top ends on a whole chip or line, with Land's numbers under the chips too
       const cutAtFoot = () =>
