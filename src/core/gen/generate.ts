@@ -103,7 +103,8 @@ import { resourceBudget, ruinColumns, ruinRagged } from "../resources/baseline";
 import { runsToTiles, tilesToRuns } from "../math/grid";
 import { obstacleTiles, type ObstaclePlan } from "../features/setpieces/obstaclePayoff";
 import type { SetPieceFeature } from "../features/schema";
-import { badWaterNearer, dryStart, padFloods, pickStart, prepareStart, startWalks, waterAim, type DroughtPolicy, type StartPick } from "./settler";
+import { badWaterNearer, dryStart, padFloods, pickStart, prepareStart, startWalks, waterAim, type DroughtPolicy, type StartPick, type StartRead } from "./settler";
+import { READ_FEW } from "./startValue";
 import { failurePhrase } from "./failWords";
 import { EASY_LAND, easyStartMeasures, easyTargets } from "../analysis/easyStart";
 import { pondWater, POND_WATER, shapeEasyStart } from "../land/easyStart";
@@ -3097,8 +3098,14 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
   let provedObjects: MapObjectFeature[] | null = null;
   let cur: StartPick = pick;
   // (another start on the same settled water, off the one that failed and the ground round it)
-  const nextStart = (failed: StartPick): StartPick | null => {
+  const nextStart = (failed: StartPick, altsOnly = false): StartPick | null => {
     markTried(tried, failed, W, H);
+    // (the picker's best few, each built in turn while the start is chosen by its build, D(start-value))
+    while (alts.length) {
+      const q = alts.shift()!;
+      if (!tried[q.y * W + q.x] && !avoidOf(bad)[q.y * W + q.x] && !wetRing(b1, q) && !padFloods(h, W, H, b1.water, q.x, q.y, q.level) && !foulNear(q)) return q;
+    }
+    if (altsOnly) return null;
     // (Easy start: another shaped place, or none)
     if (easy) return landStage?.prepared.find((q) => !tried[q.y * W + q.x] && !avoidOf(bad)[q.y * W + q.x] && !wetRing(b1, q) && !padFloods(h, W, H, b1.water, q.x, q.y, q.level) && !foulNear(q)) ?? null;
     const ready = N <= 96 * 96 ? landStage?.prepared.find(q => !tried[q.y * W + q.x] && !avoidOf(bad)[q.y * W + q.x] && !wetRing(b1, q) && !padFloods(h, W, H, b1.water, q.x, q.y, q.level) && servedOnB1(q) && !foulNear(q)) : null;
@@ -3109,9 +3116,25 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
   // takes the one walking to the least land and Generous the most, `REACH_CHOICES` looked at; at the theme's own the
   // first that passes is the start, as before)
   const lean = ease === 0 && !lastAttempt && !easy ? Math.sign(LEVEL3_OF[spec.settings.terrain.buildableLand] - LEVEL3_OF[THEME_PRESETS[spec.theme].buildableLand]) : 0;
-  let chosen: { cur: StartPick; base: BuildResult; layout: Feature[]; provedObjects: MapObjectFeature[] | null; h: Uint8Array; fixes: string[]; contains: string[]; reach: number } | null = null;
+  type Chosen = { cur: StartPick; base: BuildResult; layout: Feature[]; provedObjects: MapObjectFeature[] | null; h: Uint8Array; fixes: string[]; contains: string[]; reach: number };
+  let chosen: Chosen | null = null;
   let looked = 0;
+  // (D(start-value): at the theme's own Buildable land, outside Easy start and the last attempt, the picker's best few
+  // are each built, the first that passes and the rest in order of their estimated worth, `READ_FEW` at most, and the
+  // start is chosen again by what each build reads, with the start checks' own functions (`startFloorsOf`,
+  // `startWaterServed`): the bench, the land walkable from it, the moist ground in its walk, and the walk over the
+  // built slopes to clean water that lasts the first drought)
+  const byBuild = lean === 0 && !lastAttempt && !easy && !!pick.rechoose && (pick.alts?.length ?? 0) > 1;
+  const alts: StartPick[] = byBuild ? pick.alts!.filter((q) => q.x !== pick!.x || q.y !== pick!.y) : [];
+  const reads: { x: number; y: number; read: StartRead; rec: Chosen }[] = [];
+  const firstPick = pick;
   const takeChosen = (): void => {
+    // (chosen by its build: the picker's choice again, on what each build read)
+    if (reads.length > 1) {
+      const best = firstPick.rechoose!((x, y) => reads.find((r) => r.x === x && r.y === y)?.read ?? null);
+      const rec = best && reads.find((r) => r.x === best.x && r.y === best.y)?.rec;
+      if (rec) chosen = rec;
+    }
     const c = chosen!;
     cur = c.cur;
     base = c.base;
@@ -3229,6 +3252,22 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
       else provedObjects = objects;
     }
     base = b;
+    if (!why && byBuild) {
+      const got = startFloorsOf(b);
+      const rec: Chosen = { cur, base: b, layout: layout.slice(), provedObjects, h: h.slice(), fixes: fixes.slice(), contains: [...contains], reach: got.reach };
+      reads.push({ x: cur.x, y: cur.y, read: { bench: got.bench, reach: got.reach, moist: got.moist, water: startWaterServed(b, rule, droughtDays) }, rec });
+      chosen ??= rec;
+      h.set(hBefore);
+      const again = reads.length < READ_FEW ? nextStart(cur, true) : null;
+      if (!again) {
+        takeChosen();
+        break;
+      }
+      for (const f of layout) if (f.kind === "river" && f.role === "river/startSpring") contains.delete(f.id);
+      provedObjects = null;
+      cur = again;
+      continue;
+    }
     if (!why && lean !== 0) {
       const reach = startFloorsOf(b).reach;
       if (!chosen || (lean < 0 ? reach < chosen.reach : reach > chosen.reach)) chosen = { cur, base: b, layout: layout.slice(), provedObjects, h: h.slice(), fixes: fixes.slice(), contains: [...contains], reach };
@@ -3249,7 +3288,7 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
     if (!why) break;
     // (another start on the same settled water, off this one and the ground round it; the last
     // attempt keeps what it has, and a start already chosen among those that passed stands)
-    if (chosen && (!(tryN + 1 < START_TRIES + REACH_CHOICES) || lastAttempt)) {
+    if (chosen && (!(tryN + 1 < START_TRIES + (byBuild ? READ_FEW : REACH_CHOICES)) || lastAttempt)) {
       takeChosen();
       break;
     }

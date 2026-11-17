@@ -49,6 +49,23 @@ export interface StartPick {
   intent?: number;
   /** What the place is worth (`startValue`), where the picker chose it by that. */
   value?: number;
+  /** The best few places the picker read (this one among them), in order of their estimated worth, each turned for
+   *  its opening shot: the generator builds each and reads its start as the checks do (D(start-value)). */
+  alts?: StartPick[];
+  /** The choice again among `alts`, by what each is worth as its build read it (`read`; a place it gives nothing for
+   *  is out), the preferences, the place expected and the opening frame choosing within `VALUE_MARGIN` as before. */
+  rechoose?: (read: (x: number, y: number) => StartRead | null) => StartPick | null;
+}
+
+/** A start as its build reads it, with the checks' own functions: the bench (`start.level_land`), the dry land
+ *  walkable from it (`start.reach`), the moist ground within 20 tiles' walk where its wood and farms grow
+ *  (`start.farmland`, `start.forester`), and the walk over the built slopes to clean water that lasts the first
+ *  drought (`start.water`). */
+export interface StartRead {
+  bench: number;
+  reach: number;
+  moist: number;
+  water: number;
 }
 
 export type DroughtPolicy = "prefer" | "require";
@@ -609,50 +626,70 @@ export function pickStart(
     top.push(c);
   }
   if (!top.length) return opts.level === false || easy ? null : footed(bankStart(h, W, H, water, hydro, rng, margin, avoid, reach, aimMid));
-  top.sort(byWorth(tieSeed));
-  // among those within the margin of the best worth, the one nearest where the start was expected, else the one the
-  // preferences lean to most (the genome's kind of place, the intentions', the settings'), the worthier breaking a tie
-  const good = top.filter((t) => t.value >= top[0].value - VALUE_MARGIN);
-  let c = good[0];
-  for (const t of good) if (t.prefer > c.prefer) c = t;
-  const near = opts.near;
-  if (near) {
-    const d2 = (t: (typeof good)[number]) => {
-      const tx = t.i % W;
-      const ty = (t.i - tx) / W;
-      return (tx - near.x) * (tx - near.x) + (ty - near.y) * (ty - near.y);
-    };
-    for (const t of good) if (d2(t) < d2(c) || (d2(t) === d2(c) && t.i < c.i)) c = t;
-  }
   // turned for the game's opening camera (D493)
-  const turned = (t: (typeof good)[number]): Orientation => {
+  const turned = (t: (typeof top)[number]): Orientation => {
     const tx = t.i % W;
     const ty = (t.i - tx) / W;
     return bestTurn(openingLand(), tx, ty, h[t.i], levelDoorTurns(h, W, H, tx, ty, h[t.i]), dWet)!;
   };
-  let orientation = turned(c);
-  // the frame (D507): among the good few, all of which keep the start's rules, the one whose opening frame shows
-  // clearly more of the map than the one drawn (a start near a corner frames mostly the void past the edge), never at
-  // the cost of its opening shot (a landmark in view first, D493, D502: its shot as `bestTurn` rounds it)
-  if (!near && good.length > 1) {
-    const at = (t: (typeof good)[number], o: Orientation) => ({ x: t.i % W, y: Math.floor(t.i / W), z: h[t.i], orientation: o });
-    const shot = (t: (typeof good)[number], o: Orientation) => Math.round(openingShotScore(openingLand(), at(t, o)).score * 20);
-    const drawnShot = shot(c, orientation);
-    let most = landInFrame(W, H, at(c, orientation)) + FRAME_GAIN;
-    for (const t of good) {
-      if (t === c) continue;
-      const o = turned(t);
-      const s = landInFrame(W, H, at(t, o));
-      if (s > most && shot(t, o) >= drawnShot) {
-        most = s;
-        c = t;
-        orientation = o;
+  const pickOf = (t: (typeof top)[number], orientation: Orientation): StartPick => {
+    const x = t.i % W;
+    return { x, y: (t.i - x) / W, level: h[t.i], orientation, kind: t.kind, shoreWalk: t.walk, levelled: t.levelled, droughtOk: t.droughtOk, intent: t.intent, value: t.value };
+  };
+  const select = (list: typeof top): StartPick => {
+    list.sort(byWorth(tieSeed));
+    // among those within the margin of the best worth, the one nearest where the start was expected, else the one the
+    // preferences lean to most (the genome's kind of place, the intentions', the settings'), the worthier breaking a tie
+    const good = list.filter((t) => t.value >= list[0].value - VALUE_MARGIN);
+    let c = good[0];
+    for (const t of good) if (t.prefer > c.prefer) c = t;
+    const near = opts.near;
+    if (near) {
+      const d2 = (t: (typeof good)[number]) => {
+        const tx = t.i % W;
+        const ty = (t.i - tx) / W;
+        return (tx - near.x) * (tx - near.x) + (ty - near.y) * (ty - near.y);
+      };
+      for (const t of good) if (d2(t) < d2(c) || (d2(t) === d2(c) && t.i < c.i)) c = t;
+    }
+    let orientation = turned(c);
+    // the frame (D507): among the good few, all of which keep the start's rules, the one whose opening frame shows
+    // clearly more of the map than the one drawn (a start near a corner frames mostly the void past the edge), never at
+    // the cost of its opening shot (a landmark in view first, D493, D502: its shot as `bestTurn` rounds it)
+    if (!near && good.length > 1) {
+      const at = (t: (typeof good)[number], o: Orientation) => ({ x: t.i % W, y: Math.floor(t.i / W), z: h[t.i], orientation: o });
+      const shot = (t: (typeof good)[number], o: Orientation) => Math.round(openingShotScore(openingLand(), at(t, o)).score * 20);
+      const drawnShot = shot(c, orientation);
+      let most = landInFrame(W, H, at(c, orientation)) + FRAME_GAIN;
+      for (const t of good) {
+        if (t === c) continue;
+        const o = turned(t);
+        const s = landInFrame(W, H, at(t, o));
+        if (s > most && shot(t, o) >= drawnShot) {
+          most = s;
+          c = t;
+          orientation = o;
+        }
       }
     }
+    return pickOf(c, orientation);
+  };
+  const chosen = select(top.slice());
+  if (top.length > 1) {
+    // (the generator builds the best few and chooses again by what their builds read: `rechoose`)
+    chosen.alts = [...top].sort(byWorth(tieSeed)).map((t) => pickOf(t, turned(t)));
+    chosen.rechoose = (read) => {
+      const list: typeof top = [];
+      for (const t of top) {
+        const r = read(t.i % W, Math.floor(t.i / W));
+        if (!r) continue;
+        const terms = startTerms(field, h, W, t.i, r.reach, r.water, true, r.moist);
+        list.push({ ...t, walk: r.water, value: startValue({ ...terms, bench: r.bench }, want) + t.easyRoom });
+      }
+      return list.length ? select(list) : null;
+    };
   }
-  const x = c.i % W;
-  const y = (c.i - x) / W;
-  return { x, y, level: h[c.i], orientation, kind: c.kind, shoreWalk: c.walk, levelled: c.levelled, droughtOk: c.droughtOk, intent: c.intent, value: c.value };
+  return chosen;
 }
 
 /** Whether water beside a start's pad would run onto it (D348): water within three tiles of the

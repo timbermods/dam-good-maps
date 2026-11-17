@@ -57,10 +57,10 @@ export interface StartTargets {
   water: number;
 }
 
-/** How much each term weighs: the wood's ground most, since the first hours turn on logs and the read ground is
- *  scarcer than the bench; then the bench, the walkable land and the water; the ways out least, since the walkable
+/** How much each term weighs: the bench, the walkable land and the water most; the moist ground for its wood less,
+ *  since the wood a start ends with is mostly planted after the pick; the ways out least, since the walkable
  *  land already counts the land they reach. */
-export const START_WEIGHTS = { bench: 1, foot: 1, wood: 1.5, ways: 0.3, water: 1 } as const;
+export const START_WEIGHTS = { bench: 1, foot: 1, wood: 0.5, ways: 0.3, water: 1 } as const;
 /** The cost of water that a first drought takes, in the measure's units. */
 export const DROUGHT_COST = 0.5;
 /** How far under the best place's worth a place may stand and still be chosen by the intentions' preference and the
@@ -70,9 +70,9 @@ export const VALUE_MARGIN = 0.15;
 /** The picker reads the best few places again over the slopes the build would derive for each (their walkable land
  *  and the moist ground within 20 tiles' walk, where the whole map's reading is an estimate): this many at most, 20
  *  tiles apart... */
-export const READ_FEW = 8;
+export const READ_FEW = 4;
 /** ...among those whose estimate stands within this of the best that passes. */
-export const READ_WINDOW = 1;
+export const READ_WINDOW = 4;
 
 /** The wood's window: moist ground within this many tiles (a box) of the start, a level either side of its own. */
 export const WOOD_BOX = 14;
