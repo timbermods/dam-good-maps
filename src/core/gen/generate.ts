@@ -56,7 +56,7 @@ import { makeField } from "../land/field";
 import { shapeLakeBasin } from "../land/lakeBasin";
 import { shapeCanyon } from "../land/canyon";
 import { shapeHighlands } from "../land/highlands";
-import { BED_FLOOR, drawGenome, leanGenome, type Genome } from "../land/genome";
+import { BED_FLOOR, drawGenome, leanGenome, ownScaleFor, type Genome } from "../land/genome";
 import { joinReach, mainWater, planBadwater, standingTheme, type Hazards } from "../land/hazards";
 import { besideCourses, blockedCourses, closeBackEdges, closeSideEdges, drownedHeads, sealedMouths } from "../land/courses";
 import { mouthTilesOf } from "../features/raster/terrain";
@@ -802,7 +802,12 @@ function attemptRound(specIn: MapSpec, optsIn: GenerateOptions, t0: number, roun
       const drawn = round * ROUND_GENOMES + genomes;
       // (a late rescue round draws its land nearer the theme's settings, D471)
       const asked = easedSettings(specIn.settings, specIn.theme, opts.ease ?? 0);
-      const g = drawGenome(specIn.theme, seed, W, H, drawn, { vt: asked.terrain.verticality, intentions: keep, variety: opts.variety ?? asked.terrain.variety, ...(specIn.variation ? { variation: specIn.variation } : {}) });
+      // (a map narrower than 96 at its own scale from the first round, #1193, `ownScaleFor`: its parts by area, its
+      // levels' spread and its rivers' incision by the root of its narrower side's ratio to 128; a 48² map drew a 128²'s
+      // parts and 13 levels, and took 40 attempts, 8 now; Highlands from the eighth, and from the eighth, under 128²,
+      // every theme's gentle land at the ratio itself, D471)
+      const own = ownScaleFor(specIn.theme, W, H, opts.ease ?? 0);
+      const g = drawGenome(specIn.theme, seed, W, H, drawn, { vt: asked.terrain.verticality, intentions: keep, variety: opts.variety ?? asked.terrain.variety, ...(specIn.variation ? { variation: specIn.variation } : {}), ...(own ? { ownScale: own } : {}) });
       leanGenome(g, asked, W, H, seed, drawn, specIn.designedFor);
       // (Lake Basin round 2, D453, D458: one valley basin in a stronger radial catchment, on every
       // Lake Basin map, whatever its settings, intentions or siblings: Kyler, 2026-10-03)
@@ -885,7 +890,7 @@ function attemptRound(specIn: MapSpec, optsIn: GenerateOptions, t0: number, roun
       a.result.outcomes = o;
       // its name and how it plays (D278 (1b)), from its standout and what the map holds
       const said = a.result.intentions.find((x) => x.ok && x.id === o.standout)?.say;
-      const words = mapWords({ seed, theme: specIn.theme, standout: o.standout, signature: o.signature, seaLayout: a.result.info.genome?.seaLayout ?? null, facts: playFacts(a.result), ...(said ? { say: said } : {}) });
+      const words = mapWords({ seed, variation: specIn.variation ?? 0, theme: specIn.theme, standout: o.standout, signature: o.signature, seaLayout: a.result.info.genome?.seaLayout ?? null, facts: playFacts(a.result), ...(said ? { say: said } : {}) });
       a.result.name = words.name;
       a.result.description = words.description;
       // Sources: None (D330): the map as generated, then its sources and their water removed

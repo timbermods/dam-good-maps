@@ -83,9 +83,10 @@ describe("the shown land's bounds (#236)", () => {
     // seed 1 since generator 0.10.24's round forms, the look round, D148: seed 2 fails one attempt now, and seed 1 fails four, each
     // for its own reason;
     // seed 1 → 3 at 0.10.36: seeds 1 and 2 fail only one attempt now, the others gone from their land (#1205); seed 3 fails more than one;
-    // seed 3 → 4 at 0.10.37's ruled water, D(ruled-water), D148: seed 3 makes its map at the first now, and seed 4, the nearest that
-    // fails more than one, fails seven attempts for four reasons)
-    const { progress, failures } = traced(spec("riverValley", 64, 4));
+    // seed 3 → 5 at 0.10.40, small maps at their own scale (#1193, D(small-own-scale), D148): seeds 1 and 3 make their map at the first
+    // attempt now, seed 5 at its ninth; kept at 0.10.42, the merge with dev 0.10.40 and the joins of #1162 (D(ruled-water)): seed 5
+    // still makes its map at its ninth attempt, its eight failures for five reasons)
+    const { progress, failures } = traced(spec("riverValley", 64, 5));
     expect(failures.length).toBeGreaterThan(1);
     expect(progress[0].failed).toBeUndefined();
     expect(progress[0].tried).toBe(0);

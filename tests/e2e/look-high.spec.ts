@@ -848,10 +848,10 @@ test("High's visible seasons follow the game's timers: no plant dies of dryness 
   await page.setViewportSize({ width: 1280, height: 900 });
   // (seed 8 since generator 0.10.24's round forms (the look round), D148: on seed 3's land every plant the drought dries
   // has dried by its first days, so all 646 are dead by day 20 and none more by day 24; seed 4's the same (663), and on
-  // seeds 1, 2 and 5 to 7 nothing withers at all, as on a map with caves; on seed 8's, 590 are dead by day 20 and 604 by
+  // seeds 1, 2 and 5 to 7 nothing withered at all, as on a map with caves then; on seed 8's, 590 are dead by day 20 and 604 by
   // day 24. Seed 3 since
-  // generator 0.10.20's contour edges, D518: seed 6's map now has caves, where no plant withers yet
-  // (worker/session.ts `stackedMap`), so none was dead on day 20; seed 6 since generator 0.10.16's ground with grade: on
+  // generator 0.10.20's contour edges, D518: seed 6's map then had caves, where no plant withered until
+  // 2026-11-16 (worker/session.ts `stackedMap`, gone), so none was dead on day 20; seed 6 since generator 0.10.16's ground with grade: on
   // seed 5's land then no plant died between days 20 and 24; seed 5 since generator 0.10.13, D507: the start frames the
   // map, and on seed 4242's the plants stood on ground that stays moist past the normal drought's 9 days)
   await openSaved(page, "s=8&z=96&d=n&t=riverValley&bw=0");

@@ -159,7 +159,16 @@ place of its bottom rule.
   they were picked, for the next try; **a real place opened over a map** shows the same dialog, "Opening Crater Lake…", with Cancel, which brings the
   open map back as it was; in a Together session, once the new map is built and being put into the session's worker (the last step before it opens), Cancel is off ("The map is opening"), Esc does nothing and the words read "Opening the map…". **A long wait counts itself** (a 256² map can take minutes): under the words the dialog says
   the attempt under way and the time so far ("Attempt 3 · 2 min 14 s"), from the fourth second or the second attempt, in a
-  quiet line whose room is kept so the card never changes height (`FirstLook.tsx` `MakingCount`). The shelf's pictures are kept from one map to the next (`shelf/iconCache.ts`), never grey.
+  quiet line whose room is kept so the card never changes height (`FirstLook.tsx` `MakingCount`), and under it, from the
+  second attempt, why the last one was refused, in the generator's own words ("Last try: the start's water moved",
+  `gen/failWords.ts`). **A generate is bounded** (`ui/makingClock.ts`): its clock counts only the time the page was shown
+  (a locked phone or a tab put away holds the worker still and uses none of it; back from that, the line says "Paused
+  while the screen was off" until the next attempt), and the screen is held on (a screen wake lock, where the browser has
+  one) from its start to its end or Cancel, taken again when the page comes back. After 30 s of that time without a kept
+  map, with Easy start on, **Without Easy start** stands beside Cancel: the same settings without it, once, the panel's
+  settings untouched. After 5 minutes it stops by itself and the card reads as a refusal ("No map was kept in 5 minutes:
+  no place for the start.") with the same way forward and Close (Make a new map for a first map); the map that was open
+  comes back as it was, the settings as the player set them. The shelf's pictures are kept from one map to the next (`shelf/iconCache.ts`), never grey.
   A real place has one name everywhere, the one in its file ("Crater Lake"). Every map is made for Normal until the core drops difficulty
   after M9b's release. Every Generate makes a new map named for its theme ("River Valley") and replaces the open one
   without asking: edits never replay onto new land (D336), and the map it replaces, if kept, is in Your maps, which a quiet note says
@@ -191,12 +200,16 @@ place of its bottom rule.
   wide the phone held upright, under 500 tall the phone on its side; anything else keeps the layout
   above (a tablet takes this layout's Show, objects and pages, below). One editor: the same controls and operations (D342), only placed for a finger. **Upright:** one slim bar at the
   top: a menu (**Map Generator**, **Real places**, **Your maps**, **History**, **Help and keys**, then File's entries),
-  the map's name (two lines at most), Undo, Redo, the checks' dot (a tap opens the checks under the bar) and **Save**
+  the map's name (two lines at most; a tap renames it in a field the name's room wide, a finger tall, its type 16px so
+  the browser never zooms, the description's card the screen's width under the bar with what the page adds after the
+  description whole), Undo, Redo, the checks' dot (a tap opens the checks under the bar) and **Save**
   (Save to Timberborn's or Download .timber's call). The view fills the rest. At the foot the tools in one row that
   scrolls sideways, icon over name, 56px tall: Select, **Objects**, the brushes, Block, the forces. **At rest the row
   stands on whole tools** (Kyler's phone, 2026-11-14): as many as it holds at 64px, each grown to fill it exactly
   (`TopBar.tsx` `fitToolRow`), the row snapping to each, a fade at an end where more tools lie; the tool in hand is
-  brought whole into view, clear of that fade. The tool in hand's
+  brought whole into view, clear of that fade, its glide going on to it however long a frame takes (the row, still for
+  a moment, rests on the nearest tool's start only once the tool in hand stands in view or a finger, the mouse or the wheel took the row).
+  The tool in hand's
   settings stand in a sheet above the row with a grab handle: one row by default (Size and the tool's main choice, the
   first two settings of its first row; where the sheet is too narrow for both, the second under the first, never a row
   that scrolls sideways unannounced), every setting in up to half the screen when the handle is tapped or pulled up,
@@ -206,10 +219,12 @@ place of its bottom rule.
   of that control's line, so the names and the sliders of two cards side by side stand level; Select's shapes four to
   a line (Whole map two cells), its words under them. Tapping the tool in hand puts it down. Select rests in hand with its sheet closed; a tap on it opens
   Select's settings, a tap again puts them and any selection down. **Show**, a button at the view's top right, opens a
-  sheet of what the map shows, at most 40 % of the view so the map changes above it, ending after a whole row (the rest
-  scroll up into view): under small headings, each an even grid of chips, **What to show** (the Show row's toggles,
+  sheet of what the map shows, at most 40 % of the view so the map changes above it, ending after a whole row, or a
+  whole line of Land's numbers, the Legend or a key under the chips (fitted again whenever what it holds changes; the
+  rest scroll up into view), a longer name ("Caves and overhangs") taking two chips' room, and under a wider font a name taking a second line inside its chip, never cut: under small headings, each an even grid of chips, **What to show** (the Show row's toggles,
   Legend and its key), **Camera** (Top-down, Reset view, First view, the compass, **Saved views** (§7), **Layers shown**: the slice, ∞ for
-  every layer, and Look), **Minimap**, **Weather** (the weather days) and **Forces and sound** (Slow forces, the sound
+  every layer, and Look, whose choices open in the sheet's own flow under its button, the sheet scrolling them into
+  sight), **Minimap**, **Weather** (the weather days; a double tap on the day types one, as its tooltip tells a finger: the two taps counted by the page, since WebKit sends no dblclick for them, and the day in the field left selected so the typed one replaces it) and **Forces and sound** (Slow forces, the sound
   and its volume, always shown: a phone has no hover).
   **Objects** opens a sheet of large tiles, half the view at the most; a tile picked closes it to one row saying what
   is in hand (its picture, its name, **Put it down**), its settings under it when the sheet is pulled up. A picked
@@ -217,8 +232,10 @@ place of its bottom rule.
   closes Show and the objects. **The map keeps to the room left** (planning, #1074; on a phone or a tablet only, the desktop's
   view never moves for a panel, D265): a sheet or the panel opening or closing slides the view, its zoom and angle
   kept, so the ground in the middle of the room the controls leave stays in its middle, and Reset view frames the map
-  in that room (`view/usePhone.ts`, `view/insets.ts`). The tapped tile's readout sits at the view's top left. The
-  first steps' hints say what a finger does and stand above the sheet, never over a control or the map's middle (they
+  in that room (`view/usePhone.ts`, `view/insets.ts`). The tapped tile's readout sits at the view's top left (upright, under
+  Cancel while a finger's press is on: its lines reach across the view's top). The
+  first steps' hints say what a finger does (on a tablet too: the objects under Objects, an object pressed, dragged
+  and lifted into place, never "click") and stand above the sheet, never over a control or the map's middle (they
   step aside while a sheet is pulled up), and their × puts them away for good. **The rest of the page** (#1074, slice 4;
   `tests/e2e/phonePages.spec.ts`): each of the menu's panels (Map Generator, Real places, Your maps, History) is a page
   the whole screen under the bar, **Map** at its top going back to the map, the page scrolling inside itself; Map
@@ -231,7 +248,7 @@ place of its bottom rule.
   **Branch from here** under the step the map is at; Real places and Your maps show two cards a row upright (four on its
   side), each picture whole and every name in full; the page's own head names History and Your maps, so their panels'
   headings step aside (Your maps keeps its row of actions). Each of Your maps' tiles has a **⋯** (Compare,
-  Download .timber, Rename, Delete: what the right-click gives). The dialogs (Help and keys, About, New blank map,
+  Download .timber, Rename, Delete: what the right-click gives; Rename's field the tile's width and a finger tall). The dialogs (Help and keys, About, New blank map,
   Description, the time-lapse, a question before a map is replaced, the map being made) are sheets the screen's width,
   scrolling inside with their buttons kept in sight at their foot, the map being made centred on the screen with its whole
   line; Together opens from the menu as a sheet under the
@@ -292,7 +309,7 @@ place of its bottom rule.
   Auto going under it where the line has no room, so no name is ever cut short. Under 1,280 wide the dock takes the view's
   whole width (its cells shrink to 44px, never narrower than a tool's word whatever the font; where the row can't hold
   them it scrolls sideways, as a phone's does, the tool in hand scrolled into view; Select's shapes alike) and the editor fills the box the browser pins fixed elements to (as a phone's, above); under
-  1,100 the header takes two lines. Every control at least 44px, fields 16px, no iOS callout on a long press but in a
+  1,100 the header takes two lines. Every control at least 44px, fields 16px (a kept map's name renamed in a field its tile's width, as on a phone), no iOS callout on a long press but in a
   field or a link, the same gestures (§7, "Touch").
 - **Together** (D362, D431, D486; `docs/COLLAB-BRIEF.md`; part 6a): two players edit one map through a relay and a
   room-code function, in the page's own panel style. One quiet button in the header's right group, before **File**
@@ -535,7 +552,8 @@ place of its bottom rule.
     as the core's `placeComponents`; an object picked on the map shows the same window and changes its own settings in
     place (`setOptionsOp`, one undo step for a slider's run). Relics' Medium and Large are the Relic's Size; the Mine site
     is the underground ruins. Still to come: the core's **Show after it goes off** view. The list scrolls inside itself when the window is short, keeping the
-    picked row in view;
+    picked row in view, a soft fade at its foot saying more items lie below until the foot is reached (drawn by the page:
+    a Mac's overlay scrollbar shows only once the list scrolls; none on a phone's or tablet's sheet; `shelf.spec.ts`);
     `fluidModelAt` gives each source's strength on a given day for the day-by-day view. Terrain brushes and forces
     never use the placement path (D425).
 - **The Show toggles** (D287) in one row at the top left, each a 14px checkbox at the left of its name (as in
@@ -931,7 +949,8 @@ on one shared forces core, `src/core/forces/` (D203, D206, D220; see its README)
   result as it is painted, kept when let go; Slide shows the fault while it is painted, then its block slides
   along it, 2 to 20 tiles (D361 (3)), the way the drawn line runs there (where level ground slides along level
   ground and nothing would show, the ground splits along the fault a level up and down, D356), and a river that crossed the fault is
-  joined again along it. A crack runs along the fault and dust rises at its head. Objects ride with the land (a
+  joined again along it. A Lift on the map's edge whose raised side lies off the map, changing fewer than 9 tiles,
+  splits the ground the same way (D356). A crack runs along the fault and dust rises at its head. Objects ride with the land (a
   rigid one on flat ground of its own), trees on the fault go (D321 item 7), the start is carried to level ground
   when its own breaks (D257); it never adds water.
 - **Erupt** (D206, D216, D226; key 0): raises a volcano. A click vents, a drag opens a fissure (D289). **Power**,
@@ -1556,7 +1575,7 @@ Make a valley, drop a source, and there's a river.
   badwater lies, so Day 0 to the last day turns green land to dry earth and veins). Any
   edit while a hazard is shown ends the view at once (D269). The game's weather rules, unchanged. Each runs from the
   water the map shows (an unedited import's own), on every map, caves and overhangs included (#391; there a day's soil
-  is worked out per run top, and no plant withers yet). **An Unstable Core's
+  is worked out per run top, and each plant withers by its own ground's, below). **An Unstable Core's
   moment** (D339): with a hazard held, a quiet line under the water row says where each core on the map goes off against
   that cycle's hazard ("Unstable core: goes off 2 to 7 days before cycle 6's drought or badtide": a range, because a cycle's
   temperate days are drawn), lit on the days it may go off on; the picture is the map as it is, never after the explosion
@@ -1590,7 +1609,10 @@ Two looks (Map look 2, D147, D242, D250, D284):
   D201's amendment, 2026-10-29; its rough water below falls with D334's water terms, 2026-11-07). Visible seasons (D250, D286 (4)): on a held Drought or Badtide day, in every look (D242 as amended 2026-10-29), the
   plants the game would surely have killed by then are drawn withered: dry for 1.1 x the species' `DaysToDieDry` in a row
   (the run resets when moisture returns; succulents exempt), or on contaminated soil for two days running; dead for good once
-  dead (`core/sim/withering.ts`, given to the page with the held day). A living plant whose cause of death runs on the ground shown is drawn dying, as the game's `#Dying` model is (D242 as amended 2026-10-29), on Day 0 as on any held day: dry ground for a land plant, moist ground for a succulent, contamination, or water over its base outside its band (`withering.ts` `dyingCause`, read by the renderer from the soil and water it shows; `render3d/dying.ts` makes the forms). A held drought or badtide day turns the haze to
+  dead (`core/sim/withering.ts`, given to the page with the held day). Each plant reads the ground it stands on: on a map
+  with caves or overhangs a plant on a cave's floor or a ledge under a roof reads that run top's soil, never its roof's
+  (`withering.ts` `plantGround`, the renderer's `objectSoilAt` the same rule), and a dead plant is named by its level and
+  tile, so of two plants on one tile only the one that died is drawn dead. A living plant whose cause of death runs on the ground shown is drawn dying, as the game's `#Dying` model is (D242 as amended 2026-10-29), on Day 0 as on any held day: dry ground for a land plant, moist ground for a succulent, contamination, or water over its base outside its band (`withering.ts` `dyingCause`, read by the renderer from the soil and water it shows; `render3d/dying.ts` makes the forms). A held drought or badtide day turns the haze to
   the game's fog colour for it, in both looks (`Sun.blueprint`, `high/seasons.ts` `FOG`; the map's own haze is its
   temperate fog), as the game does and nothing more: its ground dries by the day's soil like any dry tile (D250 as
   amended 2026-10-29). Day 0 shows the map as it is.

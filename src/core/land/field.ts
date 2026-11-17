@@ -55,6 +55,8 @@ export interface Outline {
   k2: number;
   p2: number;
   a2: number;
+  /** The waves only cut in, so the form stays inside its radius (`Genome.formsInward`: Generous buildable land). */
+  inward?: boolean;
 }
 
 export function outlineOf(s: number): Outline {
@@ -81,7 +83,9 @@ function formDistance(x: number, y: number, cx: number, cy: number, r: number, s
   const t = pseudoAngle(dx, dy);
   // (the waves swing about the radius, out at the points as far as in at the bays: 0.10.36; waves that only cut in left
   // every form a sixth narrower, and the mesas and buttes a high Verticality raises stood in fewer cliffs)
-  const lobes = 1 - 0.5 * o.a1 * sinDet(TWO_PI * (o.k1 * t + o.p1)) - 0.5 * o.a2 * sinDet(TWO_PI * (o.k2 * t + o.p2));
+  const lobes = o.inward
+    ? 1 - o.a1 * (0.5 + 0.5 * sinDet(TWO_PI * (o.k1 * t + o.p1))) - o.a2 * (0.5 + 0.5 * sinDet(TWO_PI * (o.k2 * t + o.p2)))
+    : 1 - 0.5 * o.a1 * sinDet(TWO_PI * (o.k1 * t + o.p1)) - 0.5 * o.a2 * sinDet(TWO_PI * (o.k2 * t + o.p2));
   const n = fbm(s + 13, x, y, Math.max(4, r * 0.55), 3);
   return portable.sqrt(dx * dx + dy * dy) / (r * lobes * (1 + rough * n));
 }
@@ -101,7 +105,7 @@ function pseudoAngle(dx: number, dy: number): number {
 }
 
 /** One part added to the uplift. */
-function addPart(U: Float64Array, p: Part, seed: number, W: number, H: number, k: number): void {
+function addPart(U: Float64Array, p: Part, seed: number, W: number, H: number, k: number, inward = false): void {
   const cx = p.at[0] * (W - 1);
   const cy = p.at[1] * (H - 1);
   const s = hash32(seed, "part", k, p.kind);
@@ -274,7 +278,7 @@ function addPart(U: Float64Array, p: Part, seed: number, W: number, H: number, k
       }, round(0.5 * p.size));
       top += p.height;
       // (the blob is 0 from `FORM_REACH` radii and half its softness out)
-      const o = outlineOf(s);
+      const o: Outline = { ...outlineOf(s), inward };
       each((x, y, i) => {
         const m = blob(x, y, cx, cy, p.size, s, p.soft, o);
         if (m <= 0) return;
@@ -299,7 +303,7 @@ function addPart(U: Float64Array, p: Part, seed: number, W: number, H: number, k
         for (let y = Math.max(0, Math.floor(my - rad)); y <= Math.min(H - 1, Math.ceil(my + rad)); y++)
           for (let x = Math.max(0, Math.floor(mx - rad)); x <= Math.min(W - 1, Math.ceil(mx + rad)); x++) top = Math.max(top, U[y * W + x]);
         top += h;
-        const o = outlineOf(ms);
+        const o: Outline = { ...outlineOf(ms), inward };
         const reach = FORM_REACH * rad + 0.5 * Math.max(0.5, p.soft);
         for (let y = Math.max(0, Math.floor(my - reach)); y <= Math.min(H - 1, Math.ceil(my + reach)); y++)
           for (let x = Math.max(0, Math.floor(mx - reach)); x <= Math.min(W - 1, Math.ceil(mx + reach)); x++) {
@@ -399,7 +403,7 @@ function addPart(U: Float64Array, p: Part, seed: number, W: number, H: number, k
     }
     case "cone": {
       // (its rings are its outline's, never a circle's: a cone's rings read as drawn, the look round)
-      const o = outlineOf(s);
+      const o: Outline = { ...outlineOf(s), inward };
       each((x, y, i) => {
         const d = formDistance(x, y, cx, cy, p.size, s, o, 0.3);
         if (d < 1) U[i] += p.height * (1 - d);
@@ -417,7 +421,7 @@ function addPart(U: Float64Array, p: Part, seed: number, W: number, H: number, k
         const h = p.height * (0.5 + rng.float());
         // (each knoll its own outline, the look round: a round knoll's ring or two drew a small square)
         const ks = hash32(s, "knoll", j);
-        const o = outlineOf(ks);
+        const o: Outline = { ...outlineOf(ks), inward };
         const reach = FORM_REACH * rad;
         for (let y = Math.max(0, Math.floor(ky - reach)); y <= Math.min(H - 1, Math.ceil(ky + reach)); y++)
           for (let x = Math.max(0, Math.floor(kx - reach)); x <= Math.min(W - 1, Math.ceil(kx + reach)); x++) U[y * W + x] += h * bump(formDistance(x, y, kx, ky, rad, ks, o, 0.5));
@@ -502,7 +506,7 @@ export function uplift(g: Genome, seed: number, W: number, H: number): Float64Ar
       U[y * W + x] = h;
     }
   const ps = ls;
-  g.parts.forEach((p, k) => addPart(U, p, ps, W, H, k));
+  g.parts.forEach((p, k) => addPart(U, p, ps, W, H, k, !!g.formsInward));
   return U;
 }
 

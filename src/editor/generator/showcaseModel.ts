@@ -77,13 +77,13 @@ const before = (a: ShowcaseView, b: ShowcaseView) => a.score > b.score || (a.sco
 
 /** The best three of several lists, best first, each map once and never two on the same land (`landOf`, where known:
  *  a later search on the same settings can make a map on an earlier one's land, as the core's own search never
- *  keeps). */
+ *  keeps) or under the same name (a card's name is its map's own, so the lower of two is left out). */
 export function bestOf<T extends ShowcaseView>(lists: T[][], landOf: (v: T) => Uint8Array | undefined = () => undefined): T[] {
   const all = lists.flat().sort((a, b) => (before(a, b) ? -1 : before(b, a) ? 1 : 0));
   const out: T[] = [];
   for (const v of all) {
     const land = landOf(v);
-    if (out.some((a) => a.variation === v.variation || (land && landOf(a) && sameLand(land, landOf(a)!)))) continue;
+    if (out.some((a) => a.variation === v.variation || (!!v.name && a.name === v.name) || (land && landOf(a) && sameLand(land, landOf(a)!)))) continue;
     out.push(v);
     if (out.length === SHOWCASE_CARDS) break;
   }

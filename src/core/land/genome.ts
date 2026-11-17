@@ -283,6 +283,13 @@ export interface Genome {
   plugLake?: boolean;
   /** Item 47's second district close to the start, behind debris on its ramps. */
   districtBehind?: boolean;
+  /** Buildable land above the theme's own: every round form's lobes only cut in, so it stays inside its radius
+   *  (`field.ts` `formDistance`, set by `leanGenome`). */
+  formsInward?: boolean;
+  /** A map under 128² drawn at its own scale (`DrawOptions.ownScale`): its parts in proportion to its area, and this
+   *  factor on its levels' spread (and, narrower than `OWN_SCALE_SIDE`, its rivers' incision), set by `drawGenome`, read
+   *  by `leanGenome`. */
+  ownScale?: number;
   hazards: { badwater: "none" | "pit" | "stream"; ratio: number; thorns: boolean };
   resources: { forest: number; bushes: number; ruins: number; grove: "scattered" | "normal" | "bigWoods" };
   /** What kind of place the settler looks for first: weights over a lake shore, a river bank, a
@@ -358,6 +365,20 @@ export const EDITOR_TOP = EDITOR_LEVEL;
  *  deepest bed of any water stands at least this many levels above the map's floor, so a player has
  *  room to dig and terraform early. The land's lowest level is a level above it. */
 export const BED_FLOOR = 3;
+
+/** A map whose narrower side is under this, and whose area is under 128², is drawn at its own scale from the first
+ *  round (`DrawOptions.ownScale` "root", #1193; Highlands from the eighth, its promise being height): 96² and up keep a
+ *  128²'s land, but for a late rescue round's gentle land (D471). */
+export const OWN_SCALE_SIDE = 96;
+
+/** The scale a round draws its land at (`DrawOptions.ownScale`): from the eighth rescue round (`ease` 8), a small map's
+ *  gentle land at its narrower side's ratio to 128 (D471); before it, a map narrower than `OWN_SCALE_SIDE` at the root
+ *  of that ratio, but Highlands, whose promise is height (four levels over its water: at its own scale it held on 2 of
+ *  12 maps at 64², against 7). `drawGenome` applies either only under 128² of area. */
+export function ownScaleFor(theme: ThemeId, W: number, H: number, ease: number): "root" | "side" | null {
+  if (ease >= 8) return "side";
+  return Math.min(W, H) < OWN_SCALE_SIDE && theme !== "highlands" ? "root" : null;
+}
 /** Variety's default (M9b adds the setting). */
 export const DEFAULT_VARIETY = 70;
 
@@ -645,6 +666,11 @@ export interface DrawOptions {
   intentions?: IntentionId[] | null;
   /** D143: a sibling of the map (1, 2, …): the same draws, nudged, over different land. */
   variation?: number;
+  /** Under 128², the land at the map's own scale (`Genome.ownScale`): its parts in proportion to its area, its levels'
+   *  spread by the root of its narrower side over 128 ("root": every round on a map narrower than `OWN_SCALE_SIDE`,
+   *  #1193), or by that ratio itself ("side": a late rescue round's gentle land, D471, from the eighth); narrower than
+   *  `OWN_SCALE_SIDE`, its extra lakes by the root of its area and its rivers' incision with its levels. */
+  ownScale?: "root" | "side";
 }
 
 /** The Verticality the map is drawn with: the setting, jittered at high Variety, and now and then
@@ -837,11 +863,17 @@ export function drawGenome(theme: ThemeId, seed: number, W: number, H: number, a
   })();
   g.relief = g.top - g.base;
   if (g.hydro.inflows === 0 && g.hydro.springs === 0) g.hydro.springs = 2;
-  // parts: counts per 128² map, in proportion to the area (the same detail per tile)
-  const n = Math.max(1, Math.round((d(p.partCount) + 0.5) * Math.max(1, areaK)));
+  // parts: counts per 128² map, in proportion to the area (the same detail per tile); under 128² a 128²'s count, but at
+  // the map's own scale (`ownScale`) by its area too
+  const n = Math.max(1, Math.round((d(p.partCount) + 0.5) * (o.ownScale ? areaK : Math.max(1, areaK))));
+  if (o.ownScale && areaK < 1) {
+    const r = Math.min(W, H) / 128;
+    g.ownScale = o.ownScale === "side" ? r : portable.sqrt(r);
+  }
   for (let k = 0; k < n; k++) g.parts.push(randomPart(rng, pickPart(rng, p.parts, vy), W, H, vy, tallK));
-  // extra lakes: basins beyond the parts, so water spans the workshop's range
-  const lakes = Math.max(0, Math.round(d(p.lakes) * Math.max(1, portable.sqrt(areaK))));
+  // extra lakes: basins beyond the parts, so water spans the workshop's range (at its own scale by the root of the area:
+  // a 48² map drew a 128²'s five basins of 12 to 32 tiles, and its land was hollows)
+  const lakes = Math.max(0, Math.round(d(p.lakes) * (o.ownScale && Math.min(W, H) < OWN_SCALE_SIDE ? portable.sqrt(areaK) : Math.max(1, portable.sqrt(areaK)))));
   for (let k = 0; k < lakes; k++) g.parts.push(randomPart(rng, "basin", W, H, vy, tallK));
   // a radial slope falls toward the first bowl when there is one
   const bowl = g.parts.find((q) => q.kind === "basin" || q.kind === "caldera");
@@ -1581,6 +1613,11 @@ export function leanGenome(g: Genome, s: Settings, W: number, H: number, seed: n
     g.ramps = clamp(g.ramps + 0.3 * bl, 0.1, 1);
     g.terrace.share = clamp(g.terrace.share + 0.2 * bl, 0, 1);
     g.top = Math.max(g.base + 4, g.top - 1.5 * bl);
+    // (the round forms keep inside their radius, their lobes cutting in only: at their meant size since 0.10.36, a
+    // sixth wider, the mesas, buttes, cones and knolls of a Generous map's level benches stood ringed in cliffs its walk
+    // could not climb, and its walkable land fell back toward Tight's: River Valley 96², seeds 1–8, Generous 3,386
+    // against Tight's 2,930 at 0.10.36, 4,223 with its forms kept in)
+    g.formsInward = true;
   } else if (bl < 0) {
     g.terrace.step = Math.max(g.terrace.step, 2);
     g.grade.roll *= 1 - 0.15 * bl;
@@ -1615,6 +1652,18 @@ export function leanGenome(g: Genome, s: Settings, W: number, H: number, seed: n
   const ceiling = g.tall ? g.top : Math.min(EDITOR_TOP, cap);
   g.base += BED_FLOOR;
   g.top = Math.min(g.top + BED_FLOOR, ceiling);
+  // (a map under 128² at its own scale: the levels' spread Relief asks is a 128²'s, and on 48 tiles even a late rescue
+  // round's gentle land stood 10–12 levels; there it spreads by `ownScale`, and narrower than `OWN_SCALE_SIDE` the
+  // rivers' incision and the hanging valleys' drop with it, a 128²'s cut of 4 to 5 levels standing for more than the
+  // whole land's relief)
+  if (g.ownScale) {
+    const k = Math.min(1, g.ownScale);
+    g.top = g.base + (g.top - g.base) * k;
+    if (Math.min(W, H) < OWN_SCALE_SIDE) {
+      g.hydro.incise *= k;
+      g.hanging *= k;
+    }
+  }
   g.relief = g.top - g.base;
   // terracing: the benched share
   const dt = (s.terrain.terracing - p.terracing) / 100;

@@ -61,9 +61,19 @@ import { decodeSpecFragment, encodeSpecFragment, makeSpec, type MapSpec } from "
 // and generator 0.10.27's version alone, the premise map otherwise 0.10.26's (D(new-leaks) moves the themes' land, not a premise's), D148;
 // and generator 0.10.29's version alone (#1186): at 0.10.27 the branch gives `7760e7be…` byte for byte, D148;
 // and generator 0.10.36's version alone (#1205): `93bb3867…` before it, and with the version set back to 0.10.29 the branch gives
-// `93bb3867…` byte for byte, the round forms at their meant size not reaching this premise's land, D148; and generator 0.10.37's
-// version alone (ruled water, D(ruled-water), moves none of this map): at 0.10.36 it gives `c42349c0…`, D148)
-const SHA = "a7b0b746860cc6895619f112a5d2b4d88d12d98212e4e9a2398aeb2c0a205e66";
+// `93bb3867…` byte for byte, the round forms at their meant size not reaching this premise's land, D148;
+// and generator 0.10.37's version alone (the Nightly of 2026-11-16): with the version set back to 0.10.36 the branch gives
+// `c42349c0…` byte for byte, Generous's forms kept in and a small map's gentle rescue land not reaching this map, D148)
+// and generator 0.10.38's version alone (the dead-stand cap): with the version set back to 0.10.37 the branch gives
+// `a7b0b746…` byte for byte, D148;
+// and generator 0.10.39's plates (D(plates-turned)) over the cap: `96638837…` before it; each plate's rim ragged by noise moves its
+// uplands, every property above unchanged (the cap's stands (#1213) move this map no further: the branch gives `1eed1d4c…`
+// with the cap merged in and without it), D148
+// and generator 0.10.40's version alone (#1225, small maps at their own scale): with the version set back to 0.10.39 the
+// branch gives `1eed1d4c…` byte for byte, D148
+// and generator 0.10.42's version alone (the merge with dev 0.10.40 and the joins of #1162, ruled water, D(ruled-water), which
+// move none of this map): with the version set back to 0.10.40 the merge gives `5e8e12c9…` byte for byte, D148
+const SHA = "4dd5345edaf07f1330f4c07741490871da89f9074c85013285fd501756c705b9";
 
 // (a Hard map whose start lake parts as it falls: the single analytic reading stood 0.32 over the run there, PR #1040;
 // seed 5 for 7 since D518 with dev's ways out by a ramp's line (#1061), D148: seed 7's Hard lake stair holds no plan now
