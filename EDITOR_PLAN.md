@@ -196,7 +196,9 @@ place of its bottom rule.
   scrolls sideways, icon over name, 56px tall: Select, **Objects**, the brushes, Block, the forces. **At rest the row
   stands on whole tools** (Kyler's phone, 2026-11-14): as many as it holds at 64px, each grown to fill it exactly
   (`TopBar.tsx` `fitToolRow`), the row snapping to each, a fade at an end where more tools lie; the tool in hand is
-  brought whole into view, clear of that fade. The tool in hand's
+  brought whole into view, clear of that fade, its glide going on to it however long a frame takes (the row, still for
+  a moment, rests on the nearest tool's start only once the tool in hand stands in view or a finger took the row).
+  The tool in hand's
   settings stand in a sheet above the row with a grab handle: one row by default (Size and the tool's main choice, the
   first two settings of its first row; where the sheet is too narrow for both, the second under the first, never a row
   that scrolls sideways unannounced), every setting in up to half the screen when the handle is tapped or pulled up,
