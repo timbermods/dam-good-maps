@@ -27,6 +27,7 @@ const PHRASES: Record<string, string> = {
   "no start": "no place for the start",
   "start water moved": "the start's water moved",
   "start water a sealed puddle": "the start's water was a sealed puddle",
+  "start water bad": "the start's nearest water was bad",
   "start walk too small": "too little land round the start",
   "mine pair (settled)": "the start couldn't reach two mine sites",
   "source in a flow": "a source stood in flowing water",
