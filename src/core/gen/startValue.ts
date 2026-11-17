@@ -9,10 +9,12 @@
 // - **foot:** the land the start's ground joins by one-level steps (the settler's `foot`), its walkable land;
 // - **wood:** the wood is planted after the pick (`gen/resources.ts`: the start's groves and the natural ones grow on
 //   moist ground), so the pick reads the ground that will hold it: moist dry ground a level either side of the
-//   start's within `WOOD_BOX` tiles (`woodAt`);
+//   start's within `WOOD_BOX` tiles (`woodAt`), and for the few places the picker reads again, the moist dry ground
+//   within 20 tiles' walk over the slopes the build would place (`settler.ts` `startWalks`);
 // - **ways:** the bench's ways out, the other dry level regions one level up or down that it meets along at least
 //   `WAY_CONTACT` tiles (where the build's slope can stand), of `WAY_LAND` tiles or more each (`benchWays`);
-// - **water:** the walk to the start's pumpable water against the walk the Water without stairs rule aims at (D59: the
+// - **water:** the walk to the start's clean water (water a pump draws; badwater is never the start's water, and a
+//   place whose nearest water is too foul to pump is refused by the picker's gate) against the walk the Water without stairs rule aims at (D59: the
 //   rule sets how far the start stands from its water), a cost either side of it on the same log scale, and a cost
 //   where that water does not last the first drought.
 //
@@ -55,15 +57,22 @@ export interface StartTargets {
   water: number;
 }
 
-/** How much each term weighs: the bench, the start's own room, most; then its water, its walkable land and its wood;
- *  its ways out least, since the walkable land already counts the land they reach. */
-export const START_WEIGHTS = { bench: 1, foot: 0.6, wood: 0.6, ways: 0.3, water: 1 } as const;
+/** How much each term weighs: the wood's ground most, since the first hours turn on logs and the read ground is
+ *  scarcer than the bench; then the bench, the walkable land and the water; the ways out least, since the walkable
+ *  land already counts the land they reach. */
+export const START_WEIGHTS = { bench: 1, foot: 1, wood: 1.5, ways: 0.3, water: 1 } as const;
 /** The cost of water that a first drought takes, in the measure's units. */
 export const DROUGHT_COST = 0.5;
 /** How far under the best place's worth a place may stand and still be chosen by the intentions' preference and the
  *  opening frame (D502, D507): at the bench's target, 0.15 is about 15 % more or less bench, or a tile's walk to the
  *  water near the rule's aim. */
 export const VALUE_MARGIN = 0.15;
+/** The picker reads the best few places again over the slopes the build would derive for each (their walkable land
+ *  and the moist ground within 20 tiles' walk, where the whole map's reading is an estimate): this many at most, 20
+ *  tiles apart... */
+export const READ_FEW = 8;
+/** ...among those whose estimate stands within this of the best that passes. */
+export const READ_WINDOW = 1;
 
 /** The wood's window: moist ground within this many tiles (a box) of the start, a level either side of its own. */
 export const WOOD_BOX = 14;
@@ -239,10 +248,11 @@ export function startField(h: ArrayLike<number>, W: number, H: number, depth: Ar
 }
 
 /** The terms of a start at tile i (x, y on level `h[i]`), with the walkable land it joins (`foot`) and the walk to its
- *  water (`water`), which its caller reads on its own water and slopes. */
-export function startTerms(field: StartField, h: ArrayLike<number>, W: number, i: number, foot: number, water: number, droughtOk?: boolean): StartTerms {
+ *  clean water (`water`: water a pump draws, never water too foul to), which its caller reads on its own water and
+ *  slopes; `wood`, where the caller read the moist ground within 20 tiles' walk itself, in place of `woodAt`'s box. */
+export function startTerms(field: StartField, h: ArrayLike<number>, W: number, i: number, foot: number, water: number, droughtOk?: boolean, wood?: number): StartTerms {
   const x = i % W;
   const y = (i - x) / W;
   const k = field.benches.labels[i];
-  return { bench: benchAt(field.benches, i), foot, wood: woodAt(field.boxes, x, y, h[i]), ways: k >= 0 ? field.ways[k] : 0, water, ...(droughtOk === undefined ? {} : { droughtOk }) };
+  return { bench: benchAt(field.benches, i), foot, wood: wood ?? woodAt(field.boxes, x, y, h[i]), ways: k >= 0 ? field.ways[k] : 0, water, ...(droughtOk === undefined ? {} : { droughtOk }) };
 }

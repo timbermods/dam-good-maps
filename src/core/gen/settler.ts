@@ -29,7 +29,7 @@ import { distanceFrom, MinHeap, N4, N8 } from "../math/grid";
 import type { Rng } from "../math/rng";
 import { WET } from "../validate/playability";
 import * as portable from "../math/portable";
-import { benchAt, benchRegions, byWorth, startField, startTargets, startTerms, startValue, VALUE_MARGIN, type StartTargets } from "./startValue";
+import { benchAt, benchRegions, byWorth, READ_FEW, READ_WINDOW, startField, startTargets, startTerms, startValue, VALUE_MARGIN, type StartTargets } from "./startValue";
 
 export interface StartPick {
   x: number;
@@ -199,19 +199,32 @@ export function shoreWalkAny(h: ArrayLike<number>, W: number, H: number, D: Arra
 
 /** From a start at (x, y), over the slopes the build derives for it: moist dry tiles within 20
  *  tiles' walk, and (with `C`) the walk to the nearest pump shore (the water rule, D153). */
-export function startWalks(h: Uint8Array, W: number, H: number, D: ArrayLike<number>, C: ArrayLike<number> | null, M: ArrayLike<number>, x: number, y: number, rule: number): { moist: number; water: number } {
+export function startWalks(h: Uint8Array, W: number, H: number, D: ArrayLike<number>, C: ArrayLike<number> | null, M: ArrayLike<number>, x: number, y: number, rule: number, full = false): { moist: number; water: number; reach: number; wood: number } {
   const occ = new Uint8Array(W * H);
   for (let dy = -2; dy <= 2; dy++) for (let dx = -2; dx <= 2; dx++) occ[(y + dy) * W + x + dx] = 1;
   const slopes = placeSlopes(h, W, H, { x, y }, occ, { ...SLOPE_RULES, bigRegion: 0 });
   const d = walkDistance(h, W, H, null, slopeLinks(slopes, W, H), { x, y }, Math.max(20, rule));
   let n = 0;
   for (let i = 0; i < W * H; i++) if (d[i] <= 20 && M[i] > 0 && !(D[i] > 0.001)) n++;
+  // with `full`, the land the start walks to over the slopes the build places (`SLOPE_RULES`), as `start.reach`
+  // counts it, and the moist ground within 20 tiles' walk over them, where its wood will grow
+  let reach = 0;
+  let wood = n;
+  if (full) {
+    const built = placeSlopes(h, W, H, { x, y }, occ, SLOPE_RULES);
+    const f = walkDistance(h, W, H, null, slopeLinks(built, W, H), { x, y }, Infinity);
+    wood = 0;
+    for (let i = 0; i < W * H; i++) {
+      if (f[i] < Infinity && !(D[i] > WET)) reach++;
+      if (f[i] <= 20 && M[i] > 0 && !(D[i] > 0.001)) wood++;
+    }
+  }
   let water = Infinity;
   if (C) {
     const shore = pumpShores(h, D, C, W, H);
     for (let i = 0; i < W * H; i++) if (shore[i] && d[i] < water) water = d[i];
   }
-  return { moist: n, water };
+  return { moist: n, water, reach, wood };
 }
 
 const S2 = Math.SQRT2;
@@ -455,7 +468,7 @@ export function pickStart(
     const y1 = Math.min(H - 1, y + r);
     return t[(y1 + 1) * (W + 1) + x1 + 1] - t[y0 * (W + 1) + x1 + 1] - t[(y1 + 1) * (W + 1) + x0] + t[y0 * (W + 1) + x0];
   };
-  const cands: { i: number; value: number; prefer: number; kind: string; walk: number; levelled: boolean; droughtOk?: boolean; intent: number; sameLevel: boolean }[] = [];
+  const cands: { i: number; value: number; easyRoom: number; prefer: number; kind: string; walk: number; levelled: boolean; droughtOk?: boolean; intent: number; sameLevel: boolean }[] = [];
   // first pass: level ground as it is; second pass (when the first finds nothing): a 5×5 within a
   // level of the center is levelled, as a player would level a spot for the district center
   for (let pass = 0; pass < (opts.level === false ? 1 : 2) && !cands.length; pass++)
@@ -530,7 +543,8 @@ export function pickStart(
         // out and its water against the rule's aim (D59), uncapped; the choice is by this
         let value = startValue(startTerms(field, h, W, i, opts.foot ? foot : want.foot, w, droughtOk), want);
         // (Easy start: room for its clearing, on the same scale against what it asks)
-        if (easy) value += portable.log2(1 + flat / Math.max(1, easy.room));
+        const easyRoom = easy ? portable.log2(1 + flat / Math.max(1, easy.room)) : 0;
+        value += easyRoom;
         const kinds: [string, number][] = [
           ["lake", dLake[i] < 12 ? prefs[0] : 0],
           ["river", dLake[i] >= 12 ? prefs[1] * 0.8 : 0],
@@ -563,39 +577,42 @@ export function pickStart(
         // the preference among places of nearly the best worth: the genome's kind of place, the intentions', the
         // berries' drought-proof ground and the stored water the Drought reserve asks
         const prefer = (pref * foodFit + 0.8 * intent) * (0.4 + 0.6 * storeFit);
-        cands.push({ i, value, prefer, kind, walk: w, levelled: uneven, droughtOk, intent, sameLevel });
+        cands.push({ i, value, easyRoom, prefer, kind, walk: w, levelled: uneven, droughtOk, intent, sameLevel });
       }
     }
   if (!cands.length) return opts.level === false || easy ? null : footed(bankStart(h, W, H, water, hydro, rng, margin, avoid, reach, aimMid));
   // by worth, ties by a hash of the tile and the seed: never by the order the places were read in
   cands.sort(byWorth(tieSeed));
-  // the best few within the margin of the best worth, far enough apart that the choice matters (the rules read only
-  // here, the moist walk and a shore over the slopes, are read in order of worth, so the best that passes leads)
+  // the best few, far enough apart that the choice matters, read again over the slopes the build would derive for each
+  // (`startWalks`): the land it walks to and the moist ground within 20 tiles' walk are its walkable land and the ground
+  // for its wood, where the whole map's reading was an estimate; the rules read only here, the moist walk and a shore
+  // over the slopes, are read in order of the estimate, so the best that passes leads
   const top: typeof cands = [];
   let tested = 0;
+  let first = -Infinity;
   for (const c of cands) {
-    if (top.length >= 6 || (top.length && c.value < top[0].value - VALUE_MARGIN)) break;
+    if (top.length >= READ_FEW || tested >= 40 || c.value < first - READ_WINDOW) break;
     const x = c.i % W;
     const y = (c.i - x) / W;
     if (top.some((t) => Math.abs((t.i % W) - x) + Math.abs(Math.floor(t.i / W) - y) < 20)) continue;
     if (easy && !easy.pond(x, y, h[c.i])) continue;
-    if ((opts.moistWalk && !easy) || !c.sameLevel) {
-      if (tested >= 40) break;
-      tested++;
-      const sw = startWalks(h, W, H, D, c.sameLevel ? null : water.contamination, water.moisture, x, y, waterRule);
-      if (opts.moistWalk && !easy && sw.moist < opts.moistWalk.min) continue;
-      if (!c.sameLevel) {
-        if (!(sw.water <= (opts.waterExact && waterRule < 7 ? waterRule : waterAim(waterRule)))) continue;
-        c.walk = sw.water;
-      }
+    tested++;
+    const sw = startWalks(h, W, H, D, c.sameLevel ? null : water.contamination, water.moisture, x, y, waterRule, true);
+    if (opts.moistWalk && !easy && sw.moist < opts.moistWalk.min) continue;
+    if (!c.sameLevel) {
+      if (!(sw.water <= (opts.waterExact && waterRule < 7 ? waterRule : waterAim(waterRule)))) continue;
+      c.walk = sw.water;
     }
+    if (first === -Infinity) first = c.value;
+    const t = startTerms(field, h, W, c.i, sw.reach, c.walk, c.droughtOk, sw.wood);
+    c.value = startValue(t, want) + c.easyRoom;
     top.push(c);
   }
   if (!top.length) return opts.level === false || easy ? null : footed(bankStart(h, W, H, water, hydro, rng, margin, avoid, reach, aimMid));
-  // among those within the margin of the best worth (all of `top`), the one nearest where the start was expected,
-  // else the one the preferences lean to most (the genome's kind of place, the intentions', the settings'), the worthier
-  // breaking a tie
-  const good = top;
+  top.sort(byWorth(tieSeed));
+  // among those within the margin of the best worth, the one nearest where the start was expected, else the one the
+  // preferences lean to most (the genome's kind of place, the intentions', the settings'), the worthier breaking a tie
+  const good = top.filter((t) => t.value >= top[0].value - VALUE_MARGIN);
   let c = good[0];
   for (const t of good) if (t.prefer > c.prefer) c = t;
   const near = opts.near;
