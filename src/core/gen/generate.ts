@@ -1962,8 +1962,10 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
   const generousReach = spec.settings.terrain.buildableLand === "generous" && THEME_PRESETS[spec.theme].buildableLand !== "generous" ? Math.round(REACH_MIN.generous * startFloorScale(W, H)) : 0;
   // the start's floors (D515): every start the settler gives has its bench, its walkable land and its moist land
   const benchMin = Math.ceil(FLOOR_MARGIN * floors.levelLand);
-  const room = { small: 400, normal: 900, large: 1600 }[spec.settings.start.area];
-  const bench = { small: 79, normal: 113, large: 180 }[spec.settings.start.area];
+  // (what a place for the start is worth is weighed against the bench's floor at the Start area, gen/startValue.ts;
+  // places of equal worth are told apart by the seed)
+  const startWant = { bench: floors.levelLand };
+  const tieSeed = hash32(seed, "start-tie");
   // (on a land kept for another attempt, D333 (2): the starts that failed on it are kept off too)
   const tried = from?.tried ?? new Uint8Array(N);
   // (the objects keep off what the start keeps off but the starts tried: a mine site or a relic may
@@ -2018,7 +2020,7 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
     const lengthwise = mapShape(W, H).long;
     const prefer = lengthwise ? (x: number, y: number, L: number, w: number) => intended(x, y, L, w) + SHAPE_PULL * startAlong(spec.theme, x, y, W, H) : intended;
     const rng = stream(seed, "settler2", attempt, salt);
-    return pickStart(h, W, H, { depth: D, contamination: C, moisture: M }, hy, g.settler, rng, stageRule, { prepared, avoid, kept, drought: policy, prefer, foot, minFoot, footWant, moistWalk: { min: moistWant }, room, bench, benchMin, storage, near, level: allowLevel, ...(ease >= 2 ? { levelReach: Math.min(3, 1 + Math.floor(ease / 2)) } : {}), ...(ease >= 3 ? { margin: Math.max(5, Math.round(Math.min(W, H) * 0.08)) } : {}), ...(ease >= 1 ? { waterExact: true } : {}), ...(stageEasy ? { easy: stageEasy } : {}) });
+    return pickStart(h, W, H, { depth: D, contamination: C, moisture: M }, hy, g.settler, rng, stageRule, { prepared, avoid, kept, drought: policy, prefer, foot, minFoot, footWant, moistWalk: { min: moistWant }, targets: startWant, tieSeed, benchMin, storage, near, level: allowLevel, ...(ease >= 2 ? { levelReach: Math.min(3, 1 + Math.floor(ease / 2)) } : {}), ...(ease >= 3 ? { margin: Math.max(5, Math.round(Math.min(W, H) * 0.08)) } : {}), ...(ease >= 1 ? { waterExact: true } : {}), ...(stageEasy ? { easy: stageEasy } : {}) });
   };
   const levelStart = (p: StartPick) => {
     if (!p.levelled) return;
