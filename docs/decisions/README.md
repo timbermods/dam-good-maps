@@ -229,6 +229,7 @@ Read this index, then [how-we-work.md](how-we-work.md), then only the topic file
 - D(new-ruins): Real places' ruins lie along the land, laid as the generator lays its own (with D518)
 - D521: Real places built under the game's water rules (D311's conversion carried out)
 - D522: Real places' names without "Near", in the id and link too (amends D136)
+- D(new-films): Real places' films by share, mended after the springs' search or the place keeps its build; one spring where no real water lies; springs gone together
 - D166: Pick a place
 
 ## [3D terrain](3d-terrain.md)

@@ -46,6 +46,7 @@ import { thumbnailMaker } from "./thumbnails";
 import { discardPreparedRenderer, prepareRenderer } from "../render3d/prepared";
 import type { GeneratorModel, YourMapRow } from "../editor/generator/model";
 import { fetchIndex, fetchPlace, placeFromHash } from "../places/data";
+import { refusingMake } from "./refusingGenerate";
 import { FirstLook, MakingCount, MakingWater, progressText, sayStage, stageText, type Progress } from "./FirstLook";
 import { tip } from "./Tooltip";
 import { boundOf, offers, startMaking, STOP_AFTER_S, type Bound, type RunningClock } from "./makingClock";
@@ -76,6 +77,9 @@ declare global {
       /** The e2e build only: how fast a generate's running clock runs (window.__dgmMakingRate; 1 for players), so a test
        *  reaches its bounds (`makingClock.ts`) without waiting them out. */
       makingRate?(): number;
+      /** The e2e build only: true while a test (window.__dgmNeverKeep) wants every generate to keep no map, each attempt
+       *  refused with a real reason (`refusingGenerate.ts`), so a making's bounds are reached on any runner. */
+      neverKeep?(): boolean;
     };
   }
 }
@@ -103,6 +107,7 @@ window.dgm = {
           return n > 0;
         },
         makingRate: () => Number((window as unknown as { __dgmMakingRate?: number }).__dgmMakingRate ?? 1),
+        neverKeep: () => !!(window as unknown as { __dgmNeverKeep?: boolean }).__dgmNeverKeep,
       }
     : {}),
   current() {
@@ -1125,7 +1130,11 @@ export function App() {
       const seedWord = word && !/^\d+$/.test(word) && seedFromText(word) === s.seed ? word : undefined;
       // (the map is asked for: the click's lag ends here, generateLag.spec.ts)
       performance.mark("dgm:sent");
-      const r = await (maker?.api ?? generator).generate(
+      // (the end-to-end build lets a test make a generate that keeps no map, each attempt refused: dgm.neverKeep;
+      //  `refusingMake` is there in that build alone, so the published page carries none of that code)
+      const refusing = window.dgm?.neverKeep?.() ? refusingMake : undefined;
+      const make = refusing ? (_: MapSpec, heard: (p: GenProgress) => void, _w?: string) => refusing(() => id === runId.current, heard) : (maker?.api ?? generator).generate;
+      const r = await make(
         s,
         proxy((p: GenProgress) => {
           // (a new attempt puts a pause behind it)
