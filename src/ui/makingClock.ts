@@ -16,6 +16,12 @@ export function boundOf(seconds: number): Bound {
   return seconds >= STOP_AFTER_S ? "stop" : seconds >= OFFER_AFTER_S ? "offer" : "trying";
 }
 
+/** Whether the card offers the nearest thing that works: past the offer's time, and never once a map has passed (taking the
+ *  offer then would throw the passed map away). */
+export function offers(bound: Bound, passed: boolean): boolean {
+  return bound !== "trying" && !passed;
+}
+
 /** The time a generate was actually running: time while the page was hidden (a locked phone, a tab put away, where the
  *  browser holds the worker still) does not count. `rate` speeds it for the end-to-end tests (1 for players). */
 export class RunningClock {
@@ -64,6 +70,7 @@ export class RunningClock {
 
 interface Sentinel {
   release(): Promise<void>;
+  addEventListener?(type: "release", f: () => void): void;
 }
 interface WakeNavigator {
   wakeLock?: { request(type: "screen"): Promise<Sentinel> };
@@ -84,8 +91,14 @@ export function startMaking(opts: { now?: () => number; rate?: () => number; doc
     nav.wakeLock.request("screen").then(
       (l) => {
         asking = false;
-        if (on) lock = l;
-        else void l.release().catch(() => {});
+        if (!on) return void l.release().catch(() => {});
+        lock = l;
+        // (let go by the browser while the page is shown, a battery saver say: taken again)
+        l.addEventListener?.("release", () => {
+          if (lock !== l) return;
+          lock = null;
+          take();
+        });
       },
       () => (asking = false),
     );

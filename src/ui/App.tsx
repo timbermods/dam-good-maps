@@ -48,7 +48,7 @@ import type { GeneratorModel, YourMapRow } from "../editor/generator/model";
 import { fetchIndex, fetchPlace, placeFromHash } from "../places/data";
 import { FirstLook, MakingCount, MakingWater, progressText, sayStage, stageText, type Progress } from "./FirstLook";
 import { tip } from "./Tooltip";
-import { boundOf, startMaking, STOP_AFTER_S, type Bound, type RunningClock } from "./makingClock";
+import { boundOf, offers, startMaking, STOP_AFTER_S, type Bound, type RunningClock } from "./makingClock";
 import { IdeaCard } from "../editor/generator/IdeaCard";
 import { Together, type Keep } from "../collab/together";
 import { useShowcase } from "./useShowcase";
@@ -1638,7 +1638,7 @@ export function App() {
     return () => window.removeEventListener("keydown", hold, true);
   }, [making, sealed]);
   /** The nearest thing that works, after `OFFER_AFTER_S` of running time with Easy start on. */
-  const offered = bound !== "trying" && clock ? withoutEasy(makingSpec.current) : null;
+  const offered = clock && offers(bound, !!progress?.candidate) ? withoutEasy(makingSpec.current) : null;
   const easierButton = (s: MapSpec) => (
     <button type="button" class="ghost making-easier" title="Make this map without Easy start" onClick={() => void makeEasier(s)}>
       Without Easy start

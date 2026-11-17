@@ -1,7 +1,7 @@
 // A map being made is bounded on the time it actually ran, and keeps the screen on while it runs (the owner's phone: a
 // locked screen held the worker still while the card counted on, attempts 8 to 10 "taking" thirty minutes).
 import { expect, test } from "vitest";
-import { boundOf, OFFER_AFTER_S, RunningClock, startMaking, STOP_AFTER_S } from "../../src/ui/makingClock";
+import { boundOf, OFFER_AFTER_S, offers, RunningClock, startMaking, STOP_AFTER_S } from "../../src/ui/makingClock";
 
 test("the running clock leaves out the time the page was hidden, and says it paused until the next attempt", () => {
   let t = 1000;
@@ -35,6 +35,11 @@ test("the bounds: the offer after OFFER_AFTER_S of running time, the stop after 
   expect(boundOf(30)).toBe("offer");
   expect(boundOf(299.9)).toBe("offer");
   expect(boundOf(300)).toBe("stop");
+  // the offer from its time on, never once a map has passed
+  expect(offers("trying", false)).toBe(false);
+  expect(offers("offer", false)).toBe(true);
+  expect(offers("offer", true)).toBe(false);
+  expect(offers("stop", false)).toBe(true);
   let t = 0;
   const c = new RunningClock(() => t);
   t += 20_000;
@@ -60,14 +65,16 @@ function stubs() {
     doc.visibilityState = v;
     doc.dispatchEvent(new Event("visibilitychange"));
   };
-  const held = new Set<object>();
+  const held = new Set<EventTarget>();
   let requests = 0;
   const nav = {
     wakeLock: {
       async request(type: "screen") {
         expect(type).toBe("screen");
         requests++;
-        const s = { release: async () => void held.delete(s) };
+        const s: EventTarget & { release(): Promise<void> } = Object.assign(new EventTarget(), {
+          release: async () => void (held.delete(s) && s.dispatchEvent(new Event("release"))),
+        });
         held.add(s);
         return s;
       },
@@ -116,4 +123,21 @@ test("a lock that comes after the end is let go; a browser without wake locks st
   t += 4000;
   expect(bare.clock.seconds()).toBe(4);
   bare.end();
+});
+
+test("a lock the browser lets go while the page is shown is taken again; one let go by the end is not", async () => {
+  const s = stubs();
+  const m = startMaking({ now: () => 0, doc: s.doc, nav: s.nav });
+  await settle();
+  const first = [...s.held][0];
+  // (a battery saver, say: the browser releases it, the page still shown)
+  s.held.delete(first);
+  first.dispatchEvent(new Event("release"));
+  await settle();
+  expect(s.requests()).toBe(2);
+  expect(s.held.size).toBe(1);
+  m.end();
+  await settle();
+  expect(s.held.size).toBe(0);
+  expect(s.requests()).toBe(2);
 });
