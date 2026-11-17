@@ -180,11 +180,12 @@ describe("live water on a map with caves (D99, D197)", () => {
     const back = ed.forceCancel();
     expect(back.taken).toBe("work");
     // the water as it was when the force was picked up, not the settle before the edit
-    expect(topOf(back.water!)[upstream]).toBeGreaterThan(risen - 0.05);
-    // and it flows on from there
+    expect(Math.abs(topOf(back.water!)[upstream] - risen)).toBeLessThan(0.05);
+    // and it flows on from there, never back towards the settle before the edit (0.35 here); not held near `risen`: it
+    // sways about its level as it comes to stand (3.31, 3.29, 3.31, 3.30 in one run; 3.24 seen under load)
     const n = frames.length;
     await until(() => frames.length > n + 1);
-    for (const f of frames.slice(n)) expect(topOf(f.water)[upstream]).toBeGreaterThan(risen - 0.05);
+    for (const f of frames.slice(n)) expect(topOf(f.water)[upstream]).toBeGreaterThan((before[upstream] + risen) / 2);
     await until(() => !ed.waterSettling());
   });
 
