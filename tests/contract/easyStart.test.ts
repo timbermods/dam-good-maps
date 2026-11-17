@@ -7,6 +7,7 @@ import { decodeProject, encodeProject, generatedDocument } from "../../src/core/
 import { MapSession } from "../../src/core/doc/session";
 import { startEntity } from "../../src/core/features/build";
 import type { StartFeature } from "../../src/core/features/schema";
+import { fromBase64 } from "../../src/core/format/base64";
 import { entityJson, type EntitySpec } from "../../src/core/format/entities";
 import { surfaceOf } from "../../src/core/format/world";
 import { generate } from "../../src/core/gen/generate";
@@ -323,6 +324,26 @@ describe("a generated map with Easy start on", () => {
     expect(Math.abs(surface - e.surface)).toBeLessThan(0.25);
     expect(surface).toBeGreaterThan(e.level - 1);
     expect(e.level - surface).toBeGreaterThan(0.1);
+  });
+
+  // (D455, the review of #1227: a last attempt that finds no start hands back the map it has, and its field, the
+  // land a session rebuilds from, is the land its file and water hold. The plan's shapes are taken out of the land
+  // before a place is shaped on the settled water; where none is found they are put back. Islands 96², seeds 1 and
+  // 2, end so on their one attempt, a plan's shape taken out: their fields stood 648 and 632 tiles off their land.
+  // Highlands 96² seed 2 finds no start either)
+  it("hands back, from a last attempt that found no start, the land its file and water hold", () => {
+    for (const [theme, seed] of [["islands", 1], ["islands", 2], ["highlands", 2]] as const) {
+      const spec = makeSpec({ seed, theme, size: { x: 96, y: 96 } });
+      spec.settings.start.easyStart = true;
+      const r = generate(spec, { maxAttempts: 1, forms: false });
+      expect(r.report.passed).toBe(false);
+      expect(r.info.stage).toBe("no start");
+      const field = fromBase64(r.field!.heights);
+      let off = 0;
+      for (let i = 0; i < field.length; i++) if (field[i] !== r.built.heights[i]) off++;
+      expect(off, `${theme} seed ${seed}: tiles of the field off the built land`).toBe(0);
+      expect(field.length).toBe(r.built.heights.length);
+    }
   });
 
   // (D453, the long map that took minutes: the read on the start's build found no start, the build stopped before

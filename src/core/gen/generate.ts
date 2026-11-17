@@ -3233,6 +3233,10 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
     return p;
   };
   allowLevel = false;
+  // (the land as its settle holds it, the plan's Easy shapes in it: looking for a place on the settled water takes
+  // them out, `guideWater`, and where none is found they are put back, so an attempt that ends here hands back the
+  // land its file and water hold, D455: the last attempt's map is kept, its field the land a session rebuilds from)
+  const hSettled = planShapes.length ? h.slice() : null;
   let pick = chooseStart();
   // D471: every setting makes a map. In a rescue round, a shown land whose settled water cut it into
   // pieces each smaller than the share of the map the start's ground asks for (wild land under lush
@@ -3244,7 +3248,10 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
     pick = chooseStart();
   }
   // (no start on the settled water or the plan: the shown land has no place left for one, D348)
-  if (!pick) return guess ? fail("no start", b1, true) : { ...fail("no start", b1, true), stuck: true };
+  if (!pick) {
+    if (hSettled) h.set(hSettled);
+    return guess ? fail("no start", b1, true) : { ...fail("no start", b1, true), stuck: true };
+  }
   // (a start that fails here, its ground under the settled water or its water gone, gives way to
   // another on the same settled water, START_TRIES in all, before the attempt is planned again:
   // each new plan settles the water again)
