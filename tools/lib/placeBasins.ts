@@ -41,7 +41,7 @@ export interface Basin {
  * `BASIN_REAL_TILES` real-water tiles or more, each real-water tile whose four neighbours all stand at its level or
  * higher (the flat's own rim stays) goes one level down; floor 0 has no level below it.
  */
-export function cutBasins(heights: Uint8Array, W: number, H: number, port: ArrayLike<number>, game: ArrayLike<number>, floor: ArrayLike<number>, real: Uint8Array): { heights: Uint8Array; basins: Basin[] } {
+export function cutBasins(heights: Uint8Array, W: number, H: number, port: ArrayLike<number>, game: ArrayLike<number>, floor: ArrayLike<number>, real: Uint8Array, filmShare?: number): { heights: Uint8Array; basins: Basin[] } {
   const N = W * H;
   const out = Uint8Array.from(heights);
   const basins: Basin[] = [];
@@ -49,7 +49,7 @@ export function cutBasins(heights: Uint8Array, W: number, H: number, port: Array
   const starts = new Set(lost.map((l) => l.at[1] * W + l.at[0]));
   const candidates: { kind: Basin["kind"]; body: Int32Array }[] = [
     ...bodies(port, W, H).filter((b) => starts.has(b[0])).map((body) => ({ kind: "lost" as const, body })),
-    ...films(game, floor, W, H).filter((f) => f.floor0 * 2 <= f.tiles.length).map((f) => ({ kind: "film" as const, body: f.tiles })),
+    ...films(game, floor, W, H, filmShare).filter((f) => f.floor0 * 2 <= f.tiles.length).map((f) => ({ kind: "film" as const, body: f.tiles })),
   ];
   for (const { kind, body } of candidates) {
     const inBody = new Uint8Array(N);
@@ -64,6 +64,17 @@ export function cutBasins(heights: Uint8Array, W: number, H: number, port: Array
     cutLevel(heights, out, W, H, body, real, basin);
   }
   return { heights: out, basins };
+}
+
+/** A film's basin where the real water lies under it (`cutLevel`, as `cutBasins` cuts it), into a copy of `heights`; the
+ *  basin's tiles cut (none under `BASIN_REAL_TILES` real-water tiles). */
+export function filmBasin(heights: Uint8Array, W: number, H: number, film: ArrayLike<number>, real: Uint8Array): { heights: Uint8Array; basin: Basin } {
+  const out = Uint8Array.from(heights);
+  let realTiles = 0;
+  for (let k = 0; k < film.length; k++) if (real[film[k]]) realTiles++;
+  const basin: Basin = { kind: "film", size: film.length, at: [film[0] % W, Math.floor(film[0] / W)], real: realTiles, cut: 0, level: -1 };
+  if (realTiles >= BASIN_REAL_TILES) cutLevel(heights, out, W, H, film, real, basin);
+  return { heights: out, basin };
 }
 
 /** Where the real water lies under `body`, the ground one level down inside its flat's rim (a tile whose four
