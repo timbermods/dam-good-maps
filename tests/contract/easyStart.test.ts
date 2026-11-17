@@ -2,13 +2,18 @@
 // holding every target (analysis/easyStart.ts `EASY_START`), each a row of the generate profile's checks.
 
 import { describe, expect, it } from "vitest";
-import { EASY_START, easyShortfall, easyStartMeasures, easyTargets } from "../../src/core/analysis/easyStart";
+import { EASY_LAND, EASY_START, easyShortfall, easyStartMeasures, easyTargets } from "../../src/core/analysis/easyStart";
 import { decodeProject, encodeProject, generatedDocument } from "../../src/core/doc/document";
 import { MapSession } from "../../src/core/doc/session";
+import { startEntity } from "../../src/core/features/build";
+import type { StartFeature } from "../../src/core/features/schema";
+import { entityJson, type EntitySpec } from "../../src/core/format/entities";
 import { surfaceOf } from "../../src/core/format/world";
 import { generate } from "../../src/core/gen/generate";
+import { planResources } from "../../src/core/gen/resources";
 import { showcaseSpec } from "../../src/core/gen/showcase";
 import { cutLevel, pondWater, shapeEasyStart } from "../../src/core/land/easyStart";
+import { runsToTiles } from "../../src/core/math/grid";
 import { stream } from "../../src/core/math/rng";
 import { mapObjects } from "../../src/core/sim/model";
 import { decodeSpecFragment, encodeSpecFragment, makeSpec } from "../../src/core/spec/mapspec";
@@ -162,6 +167,61 @@ describe("Easy start's ground (land/easyStart.ts)", () => {
   });
 });
 
+describe("Easy start's ruins (gen/resources.ts)", () => {
+  // (the long River Valley map of D453: a start on a wide green valley floor had only lone dry tiles on its walk, each
+  // a level of its own; no field of five fitted one, none was placed, and the finished map was refused for its metal)
+  const W = 64;
+  const N = W * W;
+  const fieldOn = (moist: (x: number, y: number) => boolean, taken: readonly [number, number][] = []) => {
+    const heights = new Uint8Array(N).fill(4);
+    const occupied = new Uint8Array(N);
+    for (const [x, y] of taken) occupied[y * W + x] = 1;
+    const g = {
+      W,
+      H: W,
+      heights,
+      water: new Float64Array(N),
+      moisture: Float64Array.from({ length: N }, (_, i) => (moist(i % W, Math.floor(i / W)) ? 1 : 0)),
+      soilContamination: new Float64Array(N),
+      occupied,
+      start: { x: 32, y: 32 },
+      entities: [],
+    };
+    const spec = makeSpec({ seed: 5, size: { x: W, y: W }, theme: "riverValley" });
+    const field = planResources(spec, g, 0, 0, { protect: null, easy: { safe: new Uint8Array(N).fill(1), bushes: 10, within: 15, ruins: 25 } }).find((f) => f.role === "ruinField/easyStart");
+    return field && field.kind === "ruinField" ? runsToTiles(field.params.area, W).map((i) => ({ x: i % W, y: Math.floor(i / W), moist: g.moisture[i] > 0 })) : null;
+  };
+  // (as the crow flies: no further than the colony walks, on flat open ground)
+  const away = (t: { x: number; y: number }) => Math.hypot(t.x - 32, t.y - 32);
+
+  it("stand on dry ground where the start's walk has room for them", () => {
+    const tiles = fieldOn((x) => x < 32)!;
+    expect(tiles.length).toBeGreaterThanOrEqual(5);
+    expect(tiles.some((t) => !t.moist)).toBe(true);
+  });
+
+  it("stand on the green where the walk has no dry ground, within the walk the target asks", () => {
+    const tiles = fieldOn(() => true)!;
+    expect(tiles).not.toBeNull();
+    expect(tiles.length).toBeGreaterThanOrEqual(5);
+    for (const t of tiles) expect(away(t)).toBeLessThanOrEqual(25);
+  });
+
+  it("stand on the green where the walk's only dry ground is lone tiles no field fits", () => {
+    // (three dry tiles on the walk, each with something standing on the four tiles beside it: no field grows from one)
+    const lone: [number, number][] = [[50, 32], [32, 50], [14, 32]];
+    const dryAt = new Set(lone.map(([x, y]) => y * W + x));
+    const beside = lone.flatMap(([x, y]): [number, number][] => [[x + 1, y], [x - 1, y], [x, y + 1], [x, y - 1]]);
+    const tiles = fieldOn((x, y) => !dryAt.has(y * W + x), beside)!;
+    expect(tiles).not.toBeNull();
+    expect(tiles.length).toBeGreaterThanOrEqual(5);
+    for (const t of tiles) {
+      expect(t.moist).toBe(true);
+      expect(away(t)).toBeLessThanOrEqual(25);
+    }
+  });
+});
+
 describe("a generated map with Easy start on", () => {
   it("holds every target, each a passing row of its checks, and the map without it does not change", () => {
     const spec = makeSpec({ seed: 2, theme: "any" });
@@ -195,5 +255,51 @@ describe("a generated map with Easy start on", () => {
     // (the map without it has no such rows: the setting changes nothing when off)
     const off = generate(makeSpec({ seed: 2, theme: "any" }), { maxAttempts: 1 });
     expect(off.report.checks.some((c) => c.id.startsWith("start.easy_"))).toBe(false);
+  });
+
+  // (D453, the long map that took minutes: the read on the start's build found no start, the build stopped before
+  // its resources holding no start entity, so every miss was found only after the objects, the plants and the checks)
+  it("reads the land's and water's targets on the start's build, given the start's entity as the whole build places it", () => {
+    const r = generate(makeSpec({ seed: 3, size: { x: 64, y: 64 }, theme: "riverValley" }), { maxAttempts: 1 });
+    const W = r.spec.size.x;
+    const H = r.spec.size.y;
+    const b = r.built;
+    const start = r.features.find((f): f is StartFeature => f.kind === "start")!;
+    const placed = b.entities.find((e) => e.template === "StartingLocation")!;
+    expect(startEntity(start, b.heights, W)).toEqual(placed);
+    const read = (entities: readonly EntitySpec[]) =>
+      easyStartMeasures({ W, H, heights: b.heights, objects: mapObjects({ entities: entities.map(entityJson) }), water: b.settle, model: b.waterModel, moisture: b.moisture, soilContamination: b.soilContamination, woodNear: Infinity, badtide: false }, easyTargets(W, H), EASY_LAND);
+    // (a build stopped before its resources holds no start entity: there is no start to read)
+    const stopped = b.entities.filter((e) => e !== placed);
+    expect(read(stopped)).toEqual([]);
+    // (with it, the land's and water's rows are read, and only those)
+    expect(read([...stopped, startEntity(start, b.heights, W)]).map((m) => m.id)).toEqual(EASY_LAND.filter((id) => id !== "start.easy_badtide"));
+  });
+
+  it("never plants a map whose start missed one of them", () => {
+    // (River Valley 128², seed 3: its fourth attempt's start misses the badtide's day. A generator change that moves
+    // this map takes another seed with such an attempt: tools/attempts.ts --easy lists them)
+    const spec = makeSpec({ seed: 3, theme: "riverValley" });
+    spec.settings.start.easyStart = true;
+    const land = new Set<string>(EASY_LAND);
+    const stages: string[] = [];
+    let missed = 0;
+    class Enough extends Error {}
+    try {
+      generate(spec, {
+        onProgress: (p) => stages.push(p.stage),
+        onAttempt: (a) => {
+          if (!a.passed && land.has(a.failed[0])) {
+            missed++;
+            expect(stages, `attempt ${a.attempt + 1}, ${a.failed[0]}`).not.toContain("objects");
+            throw new Enough();
+          }
+          stages.length = 0;
+        },
+      });
+    } catch (e) {
+      if (!(e instanceof Enough)) throw e;
+    }
+    expect(missed).toBe(1);
   });
 });

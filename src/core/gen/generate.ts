@@ -39,7 +39,7 @@ import { placementOf } from "../format/entities";
 import type { JsonObject } from "../format/json";
 import { pumpShoreDistance, reachAt, startWaterShore, walkDistance, walkWorld } from "../analysis/walk";
 import type { FieldData } from "../doc/document";
-import { buildMap, SettleCache, type BuildResult, type GeneratedField } from "../features/build";
+import { buildMap, SettleCache, startEntity, type BuildResult, type GeneratedField } from "../features/build";
 import { previewSettle } from "../sim/preview";
 import type { FieldCache } from "../features/target";
 import { featureId } from "../features/ids";
@@ -2959,6 +2959,7 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
   // where badwater mixes into water near the start it goes on spreading for a few days, in the game as
   // here (River Valley 128² seed 12: 17.5 tiles at the settle, 13.8 four days on). The water is run on
   // only when water within the distance carries some badwater)
+  let rested: { water: Float64Array; days: { D: Float64Array; C: Float64Array }[] } | null = null;
   const badwaterNear = (b: BuildResult, st: { x: number; y: number }): number => {
     const d0 = nearestBadwater(W, H, [st.x, st.y], b.water, b.contamination, b.soilContamination).distance;
     if (d0 < badWithin) return d0;
@@ -2968,13 +2969,23 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
     let mixing = false;
     for (let i = 0; i < N && !mixing; i++) if (sd[i] < badWithin && b.water[i] > WET && b.contamination[i] >= REST_TRACE) mixing = true;
     if (!mixing) return d0;
-    const sim = new WaterSim(b.waterModel, { depth: Float64Array.from(b.water), contamination: Float64Array.from(b.contamination) });
+    // (the days already run on this settled water stand for every start tried on it: the run is the whole map's,
+    // the same whichever start reads it, and at 512 × 128 each day of it costs seconds)
     let d = d0;
+    const days = rested?.water === b.settle.depth ? rested.days : [];
+    for (let day = 0; day < days.length && d >= badWithin; day++) d = Math.min(d, nearestBadwater(W, H, [st.x, st.y], days[day].D, days[day].C, b.soilContamination).distance);
+    if (d < badWithin || days.length === REST_DAYS) return d;
+    // (this start asks for more days than were run: the run again from its first day, kept as far as it goes)
+    const sim = new WaterSim(b.waterModel, { depth: Float64Array.from(b.water), contamination: Float64Array.from(b.contamination) });
+    const run: { D: Float64Array; C: Float64Array }[] = [];
+    d = d0;
     for (let day = 0; day < REST_DAYS && d >= badWithin; day++) {
       sim.run(TICKS_PER_DAY);
+      run.push({ D: Float64Array.from(sim.D), C: Float64Array.from(sim.C) });
       d = Math.min(d, nearestBadwater(W, H, [st.x, st.y], sim.D, sim.C, b.soilContamination).distance);
     }
     sim.dispose();
+    rested = { water: b.settle.depth, days: run };
     return d;
   };
   // (near the guess: the hollows were planned from it, so they keep the distance the settings ask
@@ -3101,6 +3112,10 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
   // takes the one walking to the least land and Generous the most, `REACH_CHOICES` looked at; at the theme's own the
   // first that passes is the start, as before)
   const lean = ease === 0 && !lastAttempt && !easy ? Math.sign(LEVEL3_OF[spec.settings.terrain.buildableLand] - LEVEL3_OF[THEME_PRESETS[spec.theme].buildableLand]) : 0;
+  let easyBadtide: number | undefined;
+  let easyWater: Float64Array | null = null;
+  // (the day stands for a build on the water it was read on; one whose water was settled again, a 3D form's, reads its own)
+  const easyDay = (b: BuildResult): { badtideDay?: number } => (easyBadtide !== undefined && b.settle.depth === easyWater ? { badtideDay: easyBadtide } : {});
   let chosen: { cur: StartPick; base: BuildResult; layout: Feature[]; provedObjects: MapObjectFeature[] | null; h: Uint8Array; fixes: string[]; contains: string[]; reach: number } | null = null;
   let looked = 0;
   const takeChosen = (): void => {
@@ -3220,6 +3235,20 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
       if (!mb.start || minesReached(objs, W, H, colonyReach(W, H, mb.heights, wet, objs, mb.start)) < minesWanted(W, H)) why = "mine pair (settled)";
       else provedObjects = objects;
     }
+    // (Easy start, D495: what the land and its settled water decide is read on this start's build, before anything
+    // is planted, and a start that misses one gives way to another shaped place on the same settled water, as one
+    // whose water moved does; the land is planned again only when no place is left. This build stops before its
+    // resources and holds no start entity yet, so the read is given the one the full build places. The badtide's
+    // day, read once here, stands for the later builds on this same settled water (`easyDay`), which plant only)
+    if (!why && easyT && !lastAttempt) {
+      const early = easyStartMeasures({ W, H, heights: b.heights, objects: mapObjects({ entities: [...b.entities, startEntity(startOf(cur), b.heights, W)].map(entityJson) }), water: b.settle, model: b.waterModel, moisture: b.moisture, soilContamination: b.soilContamination, woodNear: Infinity }, easyT, EASY_LAND);
+      const miss = early.find((m) => !m.ok);
+      if (miss) why = miss.id;
+      else {
+        easyBadtide = early.find((m) => m.id === "start.easy_badtide")?.value;
+        easyWater = b.settle.depth;
+      }
+    }
     base = b;
     if (!why && lean !== 0) {
       const reach = startFloorsOf(b).reach;
@@ -3274,16 +3303,6 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
   // resources change no water, so it is found on this settle and the field planned again at once
   // (not on the last attempt, whose map is the one kept when none passes)
   if (!lastAttempt && sourcesInFlow(base.waterModel, mapObjects({ entities: base.entities.map(entityJson) }), base.water).inFlow.length) return fail("water.source_in_flow", base, true);
-  // (Easy start, D495: what the land and its settled water decide is read on this start's first build, before
-  // anything is planted, and a land that misses one is planned again at once; the badtide's day, read once here,
-  // stands for the later builds, which plant only)
-  let easyBadtide: number | undefined;
-  if (easyT && !lastAttempt) {
-    const early = easyStartMeasures({ W, H, heights: base.heights, objects: mapObjects({ entities: base.entities.map(entityJson) }), water: base.settle, model: base.waterModel, moisture: base.moisture, soilContamination: base.soilContamination, woodNear: Infinity }, easyT, EASY_LAND);
-    const miss = early.find((m) => !m.ok);
-    if (miss) return fail(miss.id, base, true);
-    easyBadtide = early.find((m) => m.id === "start.easy_badtide")?.value;
-  }
   const firstWater = Math.round(performance.now() - t0);
   info.start = pick;
   // ---- map objects and resources on the one settle (their builds reuse it)
@@ -3458,7 +3477,7 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
   let built = build(features, null);
   opts.onProgress?.({ attempt, stage: "check" });
   let file = toTimberFile(spec, built);
-  let v: Validation = validateMap(file, { profile: "generate", spec, features, water: { model: built.waterModel, settled: built.settle }, dropped: built.dropped ?? 0, ...(easyCheck ? { easyStart: { ...easyCheck, badtideDay: easyBadtide } } : {}) });
+  let v: Validation = validateMap(file, { profile: "generate", spec, features, water: { model: built.waterModel, settled: built.settle }, dropped: built.dropped ?? 0, ...(easyCheck ? { easyStart: { ...easyCheck, ...easyDay(built) } } : {}) });
   // ---- intentions: checked on the finished map; a start intention is re-steered once (D138)
   let intentions: IntentionResult[] = [];
   if (v.report.passed && g.intentions.length) {
@@ -3569,7 +3588,7 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
         const checks = plans.map((p) => checkForm(p, b3, p.id === "spring-cave" ? streams[k++].id : null));
         const own = checks.every((c) => c.ok);
         const file3 = own ? toTimberFile(spec, b3) : null;
-        const v3 = file3 ? validateMap(file3, { profile: "generate", spec, features: f3, water: { model: b3.waterModel, settled: b3.settle }, dropped: b3.dropped ?? 0, ...(easyCheck ? { easyStart: { ...easyCheck, badtideDay: easyBadtide } } : {}) }) : null;
+        const v3 = file3 ? validateMap(file3, { profile: "generate", spec, features: f3, water: { model: b3.waterModel, settled: b3.settle }, dropped: b3.dropped ?? 0, ...(easyCheck ? { easyStart: { ...easyCheck, ...easyDay(b3) } } : {}) }) : null;
         const ctx3 = finalCtx(b3, hy);
         const bare = bareShare(deadTrees, b3.water, b3.moisture, W, H) <= bareMost;
         const holds =
