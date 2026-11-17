@@ -107,7 +107,8 @@ import * as ed from "../../src/worker/session";
 // and generator 0.10.39 over the cap: `7006d8e4…` before it, the version alone (D(plates-turned) moves a premise's plates, never a
 // theme's land), on the land the cap (#1213, merged in
 // from dev) gives; against this branch's own pin before the merge (`9bd38788…`, the floor pass's cap alone) it moved by land too, D148
-const LIVE_SHA = "947612897543c6556f85f56174e03289219f5ba743b645bf27474eefb9f95ab6";
+// and generator 0.10.40's version alone (#1225, small maps at their own scale, which a 128² map never reaches), D148
+const LIVE_SHA = "a7d8de7fc67234e372c521b5c05bd6d5c935401ea4994e62e2a6612ba486fa08";
 const spec = () => makeSpec({ seed: 4242, size: { x: 128, y: 128 }, theme: "riverValley", designedFor: "normal" });
 
 describe("mine sites and ruins, models of our own", () => {

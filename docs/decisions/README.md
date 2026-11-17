@@ -116,6 +116,7 @@ Read this index, then [how-we-work.md](how-we-work.md), then only the topic file
 - D480: The water story's reach counts the main water
 - D476: Badwater joins the main water
 - D471: Every setting makes a map
+- D(small-own-scale): A map narrower than 96, under 128² of area, is drawn at its own scale from the first round; Highlands from the eighth (amends D471)
 - D469: Badwater mixes with clean water
 - D458: Lake Basin round 2 adopted
 - D464: Lake Basin always reads as one
