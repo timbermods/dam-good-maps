@@ -797,3 +797,46 @@ test("picking an object never moves the list under the pointer: its window opens
     }
   }
 });
+
+test("a list cut by a short window says so without a scroll: a soft fade at its foot while more items lie below, none once the foot is reached or where the list fits", async ({ page }) => {
+  await openSaved(page, "s=1&z=96&d=n&t=riverValley");
+  const shelf = page.getByRole("navigation", { name: "Place" });
+  const fade = shelf.locator(".shelf-more");
+  // (drawn: fully opaque, in the list's own colour, along the list's foot just above the plate's bottom padding, across the
+  // list's width short of the scrollbar's room)
+  const drawn = () =>
+    fade.evaluate((f) => {
+      const menu = f.closest<HTMLElement>(".objects-menu")!;
+      const m = menu.getBoundingClientRect();
+      const r = f.getBoundingClientRect();
+      const s = getComputedStyle(f);
+      return s.opacity === "1" && s.backgroundImage.startsWith("linear-gradient") && r.height >= 30 && Math.abs(r.bottom - (m.bottom - 1 - 6)) <= 1 && Math.abs(r.width - menu.clientWidth) <= 1;
+    });
+  const hidden = () => fade.evaluate((f) => getComputedStyle(f).opacity === "0");
+  const overflows = () => shelf.evaluate((el) => el.scrollHeight > el.clientHeight + 2);
+
+  // a short desktop window (a laptop's browser with its bars): the list scrolls, and its foot fades before any scroll
+  await page.setViewportSize({ width: 1280, height: 640 });
+  await expect.poll(overflows).toBe(true);
+  await expect.poll(() => shelf.evaluate((el) => el.scrollTop)).toBe(0);
+  await expect.poll(drawn, { message: "the fade at the foot of a cut list" }).toBe(true);
+  // scrolled to its foot, nothing more lies below: the fade goes, and the last row is whole and on top
+  await shelf.hover();
+  await page.mouse.wheel(0, 2000);
+  await expect.poll(() => shelf.evaluate((el) => el.scrollHeight - el.scrollTop - el.clientHeight)).toBeLessThanOrEqual(1);
+  await expect.poll(hidden, { message: "no fade at the list's foot" }).toBe(true);
+  const last = shelf.getByRole("button").last();
+  expect(await last.evaluate((b) => {
+    const r = b.getBoundingClientRect();
+    const m = b.closest(".objects-menu")!.getBoundingClientRect();
+    return r.bottom <= m.bottom && b.contains(document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2));
+  })).toBe(true);
+  // back up a little: more below again, the fade again
+  await page.mouse.wheel(0, -100);
+  await expect.poll(drawn).toBe(true);
+
+  // a window tall enough for the whole list: no fade
+  await page.setViewportSize({ width: 1920, height: 1080 });
+  await expect.poll(overflows).toBe(false);
+  await expect.poll(hidden, { message: "no fade on a list that fits" }).toBe(true);
+});
