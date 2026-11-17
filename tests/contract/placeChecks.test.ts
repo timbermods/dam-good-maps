@@ -14,12 +14,14 @@ import { makeSpec } from "../../src/core/spec/mapspec";
 import { INDEX, placeData } from "./placesCommon";
 
 const built = new Map<string, { bytes: Uint8Array; name: string; id: string }>();
-function opened(id: string, asPlace: boolean) {
-  if (!built.has(id)) {
+function opened(id: string, asPlace: boolean, dry = false) {
+  const key = `${id}${dry ? " dry" : ""}`;
+  if (!built.has(key)) {
     const data = placeData(INDEX.places.find((p) => p.id === id)!);
-    built.set(id, { bytes: placeTimber(data).bytes, name: `${data.name}.timber`, id: data.id });
+    // (`dry`: the place with its sources taken away, so its start reaches no water)
+    built.set(key, { bytes: placeTimber(dry ? { ...data, sources: [] } : data).bytes, name: `${data.name}.timber`, id: data.id });
   }
-  const b = built.get(id)!;
+  const b = built.get(key)!;
   const s = MapSession.importMap(b.bytes, b.name, asPlace ? b.id : undefined);
   const v = s.validate("export");
   return { s, v, groups: groupChecks(s, v, v) };
@@ -38,9 +40,9 @@ describe("a real place's check summary", () => {
   });
 
   it("a place whose start reaches no clean water warns, once", () => {
-    // (Yosemite Valley: its start reaches no fed water; Drumheller, the place here before, has the start's spring since
-    // D(new-films), and Glencoe, after it, is withheld until its start has pumpable water, #1218)
-    const { groups } = opened("yosemite-valley", true);
+    // (no place offered has such a start since D(new-films): Yosemite Valley, the place here before, is withheld until
+    // its start has pumpable water, #1218; so Drumheller with its sources taken away, the water its start pumps gone)
+    const { groups } = opened("drumheller", true, true);
     expect(groups.warnings.map((c) => c.id)).toContain("start.water");
     expect(groups.advisory.map((c) => c.id)).not.toContain("water.storage_possible");
     expect(groups.existing).toEqual([]);

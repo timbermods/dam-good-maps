@@ -72,7 +72,7 @@ import { decodeTiles as decodeGaps } from "../src/core/places/place";
 import { keepNearest, settlePlants, startWood, startWoodSpecies } from "./lib/placePlants";
 import { flaggedSources, mendSources } from "./lib/placeSources";
 import { realMeasure, realParts, searchFeeds, type FeedStep } from "./lib/placeFeeds";
-import { claimOrder as placeClaimOrder, parseShard, shardPlaces, type Shard } from "./lib/placeShards";
+import { claimOrder as placeClaimOrder, parseShard, shardMoves, shardPlaces, type Shard } from "./lib/placeShards";
 import { DEAD_TREES_KEEP_LOGS, LOG_FLOOR_WALK, LOGS_PER_TREE_SPECIES } from "../src/core/data/logFloor";
 import { startWalkField } from "../src/core/resources/baseline";
 import { writeTimber } from "../src/core/format/timber";
@@ -137,11 +137,16 @@ const WOOD_CHECKS = ["start.wood", "start.wood_floor", "start.wood_fast"];
  *  whose note says Real places 2 places sources only at heads) when #1094 withheld it, and that list never grows:
  *  planning's ruling on #1096. Glencoe and Ngorongoro have no pumpable water within 20 tiles of the start (no allowed
  *  spring site by it, and no spot within 20 tiles' walk of water that stands as the start's pool, `startPool`), and no
- *  place ships that way (D(new-films), planning's ruling on #1201): #1218 brings them back with real pools. */
+ *  place ships that way (D(new-films), planning's ruling on #1201); nor do Fish River Canyon, Twelve Apostles and Yosemite
+ *  Valley, kept on today's build until then, whose starts have no water in reach at all (planning's ruling of 2026-11-17
+ *  on #1201: a start that cannot be played). #1218 brings the five back with real pools. */
 const WITHHELD_UNTIL: Record<string, string> = {
   "dinaric-karst-plitvice": "withheld until water.source_in_flow is mended (sources at heads only)",
   glencoe: "withheld until its start has pumpable water within 20 tiles (#1218: its pool, 186 tiles 1.04 deep, lies 37 tiles' walk away with no bank the first pump reaches)",
   ngorongoro: "withheld until its start has pumpable water within 20 tiles (#1218: its only pumpable water lies in the floor-0 sheet, no walk from the start)",
+  "fish-river-canyon": "withheld until its start has pumpable water within 20 tiles (#1218: no water in reach; the spring its search keeps gives the start water only 42.3 tiles' walk away)",
+  "twelve-apostles": "withheld until its start has pumpable water within 20 tiles (#1218: no water in reach; its nearest pool lies 41.7 tiles' walk away)",
+  "yosemite-valley": "withheld until its start has pumpable water within 20 tiles (#1218: no water in reach)",
 };
 /** The start's springs by the start built in turn, after the best, for one that costs no water over real water
  *  (planning's ruling of 2026-11-16 on Cliffs of Moher): each is a springs' search of its own. */
@@ -565,7 +570,6 @@ const FILM_BEFORE = 1;
  *  today's that its start does not need. Every run prints each by name with its reason, and the check passes the film
  *  today's build has; any other place with a film fails. The list never grows past the places these rulings named. */
 const TODAY_KEPT: Record<string, string> = {
-  "twelve-apostles": "film 2064 at 74,1: its basin costs start.wood and real water; film 141 at 77,54: its bed costs real water",
   "waimakariri-river": "film 363 at 217,230: its bed costs start.farmland and start.forester",
   "na-pali-coast": "film 519 at 46,1: its bed gives water.outflow and costs real water; film 2199 at 2,62 over the real sea: its basin gives water.outflow and a source in another's flow",
   gullfoss: "film 435 at 112,25: its bed costs start.food and real water",
@@ -574,10 +578,8 @@ const TODAY_KEPT: Record<string, string> = {
   "mount-fuji": "film 138 at 28,22: its bed leaves the water unsettled and costs start.food",
   "victoria-falls": "film 1353 at 35,86: its basin gives water.outflow and costs real water",
   "ilulissat-icefjord": "film 119 at 19,28: its basin costs real water",
-  "yosemite-valley": "film 104 at 62,1: its bed costs the real water",
   paricutin: "its springs' search ends with less water over real water than today's (5 → 1)",
   "western-ghats-mahabaleshwar": "its one spring by the start puts 550 more tiles over real dry land; the start had water 15.5 tiles' walk away today",
-  "fish-river-canyon": "the spring its search keeps puts 160 more tiles over real dry land and gives the start water only past its walk (none → 42.3 of 20)",
   altiplano: "its one spring by the start (2,54) puts 299 more tiles over real dry land than today's (697 → 996) with the start's water where it was (8.2 tiles' walk); without it the turns leave the start 19.8 tiles from water",
   "roaring-river-fan": "its search puts 138 more tiles over real dry land than today's (602 → 740) and takes the start's water from 1.4 to 10.2 tiles' walk; the start's spring that held it nearer (70,57) leaves it at 4",
 };
@@ -787,7 +789,7 @@ const skipped = library.items.filter((it) => it.family === "random");
  *  (tools/lib/placeShards.ts), and the whole set's index and files are checked from what is committed (`checkShard`). */
 const shard = arg("shard") ? parseShard(arg("shard")!) : null;
 if (shard && (!check || only || relayRuins || process.argv.includes("--write"))) throw new Error("--shard i/n goes with --check alone (not --only, --ruins or --write)");
-const mine = shard ? new Set(shardPlaces(items.map((it) => it.size), shard)) : null;
+const mine = shard ? new Set(shardPlaces(items.map((it) => it.size), shard, shardMoves(items.map((it) => it.id), shard.n))) : null;
 
 const files = new Map<string, Uint8Array>();
 const entries: PlaceIndexEntry[] = [];

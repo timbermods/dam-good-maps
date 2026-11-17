@@ -1,6 +1,6 @@
 {
  "format": 1,
- "count": 82,
+ "count": 79,
  "families": [
   {
    "id": "fan",
@@ -158,24 +158,6 @@
    "bytes": 161260,
    "sha256": "b3a9dfbb9aed3c9a6a272fdb968c22dc2fa95d02f758ba072bbcbc021671ec82",
    "faults": []
-  },
-  {
-   "id": "twelve-apostles",
-   "name": "Twelve Apostles",
-   "family": "coast",
-   "familyName": "Coast",
-   "plays": "Cliffs and small basins along the shore.",
-   "size": 128,
-   "metres": 60,
-   "data": "data/twelve-apostles.json.gz",
-   "image": "cards/twelve-apostles.jpg",
-   "bytes": 215799,
-   "sha256": "508d897760bcfb498c7246dc4a64e0d8bf6d653f9a69115967ba3b5d085f47d8",
-   "faults": [
-    "water.source_in_flow",
-    "water.settles",
-    "start.water"
-   ]
   },
   {
    "id": "mount-mayon",
@@ -916,22 +898,6 @@
    "faults": []
   },
   {
-   "id": "fish-river-canyon",
-   "name": "Fish River Canyon",
-   "family": "canyon",
-   "familyName": "Canyon",
-   "plays": "Narrow places to dam and high ground to claim; flat land is scarce.",
-   "size": 128,
-   "metres": 60,
-   "data": "data/fish-river-canyon.json.gz",
-   "image": "cards/fish-river-canyon.jpg",
-   "bytes": 225684,
-   "sha256": "b1cf4e1542f560b801f40e77e6676baf898fa0f28a49ba227f548f1bdb80e268",
-   "faults": [
-    "start.water"
-   ]
-  },
-  {
    "id": "mount-fuji",
    "name": "Mount Fuji",
    "family": "cone",
@@ -1201,22 +1167,6 @@
    "bytes": 127371,
    "sha256": "02b3d10283b611e46df762d4de52b3e56a11b1f5a2bb78f6a4fc09bc6e3cba29",
    "faults": []
-  },
-  {
-   "id": "yosemite-valley",
-   "name": "Yosemite Valley",
-   "family": "glacial",
-   "familyName": "Glacial valley",
-   "plays": "Wide valley floors under high ground, with side valleys hanging above.",
-   "size": 96,
-   "metres": 60,
-   "data": "data/yosemite-valley.json.gz",
-   "image": "cards/yosemite-valley.jpg",
-   "bytes": 136701,
-   "sha256": "a8376b519d4930e9fb6d5b7067d1e641565275fc99c82dbb5ffeb224c0f86e55",
-   "faults": [
-    "start.water"
-   ]
   },
   {
    "id": "tara-gorge",
