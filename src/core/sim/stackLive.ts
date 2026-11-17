@@ -188,13 +188,20 @@ interface OwnWater {
 
 /** The map's own water run on a strip of the map's rows (`OwnWater.strip`), as the multi-core settle runs a strip
  *  (stackParallel.ts): rows `lo` to `hi`, its own rows `y0` to `y1` and HALO rows of the force's run's water on each
- *  side that is not the map's edge, taken in after every tick; `mask`, its rows' terrain as it is built. */
+ *  side that is not the map's edge, taken in after every tick; `mask`, its rows' terrain as it is built; `ran`, whether
+ *  it ran a tick since; `waiting`, the tiles (of its rows) where `OwnWater.want` differs from `mask`, for that `want`;
+ *  `safeTo`, the tick (`StackLive.ticks`) to which it may run without them (`StackLive.ownSafe`). */
 interface OwnStrip extends Built {
   lo: number;
   hi: number;
   y0: number;
   y1: number;
   mask: Uint32Array;
+  ran: boolean;
+  waiting?: { want: Uint32Array; at: number[]; near: boolean };
+  safeTo: number;
+  seen?: Int32Array;
+  stamp: number;
 }
 
 /** Rows kept between the force's changes and the edge of the strip's own rows (`OwnStrip`); rows at that edge checked
@@ -243,6 +250,9 @@ function stripColumns(W: number, H: number, lo: number, hi: number, y0: number, 
       y0,
       y1,
       mask: mask.slice(),
+      ran: false,
+      safeTo: 0,
+      stamp: 0,
     };
   } catch (e) {
     m.close();
@@ -423,20 +433,32 @@ export class StackLive {
     if (this.finished) return true;
     const own = this.own;
     if (!own?.strip) return this.run(ticks);
-    // (the map's own water on its strip, a tick at a time beside the force's, its halo taken from it after each)
-    this.ownWalls(own, own.strip, ticks);
-    if (own.strip.lo === 0 && own.strip.hi === this.H) {
-      // (the whole map: no halo to take, so the same ticks in one run, as the force's)
+    // (the map's own water on its strip beside the force's, the walls the force let go let go on it before they could
+    // matter, `ownSafe`)
+    let left = Math.max(0, Math.floor(ticks));
+    while (left > 0 && !this.finished) {
+      let s = own.strip!;
+      let k = this.ownSafe(own, s, left);
+      if (k === 0) {
+        this.ownWalls(own, s);
+        s = own.strip!;
+        k = left;
+      }
       const before = this.ticks;
-      this.run(ticks);
-      if (this.ticks > before) own.strip.m.op(STACK_OP.run, this.ticks - before, 1);
-      return this.finished;
-    }
-    for (let left = Math.max(0, Math.floor(ticks)); left > 0 && !this.finished; left--) {
-      const before = this.ticks;
-      this.run(1);
-      if (this.ticks === before) break;
-      this.ownTick(own);
+      if (s.lo === 0 && s.hi === this.H) {
+        // (the whole map: no halo to take, so the same ticks in one run, as the force's)
+        this.run(k);
+        if (this.ticks === before) break;
+        s.m.op(STACK_OP.run, this.ticks - before, 1);
+        s.ran = true;
+        left -= this.ticks - before;
+      } else {
+        // (a tick at a time, its halo taken from the force's water after each)
+        this.run(1);
+        if (this.ticks === before) break;
+        this.ownTick(own);
+        left--;
+      }
     }
     return this.finished;
   }
@@ -590,8 +612,11 @@ export class StackLive {
    *  Where the force's water does not differ from the map's own, it is the map's own, to the last bit: so the map's own
    *  runs only on a strip of rows round what the force changed (`OwnStrip`), as the multi-core settle runs a strip
    *  (stackParallel.ts, the same bytes as the whole map), its halo taken from the force's water after every tick, and
-   *  grows as the difference does; none runs before the force changes anything. Call it before the first `advance`;
-   *  not on several threads (a force's water runs on one). */
+   *  grows as the difference does, however small (a carve's reach covers a 96² map's rows within about a hundred
+   *  ticks, the last of it a few units in the fifteenth place); none runs before the force changes anything. The
+   *  front's walls the force lets go go on the strip only just before its water could reach them (`ownSafe`,
+   *  `ownWalls`), so a wall that water never comes near costs no build. Call it before the first `advance`; not on
+   *  several threads (a force's water runs on one). */
   holdOwn(objects: Float64Array): void {
     if (this.parallel) throw new Error("A force's water runs on one thread.");
     this.own?.strip?.m.close();
@@ -711,60 +736,93 @@ export class StackLive {
       }
   }
 
-  /** The front's walls the force's run let go (`OwnWater.want`) let go on the strip too, before it runs `ticks` more: at
-   *  once in its halo and the rows next to it (their columns must be the force's run's there), elsewhere where its water
-   *  could reach them by then: water moves at most a column a step, two steps a tick, and a step reads the columns two
-   *  round each wet one, so a wall more than 2·ticks + 2 tiles from every wet column enters none of those ticks. A wall
-   *  on dry ground no water reaches changes none of its ticks, to the last bit. When one must go, they all go (the far
-   *  ones change nothing either way): one build for as many as can wait. */
-  private ownWalls(own: OwnWater, s: OwnStrip, ticks: number): void {
+  /** How many of the next `ticks` ticks the strip may run before the front's walls the force's run let go
+   *  (`OwnWater.want`) must go on it too: all of them while none waits; none while one waits in its halo or the rows
+   *  next to it (their columns must be the force's run's there); elsewhere, by the water it holds now: water moves at
+   *  most a column a step, two steps a tick, and a step reads the columns two round each wet one, so a wall more than
+   *  2·k + 2 tiles (either way, diagonals one) from every wet column enters none of the next k ticks, and changes none
+   *  of them, to the last bit. Its halo counts as wet throughout (the force's water comes in there after every tick).
+   *  The answer holds for those k ticks (`OwnStrip.safeTo`) and is asked again after them, by the water then, so a wall
+   *  near water that stays where it is never needs a build. */
+  private ownSafe(own: OwnWater, s: OwnStrip, ticks: number): number {
     const W = this.W;
     const { lo, hi } = s;
     const rows = hi - lo;
     const n = rows * W;
-    const want = own.want.subarray(lo * W, hi * W);
-    let pending = false;
-    for (let i = 0; i < n && !pending; i++) if (want[i] !== s.mask[i]) pending = true;
-    if (!pending) return;
-    const reach = 2 * Math.max(1, ticks) + 2;
-    const far = reach + 1;
-    const dist = new Int32Array(n).fill(far);
-    const d = s.m.view(STACK_FIELD.depth) as Float64Array;
-    const o = s.m.view(STACK_FIELD.overflow) as Float64Array;
-    for (let i = 0; i < n; i++)
-      for (let q = 0; q < s.count[i]; q++)
-        if (d[q * n + i] > 0 || o[q * n + i] > 0) {
-          dist[i] = 0;
-          break;
+    const top = lo > 0 ? s.y0 - lo : 0;
+    const bottom = hi < this.H ? s.y1 - lo : rows;
+    // (the walls waiting, found once for each strip and each `want`; whether one is in its halo or the BAND_ROWS
+    // rows next to it)
+    if (s.waiting?.want !== own.want) {
+      const want = own.want.subarray(lo * W, hi * W);
+      const at: number[] = [];
+      let near = false;
+      for (let i = 0; i < n; i++)
+        if (want[i] !== s.mask[i]) {
+          at.push(i);
+          const r = (i / W) | 0;
+          if ((lo > 0 && r < top + BAND_ROWS) || (hi < this.H && r >= bottom - BAND_ROWS)) near = true;
         }
-    for (let i = 0; i < n; i++) {
-      const x = i % W;
-      let e = dist[i];
-      if (x > 0 && dist[i - 1] + 1 < e) e = dist[i - 1] + 1;
-      if (i >= W) {
-        if (dist[i - W] + 1 < e) e = dist[i - W] + 1;
-        if (x > 0 && dist[i - W - 1] + 1 < e) e = dist[i - W - 1] + 1;
-        if (x < W - 1 && dist[i - W + 1] + 1 < e) e = dist[i - W + 1] + 1;
-      }
-      dist[i] = e;
+      s.waiting = { want: own.want, at, near };
+      s.safeTo = this.ticks;
     }
-    for (let i = n - 1; i >= 0; i--) {
-      const x = i % W;
-      let e = dist[i];
-      if (x < W - 1 && dist[i + 1] + 1 < e) e = dist[i + 1] + 1;
-      if (i + W < n) {
-        if (dist[i + W] + 1 < e) e = dist[i + W] + 1;
-        if (x < W - 1 && dist[i + W + 1] + 1 < e) e = dist[i + W + 1] + 1;
-        if (x > 0 && dist[i + W - 1] + 1 < e) e = dist[i + W - 1] + 1;
+    const { at, near } = s.waiting;
+    if (!at.length) return ticks;
+    if (near) return 0;
+    if (s.safeTo > this.ticks) return Math.min(ticks, s.safeTo - this.ticks);
+    // (a column is wet: depth or pressure above none; once the strip has run a tick, every column wet since it was
+    // built, stack.rs `wet_ever`, which holds every one wet now and reads without the engine checking its water again)
+    const ever = s.ran ? (s.m.view(STACK_FIELD.reach) as Uint8Array) : null;
+    const d = ever ? null : (s.m.view(STACK_FIELD.depth) as Float64Array);
+    const o = ever ? null : (s.m.view(STACK_FIELD.overflow) as Float64Array);
+    const L = s.L;
+    const wet = (i: number): boolean => {
+      const r = (i / W) | 0;
+      if (r < top || r >= bottom) return true;
+      for (let c = i; c < L * n; c += n) if (ever ? ever[c] !== 0 : d![c] > 0 || o![c] > 0) return true;
+      return false;
+    };
+    // (the nearest wet tile to any wall waiting, out to 2·ticks + 2: ring by ring out from all of them at once)
+    const R = 2 * ticks + 2;
+    const seen = (s.seen ??= new Int32Array(n));
+    const mark = ++s.stamp;
+    let ring: number[] = at.slice();
+    for (const i of ring) seen[i] = mark;
+    let best = R + 1;
+    for (let r = 0; r <= R && ring.length; r++) {
+      if (ring.some(wet)) {
+        best = r;
+        break;
       }
-      dist[i] = e;
+      const next: number[] = [];
+      for (const i of ring) {
+        const x = i % W;
+        const y = (i / W) | 0;
+        for (let yy = y > 0 ? y - 1 : 0; yy <= y + 1 && yy < rows; yy++)
+          for (let xx = x > 0 ? x - 1 : 0; xx <= x + 1 && xx < W; xx++) {
+            const j = yy * W + xx;
+            if (seen[j] === mark) continue;
+            seen[j] = mark;
+            next.push(j);
+          }
+      }
+      ring = next;
     }
-    // (its halo and the rows next to it: from its first row to BAND_ROWS into its own, and the same at its last)
-    const near = (r: number) => (lo > 0 && r < s.y0 - lo + BAND_ROWS) || (hi < this.H && r >= s.y1 - lo - BAND_ROWS);
-    let due = false;
-    for (let i = 0; i < n && !due; i++) if (want[i] !== s.mask[i] && (dist[i] <= reach || near((i / W) | 0))) due = true;
-    if (!due) return;
-    const mask = want.slice();
+    // (the most ticks k with best > 2·k + 2)
+    const k = Math.max(0, Math.floor((best - 3) / 2));
+    s.safeTo = this.ticks + k;
+    return Math.min(ticks, k);
+  }
+
+  /** The front's walls the force's run let go let go on the strip too (`ownSafe` says when): all of those waiting at
+   *  once (the far ones change nothing either way), one build for as many as can wait, the strip's water carried over
+   *  to it with its momentum. */
+  private ownWalls(own: OwnWater, s: OwnStrip): void {
+    const W = this.W;
+    const { lo, hi } = s;
+    const rows = hi - lo;
+    const n = rows * W;
+    const mask = own.want.slice(lo * W, hi * W);
     // (built again on them, its water carried over with its momentum, as `reshape` carries the force's)
     const now: LiveStack = {
       W,
@@ -800,6 +858,7 @@ export class StackLive {
   private ownTick(own: OwnWater): void {
     const s = own.strip!;
     s.m.op(STACK_OP.run, 1, 1);
+    s.ran = true;
     if (s.lo > 0) this.ownTake(s, this.m, s.lo, s.y0, 0);
     if (s.hi < this.H) this.ownTake(s, this.m, s.y1, s.hi, 0);
     const differs = (r0: number, r1: number) => {

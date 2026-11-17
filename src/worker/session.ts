@@ -3922,7 +3922,7 @@ function startForceStack(f: NonNullable<typeof force>, start: NonNullable<Return
   // (its water run on beside it on the map's own ground and objects, the front's walls let go as the force's are: the
   // water shown is the map's own as it began plus what the force changed, so a column the force never reaches stays as
   // it began, #1181)
-  if ((globalThis as any).__BENCHMODE !== "dev") w.live.holdOwn(model.stacked!.objects);
+  w.live.holdOwn(model.stacked!.objects);
   const f0 = w.live.frame();
   w.seen = new SeenWater(f0.depth, f0.contamination);
   forceStack = w;

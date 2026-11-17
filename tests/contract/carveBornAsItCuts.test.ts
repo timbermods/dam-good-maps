@@ -147,7 +147,7 @@ describe("Carve's river is born as it cuts (D371)", () => {
   });
 
   // (seed 22 on `CAVE_STREAM`, #1181, D148: Esc handed on 17 of its cave stream's columns low by up to 0.003, caught part
-  // way through the stream's own swing; now exactly as they were)
+  // way through the stream's own swing; now exactly as they were, to the bit)
   it.each([21, 22])("undo stops it and puts the map's own water back; Esc skips to the end and hands on the water flowing then; a dry canyon flows none (seed %i)", async (seed) => {
     const { origin, ground, water, roofed } = await open(seed);
     if (seed === 22) expect(roofed.size, "seed 22's water under a roof").toBeGreaterThan(0);
@@ -179,7 +179,9 @@ describe("Carve's river is born as it cuts (D371)", () => {
     expect(ed.flowForceWater(1)).toBeNull();
     const k = depths(kept.view.water!, ed.terrainNow().heights);
     for (let i = 0; i < N; i++) expect(k[i]).toBeCloseTo(shown(now[i]), 4);
-    expect(poolsKept(roofed, kept.view.water!, ed.terrainNow().heights, ground, 1e-3)).toEqual([]);
+    // (on seed 22 to the last bit: the carve's water there reaches none of the stream's columns, so they are the map's
+    // own as the carve began, stackLive.ts `holdOwn`)
+    expect(poolsKept(roofed, kept.view.water!, ed.terrainNow().heights, ground, seed === 22 ? 0 : 1e-3, seed === 22)).toEqual([]);
     ed.undo();
     ed.settleWater();
     // a dry canyon: no source, no water of its own
