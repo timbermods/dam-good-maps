@@ -71,6 +71,10 @@ export interface Ladder {
   /** The small irrigation works' and all works' green together, shares of the map. */
   small: number;
   together: number;
+  /** What is left to win once every work is built, where the premise reads it (the poisoned floodplain's
+   *  `plainMap.ts` `leftToWin`): the floor's dry share, and of it the shares a ditch from clean water reaches and that
+   *  need a pump. Shown, never a bar. */
+  left?: { dry: number; ditch: number; pump: number };
 }
 
 /** Day 1's shares by `spectrum` (§4.4): water 15 to 25 % of the map's tiles, moist ground 30 to 42 %. The moist

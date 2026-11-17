@@ -151,7 +151,9 @@ control on the page yet); and step 9's core: the theme and the premise as two ch
   (`plainWorksOf`, the turn's pond held to the col first, `plainWorks.ts` `holdTurn`); the red source's niche
   stands within `NICHE_NEAR` of the plan's source point (the gulch's head). A map whose floor is under 60 % green with
   both works built (`riverInBands`: the weir and the dam raised on the built ground, the core's settle and soil, the
-  proof's green exactly) is drawn again (`riverIn.green`, planning's ruling of 2026-11-17).
+  proof's green exactly) is drawn again (`riverIn.green`, planning's ruling of 2026-11-17); that settle also gives the
+  ladder what is left to win (`leftToWin`, `Ladder.left`: the dry floor's share, and of it the share a ditch from any
+  clean water reaches, `ditchReach`, and the share that needs a pump; shown, never a bar).
 - `curtain.ts`: the shared fall judge (one whole curtain, no pillar, ledge or basin), used by the falls' contract tests
   and sweep and by the poisoned floodplain's `fall.whole`.
 - `plainWorks.ts`: the poisoned floodplain's ladder (its §9 row 4), each rung a template on the land, measured as
@@ -166,8 +168,8 @@ control on the page yet); and step 9's core: the theme and the premise as two ch
   are read again on the settled water (`settledClears`: the stage stands the river shallower than the core). Its
   checks by number (`PLAIN_WORKS_CHECKS`: `works.sites`, `works.paid`, `turn.byNumber`, `riverIn.byNumber`; all but
   `works.paid` blocking). `plainProof.ts`: the two proofs, the turn and then the river in built as operations on the
-  settled map's session and the core's water and soil read (`turn.proved`, `riverIn.proved`: `RIVER_IN`, the green
-  and the dry floor a ditch from the new course waters, `ditchable`); offline only, so the
+  settled map's session and the core's water and soil read (`turn.proved`, `riverIn.proved`: `RIVER_IN`, the floor
+  60 % green and the start dry, with what is left to win beside it); offline only, so the
   generator never loads the session. `tools/plain-works.ts` runs both over seeds; `tools/capture-plain.ts --works`
   draws the sheet (as made, after the turn, after the river in).
 - `gateWater.ts`: the wall with one gate's stage 1 (§5.1 "As built (water)"): `gateWater` (the shared `waterByNumber`,
@@ -268,8 +270,9 @@ a broken plan for every `plan` invariant, the Four Lakes fixture `tests/fixtures
 variety, a broken plan for every `plan` invariant); `premisePlainPlan.test.ts` (quick: the poisoned floodplain kept out of the choices, its eligibility, seeds 1 to 12 a
 size with day 1's bands, variety, its diagram, a broken plan for every `plan` invariant); `premisePlainWater.test.ts`
 (quick: a map at 128² holding on its first attempt, its start, its three sources, its bands and dead stands, the same
-map for the same seed, a broken map for every `settled` invariant) and `premisePlainWater.heavy.test.ts` (the sheet's
-six on their first attempt, the Red Fall one whole curtain as settled); `premisePlainWorks.test.ts` (quick: a map at
+map for the same seed, a broken map for every `settled` invariant) and `premisePlainWater.heavy.test.ts` (seeds 1
+to 12 at each size, each holding every check with the Red Fall one whole curtain as settled, first attempts at least
+`FIRST`: 9 of 12 at 192² and 256²); `premisePlainWorks.test.ts` (quick: a map at
 128² that lists the pond, the turn and the river in and only rungs that buy their floors, each on its land, the turn
 six tiles or fewer, a broken ladder for every works check) and `premisePlainWorks.heavy.test.ts` (the two proofs on seeds 1 and 2 at each size); `gateBrooks.test.ts` (quick: the brooks' meander: its swing and
 wavelength, no curve touching itself, the straight head, the steps aside on a steep reach, the room, one of six draws

@@ -34,7 +34,8 @@ interface Row {
   turn: boolean | null;
   riverIn: boolean | null;
   green: number | null;
-  ditchable: number | null;
+  /** What is left to win (`leftToWin`): the dry floor's share, and of it the ditch's and the pump's. */
+  left: { dry: number; ditch: number; pump: number } | null;
   /** The small rungs the map lists (`listPaid`). */
   small: string;
   /** The generate's time (ms) and the check that refused the first attempt. */
@@ -51,7 +52,7 @@ for (const side of SIZES)
     const m = plainMap(spec);
     if ("reason" in m) {
       console.log(`seed ${seed} at ${side}²: no map: ${m.reason}`);
-      rows.push({ seed, side, held: false, attempt: -1, start: "", bands: "", fall: "", works: "", fails: m.reason, turn: null, riverIn: null, green: null, ditchable: null, small: "", ms: Math.round(performance.now() - t0), first: m.failed[0] ?? m.reason, line: "" });
+      rows.push({ seed, side, held: false, attempt: -1, start: "", bands: "", fall: "", works: "", fails: m.reason, turn: null, riverIn: null, green: null, left: null, small: "", ms: Math.round(performance.now() - t0), first: m.failed[0] ?? m.reason, line: "" });
       continue;
     }
     const ms = Math.round(performance.now() - t0);
@@ -74,23 +75,23 @@ for (const side of SIZES)
       turn: pf ? pf.turn.ok : null,
       riverIn: pf ? pf.riverIn.ok : null,
       green: pf ? pf.riverIn.bands.green : null,
-      ditchable: pf ? pf.riverIn.ditchable : null,
+      left: pf ? pf.riverIn.left : null,
       small: m.ladder.works.filter((w) => w.rung === "small" || w.rung === "first").map((w) => w.id).join("+"),
       ms,
       first: m.attempt > 0 ? m.failed[0] ?? "" : "",
       line: pf
-        ? `turn: red on the floor ${pf.turn.red}, lip ${pf.turn.lip}, fork ${pf.turn.fork}, leaks ${pf.turn.leaks}, dead ${pc(pf.before.bands.dead)}→${pc(pf.turn.bands.dead)}; river in: green ${pc(pf.before.bands.green)}→${pc(pf.turn.bands.green)}→${pc(pf.riverIn.bands.green)} (dry ${pc(pf.riverIn.bands.dry)}, dead ${pc(pf.riverIn.bands.dead)}; ditchable ${pc(pf.riverIn.ditchable)} (from any clean water ${pc(pf.riverIn.ditchableClean)}); the sloughs wet ${pf.riverIn.sloughs.map(pc).join(", ")}), plain sheet ${pf.riverIn.plain}, start ${pf.riverIn.start}; ${pf.ms} ms`
+        ? `turn: red on the floor ${pf.turn.red}, lip ${pf.turn.lip}, fork ${pf.turn.fork}, leaks ${pf.turn.leaks}, dead ${pc(pf.before.bands.dead)}→${pc(pf.turn.bands.dead)}; river in: green ${pc(pf.before.bands.green)}→${pc(pf.turn.bands.green)}→${pc(pf.riverIn.bands.green)} (dry ${pc(pf.riverIn.bands.dry)}, dead ${pc(pf.riverIn.bands.dead)}; left to win: dry ${pc(pf.riverIn.left.dry)} of the floor, a ditch reaches ${pc(pf.riverIn.left.ditch)} of it, a pump ${pc(pf.riverIn.left.pump)}; the sloughs wet ${pf.riverIn.sloughs.map(pc).join(", ")}), plain sheet ${pf.riverIn.plain}, start ${pf.riverIn.start}; ${pf.ms} ms`
         : "",
     };
     rows.push(row);
     console.log(`seed ${seed} at ${side}²: start ${st}\n  attempt ${m.attempt + 1}${m.held ? "" : " (did not hold)"}, ${ms} ms; settled ${row.bands}; the Red Fall ${row.fall}\n  works: ${works}${row.fails ? `\n  failed: ${row.fails}` : ""}\n  ${row.line}`);
   }
 
-console.log("\nseed size | first attempt | s | fall | turn.proved | riverIn.proved | green after the river in | ditchable | small rungs | first attempt refused by");
+console.log("\nseed size | first attempt | s | fall | turn.proved | riverIn.proved | green after the river in | dry left | by ditch | by pump | small rungs | first attempt refused by");
 const head = (f: string) => f.split(":")[0];
 for (const r of rows)
   console.log(
-    `${String(r.seed).padStart(4)} ${r.side} | ${r.attempt === 0 && r.held ? "yes" : r.held ? `no (${r.attempt + 1})` : "none"} | ${(r.ms / 1000).toFixed(1)} | ${r.fall.startsWith("whole") ? "whole" : "split"} | ${r.turn} | ${r.riverIn} | ${r.green === null ? "-" : (100 * r.green).toFixed(1) + " %"} | ${r.ditchable === null ? "-" : (100 * r.ditchable).toFixed(0) + " %"} | ${r.small} | ${head(r.first)}`,
+    `${String(r.seed).padStart(4)} ${r.side} | ${r.attempt === 0 && r.held ? "yes" : r.held ? `no (${r.attempt + 1})` : "none"} | ${(r.ms / 1000).toFixed(1)} | ${r.fall.startsWith("whole") ? "whole" : "split"} | ${r.turn} | ${r.riverIn} | ${r.green === null ? "-" : (100 * r.green).toFixed(1) + " %"} | ${r.left === null ? "- | - | -" : [r.left.dry, r.left.ditch, r.left.pump].map((v) => (100 * v).toFixed(0) + " %").join(" | ")} | ${r.small} | ${head(r.first)}`,
   );
 for (const side of SIZES) {
   const rs = rows.filter((r) => r.side === side);

@@ -420,10 +420,62 @@ export function badtideReach(plan: PremisePlan, w: StageWater, relief: Pick<Plai
 /** `riverIn.green` (§7, planning's ruling of 2026-11-17): the floor's least green with the turn and the river in. */
 export const RIVER_IN_GREEN = 0.6;
 
+/** The tiles a ditch a level deep reaches from `from` (water): dug over dry ground, it carries the water to a tile
+ *  where no tile on the way, the tile itself among them, stands more than a level over the water's surface where the
+ *  ditch leaves it (a riser up stops it; ground falling away does not, the water runs down it). Each tile takes the
+ *  highest surface that reaches it. A mask. */
+export function ditchReach(W: number, H: number, heights: ArrayLike<number>, depth: ArrayLike<number>, from: Uint8Array): Uint8Array {
+  const N = W * H;
+  const got = new Uint8Array(N);
+  const src: number[] = [];
+  for (let i = 0; i < N; i++) if (from[i]) src.push(i);
+  const surface = (i: number) => heights[i] + depth[i];
+  src.sort((a, b) => surface(b) - surface(a) || a - b);
+  const q: number[] = [];
+  for (const s of src) {
+    const top = surface(s) + 1 - WET;
+    q.push(s);
+    while (q.length) {
+      const i = q.pop()!;
+      const x = i % W;
+      for (const j of [x > 0 ? i - 1 : -1, x + 1 < W ? i + 1 : -1, i - W, i + W]) {
+        if (j < 0 || j >= N || got[j] || from[j] || depth[j] >= WET || heights[j] > top) continue;
+        got[j] = 1;
+        q.push(j);
+      }
+    }
+  }
+  return got;
+}
+
+/** What is left to win once the turn and the river in are built (§6, planning's ruling on round 2, 2026-11-17; shown on
+ *  the ladder, never a bar): the floor's dry share (no water, no moisture, no poison in its soil), and of the dry floor
+ *  the share a ditch from any clean water reaches (`ditchReach`: the river, its springs, the brook, the new course) and
+ *  the share that needs a pump (the rest: above a riser over every clean water near it, or beside the deep lower
+ *  river). */
+export function leftToWin(W: number, H: number, on: Uint8Array, s: { heights: ArrayLike<number>; water: ArrayLike<number>; contamination: ArrayLike<number>; moisture: ArrayLike<number>; soilContamination: ArrayLike<number> }): { dry: number; ditch: number; pump: number } {
+  const N = W * H;
+  const clean = new Uint8Array(N);
+  for (let i = 0; i < N; i++) if (s.water[i] >= WET && s.contamination[i] < 0.5) clean[i] = 1;
+  const got = ditchReach(W, H, s.heights, s.water, clean);
+  let floor = 0;
+  let dry = 0;
+  let ditch = 0;
+  for (let i = 0; i < N; i++) {
+    if (!on[i]) continue;
+    floor++;
+    if (s.water[i] >= WET || s.moisture[i] > 0 || s.soilContamination[i] > 0) continue;
+    dry++;
+    if (got[i]) ditch++;
+  }
+  return { dry: floor ? dry / floor : 0, ditch: dry ? ditch / dry : 1, pump: dry ? (dry - ditch) / dry : 0 };
+}
+
 /** The floor's bands with the turn's dam and the river in's weir built (§7 `riverIn.green`): their tiles raised to
  *  their levels on the map's ground and objects (`modelOf`), one canonical settle and the game's soil on it
- *  (`soilOnWater`), as the proof's session settles them (`plainProof.ts`). Null where a work has no site. */
-export function riverInBands(land: PlainLand, ladder: Ladder, built: Pick<BuildResult, "W" | "H" | "heights" | "entities">): ReturnType<typeof settledBands> | null {
+ *  (`soilOnWater`), as the proof's session settles them (`plainProof.ts`), and what is left to win then
+ *  (`leftToWin`). Null where a work has no site. */
+export function riverInBands(land: PlainLand, ladder: Ladder, built: Pick<BuildResult, "W" | "H" | "heights" | "entities">): { bands: ReturnType<typeof settledBands>; left: ReturnType<typeof leftToWin> } | null {
   const { plan } = land;
   const heights = Uint8Array.from(built.heights);
   for (const id of ["turn", "riverIn"]) {
@@ -434,7 +486,9 @@ export function riverInBands(land: PlainLand, ladder: Ladder, built: Pick<BuildR
   const m = { W: built.W, H: built.H, heights, entities: built.entities };
   const settle = canonicalSettle(modelOf(m));
   const soil = soilOnWater(m, settle.depth, settle.contamination);
-  return settledBands(floorTiles(plan, land.relief.floor), { water: settle.depth, moisture: soil.moisture, soilContamination: soil.contamination });
+  const on = floorTiles(plan, land.relief.floor);
+  const st = { heights, water: settle.depth, contamination: settle.contamination, moisture: soil.moisture, soilContamination: soil.contamination };
+  return { bands: settledBands(on, st), left: leftToWin(built.W, built.H, on, st) };
 }
 
 // ------------------------------------------------------------------------------------------------- the dead band's wood
@@ -655,9 +709,10 @@ export function plainMap(spec: MapSpec, theme: StyleTheme = "riverValley"): Plai
     }
     // (the river in on the settled map: a floor under `RIVER_IN_GREEN` with both works built is drawn again)
     const ri = riverInBands(land, m.ladder, m.map.built);
-    out.riverIn = ri;
-    if (!ri || ri.green < RIVER_IN_GREEN) {
-      failed.push(`riverIn.green: ${ri ? `with the turn and the river in the floor is ${Math.round(100 * ri.green)} % green (${100 * RIVER_IN_GREEN} % or more)` : "a work has no site"}`);
+    out.riverIn = ri?.bands ?? null;
+    if (ri) out.ladder.left = ri.left;
+    if (!ri || ri.bands.green < RIVER_IN_GREEN) {
+      failed.push(`riverIn.green: ${ri ? `with the turn and the river in the floor is ${Math.round(100 * ri.bands.green)} % green (${100 * RIVER_IN_GREEN} % or more)` : "a work has no site"}`);
       continue;
     }
     return { ...out, held: true };

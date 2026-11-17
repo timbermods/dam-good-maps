@@ -18,8 +18,9 @@
 // With `--works` (§9 row 4), each map is the premise's whole map three times, one row of the sheet: as made, after the
 // turn and after the river in, each work built as an operation on the map's session (`plainProof.ts`, the two proofs)
 // and the session's own .timber file opened; the whole frame each, north up, no lines. The row's caption gives the seed,
-// the size and the start's numbers first, each frame's the floor's bands (green, dry, dead) as the core settles them,
-// with what the proof reads there. The sheet is a PNG.
+// the size, the attempt and the start's numbers; each frame's opens with the start's numbers, then the floor's bands
+// (green, dry, dead) as the core settles them, with what the proof reads there and, after the river in, what is left
+// to win (`leftToWin`). The sheet is a PNG.
 //
 //   npx tsx tools/capture-plain.ts [--water | --works] [--seeds 1,2] [--sizes 128,192,256] [--maps 2@128,1@192,1@256]
 //                                  [--out C:/dgm-showcase/poisoned-plain/land, .../water with --water,
@@ -144,11 +145,12 @@ function worksMaps(seed: number, size: number): { row: string; made: Made[] } | 
   const n = (k: keyof typeof st) => `${st[k].value}${st[k].ok ? "" : " (short of " + st[k].limit + ")"}`;
   const pct = (v: number) => `${Math.round(100 * v)} %`;
   const bands = (b: { green: number; dry: number; dead: number }) => `green ${pct(b.green)}, dry ${pct(b.dry)}, dead ${pct(b.dead)} of the floor`;
-  const row = `seed ${seed} at ${size}²${m.held ? "" : " (did not hold)"}. start: level land ${n("start.level_land")}, reach ${n("start.reach")}, wood ${n("start.wood")} (fast ${n("start.wood_fast")}), water within ${n("start.water")}, food ${n("start.food")}, farmland ${n("start.farmland")}`;
+  const start = `start: level land ${n("start.level_land")}, reach ${n("start.reach")}, wood ${n("start.wood")} (fast ${n("start.wood_fast")}), water within ${n("start.water")}, food ${n("start.food")}, farmland ${n("start.farmland")}`;
+  const row = `seed ${seed} at ${size}²${m.held ? "" : " (did not hold)"}, attempt ${m.attempt + 1}. ${start}`;
   const caps = [
     `as made: ${bands(pf.before.bands)}; ${pf.before.red} tiles of red water on the floor; the small rungs listed: ${m.ladder.works.filter((w) => w.rung === "small" || w.rung === "first").map((w) => w.id).join(", ") || "none"}`,
     `after the turn (${pf.turn.tiles}-tile dam): ${bands(pf.turn.bands)}; red on the floor ${pf.turn.red}, over the lip ${pf.turn.lip}, at the Dry Fork's edge ${pf.turn.fork}, leaks ${pf.turn.leaks}${pf.turn.ok ? "" : " (not proved)"}`,
-    `after the river in (${pf.riverIn.tiles}-tile weir): ${bands(pf.riverIn.bands)}; on the start's ground ${pf.riverIn.start}; of the dry floor left ${pct(pf.riverIn.ditchable)} ditchable from the new course${pf.riverIn.ok ? "" : " (not proved)"}`,
+    `after the river in (${pf.riverIn.tiles}-tile weir): ${bands(pf.riverIn.bands)}; on the start's ground ${pf.riverIn.start}; left to win: dry ${pct(pf.riverIn.left.dry)} of the floor, a ditch from clean water reaches ${pct(pf.riverIn.left.ditch)} of it, a pump ${pct(pf.riverIn.left.pump)}${pf.riverIn.ok ? "" : " (not proved)"}`,
   ];
   console.log(`${row}\n  ${caps.join("\n  ")}`);
   mkdirSync(resolve(".scratch/capture-plain"), { recursive: true });
@@ -156,7 +158,8 @@ function worksMaps(seed: number, size: number): { row: string; made: Made[] } | 
     const tag = ["made", "turn", "river-in"][k];
     const timber = resolve(`.scratch/capture-plain/works-${size}-${seed}-${tag}.timber`);
     writeFileSync(timber, bytes);
-    return { land: m.land, timber, caption: caps[k], lines: false, frames: ["whole"], tag };
+    // (each frame's caption opens with the start's numbers, as planning asks every map report to)
+    return { land: m.land, timber, caption: `${start}. ${caps[k]}`, lines: false, frames: ["whole"], tag };
   });
   return { row, made };
 }

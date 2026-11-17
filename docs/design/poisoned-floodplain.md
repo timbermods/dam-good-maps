@@ -193,7 +193,7 @@ the first build's mean gain, per tile of the side.
 | Small | A levee of 4 to 8 tiles across the nearest low place | The green band there kept from a badtide's tongue |
 | Small | A levee along 20 tiles of the backswamp's riser where the dead band laps onto the plain | A field won back |
 | Medium, **the turn** | A dam of 6 tiles or fewer at the gulch's narrows (or, where the narrows' shoulders stand too low, the gulch's narrowest line below the col's way), below the red source and a level over the col: the red water rises over the col and runs down the Dry Fork to its own edge | The Red Fall stops; the stream's bed in the backswamp goes dry; the dead band's soil clears |
-| Large, **the river in** | A weir on the river just below the slough's low place lifts the river one level; it runs through the low place, down the slough and along the old red bed. A gate at the low place shuts it for a badtide | The dry band and the old dead band watered: the floor's green 60 % or more and three times day 1's, and 90 % of the dry floor left ditchable from the new course (planning's ruling of 2026-11-17) |
+| Large, **the river in** | A weir on the river just below the slough's low place lifts the river one level; it runs through the low place, down the slough and along the old red bed. A gate at the low place shuts it for a badtide | The dry band and the old dead band watered: the floor's green 60 % or more (planning's ruling of 2026-11-17); the dry floor left, by ditch and by pump, is shown on the ladder as what is left to win |
 | Either order | The river in before the turn dilutes the red stream below the slough's mouth. Where the mix settles under 0.5, the soil below the mouth clears and the band above it stays dead | A second answer; never required, never refused |
 
 After the turn the gulch behind its dam and the Dry Fork are the places that stay red. The Dry Fork was bare, so
@@ -208,14 +208,19 @@ is dry until the weir): a mouth level with the plain let a weir lift the river o
 is two thirds of its mean measured gain per tile of the side (`poisonedPlain.ts` `GIVES`), the levees' gains read on
 the settled water (`settledClears`).
 
-*Planning's ruling of 2026-11-17 (step 4, round 2).* The river in does not water the whole floor, and should not: §2's
-dry band is "more land to win", and dry land that a player can irrigate is the game. So the river in proves itself by
-three things together: the floor's green 60 % or more after the weir and three times day 1's or more; of the dry floor
-left, 90 % or more ditchable, on the floor's own level and joined to the new course by ground with no riser up between,
-so a ditch a player digs carries the water there; and the start not flooded. Of the low places and sloughs the land
-offers, the river in takes the one whose course and the old red bed part the dry band nearest its middle; a second
-slough only where the land offers a second low place, never drawn. A map under 60 % green is drawn again. And the map
-lists a rung only where it pays its floor (`works.paid`), the pond on every map.
+*Planning's ruling of 2026-11-17 (step 4, rounds 2 and 3).* The river in does not water the whole floor, and should
+not: §2's dry band is "more land to win", and dry land that a player can irrigate is the game. So the river in proves
+itself by the floor's green, 60 % or more after the weir, and the start not flooded; nothing else. Two further
+conditions ruled for round 2 were withdrawn on its results: three times day 1's green (it cannot hold where day 1 is
+already a quarter green, and a map that starts greener is not a worse map), and 90 % of the dry floor left ditchable
+from the new course (it measured the wrong thing: dry floor on the river's near side is watered from the river, and
+plain above a riser or beside the deep lower river is land for a pump, which is play, not a fault). The measure is kept
+and shown without a bar: on each map's ladder, what is left to win (`plainMap.ts` `leftToWin`, `Ladder.left`): the
+floor's dry share after both works, and of it the share a ditch from any clean water reaches and the share that needs a
+pump. Of the low places and sloughs the land offers, the river in takes the one whose course and the old red bed part
+the dry band nearest its middle; a second slough only where the land offers a second low place, never drawn. A map
+under 60 % green is drawn again. And the map lists a rung only where it pays its floor (`works.paid`), the pond on
+every map.
 
 *As built (round 2).* The slough's water reaches every level of the plain under its own and none above it (a riser up
 stops it and a player's ditch alike), and the weir backs the river up 70 to 100 tiles, over a second slough's mouth
@@ -283,10 +288,11 @@ Stage as PREMISES §1.4; each with a hand-broken case in its test.
 - **proof, offline over seeds and in the background after the map opens:** `turn.proved` (settled with the dam in: no
   water at 0.5 or more on the valley floor, the Dry Fork carrying the whole source, nothing else flooded);
   `riverIn.proved` (settled with both works, planning's ruling of 2026-11-17, `plainProof.ts` `RIVER_IN`: the floor's
-  green 60 % or more and three times day 1's or more; of the dry floor left, 90 % or more ditchable, `ditchable`: a
-  ditch a level deep dug from the new course's water over dry ground reaches it, no tile on the way, itself among them,
-  standing more than a level over the course's surface where the ditch leaves it, so a riser up stops it and ground
-  falling away does not; the start not flooded). The 70 % of the first build is replaced by this ruling.
+  green 60 % or more, the start not flooded; the 70 % of the first build and round 2's two further conditions are
+  withdrawn, §6). Beside it, shown and never a bar, what is left to win (`leftToWin`): of the dry floor, the share a
+  ditch a level deep dug from any clean water over dry ground reaches (no tile on the way, itself among them, more than
+  a level over the water's surface where the ditch leaves it: a riser up stops it, ground falling away does not), and the
+  share that needs a pump.
 
 ## 8. What is new in the code
 
@@ -321,31 +327,40 @@ frames, judged by planning.
   then (the 9, puddles off the floor in the gulch, dried by day 12). So the dead band clears within the first day after
   the turn; the player sees the plain green as soon as the river in waters it. No probe batch: the rule and
   the settled maps agree.
-- *Ruled (planning, 2026-11-17), and short on the ditch.* Whether the river in greens enough of the floor. Round 1
-  measured the 70 % of the first build short on 19 of 36 maps; planning ruled it is the wrong bar: §2's dry band is
-  "more land to win", and dry land a player can irrigate by design is the game, so `riverIn.proved` is now the floor 60 %
-  green or more and three times day 1's, 90 % of the dry floor left ditchable, and the start dry (§7), with the slough
-  sited as §6 says and a map under 60 % drawn again. The two proofs on seeds 1 to 12 (`tools/plain-works.ts`, round 2;
-  seconds from one run after another on the loaded machine, a third of that alone):
+- *Ruled (planning, 2026-11-17), and answered (step 4, round 3).* Whether the river in greens enough of the floor.
+  Round 1 measured the 70 % of the first build short on 19 of 36 maps; planning ruled it the wrong bar (§6): the river
+  in is proved by the floor 60 % green or more and the start dry, and what is left to win is shown, not barred. Round
+  2's two further conditions (three times day 1's green, 90 % ditchable from the new course) were withdrawn on its
+  results (§6). The two proofs on seeds 1 to 12 (`tools/plain-works.ts`, round 3, one run after another):
 
-  | Size | First attempt holds | `turn.proved` | Green 60 % or more | `riverIn.proved` | Seconds, least to most (mean) |
+  | Size | First attempt holds | `turn.proved` | `riverIn.proved` | Red Fall whole | Seconds, least to most (mean) |
   |---|---|---|---|---|---|
-  | 128² | 6 of 12 | 12 of 12 | 12 of 12 | 3 of 12 | 11.5 to 42.9 (22.4) |
-  | 192² | 10 of 12 | 12 of 12 | 12 of 12 | 4 of 12 | 11.9 to 32.5 (17.8) |
-  | 256² | 9 of 12 | 12 of 12 | 12 of 12 | 2 of 12 | 18.5 to 79.1 (36.4) |
+  | 128² | 6 of 12 | 12 of 12 | 12 of 12 | 12 of 12 | 2.1 to 5.7 (3.4) |
+  | 192² | 10 of 12 | 12 of 12 | 12 of 12 | 12 of 12 | 3.8 to 6.3 (4.5) |
+  | 256² | 9 of 12 | 12 of 12 | 12 of 12 | 12 of 12 | 6.1 to 16.0 (9.8) |
 
   Green after the river in, seeds 1 to 12 (%): 128² 67.0, 80.6, 79.1, 71.5, 86.4, 72.6, 91.7, 82.4, 62.4, 86.8, 62.5,
   69.8; 192² 92.2, 75.4, 80.4, 68.8, 73.7, 86.7, 86.1, 72.2, 73.7, 71.6, 80.6, 86.6; 256² 70.6, 75.9, 63.9, 76.7, 61.5,
-  63.2, 92.1, 69.0, 66.1, 64.8, 62.6, 72.3. Ditchable (%): 128² 54, 56, 47, 98, 96, 98, 45, 98, 91, 6, 35, 88; 192² 99,
-  81, 88, 91, 97, 86, 78, 90, 91, 86, 78, 86; 256² 81, 78, 89, 88, 62, 91, 47, 92, 78, 81, 33, 67. What keeps the
-  ditchable share under 90 % on 27 of 36: the floor on the river's near side (the slough waters the plain's side only),
-  the lower river cut three levels under the plain at its steps (a ditch from it climbs), and a section of the plain
-  above a riser over the slough's level; from any clean water, not only the new course, the share is higher (the
-  sweep prints both). Three times day 1's green is short where day 1 is already a quarter green or more, common at 128²
-  (seed 2 at 128²: day 1 33 %). Both are the generator's land, not the works: the next mend is planning's (the bar, or
-  a slough on the near side where the river has room). First attempts at 128² are refused by the land's own checks
-  (`wall.wanders` 2, `plain.bands` 1, `levee.holds` 1) and the river in (`riverIn.byNumber` 1, `riverIn.green` 1),
-  under the aim of 9 of 12; seed 1 at 128², on the sheet, holds on its third (its first land's dead band 7.6 %).
+  63.2, 92.1, 69.0, 66.1, 64.8, 62.6, 72.3. Left to win (`leftToWin`): the floor's dry share after both works 5 to
+  33 %; of it a ditch from clean water reaches 97 % or more on 28 of 36, and the pump's share is over a third on 4
+  (seeds 3 and 11 at 128², 5 and 11 at 256²: plain above a riser over the slough's level, or beside the lower river
+  cut three levels under the plain). The heavy test holds every map to every check and the first attempts to a floor
+  (`premisePlainWater.heavy.test.ts` `FIRST`: 9 of 12 at 192² and 256², 6 at 128² as measured).
+
+  *The six first attempts refused at 128², for step 5's decision whether 128² is offered.* Each map holds on a later
+  attempt (2 or 3; a generate of 3.4 s on the mean). One is the side's own room, five are the search's:
+  (1) seed 1, `plain.bands`: day 1's dead band 7.6 % of the floor, under 8 %; the plan's own count passes, the ground
+  reads under it once the slough sits at its level's lower end and the red stream turns off the backswamp below it. A
+  margin on the plan's count would draw the plan again instead of the land: the search could do better.
+  (2) seed 3, `levee.holds`: a badtide poisons 21 tiles past the levee's low places, beside the map's south edge (y
+  121): the levee's core where the river runs near the edge; the search could do better.
+  (3, 4) seeds 7 and 9, `wall.wanders`: a wall's foot within 2 tiles of a line for 47 and 45 tiles, the most 43; the
+  limit is a share of the plain's width, which stands at its floor at 128², so the bar is tightest there while the
+  walls' wander is drawn as at every size: the search could do better (the wander drawn to the limit).
+  (5) seed 10, `riverIn.byNumber`: by number the slough does not carry the river to the backswamp, but the settle does,
+  60.5 % green: the check by number is stricter than the core; the search could do better.
+  (6) seed 11, `riverIn.green`: 51 % green; at 128² one slough only (no room for a second a third of the plain above
+  it) on a plain at its narrowest, its far side out of the slough's reach: the side's own room.
 - *Findings (step 4).* (1) The red source's niche took the bed's first 3 × 3 wherever it lay; on seed 4 at 128² that
   was the gulch's mouth, under the dam, so the dam held nothing back. It now stands within `NICHE_NEAR` of the plan's
   source point, and `turn.byNumber` runs the red water from the niche. (2) Where the narrows' shoulders stand under the
