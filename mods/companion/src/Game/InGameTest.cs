@@ -25,8 +25,10 @@ namespace DGMCompanion
     public static class TestLog
     {
         private static readonly object Gate = new object();
-        // The test never hangs: it ends, with what it has recorded, when it takes too long altogether or too long in one phase.
-        public const float TotalSeconds = 300f;
+        // The test never hangs: it ends, with what it has recorded, when it takes too long altogether or too long in one
+        // phase. A phase's clock starts again when its scene has loaded: loading a game took two minutes on a busy
+        // machine (2026-10-30), and only the whole test's clock counts that.
+        public const float TotalSeconds = 600f;
         public const float PhaseSeconds = 150f;
 
         private static string _phase = "menu";
@@ -46,12 +48,13 @@ namespace DGMCompanion
         // True once result.json is written: nothing more is checked.
         public static bool Done { get; private set; }
 
+        // Called when a scene (the menu, a game) has loaded: the whole test's clock starts once, the phase's clock again.
         public static void Begin()
         {
+            _phaseAt = Time.realtimeSinceStartup;
             if (_beganAt < 0)
             {
-                _beganAt = Time.realtimeSinceStartup;
-                _phaseAt = _beganAt;
+                _beganAt = _phaseAt;
             }
         }
 
@@ -395,7 +398,8 @@ namespace DGMCompanion
                 case 3:
                     Button shown = MainMenuEntry.ShownButton;
                     bool laidOut = shown != null && shown.panel != null && shown.worldBound.width > 1f;
-                    if (!laidOut && now - _waitFrom < LayoutSeconds)
+                    // (a second after it is laid out, so the caption's colour, set once it has a size, is drawn)
+                    if ((!laidOut || now - _waitFrom < 1f) && now - _waitFrom < LayoutSeconds)
                     {
                         return;
                     }
@@ -404,6 +408,12 @@ namespace DGMCompanion
                     TestLog.Fact("options", MainMenuEntry.Options);
                     TestLog.Check(laidOut && MainMenuEntry.Current.HasEntry(), "with Dam Good Maps maps present the menu has the entry on screen");
                     TestLog.Check(shown?.text == MainMenuEntry.Title, "the entry says " + MainMenuEntry.Title);
+                    // It looks like the menu's own entries: a button of their kind (the game draws its frame), and a
+                    // caption in their text colour.
+                    Button newGame = MainMenuEntry.Current.NewGameButton();
+                    TestLog.Check(shown != null && newGame != null && shown.GetType() == newGame.GetType(), "the entry is a button of the menu's own kind: " + shown?.GetType().Name);
+                    Label caption = shown?.parent?.Q<Label>(MainMenuEntry.ButtonName + "Caption");
+                    TestLog.Check(caption != null && newGame != null && caption.resolvedStyle.color == newGame.resolvedStyle.color, "the caption has the menu's text colour: " + caption?.resolvedStyle.color);
                     TestLog.Check(MainMenuEntry.ShownCaption != null && MainMenuEntry.ShownCaption.StartsWith(Handshake.Answer("newest") ?? "?"), "the entry names the newest Dam Good Maps map: " + MainMenuEntry.ShownCaption);
                     ScreenCapture.CaptureScreenshot(Path.Combine(CompanionEnv.TestDir, "menu.png"));
                     _step = 4;
