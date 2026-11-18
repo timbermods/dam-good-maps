@@ -1355,13 +1355,12 @@ function startBadWaterWalk(b: BuildResult): number {
   let any = false;
   for (let i = 0; i < b.water.length && !any; i++) if (b.water[i] >= PUMP_DEPTH && b.contamination[i] >= PUMP_CLEAN) any = true;
   if (!any) return Infinity;
+  // (the raw walk, as `startWaterServed` reads it: the two walks compared are the same walk)
   const d = startWalk(b, false);
   if (!d) return Infinity;
   const { W, H } = b;
-  const walk = new Float64Array(W * H);
-  for (let i = 0; i < walk.length; i++) walk[i] = reachAt(d, W, H, i);
   let best = Infinity;
-  for (let i = 0; i < W * H; i++) if (b.contamination[i] >= PUMP_CLEAN) best = Math.min(best, tileShoreWalk(walk, b.heights, W, H, i, b.water[i], true));
+  for (let i = 0; i < W * H; i++) if (b.contamination[i] >= PUMP_CLEAN) best = Math.min(best, tileShoreWalk(d, b.heights, W, H, i, b.water[i], true));
   return best;
 }
 
