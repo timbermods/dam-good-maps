@@ -44,10 +44,11 @@ describe("the gallery's data", () => {
     expect(INDEX.format).toBe(1);
     expect(INDEX.count).toBe(INDEX.places.length);
     // 85 places in the library; every start meets the floors since the start-moving step ranks a lake's shore
-    // plate by the start's land floors and grows its wood (tools/real-places.ts), and six are withheld by name
-    // (`WITHHELD_UNTIL`): Dinaric karst Plitvice until its land's sources are mended; Glencoe, Ngorongoro, Fish River
-    // Canyon, Twelve Apostles and Yosemite Valley until their starts have pumpable water within 20 tiles (#1218)
-    expect(INDEX.count).toBe(79);
+    // plate by the start's land floors and grows its wood (tools/real-places.ts), and five are withheld: by name
+    // (`WITHHELD_UNTIL`) Dinaric karst Plitvice until its land's sources are mended and Twelve Apostles until its start
+    // has pumpable water and its water settles; Glencoe, Ngorongoro and Fish River Canyon because no mend gives their
+    // starts water within 20 tiles (#1218, which brought Yosemite Valley back with the start's spring)
+    expect(INDEX.count).toBe(80);
     expect(INDEX.places.filter((p) => p.family === "random" || /random/i.test(p.name))).toEqual([]);
     expect(new Set(INDEX.places.map((p) => p.id)).size).toBe(INDEX.count);
     expect(new Set(INDEX.places.map((p) => p.name)).size).toBe(INDEX.count);

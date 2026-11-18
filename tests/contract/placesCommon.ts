@@ -81,14 +81,15 @@ export const PLACES_BELOW_THE_FLOOR = new Set([
 /** No place is offered without pumpable water within 20 tiles' walk of its start (D(new-films), planning's rulings on
  *  #1201, 2026-11-16 and 2026-11-17): by `startPool`'s rule (src/core/places/spring.ts), the nearest water a pump on a
  *  shore the start walks to draws from with the first pump, in a body that stands as a pool, not a thin sheet. A start
- *  with no water in reach is withheld (`WITHHELD_UNTIL`, tools/real-places.ts: Glencoe, Ngorongoro, Fish River Canyon,
- *  Twelve Apostles, Yosemite Valley). These seven pass `start.water` on a thin sheet by the start, which the first logs
- *  can dam into a pool, so they stay offered until #1218 gives each a real pool (Paricutin, Taklimakan Kunlun fan and
- *  Waimakariri River on today's build, `TODAY_KEPT`). The list only shrinks. */
-export const PLACES_START_WITHOUT_POOL = new Set([
-  "lofoten", "paricutin", "tagliamento-river", "taklimakan-kunlun-fan", "thousand-islands-saint-lawrence", "tiger-leaping-gorge",
-  "waimakariri-river",
-]);
+ *  with no water in reach is withheld (tools/real-places.ts prints each with what was tried: Glencoe, Ngorongoro, Fish
+ *  River Canyon, and Twelve Apostles by `WITHHELD_UNTIL`). A place whose start has no pool is built again under the pool
+ *  rule (#1218, `runPlace`); these two pass `start.water` on a thin sheet by the start, which the first logs can dam into
+ *  a pool, and no mend gives them one: Lofoten's sea is a floor-0 sheet and its three lakes nearest the start give no
+ *  pool (no spot by them pumps from them; a bed cut leaves a film, a head source stands in another's flow), and no
+ *  spring by the start or six dry spots near it stands as a pool; Taklimakan Kunlun fan (today's build, `TODAY_KEPT`)
+ *  has no real water within 64 tiles, and every spring by its start or six spots near it joins its sheet. The list only
+ *  shrinks. */
+export const PLACES_START_WITHOUT_POOL = new Set(["lofoten", "taklimakan-kunlun-fan"]);
 
 /** The start's water is never a sealed puddle (Kyler's D302, M9a), and a start has water a pump
  *  reaches: these places' starts reach no water a source feeds, which `start.water` refuses (a
@@ -99,8 +100,7 @@ export const PLACES_START_WITHOUT_POOL = new Set([
  *  list then). With the edges open (D151) a start whose land offers a spot with water moved there,
  *  and one that had water on the sealed land got a spring by it (tools/real-places.ts). Real places
  *  2 gives the rest their water (D300) and empties the list: since D(new-films) a start with no water in reach is not
- *  offered (the last three, Fish River Canyon, Twelve Apostles and Yosemite Valley, are withheld until #1218), so the
- *  list is empty. */
+ *  offered (tools/real-places.ts withholds it, printed with what was tried), so the list is empty. */
 export const PLACES_START_WITHOUT_FED_WATER = new Set<string>([]);
 
 /** Plants that die (D385): the conversion planted these places' trees and bushes on ground the

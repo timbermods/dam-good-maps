@@ -1,6 +1,6 @@
 {
  "format": 1,
- "count": 79,
+ "count": 80,
  "families": [
   {
    "id": "fan",
@@ -99,8 +99,8 @@
    "metres": 60,
    "data": "data/thousand-islands-saint-lawrence.json.gz",
    "image": "cards/thousand-islands-saint-lawrence.jpg",
-   "bytes": 232385,
-   "sha256": "bd253c48ea0dbb262bb835a330ee0a5b99ba73c118d4ba1b6720303df87adbb7",
+   "bytes": 231800,
+   "sha256": "81dfae3823adb1d8dbebe1d25db02b2dd25c7c9056332c1ebc520463045d6b69",
    "faults": []
   },
   {
@@ -283,8 +283,8 @@
    "metres": 30,
    "data": "data/tiger-leaping-gorge.json.gz",
    "image": "cards/tiger-leaping-gorge.jpg",
-   "bytes": 187879,
-   "sha256": "5b1370c6cdacc93ab7838d6e5d51771e0cdf800226e2ba099236697a6de88009",
+   "bytes": 197869,
+   "sha256": "fef896195d3708a3ea7d3782543db016657cfccb8220d3f4d6edab8a00d57917",
    "faults": []
   },
   {
@@ -399,8 +399,8 @@
    "metres": 60,
    "data": "data/tagliamento-river.json.gz",
    "image": "cards/tagliamento-river.jpg",
-   "bytes": 168596,
-   "sha256": "ce93fccab203377e2fccec3b8b63b37bdc1f2c692d1d0aa05a3b7f9e5baa335b",
+   "bytes": 170881,
+   "sha256": "9caa8aeaad77c28188359421e4d4a283a13a50c116510f98b80fc29b17df3092",
    "faults": []
   },
   {
@@ -455,8 +455,8 @@
    "metres": 60,
    "data": "data/paricutin.json.gz",
    "image": "cards/paricutin.jpg",
-   "bytes": 160253,
-   "sha256": "00a093f439dc4034708bd8ea5e58325d24f6d2492f87ff5c3303d6d8466b5424",
+   "bytes": 167895,
+   "sha256": "609bb21ae9805011209196b7e8be36c56bd3858cc6074f5bec656fa1b6543a50",
    "faults": []
   },
   {
@@ -662,8 +662,8 @@
    "metres": 30,
    "data": "data/waimakariri-river.json.gz",
    "image": "cards/waimakariri-river.jpg",
-   "bytes": 604705,
-   "sha256": "ab3f4d957c63e4b14d97ffa0ec1b7f8a569d5a9c76a652a8512e99d70fb4f9e5",
+   "bytes": 613919,
+   "sha256": "e0050567488d6aae4fbca10b3ac53353372d72e4a2289759d72784cebeddb80c",
    "faults": []
   },
   {
@@ -1166,6 +1166,20 @@
    "image": "cards/ilulissat-icefjord.jpg",
    "bytes": 127371,
    "sha256": "02b3d10283b611e46df762d4de52b3e56a11b1f5a2bb78f6a4fc09bc6e3cba29",
+   "faults": []
+  },
+  {
+   "id": "yosemite-valley",
+   "name": "Yosemite Valley",
+   "family": "glacial",
+   "familyName": "Glacial valley",
+   "plays": "Wide valley floors under high ground, with side valleys hanging above.",
+   "size": 96,
+   "metres": 60,
+   "data": "data/yosemite-valley.json.gz",
+   "image": "cards/yosemite-valley.jpg",
+   "bytes": 137428,
+   "sha256": "57a33b2fe4949696aaeef5dd94f732c1a5f1ae2949dde21d2568be3482c8c10a",
    "faults": []
   },
   {
