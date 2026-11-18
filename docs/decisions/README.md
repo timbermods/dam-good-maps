@@ -91,6 +91,7 @@ Read this index, then [how-we-work.md](how-we-work.md), then only the topic file
 
 ## [The generator](generator.md)
 
+- D(start-spring-stop): A start spring's settle ends where it plainly won't settle; the spring is refused as the limit refuses it
 - D(highlands-slot): A gorge (cut 3 levels or more at its water) winds at its map's scale under 128²: its meander's wavelength and taper by the narrower side's ratio to 128, never under half
 - D(new-ditch): The badwater ditch takes a gully's shape: down its fall line, wandering, 1 to 3 wide, stepped banks, at most 40 tiles, ending in water D476 and D498 let it join, at another gully, or at the edge last; a land with no gully site takes the ditch as before
 - D(sea-steps): The sea steps keep the sea below a course's last edge: an inflow's own edge is never lowered under the water standing on its course
