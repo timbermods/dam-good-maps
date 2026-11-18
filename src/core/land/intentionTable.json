@@ -29,7 +29,7 @@
    "riverValley": 8,
    "canyon": 8,
    "highlands": 9,
-   "lakeBasin": 7,
+   "lakeBasin": 5,
    "delta": 6,
    "islands": 11
   },
@@ -37,15 +37,15 @@
    "riverValley": 3,
    "canyon": 1,
    "highlands": 1,
-   "lakeBasin": 3,
+   "lakeBasin": 2,
    "delta": 0,
    "islands": 0
   },
   "falls-shield": {
    "riverValley": 2,
-   "canyon": 5,
+   "canyon": 4,
    "highlands": 2,
-   "lakeBasin": 2,
+   "lakeBasin": 0,
    "delta": 2,
    "islands": 0
   },
@@ -53,7 +53,7 @@
    "riverValley": 9,
    "canyon": 0,
    "highlands": 3,
-   "lakeBasin": 1,
+   "lakeBasin": 0,
    "delta": 0,
    "islands": 2
   },
@@ -69,7 +69,7 @@
    "riverValley": 8,
    "canyon": 1,
    "highlands": 4,
-   "lakeBasin": 7,
+   "lakeBasin": 5,
    "delta": 0,
    "islands": 0
   },
@@ -77,7 +77,7 @@
    "riverValley": 0,
    "canyon": 6,
    "highlands": 8,
-   "lakeBasin": 5,
+   "lakeBasin": 6,
    "delta": 7,
    "islands": 11
   },
@@ -101,7 +101,7 @@
    "riverValley": 1,
    "canyon": 1,
    "highlands": 3,
-   "lakeBasin": 2,
+   "lakeBasin": 3,
    "delta": 0,
    "islands": 0
   },
@@ -109,7 +109,7 @@
    "riverValley": 1,
    "canyon": 0,
    "highlands": 1,
-   "lakeBasin": 10,
+   "lakeBasin": 8,
    "delta": 0,
    "islands": 0
   },
@@ -117,7 +117,7 @@
    "riverValley": 0,
    "canyon": 1,
    "highlands": 2,
-   "lakeBasin": 3,
+   "lakeBasin": 1,
    "delta": 6,
    "islands": 0
   },
@@ -133,7 +133,7 @@
    "riverValley": 0,
    "canyon": 0,
    "highlands": 1,
-   "lakeBasin": 1,
+   "lakeBasin": 0,
    "delta": 0,
    "islands": 0
   },
@@ -157,7 +157,7 @@
    "riverValley": 8,
    "canyon": 4,
    "highlands": 1,
-   "lakeBasin": 2,
+   "lakeBasin": 3,
    "delta": 7,
    "islands": 0
   },
@@ -170,10 +170,10 @@
    "islands": 0
   },
   "relic-pinnacle": {
-   "riverValley": 6,
+   "riverValley": 7,
    "canyon": 5,
    "highlands": 3,
-   "lakeBasin": 1,
+   "lakeBasin": 2,
    "delta": 5,
    "islands": 5
   },
@@ -181,7 +181,7 @@
    "riverValley": 4,
    "canyon": 2,
    "highlands": 6,
-   "lakeBasin": 3,
+   "lakeBasin": 2,
    "delta": 1,
    "islands": 0
   },
@@ -189,7 +189,7 @@
    "riverValley": 1,
    "canyon": 1,
    "highlands": 0,
-   "lakeBasin": 2,
+   "lakeBasin": 3,
    "delta": 0,
    "islands": 2
   }
