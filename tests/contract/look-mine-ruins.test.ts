@@ -113,7 +113,10 @@ import * as ed from "../../src/worker/session";
 // and generator 0.10.43's version alone (D(highlands-slot), a gorge winding at a small map's scale, which a 128² map never
 // reaches; #1236 merged after #1227): `424ccea0…` before it,
 // and dev with its version set to 0.10.43 gives this branch's bytes, D148
-const LIVE_SHA = "d452eb0a4f9df1b9922bf38d530fceca889a11f3a766cb066014d9e010e0d1d1";
+// and generator 0.10.44's version alone (D(gorge-followups): a tributary deep under a wall winds at a small map's scale, which a
+// 128² map never reaches, and a gorge arch found along its gorge's heading, which this map never grows):
+// `d452eb0a…` before it, and dev with its version set to 0.10.44 gives this branch's bytes, D148
+const LIVE_SHA = "d6709d0d135ce06eb58136b55295465ad2d4d985115420c36ea5331753cb7519";
 const spec = () => makeSpec({ seed: 4242, size: { x: 128, y: 128 }, theme: "riverValley", designedFor: "normal" });
 
 describe("mine sites and ruins, models of our own", () => {
