@@ -88,50 +88,55 @@ describe("Showcase mode (D488 (2))", () => {
     // first-drought choice, a 4-tile dam 10 tiles north-west holding 5,400 and a drowned village 55 tiles west; the second
     // no vista, the first drought's choice at 3 tiles' walk, a 10-level mesa 32 tiles south, an 11-tile dam 44 tiles west
     // holding 5,200 and a drowned village 48 tiles west; ranked [2, 1, 0] as now)
-    // the asked map: an 8-level mesa in view, a dam to build and a drowned village; no valley, no vista (the strength 0.41 of a
-    // partial one) and a partial first-drought choice (0.4)
+    // (generator 0.10.47, D(terrace-edges), D148: the levels' edges are read through a fine warp, so all three lands moved and the beats
+    // below were read off the new maps by hand with `arcOf` and `showcaseSearch` at tries: 3; before it the asked map had an 8-level
+    // mesa 39 tiles east, a 5-tile dam 34 tiles north-east holding 5,900 and a drowned village 29 tiles east, a partial vista of 0.4;
+    // the first sibling a hidden valley, the first drought's choice at 2 tiles' walk, no landmark, a 4-tile dam 43 tiles south-east
+    // holding 8,600 and a drowned village 49 tiles east; the second a 10-level mesa 28 tiles south, the first drought's choice at 18
+    // tiles' walk, a 4-tile dam 57 tiles south-west holding 5,300 and a drowned village 55 tiles south-west, ranked [2, 1, 0]; now the
+    // first sibling's picture holds little (looks 0.20, against 0.57 and 0.58), so the asked map outranks it, ranked [2, 0, 1] as at 0.10.29)
+    // the asked map: a dam to build and a drowned village; no landmark, no valley, no vista (the strength 0.48 of a partial one)
+    // and a partial first-drought choice (0.4)
     expect(a.vista.met).toBe(false);
-    expect(a.vista.strength).toBeCloseTo(0.4, 1);
-    expect(a.landmark.met).toBe(true);
-    expect(a.landmark.say).toMatch(/^An 8-level mesa stands 39 tiles east of the start, in the opening view\.$/);
+    expect(a.vista.strength).toBeCloseTo(0.5, 1);
+    expect(a.landmark.met).toBe(false);
     expect(a.drought.met).toBe(false);
     expect(a.drought.strength).toBe(0.4);
     expect(a.valley.met).toBe(false);
-    expect(a.project.say).toMatch(/^A 5-tile dam across a narrows 34 tiles north-east of the start would hold 5,900 water\.$/);
+    expect(a.project.say).toMatch(/^An 8-tile dam across a narrows 23 tiles north-east of the start would hold 5,700 water\.$/);
     expect(a.mystery.met).toBe(true);
-    expect(a.mystery.say).toMatch(/^A drowned village stands in a lake's shallows 29 tiles east of the start/);
-    // the first sibling: the first drought's choice, a hidden valley, a dam to build and a drowned village; no landmark and no
-    // vista (a partial one)
+    expect(a.mystery.say).toMatch(/^A drowned village stands in a lake's shallows 28 tiles north-east of the start/);
+    // the first sibling: a 9-level mesa in view, a dam to build and a drowned village; no valley, no vista (a partial one) and no
+    // first-drought choice
     expect(b.vista.met).toBe(false);
-    expect(b.landmark.met).toBe(false);
-    expect(b.valley.met).toBe(true);
-    expect(b.valley.say).toMatch(/^A hidden valley up the cliffs/);
-    expect(b.drought.met).toBe(true);
-    expect(b.drought.say).toBe("The nearest water, 2 tiles' walk from the start, runs low in the first drought; water 16 tiles' walk away holds.");
-    expect(b.project.say).toMatch(/^A 4-tile dam across a narrows 43 tiles south-east of the start would hold 8,600 water\.$/);
+    expect(b.landmark.met).toBe(true);
+    expect(b.landmark.say).toMatch(/^A 9-level mesa stands 27 tiles south-west of the start, in the opening view\.$/);
+    expect(b.valley.met).toBe(false);
+    expect(b.drought.met).toBe(false);
+    expect(b.project.say).toMatch(/^A 14-tile dam across a narrows 58 tiles west of the start would hold 5,400 water\.$/);
     expect(b.mystery.met).toBe(true);
-    expect(b.mystery.say).toMatch(/^A drowned village stands in a lake's shallows 49 tiles east of the start/);
-    // the second: the vista of 6 levels of relief, the first drought's choice, a 10-level mesa in view, a dam to build and a
-    // drowned village; no valley
+    expect(b.mystery.say).toMatch(/^A drowned village stands in a lake's shallows 28 tiles south-west of the start/);
+    // the second: the vista of 6 levels of relief, the first drought's choice, a 9-level mesa in view and a dam to build; no
+    // valley, no drowned village (a partial mystery, 0.4)
     expect(c.vista.met).toBe(true);
     expect(c.vista.say).toBe("The opening view takes in 6 levels of relief, open water and the mesa.");
     expect(c.valley.met).toBe(false);
-    expect(c.mystery.say).toMatch(/^A drowned village stands in a lake's shallows 55 tiles south-west of the start/);
+    expect(c.mystery.met).toBe(false);
     expect(c.drought.met).toBe(true);
-    expect(c.drought.say).toBe("The nearest water, 18 tiles' walk from the start, runs low in the first drought; water 28 tiles' walk away holds.");
+    expect(c.drought.say).toBe("The nearest water, 14 tiles' walk from the start, runs low in the first drought; water 23 tiles' walk away holds.");
     expect(c.landmark.met).toBe(true);
-    expect(c.landmark.say).toMatch(/^A 10-level mesa stands 28 tiles south of the start, in the opening view\.$/);
-    expect(c.project.say).toMatch(/^A 4-tile dam across a narrows 57 tiles south-west of the start would hold 5,300 water\.$/);
+    expect(c.landmark.say).toMatch(/^A 9-level mesa stands 40 tiles south of the start, in the opening view\.$/);
+    expect(c.project.say).toMatch(/^A 5-tile dam across a narrows 43 tiles south-west of the start would hold 5,400 water\.$/);
     // each is ranked by its arc and its opening picture's looks (SHOWCASE_LOOKS, docs/progress/showcase-looks.md)
     for (const c of seen) expect(c.score).toBeCloseTo(arcScore(c.arc!) + SHOWCASE_LOOKS * c.looks!, 9);
-    // the best three, best first: the second sibling (5 beats: all but the valley), the first sibling (4 beats: the first
-    // drought's choice, a valley, a project and a mystery), the asked map (3 beats: a landmark, a project and a mystery); the
-    // second's picture holds the most (its looks 0.69, against 0.51 and 0.49)
+    // the best three, best first: the second sibling (4 beats: the vista, the first drought's choice, a landmark and a project), the
+    // asked map (2 beats: a project and a mystery), then the first sibling (3 beats: a landmark, a project and a mystery) whose picture
+    // holds the least (its looks 0.20, against 0.57 and 0.58): the arcs rank [2, 1, 0], the score with the looks [2, 0, 1]
     expect(arcScore(c)).toBeGreaterThan(arcScore(b));
     expect(arcScore(b)).toBeGreaterThan(arcScore(a));
     expect(seen[2].looks!).toBeGreaterThan(seen[1].looks!);
-    expect(res.best.map((p) => p.index)).toEqual([2, 1, 0]);
-    expect(res.best[0].note).toMatch(/^5 of 6 beats\. /);
+    expect(res.best.map((p) => p.index)).toEqual([2, 0, 1]);
+    expect(res.best[0].note).toMatch(/^4 of 6 beats\. /);
     // a budget spent at once still makes one map, the asked map's own
     const once = await showcaseSearch(spec, { budgetMs: 0 });
     expect(once.tried).toBe(1);

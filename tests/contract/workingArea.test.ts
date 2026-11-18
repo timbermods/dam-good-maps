@@ -29,8 +29,11 @@ function areaAt(s: MapSession): { runs: [number, number, number][]; inside: Uint
   return { runs, inside: areaDepth(runs, W, W), x, y };
 }
 
+// (seed 3 → 2 at 0.10.47, D(terrace-edges), D148: the 21 × 21 area on seed 3's new land is flat, so Smooth changes nothing
+// in it; of seeds 1–10 the area on 3, 1, 7 and 9 gives Smooth nothing to ease, and seed 2 is the first where every brush
+// changes land, Smooth 14 tiles)
 function session(): MapSession {
-  const r = generate(makeSpec({ seed: 3, theme: "riverValley", size: { x: W, y: W } }));
+  const r = generate(makeSpec({ seed: 2, theme: "riverValley", size: { x: W, y: W } }));
   const s = MapSession.fromGenerated(r, r.file);
   s.setWaterMode("defer");
   return s;

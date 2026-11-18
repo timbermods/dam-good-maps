@@ -91,6 +91,7 @@ Read this index, then [how-we-work.md](how-we-work.md), then only the topic file
 
 ## [The generator](generator.md)
 
+- D(terrace-edges): No level's edge runs ruler-straight over a dozen tiles: the graded levels are read through a fine warp before rounding, the water's field left as it is
 - D(gorge-followups): An arch over a gorge is looked for along the heading its gorge runs at the crossing, a diagonal too; a course but the main river deep under a wall for half its gorge's wavelength winds as a gorge, unless on a Canyon land it cost the promise
 - D(start-spring-stop): A start spring's settle ends where it plainly won't settle; the spring is refused as the limit refuses it
 - D(highlands-slot): A gorge (cut 3 levels or more at its water) winds at its map's scale under 128²: its meander's wavelength and taper by the narrower side's ratio to 128, never under half

@@ -102,11 +102,13 @@ describe("the MCP server's words", () => {
       return textOf(r);
     };
     // the example in generate's description, as it stands there, gives its intention (under-cliff on River Valley: 12 of
-    // 12 in the intention table); Canyon 128, seed 1 is offered it (4 of 12) and misses (re-pin both if the generator
+    // 12 in the intention table); Highlands 128, seed 1 is offered it (4 of 12) and misses (re-pin both if the generator
     // moves, D148; the example's seed 3 for 1 since generator 0.10.29, D148: the land 0.10.29 gives (the weathering's disc
     // of the square's area, the washes' brush and swing) moved seed 1's start off its cliff; seeds 3, 5 and 6 of 1–6 give it)
+    // (Highlands 128 for Canyon 128 at 0.10.47, D(terrace-edges), D148: the table's Canyon count fell from 4 of 12 to 1, so under-cliff is no
+    // longer offered for Canyon; Highlands keeps 4 of 12 and its seed 1 misses, as seeds 2 to 5 do)
     const example = JSON.parse(/(\{"theme": "riverValley"[^}]*\})/.exec(TOOLS.find((t) => t.name === "generate")!.description!)![1]);
-    const [hit, miss] = await Promise.all([made(example), made({ theme: "canyon", size: 128, seed: 1, intentions: ["under-cliff"] })]);
+    const [hit, miss] = await Promise.all([made(example), made({ theme: "highlands", size: 128, seed: 1, intentions: ["under-cliff"] })]);
     expect(hit).toMatch(/^- under-cliff \(asked for\): emerged/m);
     expect(hit).not.toContain("did not emerge. The map is made");
     // drawn intentions are not marked

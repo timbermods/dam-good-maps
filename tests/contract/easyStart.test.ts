@@ -330,9 +330,10 @@ describe("a generated map with Easy start on", () => {
   // land a session rebuilds from, is the land its file and water hold. The plan's shapes are taken out of the land
   // before a place is shaped on the settled water; where none is found they are put back. Islands 96², seeds 1 and
   // 2, end so on their one attempt, a plan's shape taken out: their fields stood 648 and 632 tiles off their land.
-  // Highlands 96² seed 2 finds no start either)
+  // Highlands 96² seed 2 finds no start either. Islands seed 1 → 3 at 0.10.47, D(terrace-edges), D148: the moved
+  // land gives seed 1 a start on its one attempt; seed 3 ends at "no start" as seed 2 does)
   it("hands back, from a last attempt that found no start, the land its file and water hold", () => {
-    for (const [theme, seed] of [["islands", 1], ["islands", 2], ["highlands", 2]] as const) {
+    for (const [theme, seed] of [["islands", 3], ["islands", 2], ["highlands", 2]] as const) {
       const spec = makeSpec({ seed, theme, size: { x: 96, y: 96 } });
       spec.settings.start.easyStart = true;
       const r = generate(spec, { maxAttempts: 1, forms: false });
@@ -366,9 +367,11 @@ describe("a generated map with Easy start on", () => {
   });
 
   it("never plants a map whose start missed one of them", () => {
-    // (Highlands 128², seed 2: its fifth attempt's start misses the badtide's day. A generator change that moves
-    // this map takes another seed with such an attempt: tools/attempts.ts --easy lists them)
-    const spec = makeSpec({ seed: 2, theme: "highlands" });
+    // (Highlands 128², seed 14: its fifth attempt's start misses the room's target. A generator change that moves
+    // this map takes another seed with such an attempt: tools/attempts.ts --easy lists them. Seed 2 → 14 at
+    // 0.10.47, D(terrace-edges), D148: seed 2's land moved and none of its attempts misses one now; seed 8's first
+    // miss comes at its 24th attempt, seed 14's at the fifth)
+    const spec = makeSpec({ seed: 14, theme: "highlands" });
     spec.settings.start.easyStart = true;
     const land = new Set<string>(EASY_LAND);
     const stages: string[] = [];

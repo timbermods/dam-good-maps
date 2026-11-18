@@ -54,6 +54,7 @@ export function snapLevels(E: Float64Array, g: Genome, seed: number, W: number, 
   const st = g.terrace.step;
   const phase = g.benchPhase * st;
   const grade = grader(g.grade, seed, g.variation, W, H);
+  const level = new Float64Array(N);
   for (let y = 0; y < H; y++)
     for (let x = 0; x < W; x++) {
       const i = y * W + x;
@@ -68,9 +69,26 @@ export function snapLevels(E: Float64Array, g: Genome, seed: number, W: number, 
         L = top - 1 + over / (over + 1) + 0.49 * smoothstep(over / 2);
       }
       const benched = st > 1 && g.terrace.share > 0 && smoothstep((warpedFbm(ts, x, y, g.terrace.cell, 2, g.terrace.cell / 2) + 1) / 2 - (1 - g.terrace.share) + 0.5) > 0.5;
-      L = grade(L, x, y, benched ? st : 1, phase);
+      level[i] = grade(L, x, y, benched ? st : 1, phase);
+    }
+  // (D(terrace-edges): every level's edge read through a fine warp, so no edge the field, the grade or the tableland's
+  // outline leaves smooth over a dozen tiles runs ruler-straight; the levels' edges, not the field the water is planned on)
+  const ws = hash32(seed, "edge-warp", g.variation);
+  const reach = EDGE_WARP.reach * Math.min(1, Math.min(W, H) / EDGE_WARP.full);
+  for (let y = 0; y < H; y++)
+    for (let x = 0; x < W; x++) {
+      const d = Math.min(x, y, W - 1 - x, H - 1 - y);
+      const k = d >= EDGE_WARP.cell ? reach : (reach * d) / EDGE_WARP.cell;
+      const px = clamp(x + k * warpedFbm(ws, x, y, EDGE_WARP.cell, EDGE_WARP.octaves, 0), 0, W - 1);
+      const py = clamp(y + k * warpedFbm((ws ^ 0x5bd1e995) >>> 0, x, y, EDGE_WARP.cell, EDGE_WARP.octaves, 0), 0, H - 1);
+      const x0 = Math.min(W - 2, Math.floor(px));
+      const y0 = Math.min(H - 2, Math.floor(py));
+      const fx = px - x0;
+      const fy = py - y0;
+      const j = y0 * W + x0;
+      const L = (level[j] * (1 - fx) + level[j + 1] * fx) * (1 - fy) + (level[j + W] * (1 - fx) + level[j + W + 1] * fx) * fy;
       // (the land stands a level above the beds' floor, item 47)
-      out[i] = clamp(Math.round(L), BED_FLOOR + 1, maxLv);
+      out[y * W + x] = clamp(Math.round(L), BED_FLOOR + 1, maxLv);
     }
   // at high Verticality the land stays wild but readable (item 36): no spike, wall or trench one or
   // two tiles wide standing two levels or more over the land round it
@@ -107,6 +125,11 @@ export function contourField(E: Float64Array, W: number, H: number, seed: number
     }
   return out;
 }
+
+/** The levels' edge warp (D(terrace-edges)): its reach and its cell, tiles, and its noise's octaves; the reach is scaled by the
+ *  map's narrower side over `full` below it (small maps keep their flats whole) and tapers to nothing over a cell at the
+ *  map's border. */
+export const EDGE_WARP = { reach: 6, cell: 6, octaves: 2, full: 128 } as const;
 
 /** The contour field's numbers (D518): its softening, tiles each way, and its warp's reach and cell, tiles. */
 export const CONTOUR = { soften: 1, warp: 5, cell: 20 } as const;
