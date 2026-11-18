@@ -311,12 +311,32 @@ function resample(p: Point[], step: number): Point[] {
 // --------------------------------------------------------------------------------- meanders (M9a)
 
 /** How a river's course wanders: its amplitude in tiles (the most its course moves off the valley's
- *  line), its wavelength, and how much its channel's width varies. */
+ *  line), its wavelength, how much its channel's width varies, and how many tiles at each end its swing
+ *  grows from nothing over (7 unless given). */
 export interface Wander {
   amp: number;
   minAmp: number;
   cell: number;
   widthVar: number;
+  taper?: number;
+}
+
+/** A course cut this many levels or more under its banks, its floor reaching under `GORGE_FLOOR` tiles beside its
+ *  channel, is a gorge: its walls stand at its water (`gorgeWander`). */
+export const GORGE_CUT = 3;
+export const GORGE_FLOOR = 3;
+
+/** A gorge's wander on a map under 128²: its wavelength and its ends' taper drawn at the map's scale, the narrower
+ *  side's ratio to 128, never under half (D(highlands-slot)). A river's meander is drawn for the width of its channel,
+ *  at a 128²'s scale (`wanderOf`, 16 to 40 tiles); on a 48² map a gorge cut six levels under its banks held under two
+ *  bends over its whole course and ran 22 tiles in a straight 45° trench 3 wide with sheer walls, read as drawn with a
+ *  ruler (Highlands 48² seed 3). A course cut a level or two, or with a broad floor between its channel and its walls,
+ *  is left as it is: its walls do not stand at its water. 128² and up keep their wander. */
+export function gorgeWander(wv: Wander, W: number, H: number): Wander {
+  const side = Math.min(W, H);
+  if (side >= 128) return wv;
+  const f = Math.max(0.5, side / 128);
+  return { ...wv, cell: wv.cell * f, taper: Math.round(7 * f) };
 }
 
 /** A river's wander from the genome: rivers wander more where the genome's water wanders more (the
@@ -394,7 +414,7 @@ export function meanderPath(path: Point[], h: Uint8Array, W: number, H: number, 
     }
     sm[k] = s / c;
   }
-  const taper = Math.min(7, Math.floor(n / 4));
+  const taper = Math.min(wv.taper ?? 7, Math.floor(n / 4));
   const out: Point[] = [];
   for (let k = 0; k < n; k++) {
     const e = Math.min(k, n - 1 - k);
@@ -905,6 +925,11 @@ function planHydroSingle(E: Float64Array, h: Uint8Array, g: Genome, seed: number
   let mainK = 0;
   for (let k = 1; k < heads.length; k++) if (heads[k].flow > heads[mainK].flow) mainK = k;
   const roleOf = (k: number) => (natural && k === mainK ? "river/main" : heads[k].kind === "edge" ? `river/inflow/${k}` : `river/spring/${k}`);
+  // the main river cuts deeper than its tributaries: their valleys hang above it; the bigger rivers cut deeper and clear
+  // wider floors (canyons)
+  const hanging = Math.round(g.hanging);
+  const cutOf = (k: number, flow: number) => 1 + (flow >= 1.2 ? Math.round(g.hydro.incise) : 0) + (k === mainK ? hanging : 0);
+  const floorOf = (flow: number) => (flow >= 1.2 ? g.hydro.floor : g.hydro.floor * 0.3);
   const courses: Point[][] = [];
   const wanders: (Wander | null)[] = [];
   for (const tr of traced) {
@@ -940,7 +965,9 @@ function planHydroSingle(E: Float64Array, h: Uint8Array, g: Genome, seed: number
           return [Math.round((lx + (1 - pull) * (px - lx)) * 100) / 100, Math.round((ly + (1 - pull) * (py - ly)) * 100) / 100] as Point;
         });
     }
-    const wv = natural ? wanderOf(g, widthFor(hd.flow)) : null;
+    // (a gorge winds at the map's own scale: `gorgeWander`)
+    const wv0 = natural ? wanderOf(g, widthFor(hd.flow)) : null;
+    const wv = wv0 && cutOf(tr.k, hd.flow) >= GORGE_CUT && floorOf(hd.flow) < GORGE_FLOOR ? gorgeWander(wv0, W, H) : wv0;
     if (wv) {
       if (tr.joins >= 0) {
         // the joined river's course is final: end on its nearest point
@@ -1373,8 +1400,6 @@ function planHydroSingle(E: Float64Array, h: Uint8Array, g: Genome, seed: number
     }
   };
 
-  // the main river cuts deeper than its tributaries: their valleys hang above it
-  const hanging = Math.round(g.hanging);
   const exits = new Map<string, { path: Point[]; prof: Float64Array; L: number; n: number; width: number; half: (s: number, L: number) => number }>();
   // (each river's pools that held, by station: planned standing water a level under the reach below)
   const poolsOf = new Map<string, Set<number>>();
@@ -1466,10 +1491,8 @@ function planHydroSingle(E: Float64Array, h: Uint8Array, g: Genome, seed: number
       return q === hd.flow ? width : widthFor(q);
     };
     const half = (s: number, L: number) => halfWidthAt(widthAt(s), wv, ws, s, L);
-    // canyons: the bigger rivers cut deeper and clear wider floors
-    const big = hd.flow >= 1.2;
-    const cut = 1 + (big ? Math.round(g.hydro.incise) : 0) + (tr.k === mainK ? hanging : 0);
-    const floorHalf = big ? g.hydro.floor : g.hydro.floor * 0.3;
+    const cut = cutOf(tr.k, hd.flow);
+    const floorHalf = floorOf(hd.flow);
     // (M9b: a lake on the course stands below where the river begins, the mouth's banks or the
     // spring: its water reaches back up the channel, and above that it would run out by the edge
     // beside the mouth, or drown the spring)
