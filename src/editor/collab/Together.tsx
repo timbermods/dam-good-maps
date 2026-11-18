@@ -157,6 +157,8 @@ export function Together(p: { controller: TogetherController; state: TogetherSta
           <button type="button" class="ghost together-close phone-only" aria-label="Close Together" {...tip("Close Together", "Esc")} onClick={() => setOpen(false)}>
             ×
           </button>
+          {/* (its name beside the ×, as the menu's pages have theirs, where the × alone left an empty band) */}
+          <h2 class="together-title phone-only">Together</h2>
           {s.phase === "alone" ? (
             <>
               <label class="together-field">

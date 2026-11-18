@@ -122,7 +122,7 @@ describe("the ground's colours", () => {
     expect(src).toContain("body *= albedo / WATER_ALBEDO_MEAN;");
     expect(src).not.toContain("HW_GRAZING");
     // (clean against bad in High is the game's readability, D334 (2): no order or gap between them;
-    // the rendered deep-under-shallow evidence is tests/e2e/look-high.spec.ts)
+    // the rendered deep-under-shallow evidence is tests/e2e/look-high-scenes.spec.ts)
   });
 
   it("tints the walls by height as the game's cliffs (D497): its gradient from level 0 to 22, lighter higher up", () => {

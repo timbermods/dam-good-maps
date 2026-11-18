@@ -10,10 +10,11 @@ import type { FrameInsets, MapRenderer } from "../../render3d";
 /** The gap kept between the framed map and a control. */
 const GAP = 8;
 
-/** How far the page's controls reach into the view from each edge, in CSS pixels. */
-export function measureInsets(view: HTMLElement): FrameInsets {
-  if (view.closest(".editor[data-phone]")) return phoneInsets(view);
-  if (view.closest(".editor[data-tablet]")) return tabletInsets(view);
+/** How far the page's controls reach into the view from each edge, in CSS pixels. `hints`: the first steps' hints take
+ *  their room too, on a phone or a tablet (a map's first view, `firstInsets`). */
+export function measureInsets(view: HTMLElement, hints = false): FrameInsets {
+  if (view.closest(".editor[data-phone]")) return phoneInsets(view, hints);
+  if (view.closest(".editor[data-tablet]")) return tabletInsets(view, hints);
   const v = view.getBoundingClientRect();
   const box = (s: string) => view.querySelector(s)?.getBoundingClientRect() ?? null;
   const reach = (n: number | null) => (n === null ? 0 : Math.max(0, Math.ceil(n + GAP)));
@@ -29,10 +30,40 @@ export function measureInsets(view: HTMLElement): FrameInsets {
   };
 }
 
+/** A map's first view on a phone or a tablet (planning, #1074): framed clear of the first steps' hints as well, so the
+ *  first frame of the first map is never under their card (a fifth of the screen upright, the map's left on its side).
+ *  Later framings (Reset view, the room a sheet leaves) let the hints float over the map as ever. */
+export function firstInsets(view: HTMLElement): FrameInsets {
+  return measureInsets(view, true);
+}
+
+/** How wide a map stands to its height as first framed (its orbit view from the south-east, walls and all): the room a
+ *  first view keeps is judged by the map it can hold, `hintsReach`. */
+const MAP_ASPECT = 1.5;
+
+/** The first steps' hints, shown, as a piece over the view (`hints`): the map is framed above their card or beside it,
+ *  whichever leaves it the bigger room (upright, a card across the foot: above it; a card low at one side: beside it only
+ *  when that holds a bigger map, as on a phone on its side; a room beside the card took all its height on a small tablet
+ *  and left the map too small to work on). */
+function hintsReach(view: HTMLElement, v: DOMRect, out: FrameInsets, reach: (n: number) => number): void {
+  const el = view.querySelector<HTMLElement>(".tool-dock > .first-run");
+  const b = el?.getBoundingClientRect();
+  if (!el || !b?.width || !b.height || el.closest("[hidden]") || getComputedStyle(el).visibility === "hidden") return;
+  const leftHalf = b.left + b.width / 2 < v.left + v.width / 2;
+  const options: FrameInsets[] = [
+    { ...out, bottom: Math.max(out.bottom, reach(v.bottom - b.top)) },
+    leftHalf ? { ...out, left: Math.max(out.left, reach(b.right - v.left)) } : { ...out, right: Math.max(out.right, reach(v.right - b.left)) },
+  ];
+  // (the map each room holds: its width, or its height times the map's aspect, whichever is short)
+  const holds = (i: FrameInsets) => Math.min(v.width - i.left - i.right, (v.height - i.top - i.bottom) * MAP_ASPECT);
+  Object.assign(out, holds(options[1]) > holds(options[0]) ? options[1] : options[0]);
+}
+
 /** A phone's layout (#1074): each piece over the view by where it stands: the tool row and a sheet over the foot (as
  *  wide as half the view, low in it), the rail at the left, the panel at the right, Show's button at the top's corner.
- *  The notes and the first steps' hints float over the map and take no room; a piece not shown takes none. */
-export function phoneInsets(view: HTMLElement): FrameInsets {
+ *  The notes and the first steps' hints float over the map and take no room (but the hints in a first view, `hints`); a
+ *  piece not shown takes none. */
+export function phoneInsets(view: HTMLElement, hints = false): FrameInsets {
   const v = view.getBoundingClientRect();
   const out = { top: 0, left: 0, bottom: 0, right: 0 };
   const reach = (n: number) => Math.max(0, Math.ceil(n + GAP));
@@ -49,13 +80,15 @@ export function phoneInsets(view: HTMLElement): FrameInsets {
     else if (b.left <= v.left + 1) out.left = Math.max(out.left, reach(b.right - v.left));
     else if (b.right >= v.right - 1) out.right = Math.max(out.right, reach(v.right - b.left));
   }
+  if (hints) hintsReach(view, v, out, reach);
   return out;
 }
 
 /** A tablet's layout (a big phone, #1074 slice 6): the dock (its bar and a held tool's settings) over the foot, the
  *  minimap at the left as on the desktop, a side sheet (Show or the objects) or a picked object's window at the right,
- *  and the corner's Show and Objects buttons at the top. The notes and the hints float over the map and take no room. */
-export function tabletInsets(view: HTMLElement): FrameInsets {
+ *  and the corner's Show and Objects buttons at the top. The notes and the hints float over the map and take no room
+ *  (but the hints in a first view, `hints`). */
+export function tabletInsets(view: HTMLElement, hints = false): FrameInsets {
   const v = view.getBoundingClientRect();
   const reach = (n: number) => Math.max(0, Math.ceil(n + GAP));
   const shown = (s: string) =>
@@ -67,12 +100,14 @@ export function tabletInsets(view: HTMLElement): FrameInsets {
   const lefts = shown(".minimap");
   const rights = shown(".phone-show, .objects-dock > *");
   const tops = shown(".phone-show-button, .tablet-objects-button");
-  return {
+  const out = {
     top: tops.length ? reach(Math.max(...tops.map((b) => b.bottom)) - v.top) : 0,
     left: lefts.length ? reach(Math.max(...lefts.map((b) => b.right)) - v.left) : 0,
     bottom: dock.length ? reach(v.bottom - Math.min(...dock.map((b) => b.top))) : 0,
     right: rights.length ? reach(v.right - Math.min(...rights.map((b) => b.left))) : 0,
   };
+  if (hints) hintsReach(view, v, out, reach);
+  return out;
 }
 
 /** The middle of the room the controls leave in a view `v` (client px); a side they leave under a quarter of it is the

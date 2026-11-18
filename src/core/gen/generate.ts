@@ -37,9 +37,9 @@ import { entityJson, type EntitySpec } from "../format/entities";
 import { mapObjects, type MapObject } from "../sim/model";
 import { placementOf } from "../format/entities";
 import type { JsonObject } from "../format/json";
-import { pumpShoreDistance, reachAt, startWaterShore, walkDistance, walkWorld } from "../analysis/walk";
+import { PUMP_CLEAN, PUMP_DEPTH, pumpShoreDistance, reachAt, startWaterShore, tileShoreWalk, walkDistance, walkWorld } from "../analysis/walk";
 import type { FieldData } from "../doc/document";
-import { buildMap, SettleCache, type BuildResult, type GeneratedField } from "../features/build";
+import { buildMap, SettleCache, startEntity, type BuildResult, type GeneratedField } from "../features/build";
 import { previewSettle } from "../sim/preview";
 import type { FieldCache } from "../features/target";
 import { featureId } from "../features/ids";
@@ -106,7 +106,7 @@ import type { SetPieceFeature } from "../features/schema";
 import { dryStart, padFloods, pickStart, prepareStart, startWalks, waterAim, type DroughtPolicy, type StartPick } from "./settler";
 import { failurePhrase } from "./failWords";
 import { EASY_LAND, easyStartMeasures, easyTargets } from "../analysis/easyStart";
-import { pondWater, POND_WATER, shapeEasyStart } from "../land/easyStart";
+import { pondWater, POND_WATER, shapeEasyStart, type EasyShape, type EasyWater } from "../land/easyStart";
 import { DIFFICULTY_RULES } from "../spec/mapspec";
 import { generatePremise, generatePremiseAsync, type DroughtRunner, type PremiseInfo } from "../premise/generate";
 
@@ -243,8 +243,11 @@ export interface GenerationInfo {
   storage: boolean | null;
   /** The start's water stays pumpable through the first Normal drought (#59). */
   startDrought: boolean | null;
-  /** Easy start's ground (D495), shaped as the land was: the pond's tiles, its cut's, and the clearing's. */
-  easy?: { pond: number; cut: number; clearing: number };
+  /** Easy start's ground (D495): the pond's tiles, its cut's and the clearing's; the clearing's level, the water
+   *  tile the cut joins and that water's surface as the shape read it; and the water it was shaped on (D453): `plan`,
+   *  the plan's shape, kept because it passed every start check on the land's one settle, or `settled`, shaped on the
+   *  settled water after the plan's shape failed there and settled once more. */
+  easy?: { pond: number; cut: number; clearing: number; level: number; water: number; surface: number; on: "plan" | "settled" };
   /** A spec that names a premise (`spec.premise`, PREMISES §2.1): the plan its map was made from, or why the themes
    *  made it instead (`fellBack`, one line, D471). */
   premise?: PremiseInfo;
@@ -494,6 +497,14 @@ const SPRING_TRIES = 3;
 /** Starts tried on one settled water before the attempt is planned again (each new plan settles
  *  the water again). */
 const START_TRIES = 3;
+/** Easy start (D495): where a place is shaped on the settled water: the plan's place, then round it at 3 and at 6
+ *  tiles (the settled water lies a tile or two off the plan's), the nearest first; and how many places the settler
+ *  is asked for on the settled water when no reserved place holds. */
+const EASY_SEAT_OFFSETS: readonly (readonly [number, number])[] = [[0, 0], [3, 0], [-3, 0], [0, 3], [0, -3], [2, 2], [-2, 2], [2, -2], [-2, -2], [6, 0], [-6, 0], [0, 6], [0, -6], [4, 4], [-4, 4], [4, -4], [-4, -4]];
+const EASY_FRESH = 3;
+/** The least clearing a place shaped on the settled water is taken with, as a share of the room Easy start asks:
+ *  the start's berries, its ruins and the objects placed after stand on the clearing and count out of its room. */
+const EASY_CLEARING = 1.2;
 /** The starts that pass every floor looked at for Buildable land moved off the theme's own (the least or most walkable land). */
 const REACH_CHOICES = 4;
 const LEVEL3_OF = { tight: -1, normal: 0, generous: 1 } as const;
@@ -1251,6 +1262,23 @@ function startWaterServed(b: BuildResult, within: number, days: number): number 
   const d = startWalk(b, false);
   if (!d) return Infinity;
   return startWaterShore(d, b.heights, b.W, b.H, b.water, b.contamination, b.waterModel.emitters, droughtStorage(b.waterModel, b.water, days), within).distance;
+}
+
+/** The walk to the nearest water too foul to pump (contamination `PUMP_CLEAN` or more), as `start.water` walks to
+ *  clean water: over the map's own slopes to a shore a pump on it would reach (planning's condition of 2026-11-17,
+ *  #236: a start is valued by clean water only, and one whose nearest water is bad gives way to another). */
+function startBadWaterWalk(b: BuildResult): number {
+  let any = false;
+  for (let i = 0; i < b.water.length && !any; i++) if (b.water[i] >= PUMP_DEPTH && b.contamination[i] >= PUMP_CLEAN) any = true;
+  if (!any) return Infinity;
+  const d = startWalk(b, false);
+  if (!d) return Infinity;
+  const { W, H } = b;
+  const walk = new Float64Array(W * H);
+  for (let i = 0; i < walk.length; i++) walk[i] = reachAt(d, W, H, i);
+  let best = Infinity;
+  for (let i = 0; i < W * H; i++) if (b.contamination[i] >= PUMP_CLEAN) best = Math.min(best, tileShoreWalk(walk, b.heights, W, H, i, b.water[i], true));
+  return best;
 }
 
 /** D330's fix on a shown land (D348): a spring by the start, when the settled water left the start
@@ -2141,6 +2169,14 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
   let bad: Hazards = noBad;
   const lastAttempt = attempt >= (opts.maxAttempts ?? MAX_ATTEMPTS) - 1;
   let guess: StartPick | null = null;
+  // (Easy start, D495: what a pond keeps off, a river's head, whose sources its water must not reach, D171)
+  let pondOff: Uint8Array | null = null;
+  // (the shapes the plan cut for its places, D453: the tiles each changed, what they were and what it made them, so
+  // the land can be given back as it was when none of them holds on the settled water)
+  const planShapes: { x: number; y: number; shape: EasyShape; tiles: Int32Array; old: Uint8Array; cut: Uint8Array }[] = [];
+  const dropPlanShapes = (): void => {
+    for (const ps of planShapes) for (let k = 0; k < ps.tiles.length; k++) if (h[ps.tiles[k]] === ps.cut[k]) h[ps.tiles[k]] = ps.old[k];
+  };
   {
     const est = plannedWater(h, hy, W, H);
     // (the start, its second place and the mine sites' room are judged on the planned water as its
@@ -2273,7 +2309,6 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
     // (Easy start, D495: the places planned on this water have their water at the pond's distance, room for the
     // clearing and water a pond can be joined to)
     // (a pond keeps off a river's head, whose sources its water must not reach, D171)
-    let pondOff: Uint8Array | null = null;
     if (easyT) {
       pondOff = new Uint8Array(N);
       for (const r of hy.rivers) {
@@ -2287,7 +2322,7 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
       }
       const off = pondOff;
       stageRule = EASY_PLAN_RULE;
-      stageEasy = { band: [POND_WATER.lo - 2, POND_WATER.hi - 2], room: Math.round((380 * easyT.room) / 400), pond: (x, y, level) => pondWater(h, W, H, held, hy.water, { x, y, level }, off) >= 0 };
+      stageEasy = { band: [POND_WATER.lo - 2, POND_WATER.hi - 2], room: Math.round((380 * easyT.room) / 400), pond: (x, y, level) => pondWater(h, W, H, { depth: held, water: hy.water }, { x, y, level }, off) >= 0 };
     }
     // (on a shown land, a place that needs no levelling: no ground is levelled after it was shown)
     allowLevel = !from;
@@ -2297,19 +2332,26 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
     // (the water the plan's starts stand by: the planned water as its land holds it, or, where that
     // leaves no start or no second place, with the pre-fill's water too, below)
     let startWater = held;
-    // (Easy start, D495: a place's clearing and pond, shaped as the land is (land/easyStart.ts), off the ground the
-    // places shaped before it took; its pond, cut and mouth kept as water is, so nothing after fills them. Null, the
-    // land as it was, where the place can't have them)
+    // (Easy start, D495, D453: no start is accepted or thrown away on the plan's estimate of the water. A place's
+    // clearing and pond are cut now, as the land is shaped (land/easyStart.ts), on the planned water, off the ground
+    // the places shaped before it took; its pond, cut and mouth kept as water is, so nothing after fills them. So the
+    // land's one settle is the settle of the land with them, and a shape that passes every start check on that
+    // settled water is kept, the map settled once (the start's turn below). Each shape is remembered (`planShapes`):
+    // where none holds, the land is given back as it was and a place is shaped on the settled water and settled once
+    // more. Null, the land as it was, where the place can't have them)
     let easyTaken: Uint8Array | null = null;
     const easyShape = easyT
-      ? (p: StartPick): { shape: NonNullable<ReturnType<typeof shapeEasyStart>>; at: StartPick } | null => {
-          const s = shapeEasyStart(h, W, H, p, startWater, hy.water, stream(seed, "easy-start", attempt, p.x, p.y), pondOff, easyTaken);
+      ? (p: StartPick): { at: StartPick } | null => {
+          const was = h.slice();
+          const s = shapeEasyStart(h, W, H, p, { depth: startWater, water: hy.water }, stream(seed, "easy-start", attempt, p.x, p.y), pondOff, easyTaken);
           if (!s) return null;
+          const tiles = s.area.filter((i) => h[i] !== was[i]);
+          planShapes.push({ x: p.x, y: p.y, shape: s, tiles: Int32Array.from(tiles), old: Uint8Array.from(tiles, (i) => was[i]), cut: Uint8Array.from(tiles, (i) => h[i]) });
           if (easyTaken) for (const i of s.area) easyTaken[i] = 1;
           for (const i of s.pond) keep[i] = 1;
           for (const i of s.cut) keep[i] = 1;
           for (const i of s.mouth) keep[i] = 1;
-          return { shape: s, at: { ...p, level: s.level, levelled: false, shore: undefined } };
+          return { at: { ...p, level: s.level, levelled: false, shore: undefined } };
         }
       : null;
     if (!from) {
@@ -2381,7 +2423,6 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
         }
         if (!shaped && !lastAttempt) return fail("easy start (planned)", null, true);
         if (shaped) {
-          info.easy = { pond: shaped.shape.pond.length, cut: shaped.shape.cut.length + shaped.shape.mouth.length, clearing: shaped.shape.clearing };
           guess = shaped.at;
           // (and the places to fall back on, each with its own clearing and pond, off the ground the others took; a
           // place that can't have them is none: a start without them misses its targets, D495)
@@ -2960,6 +3001,7 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
   // where badwater mixes into water near the start it goes on spreading for a few days, in the game as
   // here (River Valley 128² seed 12: 17.5 tiles at the settle, 13.8 four days on). The water is run on
   // only when water within the distance carries some badwater)
+  let rested: { water: Float64Array; days: { D: Float64Array; C: Float64Array }[] } | null = null;
   const badwaterNear = (b: BuildResult, st: { x: number; y: number }): number => {
     const d0 = nearestBadwater(W, H, [st.x, st.y], b.water, b.contamination, b.soilContamination).distance;
     if (d0 < badWithin) return d0;
@@ -2969,13 +3011,23 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
     let mixing = false;
     for (let i = 0; i < N && !mixing; i++) if (sd[i] < badWithin && b.water[i] > WET && b.contamination[i] >= REST_TRACE) mixing = true;
     if (!mixing) return d0;
-    const sim = new WaterSim(b.waterModel, { depth: Float64Array.from(b.water), contamination: Float64Array.from(b.contamination) });
+    // (the days already run on this settled water stand for every start tried on it: the run is the whole map's,
+    // the same whichever start reads it, and at 512 × 128 each day of it costs seconds)
     let d = d0;
+    const days = rested?.water === b.settle.depth ? rested.days : [];
+    for (let day = 0; day < days.length && d >= badWithin; day++) d = Math.min(d, nearestBadwater(W, H, [st.x, st.y], days[day].D, days[day].C, b.soilContamination).distance);
+    if (d < badWithin || days.length === REST_DAYS) return d;
+    // (this start asks for more days than were run: the run again from its first day, kept as far as it goes)
+    const sim = new WaterSim(b.waterModel, { depth: Float64Array.from(b.water), contamination: Float64Array.from(b.contamination) });
+    const run: { D: Float64Array; C: Float64Array }[] = [];
+    d = d0;
     for (let day = 0; day < REST_DAYS && d >= badWithin; day++) {
       sim.run(TICKS_PER_DAY);
+      run.push({ D: Float64Array.from(sim.D), C: Float64Array.from(sim.C) });
       d = Math.min(d, nearestBadwater(W, H, [st.x, st.y], sim.D, sim.C, b.soilContamination).distance);
     }
     sim.dispose();
+    rested = { water: b.settle.depth, days: run };
     return d;
   };
   // (near the guess: the hollows were planned from it, so they keep the distance the settings ask
@@ -3014,6 +3066,134 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
   // middle over the slopes the build derives, is within the aim too, or it is passed over before its
   // water is settled)
   const servedOnB1 = (q: StartPick): boolean => rule >= 7 || startWalks(h, W, H, b1.water, b1.contamination, b1.moisture, q.x, q.y, rule).water <= aim;
+  // (Easy start, D495, D453: the start's clearing and pond on the settled water. The water the land was planned with
+  // is an estimate, a level off the water that settles as often as not. So the plan's shapes are tried first as they
+  // stand, on the land's own settle (`easyStartOn`): a place whose shape passes every start check is the start, and
+  // the file's water is that one settle, the canonical settle of the land with the shapes in it (D455: nothing
+  // changes the land after it; the start's build takes the settle from the cache). Where none holds, the shapes are
+  // taken out of the land again and a place is shaped here, where the water's surface is the settled water's own:
+  // at a plan's place, or within a few tiles of it where the water lies a little otherwise; first the plan's places,
+  // then any the settler finds on the settled water. That shape is cut on a copy of the land and taken up at the
+  // start's turn, its land settled once more from the pre-fill (the file's water again the canonical settle of its
+  // final land); a start that then misses a target gives the land back as it was. A land's tries are
+  // `START_TRIES` in all, the plan's shapes and the settled ones together, the last of them a settled one)
+  const easySeats = new Map<StartPick, { h: Uint8Array; shape: EasyShape }>();
+  // (the water the places are shaped on: the land's settle; or, once the plan's shapes are taken out of the land,
+  // that settle run on over the land without them, `previewSettle`, a fraction of a settle: their ponds' own water
+  // gone, the river as it stands. It only guides the shape: every start is judged on the canonical settle of its own
+  // land)
+  let planLive = true;
+  let planFirst = true;
+  let triedBefore: Uint8Array | null = null;
+  let tryAt = -1;
+  let easyGuide: BuildResult | null = null;
+  const guideWater = (): BuildResult => {
+    dropPlanShapes();
+    if (easyGuide) return easyGuide;
+    if (!planShapes.length) return (easyGuide = b1);
+    const bw = build([...rivers, ...bad.features], "water");
+    const model = waterModel(W, H, bw.heights, mapObjects({ entities: bw.entities.map(entityJson) }));
+    const pv = previewSettle({ model: b1.waterModel, water: b1.settle }, model);
+    const depth = Float64Array.from(pv.depth);
+    const contamination = Float64Array.from(pv.contamination);
+    return (easyGuide = { ...b1, heights: bw.heights, water: depth, contamination, moisture: moisture(h, depth, contamination, W, H, null), waterModel: model } as BuildResult);
+  };
+  let easyOffMask: Uint8Array | null = null;
+  let easyHeld: Uint8Array | null = null;
+  let easyWet: Uint8Array | null = null;
+  let easyMixing: Float64Array | null = null;
+  let easyFresh = 0;
+  // (`still`: only where no water within the badwater distance carries badwater: there the start's distance is read
+  // on the settled water as it stands; elsewhere the water is run on for days to see where its badwater comes to
+  // rest, `badwaterNear`, seconds a day at 512 × 128, so those places are tried after the still ones)
+  const easySeatAt = (q: StartPick, off: Uint8Array, still: boolean): StartPick | null => {
+    const gw = guideWater();
+    // (a pond keeps off a river's head and off water that carries badwater; the whole shape off the hollows' ground
+    // and a weir's or a plug's pool)
+    if (!easyOffMask || !easyHeld || !easyWet) {
+      easyOffMask = pondOff ? pondOff.slice() : new Uint8Array(N);
+      easyHeld = new Uint8Array(N);
+      easyWet = new Uint8Array(N);
+      const mixing = new Uint8Array(N);
+      for (let i = 0; i < N; i++) {
+        if (gw.water[i] > WET && gw.contamination[i] >= REST_TRACE) mixing[i] = 1;
+        if (gw.water[i] > WET) easyWet[i] = 1;
+        if (gw.water[i] > WET && gw.contamination[i] >= REST_TRACE) easyOffMask[i] = 1;
+        if (bad.avoid[i] || pool[i]) easyHeld[i] = 1;
+      }
+      easyMixing = distanceFrom(mixing, W, H);
+    }
+    const w: EasyWater = { depth: gw.water, water: null, settled: true };
+    // (among the places tried, the one whose clearing is the widest: where the land is the most level already)
+    let best: { at: StartPick; h: Uint8Array; shape: EasyShape } | null = null;
+    for (const [dx, dy] of EASY_SEAT_OFFSETS) {
+      const x = q.x + dx;
+      const y = q.y + dy;
+      if (x < 3 || y < 3 || x >= W - 3 || y >= H - 3) continue;
+      const i = y * W + x;
+      if (gw.water[i] > WET || off[i] || (still && easyMixing![i] < badWithin + 2)) continue;
+      const g = h.slice();
+      const shape = shapeEasyStart(g, W, H, { x, y, level: g[i] }, w, stream(seed, "easy-start", attempt, x, y), easyOffMask, easyHeld);
+      // (room for what is planted on it after: the start's berries and its ruins stand on the clearing too)
+      if (!shape || shape.clearing < EASY_CLEARING * easyT!.room || (best && shape.clearing <= best.shape.clearing)) continue;
+      // (the start's bench, D515, as its check reads it: the clearing and the level ground it joins at its level; a
+      // clearing cut a level or more under the land's own bench is all the bench it has)
+      if (startBench(g, easyWet, null, W, H, { x, y }) < benchMin) continue;
+      const at: StartPick = { ...q, x, y, level: shape.level, levelled: false, shore: undefined };
+      if (wetRing(gw, at) || padFloods(g, W, H, gw.water, x, y, shape.level)) continue;
+      best = { at, h: g, shape };
+    }
+    if (!best) return null;
+    easySeats.set(best.at, { h: best.h, shape: best.shape });
+    return best.at;
+  };
+  const easyStartOn = (): StartPick | null => {
+    // (the plan's shapes first, as they stand on the land's settle, in the plan's order: a place still dry, clear of
+    // the hollows and of the starts that failed here; the start's turn below reads every check on it, and it is kept
+    // only if it passes them all. Not on the last of the land's tries, which is kept for a place shaped on the
+    // settled water, so no land is thrown away with only the plan's shapes tried: measured over 73 lands, a plan's
+    // second or third shape passed on 4 of 22 tries and a settled one on 21 of 29, and the reported long map, whose
+    // three plan's shapes all fail, passes on its first land this way. A settled try costs more (a settle, the
+    // badwater's rest and the badtide's day again), so the plan's shapes still go first. The last attempt, whose map
+    // is kept when none passes, tries every plan's shape it has)
+    if (planLive) {
+      triedBefore ??= tried.slice();
+      if (tryAt + 1 < START_TRIES - 1 || lastAttempt) {
+        const q = landStage?.prepared.find((q) => !tried[q.y * W + q.x] && !avoidOf(bad)[q.y * W + q.x] && !wetRing(b1, q) && !padFloods(h, W, H, b1.water, q.x, q.y, q.level) && (!planFirst || servedOnB1(q))) ?? null;
+        planFirst = false;
+        if (q) return q;
+      }
+      // (none holds: the plan's shapes out of the land, their places open again, and the places shaped on the
+      // settled water)
+      planLive = false;
+      tried.set(triedBefore);
+    }
+    const gw = guideWater();
+    const off = lastAttempt ? avoidOf(bad) : beyondBad(gw);
+    for (const still of [true, false])
+      for (const q of landStage?.prepared ?? []) {
+        if (tried[q.y * W + q.x]) continue;
+        const at = easySeatAt(q, off, still);
+        if (at) return at;
+      }
+    // (no reserved place holds on the settled water: the places the settler finds on it, as the plan's were found on
+    // the plan's water, their water at the pond's distance and room for the clearing)
+    for (; easyFresh < EASY_FRESH; ) {
+      easyFresh++;
+      const settledW: EasyWater = { depth: gw.water, water: null, settled: true };
+      stageRule = EASY_PLAN_RULE;
+      stageEasy = { band: [POND_WATER.lo - 2, POND_WATER.hi - 2], room: Math.round((380 * easyT!.room) / 400), pond: (x, y, level) => pondWater(h, W, H, settledW, { x, y, level }, easyOffMask) >= 0 };
+      const p = settlerOn(gw.water, gw.contamination, gw.moisture, 20 + easyFresh, off, 1, near, false, g.seaLayout ? "skip" : "prefer");
+      stageRule = rule;
+      stageEasy = null;
+      if (!p) break;
+      const at = easySeatAt(p, off, false);
+      if (at) return at;
+      markTried(tried, p, W, H);
+      markTried(off, p, W, H);
+    }
+    return null;
+  };
   // the start on the shown land: one that needs no levelling, so the land stays as it was shown
   // (D348; the plan's start had its ground levelled as the land was shaped)
   const chooseStart = (): StartPick | null => {
@@ -3038,9 +3218,9 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
       return q && mask && !mask[q.y * W + q.x] ? q : null;
     };
     const skip = g.seaLayout ? "skip" : "prefer";
-    // (Easy start, D495: only a place whose clearing and pond were made as the land was shaped: any other start
-    // misses its targets, and its land is planned again at once)
-    if (easy) return ready();
+    // (Easy start, D495: only a place with its clearing and pond, the plan's as it stands on this settled water or
+    // one shaped on it: any other start misses its targets, and its land is planned again at once)
+    if (easy) return easyStartOn();
     let p = isleStart() ??settlerOn(b1.water, b1.contamination, b1.moisture, 1, roomy(beyondBad(b1)), 1, near, false, skip) ?? settlerOn(b1.water, b1.contamination, b1.moisture, 1, roomy(avoidOf(bad)), 1, near, false, skip) ?? ready() ?? settlerOn(b1.water, b1.contamination, b1.moisture, 1, avoidOf(bad), 1, near, false, skip);
     // D348: no place for a start on the settled water: the start goes where the plan put it (the
     // land was shown because it had one), when that is still dry ground clear of the hollows and of
@@ -3070,6 +3250,10 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
     return p;
   };
   allowLevel = false;
+  // (the land as its settle holds it, the plan's Easy shapes in it: looking for a place on the settled water takes
+  // them out, `guideWater`, and where none is found they are put back, so an attempt that ends here hands back the
+  // land its file and water hold, D455: the last attempt's map is kept, its field the land a session rebuilds from)
+  const hSettled = planShapes.length ? h.slice() : null;
   let pick = chooseStart();
   // D471: every setting makes a map. In a rescue round, a shown land whose settled water cut it into
   // pieces each smaller than the share of the map the start's ground asks for (wild land under lush
@@ -3081,7 +3265,10 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
     pick = chooseStart();
   }
   // (no start on the settled water or the plan: the shown land has no place left for one, D348)
-  if (!pick) return guess ? fail("no start", b1, true) : { ...fail("no start", b1, true), stuck: true };
+  if (!pick) {
+    if (hSettled) h.set(hSettled);
+    return guess ? fail("no start", b1, true) : { ...fail("no start", b1, true), stuck: true };
+  }
   // (a start that fails here, its ground under the settled water or its water gone, gives way to
   // another on the same settled water, START_TRIES in all, before the attempt is planned again:
   // each new plan settles the water again)
@@ -3092,8 +3279,8 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
   // (another start on the same settled water, off the one that failed and the ground round it)
   const nextStart = (failed: StartPick): StartPick | null => {
     markTried(tried, failed, W, H);
-    // (Easy start: another shaped place, or none)
-    if (easy) return landStage?.prepared.find((q) => !tried[q.y * W + q.x] && !avoidOf(bad)[q.y * W + q.x] && !wetRing(b1, q) && !padFloods(h, W, H, b1.water, q.x, q.y, q.level)) ?? null;
+    // (Easy start: another of the plan's shapes, then a place shaped on this settled water, or none)
+    if (easy) return easyStartOn();
     const ready = N <= 96 * 96 ? landStage?.prepared.find(q => !tried[q.y * W + q.x] && !avoidOf(bad)[q.y * W + q.x] && !wetRing(b1, q) && !padFloods(h, W, H, b1.water, q.x, q.y, q.level) && servedOnB1(q)) : null;
     if (ready) return ready;
     return settlerOn(b1.water, b1.contamination, b1.moisture, 7, roomy(beyondBad(b1)), 1, near) ?? settlerOn(b1.water, b1.contamination, b1.moisture, 7, roomy(avoidOf(bad)), 1, near) ?? dryStart(h, W, H, b1.water, hy, { avoid: roomy(avoidOf(bad)), foot, minFoot, benchMin, near: guess, level: allowLevel }) ?? settlerOn(b1.water, b1.contamination, b1.moisture, 7, avoidOf(bad), 1, near);
@@ -3102,6 +3289,10 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
   // takes the one walking to the least land and Generous the most, `REACH_CHOICES` looked at; at the theme's own the
   // first that passes is the start, as before)
   const lean = ease === 0 && !lastAttempt && !easy ? Math.sign(LEVEL3_OF[spec.settings.terrain.buildableLand] - LEVEL3_OF[THEME_PRESETS[spec.theme].buildableLand]) : 0;
+  let easyBadtide: number | undefined;
+  let easyWater: Float64Array | null = null;
+  // (the day stands for a build on the water it was read on; one whose water was settled again, a 3D form's, reads its own)
+  const easyDay = (b: BuildResult): { badtideDay?: number } => (easyBadtide !== undefined && b.settle.depth === easyWater ? { badtideDay: easyBadtide } : {});
   let chosen: { cur: StartPick; base: BuildResult; layout: Feature[]; provedObjects: MapObjectFeature[] | null; h: Uint8Array; fixes: string[]; contains: string[]; reach: number } | null = null;
   let looked = 0;
   const takeChosen = (): void => {
@@ -3116,7 +3307,19 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
     for (const id of c.contains) contains.add(id);
   };
   for (let tryN = 0; ; tryN++) {
+    tryAt = tryN;
     const hBefore = h.slice();
+    // (an Easy start's clearing and pond, shaped on this settled water, taken up now: the land as it was is given
+    // back when the start gives way)
+    const seat = easySeats.get(cur);
+    if (seat) {
+      h.set(seat.h);
+      info.easy = { pond: seat.shape.pond.length, cut: seat.shape.cut.length + seat.shape.mouth.length, clearing: seat.shape.clearing, level: seat.shape.level, water: seat.shape.water, surface: seat.shape.surface, on: "settled" };
+    } else if (planLive && planShapes.some((ps) => ps.x === cur.x && ps.y === cur.y)) {
+      // (a plan's shape, in the land since it was planned: tried as it stands on the land's one settle)
+      const shape = planShapes.find((ps) => ps.x === cur.x && ps.y === cur.y)!.shape;
+      info.easy = { pond: shape.pond.length, cut: shape.cut.length + shape.mouth.length, clearing: shape.clearing, level: shape.level, water: shape.water, surface: shape.surface, on: "plan" };
+    } else delete info.easy;
     levelStart(cur);
     // (a start chosen where its walk had room for the mine sites whose own pad leaves it none, D363,
     // a pad dug down to the water's level, gives way to the next start before its water is settled;
@@ -3198,6 +3401,13 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
     // its badwater comes to rest, gives way to another start on the same settled water, as a start
     // whose water moved does (not on the last attempt, whose map is the one kept when none passes)
     if (!why && !lastAttempt && b.start && badwaterNear(b, b.start) < badWithin) why = "start.badwater";
+    // (clean water only, planning's condition of 2026-11-17 (#236): a start whose nearest water, walked as `start.water`
+    // walks to its clean water, is too foul to pump gives way to another on the same settled water; a land where none
+    // passes is refused with that reason, as the other start reasons are)
+    if (!why && !lastAttempt && b.start) {
+      const foul = startBadWaterWalk(b);
+      if (foul < Infinity && foul < startWaterServed(b, rule, droughtDays)) why = "start water bad";
+    }
     // (D471: in a rescue round, a start whose 20 tiles' walk holds less dry land than the wood and
     // berries the start rules ask need gives way to another, as one whose water moved does: a 48²
     // start asked for 800 logs and 200 bushes in a pocket of land got neither)
@@ -3220,6 +3430,20 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
       const wet = Uint8Array.from(mb.water, d => d > WET ? 1 : 0);
       if (!mb.start || minesReached(objs, W, H, colonyReach(W, H, mb.heights, wet, objs, mb.start)) < minesWanted(W, H)) why = "mine pair (settled)";
       else provedObjects = objects;
+    }
+    // (Easy start, D495: what the land and its settled water decide is read on this start's build, before anything
+    // is planted, and a start that misses one gives way to another shaped place on the same settled water, as one
+    // whose water moved does; the land is planned again only when no place is left. This build stops before its
+    // resources and holds no start entity yet, so the read is given the one the full build places. The badtide's
+    // day, read once here, stands for the later builds on this same settled water (`easyDay`), which plant only)
+    if (!why && easyT && !lastAttempt) {
+      const early = easyStartMeasures({ W, H, heights: b.heights, objects: mapObjects({ entities: [...b.entities, startEntity(startOf(cur), b.heights, W)].map(entityJson) }), water: b.settle, model: b.waterModel, moisture: b.moisture, soilContamination: b.soilContamination, woodNear: Infinity }, easyT, EASY_LAND);
+      const miss = early.find((m) => !m.ok);
+      if (miss) why = miss.id;
+      else {
+        easyBadtide = early.find((m) => m.id === "start.easy_badtide")?.value;
+        easyWater = b.settle.depth;
+      }
     }
     base = b;
     if (!why && lean !== 0) {
@@ -3275,16 +3499,6 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
   // resources change no water, so it is found on this settle and the field planned again at once
   // (not on the last attempt, whose map is the one kept when none passes)
   if (!lastAttempt && sourcesInFlow(base.waterModel, mapObjects({ entities: base.entities.map(entityJson) }), base.water).inFlow.length) return fail("water.source_in_flow", base, true);
-  // (Easy start, D495: what the land and its settled water decide is read on this start's first build, before
-  // anything is planted, and a land that misses one is planned again at once; the badtide's day, read once here,
-  // stands for the later builds, which plant only)
-  let easyBadtide: number | undefined;
-  if (easyT && !lastAttempt) {
-    const early = easyStartMeasures({ W, H, heights: base.heights, objects: mapObjects({ entities: base.entities.map(entityJson) }), water: base.settle, model: base.waterModel, moisture: base.moisture, soilContamination: base.soilContamination, woodNear: Infinity }, easyT, EASY_LAND);
-    const miss = early.find((m) => !m.ok);
-    if (miss) return fail(miss.id, base, true);
-    easyBadtide = early.find((m) => m.id === "start.easy_badtide")?.value;
-  }
   const firstWater = Math.round(performance.now() - t0);
   info.start = pick;
   // ---- map objects and resources on the one settle (their builds reuse it)
@@ -3459,7 +3673,7 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
   let built = build(features, null);
   opts.onProgress?.({ attempt, stage: "check" });
   let file = toTimberFile(spec, built);
-  let v: Validation = validateMap(file, { profile: "generate", spec, features, water: { model: built.waterModel, settled: built.settle }, dropped: built.dropped ?? 0, ...(easyCheck ? { easyStart: { ...easyCheck, badtideDay: easyBadtide } } : {}) });
+  let v: Validation = validateMap(file, { profile: "generate", spec, features, water: { model: built.waterModel, settled: built.settle }, dropped: built.dropped ?? 0, ...(easyCheck ? { easyStart: { ...easyCheck, ...easyDay(built) } } : {}) });
   // ---- intentions: checked on the finished map; a start intention is re-steered once (D138)
   let intentions: IntentionResult[] = [];
   if (v.report.passed && g.intentions.length) {
@@ -3570,7 +3784,7 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
         const checks = plans.map((p) => checkForm(p, b3, p.id === "spring-cave" ? streams[k++].id : null));
         const own = checks.every((c) => c.ok);
         const file3 = own ? toTimberFile(spec, b3) : null;
-        const v3 = file3 ? validateMap(file3, { profile: "generate", spec, features: f3, water: { model: b3.waterModel, settled: b3.settle }, dropped: b3.dropped ?? 0, ...(easyCheck ? { easyStart: { ...easyCheck, badtideDay: easyBadtide } } : {}) }) : null;
+        const v3 = file3 ? validateMap(file3, { profile: "generate", spec, features: f3, water: { model: b3.waterModel, settled: b3.settle }, dropped: b3.dropped ?? 0, ...(easyCheck ? { easyStart: { ...easyCheck, ...easyDay(b3) } } : {}) }) : null;
         const ctx3 = finalCtx(b3, hy);
         const bare = bareShare(deadTrees, b3.water, b3.moisture, W, H) <= bareMost;
         const holds =

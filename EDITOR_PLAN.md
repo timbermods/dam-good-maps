@@ -158,15 +158,15 @@ place of its bottom rule.
   **Cancel (or Esc) while a map is made** brings the open map back as it was and leaves the panel's name and settings as
   they were picked, for the next try; **a real place opened over a map** shows the same dialog, "Opening Crater Lake…", with Cancel, which brings the
   open map back as it was; in a Together session, once the new map is built and being put into the session's worker (the last step before it opens), Cancel is off ("The map is opening"), Esc does nothing and the words read "Opening the map…". **A long wait counts itself** (a 256² map can take minutes): under the words the dialog says
-  the attempt under way and the time so far ("Attempt 3 · 2 min 14 s"), from the fourth second or the second attempt, in a
+  the attempt under way, counted over every round of the generate (a rescue round never starts the count again), and the time so far ("Attempt 3 · 2 min 14 s"), from the fourth second or the second attempt, in a
   quiet line whose room is kept so the card never changes height (`FirstLook.tsx` `MakingCount`), and under it, from the
   second attempt, why the last one was refused, in the generator's own words ("Last try: the start's water moved",
   `gen/failWords.ts`). **A generate is bounded** (`ui/makingClock.ts`): its clock counts only the time the page was shown
   (a locked phone or a tab put away holds the worker still and uses none of it; back from that, the line says "Paused
   while the screen was off" until the next attempt), and the screen is held on (a screen wake lock, where the browser has
   one) from its start to its end or Cancel, taken again when the page comes back. After 30 s of that time without a kept
-  map, with Easy start on, **Without Easy start** stands beside Cancel: the same settings without it, once, the panel's
-  settings untouched. After 5 minutes it stops by itself and the card reads as a refusal ("No map was kept in 5 minutes:
+  map, with Easy start on, **Without Easy start** stands beside Cancel: the same settings without it, once; the panel's
+  settings stay as they were while it is made, and once that map opens the panel shows its settings, Easy start off. After 5 minutes it stops by itself and the card reads as a refusal ("No map was kept in 5 minutes:
   no place for the start.") with the same way forward and Close (Make a new map for a first map); the map that was open
   comes back as it was, the settings as the player set them. The shelf's pictures are kept from one map to the next (`shelf/iconCache.ts`), never grey.
   A real place has one name everywhere, the one in its file ("Crater Lake"). Every map is made for Normal until the core drops difficulty
@@ -200,8 +200,8 @@ place of its bottom rule.
   wide the phone held upright, under 500 tall the phone on its side; anything else keeps the layout
   above (a tablet takes this layout's Show, objects and pages, below). One editor: the same controls and operations (D342), only placed for a finger. **Upright:** one slim bar at the
   top: a menu (**Map Generator**, **Real places**, **Your maps**, **History**, **Help and keys**, then File's entries),
-  the map's name (two lines at most; a tap renames it in a field the name's room wide, a finger tall, its type 16px so
-  the browser never zooms, the description's card the screen's width under the bar with what the page adds after the
+  the map's name (two lines at most; a tap renames it in a field the bar's width, a finger tall, the menu and the bar's
+  buttons stepping aside until it gives way, the description's card the screen's width under the bar with what the page adds after the
   description whole), Undo, Redo, the checks' dot (a tap opens the checks under the bar) and **Save**
   (Save to Timberborn's or Download .timber's call). The view fills the rest. At the foot the tools in one row that
   scrolls sideways, icon over name, 56px tall: Select, **Objects**, the brushes, Block, the forces. **At rest the row
@@ -221,12 +221,12 @@ place of its bottom rule.
   Select's settings, a tap again puts them and any selection down. **Show**, a button at the view's top right, opens a
   sheet of what the map shows, at most 40 % of the view so the map changes above it, ending after a whole row, or a
   whole line of Land's numbers, the Legend or a key under the chips (fitted again whenever what it holds changes; the
-  rest scroll up into view), a longer name ("Caves and overhangs") taking two chips' room, and under a wider font a name taking a second line inside its chip, never cut: under small headings, each an even grid of chips, **What to show** (the Show row's toggles,
+  rest scroll up into view), a longer name ("Caves and overhangs") taking two chips' room (the chip after it filling any cell it leaves), and under a wider font a name taking a second line inside its chip, never cut: under small headings, each an even grid of chips, **What to show** (the Show row's toggles,
   Legend and its key), **Camera** (Top-down, Reset view, First view, the compass, **Saved views** (§7), **Layers shown**: the slice, ∞ for
   every layer, and Look, whose choices open in the sheet's own flow under its button, the sheet scrolling them into
   sight), **Minimap**, **Weather** (the weather days; a double tap on the day types one, as its tooltip tells a finger: the two taps counted by the page, since WebKit sends no dblclick for them, and the day in the field left selected so the typed one replaces it) and **Forces and sound** (Slow forces, the sound
   and its volume, always shown: a phone has no hover).
-  **Objects** opens a sheet of large tiles, half the view at the most; a tile picked closes it to one row saying what
+  **Objects** opens a sheet of large tiles, every row one height, half the view at the most; a tile picked closes it to one row saying what
   is in hand (its picture, its name, **Put it down**), its settings under it when the sheet is pulled up. A picked
   source's or object's window stands above the row as a tool's settings do. One sheet at a time: a tool taken up
   closes Show and the objects. **The map keeps to the room left** (planning, #1074; on a phone or a tablet only, the desktop's
@@ -236,9 +236,14 @@ place of its bottom rule.
   Cancel while a finger's press is on: its lines reach across the view's top). The
   first steps' hints say what a finger does (on a tablet too: the objects under Objects, an object pressed, dragged
   and lifted into place, never "click") and stand above the sheet, never over a control or the map's middle (they
-  step aside while a sheet is pulled up), and their × puts them away for good. **The rest of the page** (#1074, slice 4;
+  step aside while a sheet is pulled up), and their × puts them away for good. A map's first view is framed clear of
+  them, above their card or beside it, whichever leaves the bigger room (planning, #1074: their card took a fifth of the
+  screen upright, the map's left on its side; `view/insets.ts` `firstInsets`); later framings let them float over the map. **The rest of the page** (#1074, slice 4;
   `tests/e2e/phonePages.spec.ts`): each of the menu's panels (Map Generator, Real places, Your maps, History) is a page
-  the whole screen under the bar, **Map** at its top going back to the map, the page scrolling inside itself; Map
+  the whole screen under the bar, **Map** at its top going back to the map, the page scrolling inside itself; Wherever such a page covers more than half the view (a phone's, a
+  tablet's), it closes when a new map opens (Generate, a Real place, a map reopened), so the map shows; the menu reopens it
+  as it was left, scrolled where it was and its settings kept (`render/editorView.tsx` `PhonePage`), so the next map is
+  two taps away: Map Generator, then Generate. Map
   Generator in one column (two on its side), each setting its name and value on a line and its slider or choices the
   whole width under them, Showcase taking the page while it is open; on its side Name and the seed share the first row, the seed and Keep at their own width, so the theme shows
   above Generate; **Generate** the page's one green button, fixed
@@ -252,7 +257,8 @@ place of its bottom rule.
   Description, the time-lapse, a question before a map is replaced, the map being made) are sheets the screen's width,
   scrolling inside with their buttons kept in sight at their foot, the map being made centred on the screen with its whole
   line; Together opens from the menu as a sheet under the
-  bar with its own ×; a link in a dialog's words takes a finger's 44px. **Save** hands the map's file to the phone's
+  bar with its name and its own × on its first line; a × that closes or puts down, and the layers' ▾ ▴, are drawn on a phone
+  or a tablet, never a font's glyph; a link in a dialog's words takes a finger's 44px. **Save** hands the map's file to the phone's
   share sheet (`platform/share.ts`) where the browser can share a file and the pointer is a finger, else it downloads;
   the same bytes either way (D455). When building the file took long enough that the browser wants a fresh tap, or the
   sheet was closed unsent, a note keeps the file with **Send it**. The page's root carries the layout
@@ -276,7 +282,9 @@ place of its bottom rule.
   its foot lies below the visual viewport's (`ui/phoneRoot.ts`; it keeps its last value while a field has the focus,
   until the viewport has settled after one lets it go, while the page is pinch-zoomed, and for a reading past 140px or
   a quarter of the room, so a keyboard never lifts the foot), and the foot's room is the larger of it and the home bar's inset (a tablet's root ends at the bar
-  instead). `?viewport=on` shows the measures behind it in a box mid-screen, for a screenshot from a phone. Fields 16px so the browser never zooms on focus. A long press's tooltip shows its phrase without the key caps, which name keys a
+  instead). `?viewport=on` shows the measures behind it in a box mid-screen, for a screenshot from a phone. **Fields:** every field a
+  finger can focus, on a phone or a tablet, is 16px, so the browser never zooms the page on focus (the map's name renamed
+  in the bar or the header among them); the header's 13px is only for text that is not a field. A long press's tooltip shows its phrase without the key caps, which name keys a
   finger has none of, until a key is pressed on the page (a tablet with a keyboard). **Nothing cut at rest:** every control
   and card whole inside the room less its insets and inside its panel; a row or page that scrolls may show its next item
   in part only at an end where more lies and that is not a safe-area edge, or where it fades (a page of cards fades out
@@ -309,7 +317,8 @@ place of its bottom rule.
   Auto going under it where the line has no room, so no name is ever cut short. Under 1,280 wide the dock takes the view's
   whole width (its cells shrink to 44px, never narrower than a tool's word whatever the font; where the row can't hold
   them it scrolls sideways, as a phone's does, the tool in hand scrolled into view; Select's shapes alike) and the editor fills the box the browser pins fixed elements to (as a phone's, above); under
-  1,100 the header takes two lines. Every control at least 44px, fields 16px (a kept map's name renamed in a field its tile's width, as on a phone), no iOS callout on a long press but in a
+  1,100 the header takes two lines. Every control at least 44px, fields as on a phone (above; the map's name renamed in a field the title's room wide and
+  a finger tall, a kept map's in one its tile's width), no iOS callout on a long press but in a
   field or a link, the same gestures (§7, "Touch").
 - **Together** (D362, D431, D486; `docs/COLLAB-BRIEF.md`; part 6a): two players edit one map through a relay and a
   room-code function, in the page's own panel style. One quiet button in the header's right group, before **File**
@@ -741,11 +750,16 @@ on one shared forces core, `src/core/forces/` (D203, D206, D220; see its README)
   frame. Water rides the ground it stands on and flows on from there: into a crater or a rift as it opens, off a cone
   or a lifted fault, along with a Slide's block; a glacier's tarn and meltwater river fill from its springs at the
   water's own pace once its land is final; the map's sources run on while it plays. A carve's river is **born as it cuts**: its source runs
-  from the first step, so the water follows the cutting edge down the new channel and never leads it (each dry or damp
-  tile is held until the front reaches it; water already there flows on as it flowed)
+  from the first step, so the water follows the cutting edge down the new channel and never leads it (the land along
+  and beside its course is held until the front reaches it: within two tiles of it any dry or damp tile, farther off only
+  land with no water at all, so the carve's water never spills past its banks and downhill ahead of the cut, #1222; water
+  already there flows on as it flowed, and the map's own water runs on exactly as it would without the carve until the
+  carve's water reaches it, #1181)
   (shown as a stroke's water is, at a steady two game minutes a second, so a breakthrough drains at a pace
   the eye follows); kept (or skipped to its end), the map's water flows on from that water, so
-  nothing jumps, and settles as after any edit; undo puts the map's own water back. **Nothing pops in after the animation** (D368 (9)): the last frame shown is the land kept
+  nothing jumps, and settles as after any edit; taking back a force still at work (Esc, or undo
+  while it works, or a keep refused) puts the map's water back exactly as the force found it (a copy taken then: water
+  still flowing after an edit flows on from where it was); undo after it was kept is the edit's undo, as for any edit. **Nothing pops in after the animation** (D368 (9)): the last frame shown is the land kept
   (`tests/contract/forcePop.test.ts` holds every force and mode to it, in both paces), and **the force is over the
   moment its land is final**: what is left of its showing changes nothing on the ground, so its objects take their
   places at once and it is kept (its row back, the next edit at once), its effects' tails playing out (a glacier's
@@ -1757,7 +1771,8 @@ Craterize, Erupt, Rift, Quake, Deposit, Glaciate and Erode. M turns Markers on o
   ring where it aims), so the finger never hides the spot; dragging moves it (an object, Craterize's one impact), or for
   a force drawn as a line (Carve, Erupt's fissure, Quake's fault, Glaciate, Rift, Deposit, Erode) and the Block tool
   draws the line or the sweep from where the press aimed, the preview following (slice 3b, `FingerPress` mode line; held
-  still, the lift is their click at the aim); the lift applies it, as one operation and one step, and nothing is applied
+  still, the lift is their click at the aim); the lift applies it, as one operation and one step (with an object in hand, only the label of the source nearest the
+  aim shows while the press is on), and nothing is applied
   before the lift (a painted Lift shows its result as it is drawn, as with the mouse; a second finger or Cancel takes it back). While
   a finger aims a force, its ring is filled faintly: the whole reach shows even where the ring is wider than a phone's
   view (Craterize at Size 54); Quake shows only its marker (D368 (2)). A refused one shows its reason beside the preview, never under the

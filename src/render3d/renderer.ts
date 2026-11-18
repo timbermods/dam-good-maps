@@ -448,7 +448,7 @@ function askSoftwareRendering(): boolean {
   }
 }
 
-/** Test hooks for the look (tests/e2e/look-high.spec.ts), set before the view is made: `gpu`
+/** Test hooks for the look (tests/e2e/look-high-shared.ts, for look-high.spec.ts and look-high-scenes.spec.ts), set before the view is made: `gpu`
  *  treats a browser drawing in software as if it had a GPU (CI's has none), so the High look and its
  *  fallback can be tried there; `limits` replaces the fallback's limits (fewer frames to wait);
  *  `cost` reports every frame as costing that many milliseconds (`simulateFrameCost`). */

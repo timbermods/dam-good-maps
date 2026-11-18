@@ -301,8 +301,12 @@ describe("the generator's M7 set pieces keep their rules (ROADMAP M7)", () => {
     // 1–20, 14 hold 0.6 or more (Canyon 7, 10, 12, 13, 18, 19; Highlands 2, 3, 7, 9, 13, 16, 18, 20) and none holds less; canyon 12 → 9, canyon 13 → 16
     // and highlands 2 → 4 at 0.10.29 (#1186), D148: the disc's land (the weathering's disc of the square's area, the washes' brush and swing) gives those three rivers no weir; of Canyon 96² seeds 6–20,
     // 6, 7, 9, 10, 16 and 18 hold 0.6 or more and 17 holds 0.58, and of Highlands seeds 1–7 only 4 and 7 take a weir, both holding 0.6 or more;
-    // canyon 9 → 8 and highlands 4 → 3 at 0.10.36 (#1205), D148: the round forms at their meant size give those two rivers no weir; of Canyon and Highlands 96² seeds 1–20, 19 take one (Canyon 1, 4, 7, 8, 10, 12, 15, 16, 17, 19; Highlands 2, 3, 5, 7, 9, 10, 11, 12, 16), the five here holding more than 0.6)
-    for (const [theme, seed] of [["canyon", 7], ["canyon", 10], ["canyon", 8], ["canyon", 16], ["highlands", 3]] as [ThemeId, number][]) {
+    // canyon 9 → 8 and highlands 4 → 3 at 0.10.36 (#1205), D148: the round forms at their meant size give those two rivers no weir; of Canyon and Highlands 96² seeds 1–20, 19 take one (Canyon 1, 4, 7, 8, 10, 12, 15, 16, 17, 19; Highlands 2, 3, 5, 7, 9, 10, 11, 12, 16), the five here holding more than 0.6;
+    // canyon 8 → 12, canyon 16 → 13 and highlands 3 → 9 at 0.10.43 (D(highlands-slot), a gorge winding at a 96²'s scale), D148: the
+    // land moved and those three maps take no weir now (half the attempts try one); of Canyon and Highlands 96² seeds 1–20, 14
+    // take one (Canyon 1, 4, 7, 10, 12, 13, 15, 17, 19; Highlands 9, 11, 12, 13, 16) against dev's 19, and of seeds 21–40 15 against
+    // 15, every one holding 0.65 or more but Highlands 31's 0.42, as on dev)
+    for (const [theme, seed] of [["canyon", 7], ["canyon", 10], ["canyon", 12], ["canyon", 13], ["highlands", 9]] as [ThemeId, number][]) {
       const r = generate(makeSpec({ seed, size: { x: 96, y: 96 }, theme }));
       const w = r.features.find((g) => g.kind === "mapObject" && g.params.kind === "weir");
       if (!w || w.kind !== "mapObject") continue;

@@ -8,7 +8,9 @@
 // beside the seed; History's rows the page's width; two cards a row upright; Help to a finger, the gestures first; the map
 // being made centred; a long press in Your maps selecting as Ctrl+click does. The phone pass (slice 5): the map's name
 // and a kept map's renamed in a field a finger can use, the description's card under the bar; the first hints and Help
-// telling a finger that an object is pressed, dragged and lifted into place (a tap places nothing).
+// telling a finger that an object is pressed, dragged and lifted into place (a tap places nothing). Planning's rulings on
+// it: the menu's page closes once a new map shows and reopens as it was left; the map's name renamed in a field the bar's
+// width; the first map's first frame clear of the first hints' card.
 
 import { expect, test, type Locator, type Page } from "@playwright/test";
 import { openLayoutMap as openEditor } from "./helpers";
@@ -144,6 +146,12 @@ for (const phone of PHONES) {
         expect(Math.abs(k.y + k.height / 2 - (s.y + s.height / 2)), "Keep beside the seed").toBeLessThan(1.5);
         expect(k.x).toBeGreaterThan(s.x + s.width);
       }
+      // (the page scrolled a little, to be found so when it is reopened)
+      const left = await body.evaluate((e) => {
+        e.scrollTop = Math.min(120, e.scrollHeight - e.clientHeight);
+        return e.scrollTop;
+      });
+      await page.waitForTimeout(100);
       // the map being made: centred on the screen, all of it in view
       await gen.tap();
       const making = page.locator(".making-dialog");
@@ -154,6 +162,13 @@ for (const phone of PHONES) {
       expect(m.y >= 0 && m.y + m.height <= H && m.x >= 0 && m.x + m.width <= W).toBe(true);
       expect(await phoneClipped(page), "the map being made: words cut short").toEqual([]);
       await expect(making).toBeHidden({ timeout: 120_000 });
+      // the new map shows: the page, which covered it, closed once it was ready (planning, #1074); the menu reopens it as it
+      // was left, scrolled where it was and its settings kept, so the next map is Map Generator, then Generate
+      await expect(page.locator(".phone-page"), "the page closed once the new map showed").toHaveCount(0);
+      await fromMenu(page, "Map Generator");
+      await expect.poll(() => body.evaluate((e) => e.scrollTop), { message: "the page reopened where it was scrolled" }).toBe(left);
+      await expect(keep, "its settings kept").toHaveAttribute("aria-pressed", "true");
+      await page.locator(".phone-back").tap();
       // History: each step a row the page's width, its whole label; Keep this version (a second map in Your maps)
       await fromMenu(page, "Clear everything");
       await expect.poll(() => page.evaluate(() => window.dgmEditor!.info().history.length), { timeout: 30_000 }).toBeGreaterThan(0);
@@ -252,15 +267,17 @@ for (const phone of PHONES) {
     test(`at ${W}×${H}: the map's name and a kept map's are renamed in a field a finger can use, the description's card under the bar`, async ({ page }) => {
       test.setTimeout(300_000);
       await openEditor(page);
-      // the name in the bar: a tap opens its field where the name was, a finger tall, its type 16px, all of it in sight
+      // the name in the bar: a tap opens its field the bar's width (planning, #1074: the menu and the bar's buttons step
+      // aside while it is open), a finger tall, its type 16px, all of it in sight
       const name = page.locator(".phone-bar .editor-title .title-button");
-      const was = (await name.boundingBox())!;
       await name.tap();
       const field = page.locator(".phone-bar .editor-title input[aria-label='Map name']");
       await expect(field).toBeFocused();
       const f = (await field.boundingBox())!;
+      const across = (await page.locator(".phone-bar").boundingBox())!;
       expect(f.height, "the name's field: a finger tall").toBeGreaterThanOrEqual(43.5);
-      expect(f.width, "the name's field: the name's room wide").toBeGreaterThanOrEqual(was.width - 1);
+      expect(f.width, "the name's field: the bar's width, less its sides").toBeGreaterThanOrEqual(across.width - 2 * Math.max(8, (W - across.width) / 2) - 16);
+      await expect(page.locator(".phone-bar > .editor-actions"), "the bar's buttons step aside while it is renamed").toBeHidden();
       const shown = await field.evaluate((e) => {
         const r = e.getBoundingClientRect();
         const at = (y: number) => document.elementFromPoint(r.left + r.width / 2, y) === e;
@@ -277,6 +294,7 @@ for (const phone of PHONES) {
       await field.press("Enter");
       await expect(name).toHaveText("Named by a finger");
       await expect(page.locator(".title-desc")).toHaveCount(0);
+      await expect(page.locator(".phone-bar > .editor-actions"), "the bar's buttons back once the field gives way").toBeVisible();
 
       // a kept map's name, from its ⋯: a field the tile's width, a finger tall
       await fromMenu(page, "Clear everything");
@@ -308,6 +326,20 @@ for (const phone of PHONES) {
       await expect(hints).toContainText("Add water: in Objects, pick Water source, then press the map and lift where the water starts.");
       await expect(hints).not.toContainText(/then tap (the map|where)/);
       expect(await phoneClipped(page), "the first hints: words cut short").toEqual([]);
+      // the first frame of the first map is framed clear of their card (planning, #1074): upright the map above it, on its
+      // side to its right; the map's corners, at their tops and at the foot of its sides
+      await page.waitForFunction(() => window.dgmEditor!.roomSettled(), null, { timeout: 10_000 });
+      const clear = await page.evaluate(() => {
+        const r = window.dgm3d!.renderer;
+        const m = r.mapState()!;
+        const c = r.canvas.getBoundingClientRect();
+        const card = document.querySelector(".first-run")!.getBoundingClientRect();
+        const corners = [0, m.W].flatMap((x) => [0, m.H].flatMap((y) => [r.project(x, 0, -y), r.tileToClient(Math.min(x, m.W - 1), Math.min(y, m.H - 1))]));
+        const pts = corners.map((p, i) => (i % 2 ? p : { x: p.x + c.left, y: p.y + c.top }));
+        return { below: Math.max(...pts.map((p) => p.y)) - card.top, left: card.right - Math.min(...pts.map((p) => p.x)) };
+      });
+      if (W < H) expect(clear.below, "the map's foot above the hints' card").toBeLessThanOrEqual(0);
+      else expect(clear.left, "the map's left clear of the hints' card").toBeLessThanOrEqual(0);
     });
 
     test(`at ${W}×${H}: Save to Timberborn hands the map's file to the share sheet`, async ({ page }) => {

@@ -46,7 +46,8 @@ import { thumbnailMaker } from "./thumbnails";
 import { discardPreparedRenderer, prepareRenderer } from "../render3d/prepared";
 import type { GeneratorModel, YourMapRow } from "../editor/generator/model";
 import { fetchIndex, fetchPlace, placeFromHash } from "../places/data";
-import { FirstLook, MakingCount, MakingWater, progressText, sayStage, stageText, type Progress } from "./FirstLook";
+import { refusingMake } from "./refusingGenerate";
+import { attemptMade, FirstLook, MakingCount, MakingWater, progressText, sayStage, stageText, type Progress } from "./FirstLook";
 import { tip } from "./Tooltip";
 import { boundOf, offers, startMaking, STOP_AFTER_S, type Bound, type RunningClock } from "./makingClock";
 import { IdeaCard } from "../editor/generator/IdeaCard";
@@ -76,6 +77,9 @@ declare global {
       /** The e2e build only: how fast a generate's running clock runs (window.__dgmMakingRate; 1 for players), so a test
        *  reaches its bounds (`makingClock.ts`) without waiting them out. */
       makingRate?(): number;
+      /** The e2e build only: true while a test (window.__dgmNeverKeep) wants every generate to keep no map, each attempt
+       *  refused with a real reason (`refusingGenerate.ts`), so a making's bounds are reached on any runner. */
+      neverKeep?(): boolean;
     };
   }
 }
@@ -103,6 +107,7 @@ window.dgm = {
           return n > 0;
         },
         makingRate: () => Number((window as unknown as { __dgmMakingRate?: number }).__dgmMakingRate ?? 1),
+        neverKeep: () => !!(window as unknown as { __dgmNeverKeep?: boolean }).__dgmNeverKeep,
       }
     : {}),
   current() {
@@ -134,6 +139,18 @@ function initialSpec(): { spec: MapSpec; fromLink: boolean; note?: string } {
 
 /** Easy start (D495), remembered in this browser: a theme, Surprise me and Reset settings keep it (it is no theme's
  *  setting), and a new visit starts with it as it was last set. */
+/** Whether one of the menu's pages (Map Generator, Real places, Your maps) covers more than half of the map's view: a
+ *  phone's or a tablet's, which take the whole view (planning, #1074). Such a page closes when a new map opens, so the
+ *  map shows; a page beside the map (the desktop's panels) stays. */
+function pageCoversMap(): boolean {
+  const page = document.querySelector(".editor-main > .phone-page")?.getBoundingClientRect();
+  const view = document.querySelector(".editor-map")?.getBoundingClientRect();
+  if (!page || !view || !(view.width > 0 && view.height > 0)) return false;
+  const w = Math.max(0, Math.min(page.right, view.right) - Math.max(page.left, view.left));
+  const h = Math.max(0, Math.min(page.bottom, view.bottom) - Math.max(page.top, view.top));
+  return w * h > (view.width * view.height) / 2;
+}
+
 const EASY_KEY = "dgm.easyStart";
 function easyRemembered(): boolean {
   try {
@@ -621,6 +638,8 @@ export function App() {
     setName(e.name);
     setSession(data.info);
     setOpened((o) => ({ key: (o?.key ?? 0) + 1, data, keepView }));
+    // (a new map: the menu's page goes where it covers the map, so the map shows; the menu reopens it as it was left)
+    if (!keepView && pageCoversMap()) setPanel(null);
     const link = data.info.kind === "generated" && data.info.spec ? "#" + encodeSpecFragment(data.info.spec) : place ? `#place=${place}` : "";
     // (a cancelled Generate brings the open map back and keeps the settings picked for the next try, as its name:
     // showcase-craft gap 16)
@@ -1125,17 +1144,23 @@ export function App() {
       const seedWord = word && !/^\d+$/.test(word) && seedFromText(word) === s.seed ? word : undefined;
       // (the map is asked for: the click's lag ends here, generateLag.spec.ts)
       performance.mark("dgm:sent");
-      const r = await (maker?.api ?? generator).generate(
+      // (the end-to-end build lets a test make a generate that keeps no map, each attempt refused: dgm.neverKeep;
+      //  `refusingMake` is there in that build alone, so the published page carries none of that code)
+      const refusing = window.dgm?.neverKeep?.() ? refusingMake : undefined;
+      const make = refusing ? (_: MapSpec, heard: (p: GenProgress) => void, _w?: string) => refusing(() => id === runId.current, heard) : (maker?.api ?? generator).generate;
+      const r = await make(
         s,
         proxy((p: GenProgress) => {
+          // (the attempt counted over every round: a rescue round counts its own from 0 again)
+          const made = p.kind === "stage" ? attemptMade(p) : (progressNow.current?.attempt ?? 0);
           // (a new attempt puts a pause behind it)
-          if (p.kind === "stage" && (p.attempt !== progressNow.current?.attempt || p.failed !== progressNow.current?.failed)) mine?.clock.attemptBegan();
+          if (p.kind === "stage" && (made !== progressNow.current?.attempt || p.failed !== progressNow.current?.failed)) mine?.clock.attemptBegan();
           setProgress((q) =>
             p.kind === "stage"
-              ? { attempt: p.attempt, stage: p.stage, land: q?.land ?? null, candidate: q?.candidate ?? null, said: sayStage(q?.said, p.stage, p.attempt), ...(p.failed ? { failed: p.failed } : {}) }
+              ? { attempt: made, stage: p.stage, land: q?.land ?? null, candidate: q?.candidate ?? null, said: sayStage(q?.said, p.stage, made), ...(p.failed ? { failed: p.failed } : {}) }
               : p.kind === "candidate"
-                ? { attempt: p.attempt, stage: q?.stage ?? "check", land: q?.land ?? null, candidate: q?.candidate ?? p, said: q?.said, failed: q?.failed }
-                : { attempt: p.attempt, stage: q?.stage ?? "land", land: p, candidate: q?.candidate ?? null, said: q?.said, failed: q?.failed },
+                ? { attempt: q?.attempt ?? made, stage: q?.stage ?? "check", land: q?.land ?? null, candidate: q?.candidate ?? p, said: q?.said, failed: q?.failed }
+                : { attempt: q?.attempt ?? made, stage: q?.stage ?? "land", land: p, candidate: q?.candidate ?? null, said: q?.said, failed: q?.failed },
           );
         }),
         seedWord,
