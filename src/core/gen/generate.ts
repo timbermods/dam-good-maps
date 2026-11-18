@@ -373,6 +373,12 @@ interface Land {
   h0: Uint8Array;
   /** Settles this genome has cost. */
   settles: number;
+  /** The last plan on it joined a course to one beside it, or refused one (ruled water, hydro.ts `BESIDE`). */
+  joined?: boolean;
+  /** The rivers those joins touched (hydro.ts `Hydro.joinedRivers`). */
+  joinedRivers?: ReadonlySet<string>;
+  /** Plan its water without the joins (on the genome as the refused plan left it). */
+  joinsOff?: boolean;
 }
 
 interface Attempt {
@@ -385,6 +391,10 @@ interface Attempt {
   /** On a shown land, a failure no new plan on it can mend (its rivers' water alone does not
    *  settle): the attempts stop there (D348: the land is never replaced). */
   stuck?: boolean;
+  /** The rivers a refusal before the build names (its leak's courses, its drowned heads, the main river its promise or
+   *  water story is read on, a source in a flow's courses and those whose water reaches it, the courses whose water came
+   *  down to a badwater hollow); none: it names no river (ruled water's retry, `joinCaused`). */
+  touches?: string[];
 }
 
 /** What the land stage planned, copied afresh for each attempt on it. */
@@ -561,6 +571,31 @@ export async function generateAsync(specIn: MapSpec, opts: GenerateOptions, runn
   const r = generateThemes({ ...specIn, settings: themeOwnSettings(specIn) }, opts);
   r.info.premise = { id: specIn.premise, fellBack: `${p.reason}: the themes made this map` };
   return r;
+}
+
+/** Tiles from a joined course's line within which a built map's refused check touches it (ruled water's retry): a wide
+ *  channel's half-width and its banks. */
+const JOIN_TOUCH = 6;
+
+/** Ruled water's retry (D(ruled-water)): a refusal is the joins' doing only when it names or touches a joined course
+ *  (`Hydro.joinedRivers`): before the build, the rivers it names (`Attempt.touches`); on a built map, a blocking check whose
+ *  feature is one or whose tiles lie within `JOIN_TOUCH` of one's course. A start, a mine pair, a dam wall or a badwater
+ *  hollow with no place, away from them, is the land's, and the land is drawn again as dev draws it, at no second plan's
+ *  cost. */
+function joinCaused(a: Attempt, joined: ReadonlySet<string> | undefined, W: number, H: number): boolean {
+  if (!joined?.size) return false;
+  if (a.touches) return a.touches.some((id) => joined.has(id));
+  const checks = a.result.report.checks.filter((c) => !c.ok && blocks("generate", c));
+  if (checks.some((c) => c.where?.feature !== undefined && joined.has(c.where.feature))) return true;
+  const tiles = checks.flatMap((c) => c.where?.tiles ?? []);
+  if (!tiles.length) return false;
+  const near = new Uint8Array(W * H);
+  for (const f of a.result.features)
+    if (f.kind === "river" && joined.has(f.id))
+      for (const [px, py] of f.params.path)
+        for (let y = Math.max(0, Math.round(py) - JOIN_TOUCH); y <= Math.min(H - 1, Math.round(py) + JOIN_TOUCH); y++)
+          for (let x = Math.max(0, Math.round(px) - JOIN_TOUCH); x <= Math.min(W - 1, Math.round(px) + JOIN_TOUCH); x++) near[y * W + x] = 1;
+  return tiles.some(([x, y]) => x >= 0 && y >= 0 && x < W && y < H && near[y * W + x] === 1);
 }
 
 /** The themes' path (everything but a premise's map). */
@@ -809,7 +844,25 @@ function attemptRound(specIn: MapSpec, optsIn: GenerateOptions, t0: number, roun
       // (round 6: Islands' sea's lip at the map's edge, a tile or two, D151's edge rule kept)
       if (g.seaLayout && g.theme === "islands") holdSeaLip(land.h0, W, H);
     } else replans++;
-    const a = attemptOnce(specIn, land, attempt, { ...opts, maxAttempts: max, onLand: l => { lands++; opts.onLand?.(l); } }, t0, null, screened);
+    const screenedAt = { ...screened };
+    let shownJoined = false;
+    let a = attemptOnce(specIn, land, attempt, { ...opts, maxAttempts: max, onLand: l => { shownJoined = true; lands++; opts.onLand?.(l); } }, t0, null, screened);
+    // (ruled water: a plan refused on a check that names or touches a joined course is planned again on the same land
+    // without the joins; any other refusal draws the next land as dev does. `joinCaused` reads that from the refusal
+    // itself, so a refused joined plan costs no second plan unless a join could have refused it. The second plan's
+    // screening count and dry tally are put back as they were before the first; its genome is the one the first left, so
+    // a Canyon whose joined plan missed its promise is planned again already incised a level deeper, not as dev plans it.
+    // A land once shown stays the map, D348: its later failures are planned again on it as any land's)
+    if (!a.passed && land.joined && !shownJoined && joinCaused(a, land.joinedRivers, W, H)) {
+      screened.count = screenedAt.count;
+      screened.dry = screenedAt.dry;
+      land.joinsOff = true;
+      try {
+        a = attemptOnce(specIn, land, attempt, { ...opts, maxAttempts: max, onLand: l => { lands++; opts.onLand?.(l); } }, t0, null, screened);
+      } finally {
+        land.joinsOff = false;
+      }
+    }
     if (a.stage) {
       committed = a.stage;
       keptAt = land.settles;
@@ -1232,22 +1285,28 @@ function spreadWidth(h: Uint8Array, W: number, H: number, x: number, y: number, 
 
 /** D171: a planned spring inside a planned lake, or within 1.5 tiles of another river's course (a
  *  river that joined it at its head would put the spring inside that river's flow). The core check
- *  (`water.source_in_flow`) judges the built map; this turns such a hydrology down before a settle. */
-function springsInFlow(hy: Hydro, W: number): number {
-  const lake = new Set<number>();
-  for (const lk of hy.lakes) for (const i of lk.tiles) lake.add(i);
-  let bad = 0;
+ *  (`water.source_in_flow`) judges the built map; this turns such a hydrology down before a settle.
+ *  The rivers it names: each such spring's, and the courses running through its lake or past it. */
+function springsInFlow(hy: Hydro, W: number): string[] {
+  const lakeOf = new Map<number, number>();
+  hy.lakes.forEach((lk, n) => {
+    for (const i of lk.tiles) lakeOf.set(i, n);
+  });
+  const named = new Set<string>();
   hy.rivers.forEach((r, k) => {
     const e = r.params.entry;
     if (!("spring" in e)) return;
     const [sx, sy] = e.spring;
-    if (lake.has(Math.round(sy) * W + Math.round(sx))) {
-      bad++;
-      return;
-    }
-    if (hy.rivers.some((o, m) => m !== k && o.params.path.some(([x, y]) => (x - sx) * (x - sx) + (y - sy) * (y - sy) <= 2.25))) bad++;
+    const lake = lakeOf.get(Math.round(sy) * W + Math.round(sx));
+    const by =
+      lake !== undefined
+        ? hy.rivers.filter((o, m) => m !== k && o.params.path.some(([x, y]) => lakeOf.get(Math.round(y) * W + Math.round(x)) === lake))
+        : hy.rivers.filter((o, m) => m !== k && o.params.path.some(([x, y]) => (x - sx) * (x - sx) + (y - sy) * (y - sy) <= 2.25));
+    if (lake === undefined && !by.length) return;
+    named.add(r.id);
+    for (const o of by) named.add(o.id);
   });
-  return bad;
+  return [...named];
 }
 
 /** Walking from the start over the map's own slopes, round the objects that block walking. */
@@ -1668,7 +1727,9 @@ function planLandStage(land: Land, attempt: number, W: number, H: number, seed: 
   // channels are cut (D151)
   relaxEdges(h, W, H);
   opts.onProgress?.({ attempt, stage: "water" });
-  const hy = planHydro(land.E, h, g, seed, W, H, attempt);
+  const hy = planHydro(land.E, h, g, seed, W, H, attempt, land.joinsOff ? { joins: false } : {});
+  land.joined = (hy.joined ?? 0) > 0;
+  land.joinedRivers = new Set(hy.joinedRivers ?? []);
   // (M9b: the banks beside an inflow's mouth stay as the land has them: lowered to its channel, the
   // water would run out along the edge beside the mouth instead of down its course)
   // (and no tile beside a planned channel is lowered below that channel's water, here or by the
@@ -1985,7 +2046,7 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
     }
     fixes.push("lake spring");
   }
-  const fail = (why: string, b: BuildResult | null, replannable: boolean): Attempt => {
+  const fail = (why: string, b: BuildResult | null, replannable: boolean, touches?: string[]): Attempt => {
     info.stage = why;
     // (an attempt refused before its water settled keeps only its land for the record, unless it is
     // the last attempt, whose map is kept when none passes: a settle there would be spent for nothing)
@@ -2000,7 +2061,7 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
       const result = { spec: shown, features, report: { profile: "generate" as const, checks: [], passed: false }, analysis: null, bytes: new Uint8Array(), attempts: attempt + 1, failures: [], field, intentions: [], info, timings: { firstLook, firstWater: -1, final: Math.round(performance.now() - t0) } } as unknown as GenerateResult;
       Object.defineProperty(result, "built", { get: landOf, enumerable: true });
       Object.defineProperty(result, "file", { get: () => (file ??= toTimberFile(spec, landOf())), enumerable: true });
-      return { passed: false, replannable, stage: landStage, result };
+      return { passed: false, replannable, stage: landStage, result, touches };
     }
     const built = b ?? build(rivers, null);
     const file = toTimberFile(spec, built);
@@ -2008,6 +2069,7 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
     return {
       passed: false,
       replannable,
+      touches,
       stage: landStage,
       result: { spec: shown, features: [...rivers], built, report: { ...v.report, passed: false }, analysis: v.analysis, bytes: new Uint8Array(), file, attempts: attempt + 1, failures: [], field: fieldData(fieldOf(), W), intentions: [], info, timings: { firstLook, firstWater: -1, final: Math.round(performance.now() - t0) } },
     };
@@ -2018,15 +2080,19 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
     // M9b (D273 (1)): every river's water runs its whole course; a plan where it would spill out
     // before the end (by a lower way beside a lake, or by the edge beside its own mouth, and the rest
     // of its course stood dry) is planned again (the course check runs before the first look)
-    if (blocked.length && attempt < (opts.maxAttempts ?? MAX_ATTEMPTS) - 1) return fail("a river's water leaves its course", null, true);
+    if (blocked.length && attempt < (opts.maxAttempts ?? MAX_ATTEMPTS) - 1) return fail("a river's water leaves its course", null, true, blocked.map((b) => b.id));
     // (and no inflow's head under water held downstream: it backs up to the edge, runs off beside
     // the head's sources and never settles)
-    if (attempt < (opts.maxAttempts ?? MAX_ATTEMPTS) - 1 && drownedHeads(h, W, H, hy.rivers).length) return fail("a river's head under a lake", null, true);
+    if (attempt < (opts.maxAttempts ?? MAX_ATTEMPTS) - 1) {
+      const drowned = drownedHeads(h, W, H, hy.rivers);
+      if (drowned.length) return fail("a river's head under a lake", null, true, drowned);
+    }
     // the Rivers setting's count, when the player set one: land that holds fewer is drawn again
     // (not on the last attempt, whose map is kept when none passes)
     if (g.hydro.exactInflows && ease < 3 && hy.rivers.filter((r) => "edge" in r.params.entry).length < g.hydro.inflows && attempt < (opts.maxAttempts ?? MAX_ATTEMPTS) - 1) return fail("rivers", null, false);
     // D171: every source starts a river; a hydrology that puts one inside a flow is planned again
-    if (springsInFlow(hy, W)) return fail("source in a flow", null, true);
+    const inFlow = springsInFlow(hy, W);
+    if (inFlow.length) return fail("source in a flow", null, true, inFlow);
   }
   // (what the land stage planned, kept for the attempts on this land, D333 (2))
   const planned = from ? null : structuredClone({ hy, lakes, weir, plug });
@@ -2275,7 +2341,7 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
             g.hydro.floor *= 0.75;
             if (hy.deepWound) g.hydro.tributariesKept = true;
           }
-          return fail(!keeps ? "promise (planned)" : "water story (planned)", null, shown.theme === "canyon");
+          return fail(!keeps ? "promise (planned)" : "water story (planned)", null, shown.theme === "canyon", main ? [main.id] : []);
         }
       }
       // (with a margin: the settled water's banks run a little straighter than the planned water's, and
@@ -2336,7 +2402,9 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
         const keeps = shown.theme === "any" || PROMISES[shown.theme].holds(po.signature, W, H);
         if (!lastAttempt && opts.screen !== false && screened.count < landScreen(W, H) && (!keeps || !po.story.readable)) {
           screened.count++;
-          return fail(!keeps ? "promise (planned)" : "water story (planned)", null, false);
+          // (Highlands' promise is its land's: high ground, plateaus and cliffs, read on no river)
+          const main = hy.rivers.find((r) => r.role === "river/main");
+          return fail(!keeps ? "promise (planned)" : "water story (planned)", null, false, main && (keeps || shown.theme !== "highlands") ? [main.id] : []);
         }
         // (D429, D432: an Islands map has an island to expand to, large enough to build on and
         // reachable from the shore across water as the game allows; a land without one is drawn again
@@ -2589,6 +2657,7 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
       // is shown, D348)
       let keepOffH = badAsk.keepOff ?? null;
       let hollowTries = 0;
+      const badReachers = new Set<string>();
       // (the pre-fill of the land as it will be shown, for the dam-wall check below)
       let shownFill: Float64Array | null = null;
       for (let round = 0; round < HOLLOW_TRIES + 3; round++) {
@@ -2602,7 +2671,7 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
         shownFill = null;
         const leave = hy.rivers.filter((r) => reached.has(r.id) && r.role !== "river/main" && ("spring" in r.params.entry || ("edge" in r.params.entry && !g.hydro.exactInflows)));
         if (reached.size && (hy.rivers.some((r) => reached.has(r.id) && !leave.includes(r)) || leave.length >= hy.rivers.length)) {
-          if (!lastAttempt) return fail("source in a flow", null, true);
+          if (!lastAttempt) return fail("source in a flow", null, true, [...reached, ...[...sourcesInFlowReachers({ ...bw, waterModel: model, water: fill } as BuildResult).values()].flatMap((o) => [...o])]);
           break;
         }
         if (leave.length) {
@@ -2610,6 +2679,9 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
           droppedPre.push(...leave.map((r) => r.id));
         }
         if (bad.features.some((f) => reached.has(f.id))) {
+          // (the courses whose water came down to the hollow: what a refusal for no place names)
+          const by = sourcesInFlowReachers({ ...bw, waterModel: model, water: fill } as BuildResult);
+          for (const f of bad.features) for (const o of by.get(f.id) ?? []) badReachers.add(o);
           for (const f of bad.features) contains.delete(f.id);
           h.set(bare);
           // (only the pits reached are kept off: the others were sites, which the plan finds again, D(new-ditch) (5);
@@ -2631,7 +2703,7 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
           }
         } else if (!leave.length) break;
       }
-      if (guess && badAsk.count > 0 && !bad.features.length && !lastAttempt) return fail("no place for badwater", null, true);
+      if (guess && badAsk.count > 0 && !bad.features.length && !lastAttempt) return fail("no place for badwater", null, true, [...badReachers]);
       // (the dry washes and an old bed, `land/washes.ts` (D517): cut as the land is shaped,
       // before it is shown, off every place a start may take and its ground, the hollows, the mine sites' squares and
       // ways, the weir's pool and the natural ramps; on the water as the settle starts from it, which they never reach)

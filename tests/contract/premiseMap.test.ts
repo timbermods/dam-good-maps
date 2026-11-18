@@ -81,7 +81,9 @@ import { decodeSpecFragment, encodeSpecFragment, makeSpec, type MapSpec } from "
 // `63980a48…` before it, and dev with its version set to 0.10.44 gives this branch's bytes, D148
 // and generator 0.10.46's version alone (D(new-ditch), D(sea-steps)): with the version set back to 0.10.44 the merged code gives
 // `aa6cb441…` byte for byte, the gullies and sea steps not reaching this premise's land, D148
-const SHA = "c55bf4df08145de65c827743bd0e3a0364d2be0dd7a957d37a26c9814ab20e30";
+// and generator 0.10.47's version alone (the merge of #1162's ruled water, D(ruled-water), with #1195): with the version set back
+// to 0.10.46 the merge gives `c55bf4df…` byte for byte, D148
+const SHA = "62e2f45de323e980d6e720ce5d836506eba992a8897b1fb1f77f5c864bff5012";
 
 // (a Hard map whose start lake parts as it falls: the single analytic reading stood 0.32 over the run there, PR #1040;
 // seed 5 for 7 since D518 with dev's ways out by a ramp's line (#1061), D148: seed 7's Hard lake stair holds no plan now
