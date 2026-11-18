@@ -656,15 +656,16 @@ place of its bottom rule.
 - **Saved names** (D443, amended 2026-11-18): every file is named by the map's name as the header shows it, kept as
   written ("Old Loop Lakelands.timber", "Old Loop Lakelands.damgoodmaps.json"): a generated map's own name, a renamed
   map's, a real place's, an opened file's. Only what a file name can't hold on Windows, macOS or Linux is replaced
-  (`\ / : * ? " < > |` and control characters become a space; dots and spaces at either end go; a Windows device name
-  such as CON gets " map"; past 150 characters it is cut), and a name that leaves nothing is refused by Rename and Save
-  as alike in one line (`core/format/fileName.ts` `fileStemOf`). Save to Timberborn never overwrites: a taken name gets
-  `-2`, `-3`. (Batch tools and probe runs still write `dgm-<theme>-<seed>.timber`, `core/gen/pack.ts` `fileName`: many
-  seeds in one folder.) **Save as…** (File, and the phone's menu; Ctrl+Shift+S) opens a small card under the header's right
+  (`\ / : * ? " < > |` and control characters become a space; the marks that reverse a name's display are removed; dots
+  and spaces at either end go; a Windows device name such as CON gets " map"; past 150 characters it is cut), and a name
+  that leaves nothing is refused by Rename and Save as alike in one line (`core/format/fileName.ts` `fileStemOf`). Save
+  to Timberborn never overwrites: a taken name gets " (2)", then " (3)", as the OS counts copies (`numberedStem`; a long
+  name is cut to make room, never the number). (Batch tools and probe runs still write `dgm-<theme>-<seed>.timber`,
+  `core/gen/pack.ts` `fileName`: many seeds in one folder.) **Save as…** (File, and the phone's menu; Ctrl+Shift+S) opens a small card under the header's right
   group (on a phone under the bar, the screen's width, its field and **Save** 44px tall, where the keyboard never covers
   them): the map's name in a field, selected, and under it the file's name as it is typed ("Saves as Old Loop
   Lakelands.timber"); where the Maps folder is remembered and its permission stands, the folder is asked quietly whether
-  the name is taken, and the line says so before Enter ("A map called … is in Maps: saves as …-2.timber"). Enter or
+  the name is taken, and the line says so before Enter ("A map called … is in Maps: saves as … (2).timber"). Enter or
   **Save** renames the map through the core (D443: never an undo step; a guest can't rename the host's map) and saves as
   the header's button does, into the Maps folder or as the download (a phone's share sheet); Esc or a press outside
   leaves. The saved line says the file's name ("Saved Old Loop Lakelands.timber to Maps.").

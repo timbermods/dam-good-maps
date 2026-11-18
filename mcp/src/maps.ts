@@ -8,6 +8,7 @@ import { basename, join } from "node:path";
 import { NO_START, NO_START_REFUSAL, groupChecks, type CheckGroups, type CheckItem } from "../../src/core/doc/checkItems";
 import { bakeLandforms } from "../../src/core/doc/bake";
 import { decodeProject, documentFileName } from "../../src/core/doc/document";
+import { numberedStem } from "../../src/core/format/fileName";
 import type { EditOp } from "../../src/core/doc/ops";
 import { planPaintObjects } from "../../src/core/doc/paint";
 import { planEntity, planMoveEntity, withSpringPools } from "../../src/core/doc/placing";
@@ -829,12 +830,12 @@ function documentsFolder(): string {
   return documents;
 }
 
-/** "Old Loop Lakelands" then "Old Loop Lakelands-2", "-3" and on (the page's `freeName`, D191, D345 B10): the first
- *  stem whose map and project file are both new in the folder. */
+/** "Old Loop Lakelands" then "Old Loop Lakelands (2)", "(3)" and on (the page's `freeName`, D443 amended 2026-11-18): the
+ *  first stem whose map and project file are both new in the folder. */
 function freeStem(folder: string, stem: string): string {
   const taken = (st: string) => existsSync(join(folder, `${st}.timber`)) || existsSync(join(folder, `${st}.damgoodmaps.json`));
   if (!taken(stem)) return stem;
-  for (let n = 2; ; n++) if (!taken(`${stem}-${n}`)) return `${stem}-${n}`;
+  for (let n = 2; ; n++) if (!taken(numberedStem(stem, n))) return numberedStem(stem, n);
 }
 
 export interface Saved {

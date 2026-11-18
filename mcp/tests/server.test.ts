@@ -147,7 +147,7 @@ describe("the Dam Good Maps MCP server", () => {
     expect(Buffer.compare(project, Buffer.from(s.project(9)))).toBe(0);
     // a second save never overwrites: it takes the next free name
     await call("save", { map: "map-1", folder: dir });
-    expect(readdirSync(dir).sort()).toContain(`${stem}-2.timber`);
+    expect(readdirSync(dir).sort()).toContain(`${stem} (2).timber`);
     // open, then save: the same bytes
     const opened = await call("open", { path: join(dir, files[0]) });
     expect(opened.isError, textOf(opened)).toBeFalsy();
