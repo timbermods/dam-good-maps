@@ -1,6 +1,6 @@
 // Showcase mode (D488 (2)): the search makes the asked map's siblings in order, measures each one's arc,
 // keeps the best three that pass, and each pick's share spec regenerates its file byte for byte. The beats
-// asserted here were read off these three maps by hand (Lake Basin 96², seed 2, variations 0–2) and re-read off the new maps for generator 0.10.13 (D507, D148), 0.10.16 (ground with grade, D148), 0.10.17 (the start's floors, D515, D148) 0.10.20 (contour edges, D518, D148), 0.10.21 (the look round, D518, D148), 0.10.24 (round forms, D148), 0.10.27 (D(new-leaks), D148), 0.10.29 (#1186, D148), 0.10.36 (#1205, D148) and 0.10.41 (D(new-ditch), D(sea-steps), D148).
+// asserted here were read off these three maps by hand (Lake Basin 96², seed 2, variations 0–2) and re-read off the new maps for generator 0.10.13 (D507, D148), 0.10.16 (ground with grade, D148), 0.10.17 (the start's floors, D515, D148) 0.10.20 (contour edges, D518, D148), 0.10.21 (the look round, D518, D148), 0.10.24 (round forms, D148), 0.10.27 (D(new-leaks), D148), 0.10.29 (#1186, D148), 0.10.36 (#1205, D148) and 0.10.43 (D(new-ditch), D(sea-steps), D148).
 
 import { createHash } from "node:crypto";
 import { describe, expect, it } from "vitest";
@@ -74,7 +74,7 @@ describe("Showcase mode (D488 (2))", () => {
     // south-east, the second every beat, its vista of 10 levels of relief, farmland past the gorge, an 8-level mesa 50 tiles
     // south, a 4-tile dam 36 tiles south holding 6,900, a drowned village 40 tiles west and the first drought's choice, ranked
     // [2, 1, 0])
-    // (generator 0.10.41, D(new-ditch) and D(sea-steps), D148: the badwater gullies moved all three lands, and the beats below were
+    // (generator 0.10.43, D(new-ditch) and D(sea-steps), D148: the badwater gullies moved all three lands, and the beats below were
     // read off the new maps by hand with `arcOf` and `showcaseSearch` at tries: 3; before it the asked map had an 8-level mesa 39
     // tiles east, a 4-tile dam 60 tiles east holding 5,900 and a drowned village 31 tiles east, no vista; the first sibling the
     // vista of 9 levels of relief, a 9-tile dam 37 tiles west holding 8,400 and a drowned village 53 tiles west; the second a

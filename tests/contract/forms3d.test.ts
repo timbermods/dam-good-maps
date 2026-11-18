@@ -17,7 +17,7 @@ import { bottomRunTop, ColumnTerrain, isPlainMask, terrainColumns } from "../../
 const sha = (b: Uint8Array) => createHash("sha256").update(b).digest("hex");
 
 let made: ReturnType<typeof generate> | null = null;
-/** Canyon 96² seed 6 at Verticality 80, made once. (Seed 3 → 6 at generator 0.10.41, D(new-ditch) and D(sea-steps), D148: the gullies move
+/** Canyon 96² seed 6 at Verticality 80, made once. (Seed 3 → 6 at generator 0.10.43, D(new-ditch) and D(sea-steps), D148: the gullies move
  *  the land and seed 3 keeps its spring caves but no arch; of seeds 1–16 seeds 6, 9, 13 and 16 keep both and pass the whole test, seed 6 the
  *  first.) (Seed 2 → 3 at generator 0.10.36: spring caves and the arch gone from 2's land (#1205); of seeds 1–16 seeds 3, 4, 9, 11 and 12 keep both, seed 3 the first.) (Seed 2 since generator 0.10.27, D(new-leaks): a course's water leaves only
  *  by its own way, so the land moved, D148: seed 9 keeps its spring caves but no arch; of seeds 1–16 seeds 2, 8 and 11 keep spring

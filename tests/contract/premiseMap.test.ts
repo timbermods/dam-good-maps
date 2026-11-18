@@ -70,9 +70,10 @@ import { decodeSpecFragment, encodeSpecFragment, makeSpec, type MapSpec } from "
 // uplands, every property above unchanged (the cap's stands (#1213) move this map no further: the branch gives `1eed1d4c…`
 // with the cap merged in and without it), D148;
 // and generator 0.10.40's version alone on dev (#1225, small maps at their own scale): dev's `5e8e12c9…`, D148;
-// and generator 0.10.41's version alone (D(new-ditch), D(sea-steps)): with the version set back to 0.10.39 the branch gives
-// `1eed1d4c…` byte for byte, the gullies and sea steps not reaching this premise's land, D148
-const SHA = "19432b1a19b696960b08f8209d9ad3c8ffdea0f203202f56d3243f823216daa3";
+// and generator 0.10.43's version alone (D(new-ditch), D(sea-steps)): with the version set back to 0.10.39 the branch gives
+// `1eed1d4c…` byte for byte, the gullies and sea steps not reaching this premise's land (`19432b1a…` at 0.10.41; 0.10.43 as #1227
+// takes 0.10.42), D148
+const SHA = "63980a48abbc1155f80d8d213d6d0ea7bbdfb6af650e1f77db7de88c57877da0";
 
 // (a Hard map whose start lake parts as it falls: the single analytic reading stood 0.32 over the run there, PR #1040;
 // seed 5 for 7 since D518 with dev's ways out by a ramp's line (#1061), D148: seed 7's Hard lake stair holds no plan now
