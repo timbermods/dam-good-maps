@@ -1,7 +1,7 @@
 // Badwater (PLAN §9.5): the generator's badwater hollows (land/hazards.ts), built from their stored
 // plan. The source sits in a 7×7 floor with a rim two levels above it, and its water leaves through
 // one outlet 1–3 tiles wide whose sill is one level above the floor, then by a channel to a river
-// or a map edge. (The older `marsh` mode, a pit beside a River Valley's river, and the editor's
+// or a map edge, its bed widened beside its route where the plan says (`outletSide`, D(new-ditch)). (The older `marsh` mode, a pit beside a River Valley's river, and the editor's
 // basin planner are gone: no map this version makes holds them.)
 
 import { carveChannel, channelBounds, channelTiles, checkChannel, type ChannelPlan } from "../route";
@@ -22,6 +22,8 @@ export interface BasinPlan {
   outletLevels: number[];
   outletWidth: number;
   outletTo: string;
+  /** The tiles beside the outlet's route its bed takes too, as x, y pairs (its widenings, D(new-ditch)). */
+  outletSide?: number[];
 }
 
 const RIM = 2;
@@ -43,7 +45,7 @@ function basinTiles(p: Pick<BasinPlan, "x" | "y">, W: number, H: number): { floo
 }
 
 function outletOf(p: BasinPlan): ChannelPlan {
-  return { tiles: p.outlet, levels: p.outletLevels, width: p.outletWidth, to: p.outletTo };
+  return { tiles: p.outlet, levels: p.outletLevels, width: p.outletWidth, to: p.outletTo, ...(p.outletSide ? { side: p.outletSide } : {}) };
 }
 
 // ------------------------------------------------------------------------------------- the builder
@@ -81,7 +83,9 @@ export const badwaterBasin: SetPieceBuilder = {
       if (h[i] < p.floor + RIM) h[i] = p.floor + RIM;
       t.protect(i);
     }
-    carveChannel(outletOf(p), t, feature, (i) => own.has(i));
+    // (a gully that joins another's bed raises no bank over the ground another piece carved: the bed it joins,
+    // D(new-ditch) (2))
+    carveChannel(outletOf(p), t, feature, (i) => own.has(i), p.outletTo === "ditch" ? (i) => t.protectedMask[i] === 1 : undefined);
     for (const i of floor) {
       if (!t.inRegion(i) || !t.writable(i, feature)) continue;
       h[i] = p.floor;

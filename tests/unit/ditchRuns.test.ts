@@ -1,0 +1,84 @@
+// A badwater ditch's runs (src/core/land/hazards.ts `ditchRuns`; the look round of 2026-11-14, item
+// (c)): its longest run along a row or a column, and its longest even 45° stair, counted as item (b)
+// counts a level's stair edge (the tiles on one diagonal line). The planner never walks a ditch whose
+// run is over 4 or whose stair reaches 6, so neither a dug slot nor a ruled diagonal comes back
+// (D(new-ditch)); and a ditch's bed widened beside its route (`channelTiles`' `side`).
+
+import { describe, expect, it } from "vitest";
+import { abreastRun, ditchRuns } from "../../src/core/land/hazards";
+import { channelTiles, checkChannel } from "../../src/core/features/route";
+
+const W = 64;
+
+/** The tiles a walk from (x, y) takes, one move per letter: E, W, N, S. */
+function walk(x: number, y: number, moves: string): number[] {
+  const out = [y * W + x];
+  for (const m of moves) {
+    if (m === "E") x++;
+    else if (m === "W") x--;
+    else if (m === "N") y--;
+    else y++;
+    out.push(y * W + x);
+  }
+  return out;
+}
+
+describe("a ditch's runs", () => {
+  it("counts a run along a row or a column in tiles", () => {
+    expect(ditchRuns(walk(10, 10, "EEE"), W).axis).toBe(4);
+    expect(ditchRuns(walk(10, 10, "EEEE"), W).axis).toBe(5);
+    expect(ditchRuns(walk(10, 10, "ESSSSSE"), W).axis).toBe(6);
+    expect(ditchRuns(walk(10, 10, ""), W).axis).toBe(1);
+  });
+
+  it("counts an even 45° stair by the tiles on one diagonal line", () => {
+    // 9 moves alternating: 10 tiles, 5 on each diagonal
+    expect(ditchRuns(walk(10, 10, "ESESESESE"), W).stair).toBe(5);
+    // 10 moves: 11 tiles, 6 on one diagonal
+    expect(ditchRuns(walk(10, 10, "ESESESESES"), W).stair).toBe(6);
+    // the same stair broken by a second step one way is two short stairs
+    expect(ditchRuns(walk(10, 10, "ESESEESESES"), W).stair).toBe(4);
+  });
+
+  it("reads a winding ditch as neither", () => {
+    const r = ditchRuns(walk(10, 10, "EESEESSESSEENEENNEESEESS"), W);
+    expect(r.axis).toBeLessThanOrEqual(3);
+    expect(r.stair).toBeLessThan(6);
+  });
+});
+
+describe("a ditch's widened bed", () => {
+  // a route east along row 10 at levels 6, 6, 5, 5, widened north of its second tile and south of its third
+  const c = { tiles: [10, 10, 11, 10, 12, 10, 13, 10], levels: [6, 6, 5, 5], width: 1, to: "edge", side: [11, 9, 12, 11] };
+
+  it("takes the tiles beside the route at the lowest route level beside them, with banks round them", () => {
+    const { bed, bank } = channelTiles(c, W, W);
+    expect(bed.get(9 * W + 11)).toBe(6);
+    expect(bed.get(11 * W + 12)).toBe(5);
+    expect(bed.size).toBe(6);
+    expect(bank.get(8 * W + 11)).toBe(7);
+    expect(bank.get(12 * W + 12)).toBe(6);
+    expect(bank.has(9 * W + 11)).toBe(false);
+  });
+
+  it("refuses a widening that lies beside no route tile", () => {
+    expect(checkChannel(c, W, W)).toEqual([]);
+    expect(checkChannel({ ...c, side: [11, 8] }, W, W)).toEqual(["each of the outflow channel's widenings lies beside its route"]);
+  });
+});
+
+// planning's ruling of 2026-11-15, rule 2 (D(new-ditch)): no gully stays within 6 tiles of other water or another gully
+// for 20 tiles or more, but for its last 6 before it joins
+describe("a gully running abreast", () => {
+  const river = (i: number) => i % W === 30;
+  it("counts the stretch within 6 of the water, its last 6 tiles left out", () => {
+    // 30 tiles down column 24, 6 from the river at column 30
+    expect(abreastRun(walk(24, 2, "S".repeat(29)), W, W, river)).toBe(24);
+    // column 23 is 7 off: none
+    expect(abreastRun(walk(23, 2, "S".repeat(29)), W, W, river)).toBe(0);
+  });
+  it("leaves a gully that turns into the water at its end", () => {
+    // 20 tiles down column 10, then 20 east to the river: only the tiles from column 24 on are within 6, the last 6 left out
+    expect(abreastRun(walk(10, 2, "S".repeat(19) + "E".repeat(19)), W, W, river)).toBe(0);
+  });
+});

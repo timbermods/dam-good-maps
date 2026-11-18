@@ -67,8 +67,10 @@ describe("falls, lakes, the nearest tile and the crater's size", () => {
     const { handle, session: s } = generateMap({ theme: "riverValley", size: 96, seed: 2 });
     const W = s.size.x;
     const id = s.built.entities.find((e) => e.template === "StartingLocation")!.id;
+    // (the first tile of a river's channel holding water: the test needs a start refused "in a river", D148: at generator
+    // 0.10.30 the map's first tile with water over 0.5 is a lake's, refused "under water")
     let wet = 0;
-    while (!(s.built.water[wet] > 0.5)) wet++;
+    while (!(s.built.water[wet] > 0.5 && s.built.channel[wet])) wet++;
     const r = await callTool("apply", { map: handle, ops: [{ op: "moveEntity", params: { id, x: wet % W, y: Math.floor(wet / W) } }] });
     expect(r.isError).toBe(true);
     const m = /^the start can't stand there: in a river\. The nearest tile where it can go is X (\d+) · Y (\d+)$/.exec(textOf(r));

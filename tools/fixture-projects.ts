@@ -66,6 +66,10 @@ const LIST: Entry[] = [
   // another wearing nothing new on Highlands 96 seed 21 (forcePower.test.ts, erode.test.ts)
   ["riverValley", 128, 4, "v0.10.29"],
   ["highlands", 96, 21, "v0.10.29"],
+  // generator 0.10.29's land (written from dev at 66475440), where draftWaterQuiet's Lake Basin seed 1 lake still fills at the cap
+  ["lakeBasin", 96, 1, "v0.10.29"],
+  // forcePlaybackTransport: every force starts on ground no 3D form holds up
+  ["highlands", 48, 4242, "noforms"],
 ];
 
 // The browser specs' maps (tests/e2e, `openSaved`): each the map the page made of its fragment, saved with the generator

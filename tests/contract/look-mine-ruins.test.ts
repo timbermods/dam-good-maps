@@ -116,7 +116,11 @@ import * as ed from "../../src/worker/session";
 // and generator 0.10.44's version alone (D(gorge-followups): a tributary deep under a wall winds at a small map's scale, which a
 // 128² map never reaches, and a gorge arch found along its gorge's heading, which this map never grows):
 // `d452eb0a…` before it, and dev with its version set to 0.10.44 gives this branch's bytes, D148
-const LIVE_SHA = "d6709d0d135ce06eb58136b55295465ad2d4d985115420c36ea5331753cb7519";
+// and generator 0.10.46's gullies and sea steps (D(new-ditch), D(sea-steps)) on #1240's land: `d6709d0d…` before them, not the
+// version alone (with the version set back to 0.10.44 the merged code gives `920ac6af…`): its pits' gullies move its land, the
+// map made on its second attempt, every check passing; the gorge follow-ups do not reach it, so this is the bytes the branch
+// gave before #1240 merged in, D148
+const LIVE_SHA = "0a7daa745fd9555f0491d54518bc764d1f654e3bb608f3f34cb2c65d1446664d";
 const spec = () => makeSpec({ seed: 4242, size: { x: 128, y: 128 }, theme: "riverValley", designedFor: "normal" });
 
 describe("mine sites and ruins, models of our own", () => {

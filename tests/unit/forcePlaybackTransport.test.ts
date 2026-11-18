@@ -1,5 +1,4 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { makeSpec } from "../../src/core/spec/mapspec";
 import { heightsAfter } from "../../src/core/doc/landPatch";
 import { DEFAULTS as CARVE_DEFAULTS } from "../../src/core/forces/carve/run";
 import { CRATER_DEFAULTS } from "../../src/core/forces/craterize";
@@ -9,8 +8,8 @@ import { GLACIATE_DEFAULTS } from "../../src/core/forces/glaciate/model";
 import { RIFT_DEFAULTS } from "../../src/core/forces/rift";
 import { DEPOSIT_DEFAULTS } from "../../src/core/forces/deposit";
 import { applyForceTerrain } from "../../src/editor/session/mirror";
-import { runGenerate } from "../../src/worker/api";
 import * as ed from "../../src/worker/session";
+import { fixtureInEditor } from "../fixtureEditor";
 
 afterEach(() => {
   ed.forceCancel();
@@ -103,10 +102,13 @@ describe("a force's packed rows (#312) show every frame the whole snapshots do, 
       cut: null,
     },
   ];
+  // (every force here starts only on ground no 3D form holds up: a force leaves a cave's or an overhang's ground as it is,
+  // D488. Highlands 48² seed 4242 made without 3D forms, saved, D148, so none stands in their way. Generated live with its
+  // forms, seed 4242's land at generator 0.10.28 grew an overhang at (30, 10), the Carve's and the glacier's origin, and
+  // neither started)
   for (const request of requests)
     it(request.verb, async () => {
-      await runGenerate(makeSpec({ seed: 4242, theme: "highlands", size: { x: 48, y: 48 } }));
-      ed.refine();
+      fixtureInEditor("highlands", 48, 4242, "noforms");
       const bytes = ed.project().bytes;
       let tick = 0,
         uuid = 0;
