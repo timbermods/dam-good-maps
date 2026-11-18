@@ -1,6 +1,6 @@
 {
  "format": 1,
- "count": 81,
+ "count": 79,
  "families": [
   {
    "id": "fan",
@@ -358,22 +358,6 @@
    "bytes": 143368,
    "sha256": "2f95f3b52281d63ecc45f48b6193bc795146bd0bfbbd7d58449e60db8d10b0fd",
    "faults": []
-  },
-  {
-   "id": "lofoten",
-   "name": "Lofoten",
-   "family": "archipelago",
-   "familyName": "Archipelago",
-   "plays": "Islands split the land into many routes; plan how you cross.",
-   "size": 128,
-   "metres": 60,
-   "data": "data/lofoten.json.gz",
-   "image": "cards/lofoten.jpg",
-   "bytes": 257996,
-   "sha256": "a6c60b1d6c025d982793e6e33a1dac6ccb9ff766e4229d414a80b9f657dbfce0",
-   "faults": [
-    "water.source_in_flow"
-   ]
   },
   {
    "id": "drumheller",
@@ -766,22 +750,6 @@
    "bytes": 250493,
    "sha256": "962d171214427be4e612a1bc9f49aad2ca8b26a69b21b308031c10963abefa5f",
    "faults": []
-  },
-  {
-   "id": "taklimakan-kunlun-fan",
-   "name": "Taklimakan Kunlun fan",
-   "family": "fan",
-   "familyName": "Alluvial fan",
-   "plays": "Dry land fans out from a valley mouth; irrigation decides where you grow.",
-   "size": 256,
-   "metres": 60,
-   "data": "data/taklimakan-kunlun-fan.json.gz",
-   "image": "cards/taklimakan-kunlun-fan.jpg",
-   "bytes": 584368,
-   "sha256": "c9c7075e3a366bd7909392d2366b64612ddf35a796317c59b15699c59824d7cd",
-   "faults": [
-    "water.source_in_flow"
-   ]
   },
   {
    "id": "milford-sound",
