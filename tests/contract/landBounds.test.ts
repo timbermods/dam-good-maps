@@ -84,8 +84,10 @@ describe("the shown land's bounds (#236)", () => {
     // for its own reason;
     // seed 1 → 3 at 0.10.36: seeds 1 and 2 fail only one attempt now, the others gone from their land (#1205); seed 3 fails more than one;
     // seed 3 → 5 at 0.10.40, small maps at their own scale (#1193, D(small-own-scale), D148): seeds 1 and 3 make their map at the first
-    // attempt now, seed 5 at its ninth)
-    const { progress, failures } = traced(spec("riverValley", 64, 5));
+    // attempt now, seed 5 at its ninth;
+    // seed 5 → 2 at 0.10.44, a tributary deep under a wall winding at a small map's scale (D(gorge-followups), D148): seed 5 makes
+    // its map at the first attempt now, seed 2, the first of seeds 1–10 that fails more than one, at its third)
+    const { progress, failures } = traced(spec("riverValley", 64, 2));
     expect(failures.length).toBeGreaterThan(1);
     expect(progress[0].failed).toBeUndefined();
     expect(progress[0].tried).toBe(0);

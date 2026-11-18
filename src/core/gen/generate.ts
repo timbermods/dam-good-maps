@@ -2238,8 +2238,14 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
         const keeps = PROMISES[shown.theme].holds(po.signature, W, H) && gorged;
         if (!lastAttempt && opts.screen !== false && screened.count < landScreen(W, H) && (!keeps || !po.story.readable)) {
           screened.count++;
-          // A rejected Canyon course can be incised on the same shaped field.
-          if (!keeps && shown.theme === "canyon") { g.hydro.incise += 1; g.hydro.floor *= 0.75; }
+          // A rejected Canyon course can be incised on the same shaped field, its tributaries back on their own wander if one
+          // wound as a gorge for running deep under a wall (`land/hydro.ts` `deepStretch`, D(gorge-followups)): Canyon 48²
+          // seed 18's canyon was that tributary, and wound it missed the promise on every plan of its first land
+          if (!keeps && shown.theme === "canyon") {
+            g.hydro.incise += 1;
+            g.hydro.floor *= 0.75;
+            if (hy.deepWound) g.hydro.tributariesKept = true;
+          }
           return fail(!keeps ? "promise (planned)" : "water story (planned)", null, shown.theme === "canyon");
         }
       }
