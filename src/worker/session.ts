@@ -4127,6 +4127,12 @@ function waterBeforeView(s: MapSession, b: NonNullable<NonNullable<typeof force>
   return waterOf(s, { depth, contamination, stack: st, out: null });
 }
 
+/** A water view of its own: the page gets each event's buffers and each answer's transferred, so one view sent twice
+ *  (as an event, then in an answer) leaves the answer unsendable, and the page keeps the force's land (#1222). */
+function waterCopy(v: WaterView): WaterView {
+  return { count: v.count, tile: v.tile.slice(), floor: v.floor.slice(), depth: v.depth.slice(), contamination: v.contamination.slice(), ...(v.outflow ? { outflow: v.outflow.slice() } : {}) };
+}
+
 /** The map's water as force `f` found it, exactly (a copy taken then), the force dropped: still flowing after an edit,
  *  it flows on from there, not from the settle before the edit. */
 function waterAsFound(s: MapSession, f: NonNullable<typeof force>): WaterView {
@@ -4152,7 +4158,7 @@ export function forceCancel(gesture?: number): ForceTakenBack {
     if (!s || f.session !== s) return { taken: null };
     const water = waterAsFound(s, f);
     // (the force's water frames still on their way give way to the map's water)
-    if (flowing) listener?.({ kind: "water", version, water, done: 1, ticks: 0, draft: true });
+    if (flowing) listener?.({ kind: "water", version, water: waterCopy(water), done: 1, ticks: 0, draft: true });
     const view = { ...restoreView(s), water };
     kickWater();
     return { ...view, taken: "work" };
@@ -4201,7 +4207,7 @@ export function forceStop(gesture?: number): SessionUpdate & { kept: boolean; so
     // (nothing kept: the map's water flows on as the force found it, as Esc leaves it)
     const water = waterAsFound(s, f);
     // (the force's water frames still on their way give way to the map's water)
-    if (flowed || flowedStack) listener?.({ kind: "water", version, water, done: 1, ticks: 0, draft: true });
+    if (flowed || flowedStack) listener?.({ kind: "water", version, water: waterCopy(water), done: 1, ticks: 0, draft: true });
     const view = { ...restoreView(s), water };
     kickWater();
     return { ok: false, errors, info: sessionInfo(s), view, ms: Math.round(performance.now() - t0), kept: false };
