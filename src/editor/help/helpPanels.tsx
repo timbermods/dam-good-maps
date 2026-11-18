@@ -116,12 +116,12 @@ function reader(): Reader {
 function TouchLines(p: { phone: boolean; tablet: boolean }) {
   return (
     <>
-      <li>Tap the map to read a tile. With a tool in hand, tap or drag on the map to use it.</li>
+      <li>Tap the map to read a tile. With a brush in hand, drag on the map to paint.</li>
       <li>Drag one finger to move the view while nothing is in hand.</li>
       <li>Pinch to zoom. Turn two fingers to turn the view, and move them up or down together to tilt it.</li>
       <li>Double tap to zoom in where you tap. On an object, the first tap also selects it.</li>
       <li>Tap with two fingers to undo, with three to redo.</li>
-      <li>With a force or Block in hand, drag to draw its line or sweep. It shows above your finger, and lifting applies it. A second finger cancels it.</li>
+      <li>With an object, a force or Block in hand, press the map and drag. It shows above your finger, and lifting places or applies it. A tap changes nothing. A second finger cancels it.</li>
       <li>With nothing in hand, hold a finger still for a moment, then drag to select land. A second finger cancels it.</li>
       <li>A second finger stops any stroke, and nothing is changed.</li>
       <li>
@@ -245,14 +245,14 @@ function TouchHelp(p: { onClose(): void; phone: boolean; tablet: boolean }) {
           </li>
           {p.phone ? (
             <li>
-              Shape it. The tools are in the row at the foot, the trees, sources and ruins under <strong>Objects</strong>. Pick one, then tap or drag on the map.
+              Shape it. The tools are in the row at the foot, the trees, sources and ruins under <strong>Objects</strong>. Pick one, then drag on the map. An object or a force shows above your finger, and lifting applies it.
             </li>
           ) : p.tablet ? (
             <li>
-              Shape it. The brushes and forces are in the bar at the bottom, the trees, sources and ruins under <strong>Objects</strong>. Pick one, then tap or drag on the map.
+              Shape it. The brushes and forces are in the bar at the bottom, the trees, sources and ruins under <strong>Objects</strong>. Pick one, then drag on the map. An object or a force shows above your finger, and lifting applies it.
             </li>
           ) : (
-            <li>Shape it. The brushes and forces are in the bar at the bottom, the trees, sources and ruins on the right. Pick one, then tap or drag on the map.</li>
+            <li>Shape it. The brushes and forces are in the bar at the bottom, the trees, sources and ruins on the right. Pick one, then drag on the map. An object or a force shows above your finger, and lifting applies it.</li>
           )}
           <li>The dot at the top is green when the map is ready to play. Amber means something to look at: tap it.</li>
         </ol>

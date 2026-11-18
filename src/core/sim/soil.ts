@@ -84,12 +84,16 @@ function topReach(r: MoistureReach, runs: TerrainColumns): MoistureReach {
   return out;
 }
 
-const stackSoils = new WeakMap<StackSettle, { barrier: string; soil: Soil3d }>();
+/** What the soil reads of a stacked settle's water: each column's depth, badwater share and saturation (`ticks` 0: none of its
+ *  own, worked out from the depths). A day's water sent to the soil worker carries only these. */
+export type StackSoilWater = Pick<StackSettle, "depth" | "contamination" | "sat" | "ticks">;
+
+const stackSoils = new WeakMap<StackSoilWater, { barrier: string; soil: Soil3d }>();
 
 /** The soil of a map with terrain above terrain, per run top (D120): from the water on its stacked
  *  columns (`stack`, a settle of `t` and `objects`, or water carried over to them). Worked out once
  *  per settle: the build takes each tile's top run for its plants, the export writes every run. */
-export function stackedSoil(t: VoxelMasks, cols: WaterColumns, stack: StackSettle, objects: readonly MapObject[]): Soil3d {
+export function stackedSoil(t: VoxelMasks, cols: WaterColumns, stack: StackSoilWater, objects: readonly MapObject[]): Soil3d {
   const cells = soilBarrierCells(t.W, t.H, objects);
   const barrier = cells ? [...cells].sort((a, b) => a - b).join() : "";
   const hit = stackSoils.get(stack);

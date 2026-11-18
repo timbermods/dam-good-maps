@@ -15,9 +15,16 @@
 // settled), its file opened as it is, the whole frame without the plan's lines (the water drawn is the settled water);
 // the captions give the start's numbers first, then the bands on the settled water, the three sources' strengths, the
 // water off its courses (0), the Red Fall's settled drop, the badtide's tiles past the low places (0) and the time.
+// With `--works` (§9 row 4), each map is the premise's whole map three times, one row of the sheet: as made, after the
+// turn and after the river in, each work built as an operation on the map's session (`plainProof.ts`, the two proofs)
+// and the session's own .timber file opened; the whole frame each, north up, no lines. The row's caption gives the seed,
+// the size, the attempt and the start's numbers; each frame's opens with the start's numbers, then the floor's bands
+// (green, dry, dead) as the core settles them, with what the proof reads there and, after the river in, what is left
+// to win (`leftToWin`). The sheet is a PNG.
 //
-//   npx tsx tools/capture-plain.ts [--water] [--seeds 1,2] [--sizes 128,192,256]
-//                                  [--out C:/dgm-showcase/poisoned-plain/land, or .../water with --water]
+//   npx tsx tools/capture-plain.ts [--water | --works] [--seeds 1,2] [--sizes 128,192,256] [--maps 2@128,1@192,1@256]
+//                                  [--out C:/dgm-showcase/poisoned-plain/land, .../water with --water,
+//                                   C:/dgm-showcase/premise/plain-works with --works]
 //                                  [--port 4491] [--dist .scratch/capture-plain-dist] [--quality 80]
 
 import { mkdirSync, writeFileSync } from "node:fs";
@@ -32,6 +39,7 @@ import { writeTimber } from "../src/core/format/timber";
 import { toTimberFile } from "../src/core/gen/pack";
 import { fallDrop, groundFoot, plainBands, plainLand, plainStart, wallHeights, type PlainLand } from "../src/core/premise/plainLand";
 import { plainMap } from "../src/core/premise/plainMap";
+import { plainProof } from "../src/core/premise/plainProof";
 import { longestStraight } from "../src/core/premise/raster/levee";
 import { PLAIN_IDS, plainOf, WALL } from "../src/core/premise/premises/poisonedPlain";
 import type { Point } from "../src/core/premise/types";
@@ -44,8 +52,13 @@ const arg = (name: string, f: string) => {
 };
 const SEEDS = arg("seeds", "1,2").split(",").map(Number);
 const SIZES = arg("sizes", "128,192,256").split(",").map(Number);
+/** The maps, seed at size (`--maps`), or every seed at every size. */
+const MAPS: [seed: number, size: number][] = process.argv.includes("--maps")
+  ? arg("maps", "").split(",").map((t) => t.split("@").map(Number) as [number, number])
+  : SIZES.flatMap((size) => SEEDS.map((seed) => [seed, size] as [number, number]));
 const WATER = process.argv.includes("--water");
-const OUT = arg("out", WATER ? "C:/dgm-showcase/poisoned-plain/water" : "C:/dgm-showcase/poisoned-plain/land");
+const WORKS = process.argv.includes("--works");
+const OUT = arg("out", WORKS ? "C:/dgm-showcase/premise/plain-works" : WATER ? "C:/dgm-showcase/poisoned-plain/water" : "C:/dgm-showcase/poisoned-plain/land");
 const PORT = Number(arg("port", "4491"));
 const DIST = arg("dist", ".scratch/capture-plain-dist");
 const CACHE = `${DIST}-vite-cache`;
@@ -80,8 +93,9 @@ function courses(land: PlainLand): { pts: Point[]; colour: string }[] {
   return out;
 }
 
-/** A map to capture: its land, its file on disk and its caption (lines). */
-type Made = { land: PlainLand; timber: string; caption: string; lines: boolean };
+/** A map to capture: its land, its file on disk and its caption (lines); the frames it takes (both by default) and the
+ *  tag its frames' files carry. */
+type Made = { land: PlainLand; timber: string; caption: string; lines: boolean; frames?: ("whole" | "vista")[]; tag?: string };
 
 /** The premise's whole map, settled (`--water`): its file and the caption the sheet asks for, the start first. */
 function waterMap(seed: number, size: number): Made | null {
@@ -110,6 +124,44 @@ function waterMap(seed: number, size: number): Made | null {
   mkdirSync(resolve(".scratch/capture-plain"), { recursive: true });
   writeFileSync(timber, writeTimber(m.map.file));
   return { land: m.land, timber, caption, lines: false };
+}
+
+/** The premise's whole map as made, after the turn and after the river in (`--works`): three files, one a state, each
+ *  frame's caption its bands, and the row's caption (the seed, the size, the start's numbers first). */
+function worksMaps(seed: number, size: number): { row: string; made: Made[] } | null {
+  const spec = makeSpec({ seed, size: { x: size, y: size }, theme: "any", premise: "any" });
+  const m = plainMap(spec);
+  if ("reason" in m) {
+    console.log(`seed ${seed} at ${size}²: no map: ${m.reason}`);
+    return null;
+  }
+  const files: Uint8Array[] = [];
+  const pf = plainProof(spec, m, (bytes) => files.push(bytes));
+  if (!pf || files.length !== 2) {
+    console.log(`seed ${seed} at ${size}²: no works to build`);
+    return null;
+  }
+  const st = m.start;
+  const n = (k: keyof typeof st) => `${st[k].value}${st[k].ok ? "" : " (short of " + st[k].limit + ")"}`;
+  const pct = (v: number) => `${Math.round(100 * v)} %`;
+  const bands = (b: { green: number; dry: number; dead: number }) => `green ${pct(b.green)}, dry ${pct(b.dry)}, dead ${pct(b.dead)} of the floor`;
+  const start = `start: level land ${n("start.level_land")}, reach ${n("start.reach")}, wood ${n("start.wood")} (fast ${n("start.wood_fast")}), water within ${n("start.water")}, food ${n("start.food")}, farmland ${n("start.farmland")}`;
+  const row = `seed ${seed} at ${size}²${m.held ? "" : " (did not hold)"}, attempt ${m.attempt + 1}. ${start}`;
+  const caps = [
+    `as made: ${bands(pf.before.bands)}; ${pf.before.red} tiles of red water on the floor; the small rungs listed: ${m.ladder.works.filter((w) => w.rung === "small" || w.rung === "first").map((w) => w.id).join(", ") || "none"}`,
+    `after the turn (${pf.turn.tiles}-tile dam): ${bands(pf.turn.bands)}; red on the floor ${pf.turn.red}, over the lip ${pf.turn.lip}, at the Dry Fork's edge ${pf.turn.fork}, leaks ${pf.turn.leaks}${pf.turn.ok ? "" : " (not proved)"}`,
+    `after the river in (${pf.riverIn.tiles}-tile weir): ${bands(pf.riverIn.bands)}; on the start's ground ${pf.riverIn.start}; left to win: dry ${pct(pf.riverIn.left.dry)} of the floor, a ditch from clean water reaches ${pct(pf.riverIn.left.ditch)} of it, a pump ${pct(pf.riverIn.left.pump)}${pf.riverIn.ok ? "" : " (not proved)"}`,
+  ];
+  console.log(`${row}\n  ${caps.join("\n  ")}`);
+  mkdirSync(resolve(".scratch/capture-plain"), { recursive: true });
+  const made: Made[] = [writeTimber(m.map.file), ...files].map((bytes, k) => {
+    const tag = ["made", "turn", "river-in"][k];
+    const timber = resolve(`.scratch/capture-plain/works-${size}-${seed}-${tag}.timber`);
+    writeFileSync(timber, bytes);
+    // (each frame's caption opens with the start's numbers, as planning asks every map report to)
+    return { land: m.land, timber, caption: `${start}. ${caps[k]}`, lines: false, frames: ["whole"], tag };
+  });
+  return { row, made };
 }
 
 /** The land alone, dry with its start (stage 2). */
@@ -184,7 +236,7 @@ async function shoot(browser: Browser, made: Made): Promise<{ shots: Shot[]; cap
   await page.waitForFunction(() => (window.dgm3d!.renderer as unknown as { highSettled: boolean }).highSettled, null, { timeout: 300_000 });
   const [mx, my] = startMiddleTile({ x: st.x, y: st.y, orientation: st.orientation });
   const shots: Shot[] = [];
-  for (const frame of ["whole", "vista"] as const) {
+  for (const frame of made.frames ?? (["whole", "vista"] as const)) {
     let view: unknown;
     if (frame === "whole") view = { mode: "orbit", yaw: 0, pitch: (WHOLE.pitch * Math.PI) / 180, distance: WHOLE.distance * size, target: [size / 2, 8, -size * (0.5 - WHOLE.south)] };
     else {
@@ -247,7 +299,7 @@ async function shoot(browser: Browser, made: Made): Promise<{ shots: Shot[]; cap
       jpg = await tool.screenshot({ type: "jpeg", quality: 92, clip: { x: 0, y: 0, width: Math.round(clip.width), height: Math.round(clip.height) } });
       await tool.close();
     }
-    const file = `plain-${size}-${seed}-${frame}.jpg`;
+    const file = `plain-${size}-${seed}-${made.tag ? made.tag + "-" : ""}${frame}.jpg`;
     writeFileSync(join(OUT, file), jpg);
     shots.push({ label: `seed ${seed} at ${size}², ${frame === "whole" ? "the whole map, north up" : "the first frame from the start's terrace, facing the Red Fall"}`, file, jpg });
   }
@@ -263,12 +315,30 @@ async function main(): Promise<void> {
   const server = await preview({ configFile: "vite.config.ts", base: "/", cacheDir: CACHE, build: { outDir: DIST }, preview: { port: PORT, strictPort: true }, logLevel: "warn" });
   const browser = await chromium.launch({ channel: "chrome", headless: false });
   try {
-    const maps: { shots: Shot[]; caption: string }[] = [];
-    for (const size of SIZES)
-      for (const seed of SEEDS) {
-        const made = WATER ? waterMap(seed, size) : landMap(seed, size);
-        if (made) maps.push(await shoot(browser, made));
+    if (WORKS) {
+      // the sheet: a map a row, its three frames side by side, each with its bands under it, the row's numbers first
+      const rows: string[] = [];
+      const pw = 560;
+      for (const [seed, size] of MAPS) {
+        const w = worksMaps(seed, size);
+        if (!w) continue;
+        const shot = [];
+        for (const made of w.made) shot.push(await shoot(browser, made));
+        rows.push(`<div style="padding:6px 6px 2px;line-height:1.35">${w.row}</div><div style="display:flex;gap:2px">${shot.map((x) => `<div style="width:${pw}px"><img src="data:image/jpeg;base64,${x.shots[0].jpg.toString("base64")}" style="display:block;width:${pw}px"><div style="padding:3px 6px 8px;line-height:1.3">${x.caption}</div></div>`).join("")}</div>`);
       }
+      const page = await browser.newPage({ viewport: { width: 3 * pw + 4, height: 400 } });
+      await page.setContent(`<body style="margin:0;background:#1d1d1d;font:13px sans-serif;color:#eee">${rows.join("")}</body>`);
+      await page.evaluate(() => Promise.all([...document.images].map((i) => i.decode())));
+      writeFileSync(join(OUT, "sheet.png"), await page.screenshot({ type: "png", fullPage: true }));
+      await page.close();
+      console.log(join(OUT, "sheet.png"));
+      return;
+    }
+    const maps: { shots: Shot[]; caption: string }[] = [];
+    for (const [seed, size] of MAPS) {
+      const made = WATER ? waterMap(seed, size) : landMap(seed, size);
+      if (made) maps.push(await shoot(browser, made));
+    }
     // the sheet: two maps a row, each its two frames side by side with its numbers under them
     const pw = 480;
     const cell = (m: { shots: Shot[]; caption: string }) =>

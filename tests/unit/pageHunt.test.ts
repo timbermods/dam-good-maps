@@ -55,6 +55,8 @@ test("Cancel while the recovery snapshot is pending restores a live editor worke
     enterEditor() {}, words: (e: unknown) => String(e), seedText: "4242", proxy: (v: unknown) => v,
     keeping: { current: true }, discardAllowed: { current: false }, saveState: "", setSaveState() {},
     switching: { current: false }, setReplacingMap() {}, setMakingWords() {},
+    // (the generate's running clock and its bounds, makingClock.ts)
+    setStoppedEasier() {}, beginClock() {}, endClock() {}, makingRun: { current: null }, progressNow: { current: null },
     together: { isHost: false, isGuest: false, announce() {}, cancelAnnounce() {}, newMap: async () => {} }, sharedGen: { current: null }, committing: { current: false },
   });
   // (run holds the open map back through holdBack: the project Cancel opens again)
@@ -95,6 +97,8 @@ test("Cancel while the map cannot be taken brings this map back, never claiming 
     words: (e: unknown) => String(e && typeof e === "object" && "message" in e ? (e as { message: string }).message : e), seedText: "", proxy: (v: unknown) => v,
     keeping: { current: true }, discardAllowed: { current: false }, saveState: "", setSaveState() {},
     switching: { current: false }, setReplacingMap() {}, setMakingWords() {},
+    // (the generate's running clock and its bounds, makingClock.ts)
+    setStoppedEasier() {}, beginClock() {}, endClock() {}, makingRun: { current: null }, progressNow: { current: null },
     together: { isHost: false, isGuest: false, announce() {}, cancelAnnounce() {}, newMap: async () => {} }, sharedGen: { current: null }, committing: { current: false },
   });
   runInContext(compile(functions("src/ui/App.tsx", ["run", "holdBack", "cancelMaking"])), env);

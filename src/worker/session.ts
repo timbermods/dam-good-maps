@@ -46,7 +46,7 @@ import type { ImportReport } from "../core/format/normalize";
 import type { PremiseCard } from "../core/premise/card";
 import type { Feature } from "../core/features/schema";
 import { bakeLandforms } from "../core/doc/bake";
-import { HazardRun, hazardDays, hazardSoil, type Hazard, type HazardWater } from "../core/sim/weather";
+import { HazardRun, hazardDays, type Hazard, type HazardWater } from "../core/sim/weather";
 import { mapDroughtLine } from "../core/doc/droughtLine";
 import { emptyDroughtLine, type DroughtLine } from "../core/sim/droughtLine";
 import { BadDays, DryDays, type DayWater, type FirstDays } from "../core/sim/firstDays";
@@ -60,7 +60,7 @@ import { PREVIEW_JOB_DAYS, PreviewJob, TICKS_PER_DAY, type WarmState } from "../
 import type { TerrainState } from "../core/features/raster/strokePreview";
 import { diffLand, WET, type Chain, type Land, type LandPatch } from "../core/doc/landPatch";
 import { EMITTERS, objectTile } from "../core/sim/model";
-import { cavesOf, stackGraph, stackObjectRows, surfaceWater, worldWaterModel, type StackSettle } from "../core/sim/stackWater";
+import { stackGraph, stackObjectRows, surfaceWater, worldWaterModel, type StackSettle } from "../core/sim/stackWater";
 import { keptOnStack } from "../core/sim/stackFed";
 import { carryStack, sameKeptWater, StackLive, type LiveStack, type StackFrame } from "../core/sim/stackLive";
 import { reshapeTop, TERRAIN_LAYERS } from "../core/terrain/runs";
@@ -903,7 +903,9 @@ export type EditorEvent =
    *  map's own water, exactly). */
   | { kind: "weather"; version: number; phase: "computing" | "day"; hazard: Hazard; day: number; days: number; water?: WaterView; soil?: SoilView; withered?: Int32Array } & DryNews & BadNews & StartNews
   /** The plants a held day has surely killed, when they could not be worked out with the day (the earlier days' soil is
-   *  worked out a day at a time, the worker breathing between): the tiles, for that hazard's held day. */
+   *  worked out a day at a time, the worker breathing between), for that hazard's held day. `tiles` (and a day's
+   *  `withered`) holds each dead plant's cell, its level × W × H + its tile (`witheredCells`): on a map with caves or
+   *  overhangs two plants can share a tile, one on the top and one in the cave below, and only the one that died is named. */
   | { kind: "withered"; version: number; hazard: Hazard; day: number; tiles: Int32Array }
   /** The day the start's water goes or turns bad (`StartNews`), found by the background's days while the page holds an
    *  earlier day: the line under the day box shows now, not with the next day stepped to. */
@@ -1632,8 +1634,9 @@ export function setSoilRunner(runner: SoilRunner | null): void {
 }
 
 /** The page is told the day it asked for: its water exactly as kept, and the ground's moisture and contamination
- *  worked out for it (off this worker; day 0: the map's own water and soil). Withered plants: sent with the day when every
- *  earlier day's soil is cached (stepping on a day, or back), else after it, in a `withered` event. */
+ *  worked out for it (off this worker, with every run top's on a map with caves or overhangs; day 0:
+ *  the map's own water and soil). Withered plants, on every map: sent with the day when every earlier day's soil is cached
+ *  (stepping on a day, or back), else after it, in a `withered` event. */
 async function sendWeatherDay(run: WeatherRun, day: number): Promise<void> {
   const s = run.session;
   const k = run.kept[day];
@@ -1646,31 +1649,12 @@ async function sendWeatherDay(run: WeatherRun, day: number): Promise<void> {
   if (!currentRun(run) || run.shown !== day) return;
   // the soil worker failed: the day as it is held, its water with the map's own soil and nothing withered or changed
   if (!soil) return void listener?.({ kind: "weather", version: run.version, phase: "day", hazard: run.hazard, day, days: run.days, water: waterOf(s, { depth: k.depth.slice(), contamination: k.contamination.slice(), out: k.out?.slice() ?? null, stack: k.stack, weather: true }), soil: soilOf(s), ...firstsNews(run) });
-  // (a map with caves or overhangs: its day soil, but no withering yet, `stackedMap`)
+  // (on a map with caves or overhangs too: its day soil has every run top's, and each plant reads its own ground)
   run.soils[0] ??= soilOf(s);
-  const caves = stackedMap(s);
-  const ready = !caves && cachedUpTo(run, day);
-  const withered = caves ? new Int32Array(0) : ready ? witheredTiles(run, day) : undefined;
+  const ready = cachedUpTo(run, day);
+  const withered = ready ? witheredCells(run, day) : undefined;
   listener?.({ kind: "weather", version: run.version, phase: "day", hazard: run.hazard, day, days: run.days, water: waterOf(s, { depth: k.depth.slice(), contamination: k.contamination.slice(), out: k.out?.slice() ?? null, stack: k.stack, weather: true }), soil, ...(withered ? { withered } : {}), ...firstsNews(run) });
-  if (!caves && !ready) void witherLater(run, day);
-}
-
-/** A map with caves or overhangs: its day soil is worked out on this worker, on every column's water (`caveDaySoil`),
- *  so the plants' withering, which reads every day before the one shown, isn't run there yet. */
-function stackedMap(s: MapSession): boolean {
-  return cavesOf(s.built.waterModel) || s.columns.size > 0;
-}
-
-/** A hazard day's soil on a map with caves or overhangs (core/sim/weather.ts `hazardSoil` on every column's water), with
- *  every run top's, as `withRuns` gives the map's own. */
-function caveDaySoil(s: MapSession, k: HazardWater): SoilView {
-  const g = hazardSoil(s.built.waterModel, s.built.heights, k, s.built.entities.map(toMapObject));
-  const soil = soilView(g.moisture, g.contamination);
-  if (g.runs && s.columns.size) {
-    const T = g.runs.runs.T;
-    soil.runs = runSoilView(s.columns, s.size.x * s.size.y, { slots: T, values: g.runs.moisture }, { slots: T, values: g.runs.contamination });
-  }
-  return soil;
+  if (!ready) void witherLater(run, day);
 }
 
 function cachedUpTo(run: WeatherRun, day: number): boolean {
@@ -1692,24 +1676,27 @@ async function witherLater(run: WeatherRun, day: number): Promise<void> {
   }
   if (!still()) return;
   if (pressed) return void (run.witherDue = day);
-  listener?.({ kind: "withered", version: run.version, hazard: run.hazard, day, tiles: witheredTiles(run, day) });
+  listener?.({ kind: "withered", version: run.version, hazard: run.hazard, day, tiles: witheredCells(run, day) });
 }
 
-/** The soil of a kept day, worked out once and off this worker (day 0: the map's own, cheap). */
+/** The soil of a kept day, worked out once and off this worker (day 0: the map's own, cheap): on a map with caves or overhangs
+ *  from every column's water, with every run top's (daySoil.ts), so a plant in a cave or under a roof withers by its own ground
+ *  (core/sim/withering.ts `plantGround`). */
 function soilOfDay(run: WeatherRun, day: number): Promise<SoilView | null> {
   const have = run.soils[day];
   if (have) return Promise.resolve(have);
   const s = run.session;
   const k = run.kept[day];
   if (!k || day === 0) return Promise.resolve((run.soils[day] = soilOf(s)));
-  // (every column's water: the soil worker reads a heightfield's)
-  if (k.stack) return Promise.resolve((run.soils[day] = caveDaySoil(s, k)));
   const going = run.soilJobs.get(day);
   if (going) return going;
   const { x: W, y: H } = s.size;
   // (the map the soil reads, sent to the soil worker once for the run: the game's soil takes Thorns and the soil per run top from its objects)
-  run.base ??= { W, H, heights: s.built.heights.slice(), objects: soilObjects(s.built.entities.map(toMapObject)) };
-  const job: SoilJob = { base: run.base, depth: k.depth, contamination: k.contamination };
+  // (and on a map with caves or overhangs its voxel masks and columns, what the soil per run top reads and is laid out by)
+  const stacked = s.built.waterModel.stacked;
+  run.base ??= { W, H, heights: s.built.heights.slice(), objects: soilObjects(s.built.entities.map(toMapObject)), ...(stacked ? { stacked: { mask: stacked.mask.slice(), columns: new Map(s.columns) } } : {}) };
+  // (every column's water on a map with caves or overhangs: only what the soil reads of it)
+  const job: SoilJob = { base: run.base, depth: k.depth, contamination: k.contamination, stack: k.stack ? { depth: k.stack.depth, contamination: k.stack.contamination, sat: k.stack.sat, ticks: k.stack.ticks } : null };
   const p = (async () => {
     let soil: SoilView;
     try {
@@ -1727,20 +1714,23 @@ function soilOfDay(run: WeatherRun, day: number): Promise<SoilView | null> {
   return p;
 }
 
-/** The tiles of the plants the days up to `day` have surely killed (core/sim/withering.ts: the game's timers, not the
- *  editor's instant rule), from every day's soil, cached: the page draws them withered, the map's own plants never changed. */
-function witheredTiles(run: WeatherRun, day: number): Int32Array {
+/** The cells (level × W × H + tile) of the plants the days up to `day` have surely killed (core/sim/withering.ts: the game's
+ *  timers, not the editor's instant rule), from every day's soil, cached: the page draws them withered, the map's own plants
+ *  never changed. Each plant reads its own ground, its run top's in a cave or under a roof, and is named by its level as
+ *  well as its tile, so of two plants on one tile only the one that died is drawn dead. */
+function witheredCells(run: WeatherRun, day: number): Int32Array {
   if (day < 1) return new Int32Array(0);
   const s = run.session;
   const W = s.size.x;
+  const N = W * s.size.y;
   run.plants ??= entityInputs(s.built.entities)
     .filter((e) => WITHERING_SPECIES.has(e.template) && !(e as { dead?: boolean }).dead && e.x >= 0 && e.y >= 0 && e.x < W && e.y < s.size.y)
-    .map((e) => ({ tile: e.y * W + e.x, template: e.template }));
+    .map((e) => ({ tile: e.y * W + e.x, template: e.template, level: e.z }));
   const days = run.soils.slice(0, day + 1);
   const dead = witheredByDay(days, run.plants);
-  const tiles: number[] = [];
-  run.plants.forEach((p, n) => dead[n] && tiles.push(p.tile));
-  return Int32Array.from(tiles);
+  const cells: number[] = [];
+  run.plants.forEach((p, n) => dead[n] && cells.push(p.level! * N + p.tile));
+  return Int32Array.from(cells);
 }
 
 /** Simulate the run's days up to what it wants, a slice at a time, keeping each day; the day the page waits for is
@@ -1754,9 +1744,10 @@ async function driveWeather(run: WeatherRun): Promise<void> {
   try {
     while (run.kept.length - 1 < run.want) {
       const day = run.kept.length;
-      // (a step's ticks: 24 on a heightfield, as ever; one on a map with caves or overhangs, where a tick of a big map
-      // takes as long as a whole slice, so an edit never waits behind more than one; fixed, so the days are the same
-      // on any machine)
+      // (a step's ticks: 24 on a heightfield, as ever; one on a map with caves or overhangs, its badtide's share set
+      // before each tick; fixed, so the days are the same on any machine. A tick of a 256² map with caves takes about
+      // a millisecond, so a slice runs several: the engine no longer checks its whole state again after each share
+      // is set, rust/water/src/stack_memory.rs, #1210)
       const stepTicks = run.run.stack ? 1 : 24;
       let t = 0;
       while (t < TICKS_PER_DAY) {
@@ -3038,6 +3029,10 @@ let force: {
   heatSent: boolean;
   /** When the page last got the force's water and objects (they go at most every FORCE_VIEW_MS). */
   viewAt: number;
+  /** The map's water as the force found it, still flowing after an edit (`flowing`, a heightfield's; `stack`, a map
+   *  with caves', on its columns with its momentum), or null when it stood settled: taken back, the force leaves it
+   *  exactly so, and it flows on from there (`forceCancel`). */
+  waterBefore: { flowing: WarmState | null; stack: LiveStack | null } | null;
 } | null = null;
 
 /** A force's objects go to the page at most this often (and always with its last frame): each is a
@@ -3157,6 +3152,7 @@ function startForce(s: MapSession, base: FullForceMap, req: ForceRequest, roll?:
   const flowing = waterInFlight(s);
   // (on a map with caves or overhangs: the stacked water in flight, or the map's own with its last settle's flows)
   const stackFrom = s.built.waterModel.stacked ? stackStart(s) : null;
+  const stackFlowed = !!stackFrom && !!stackFlowing(s);
   stopWater();
   prepToken++;
   for (const run of Object.values(weatherRuns)) if (run) run.show = null;
@@ -3181,6 +3177,7 @@ function startForce(s: MapSession, base: FullForceMap, req: ForceRequest, roll?:
     lastEntities: s.built.entities,
     heatSent: false,
     viewAt: -Infinity,
+    waterBefore: flowing || stackFlowed ? { flowing, stack: stackFlowed ? stackFrom!.from : null } : null,
   };
   startForceWater(force, flowing, stackFrom);
   // (the settings it ran with, and what its Auto picked in the run, for the row to show: D309)
@@ -3519,8 +3516,12 @@ function mapFlows(s: MapSession, depth: ArrayLike<number>, flowing: WarmState | 
  *  would race down it ahead of the cut; instead each dry tile is held, a wall to the water, until the
  *  front reaches it: the step of the showing at which the tile's ground first changes as shown (shown
  *  from its end, A5: its last change, the first shown), and for a tile the carve never changes, its
- *  nearest changed tile's. A held tile's own film of water (a damp tile's) is set aside, shown as it
- *  was, and goes when the front arrives; deeper water ahead (a lake, a river) flows on as it does. */
+ *  nearest changed tile's. The front holds the carve's water, never the map's own: within FRONT_MARGIN
+ *  of the course a damp tile is held too, its own film of water set aside, shown as it was, and gone when
+ *  the front arrives; farther off only land with no water at all, in any column, is held, so the map's
+ *  own water there (its films at its edges with it) runs on exactly as it would without the carve, until
+ *  the carve's water reaches it (#1181), and the carve's water still never runs over dry land ahead of
+ *  the cut (#1222). Deeper water ahead (a lake, a river) flows on as it does. */
 interface CarveFront {
   /** The step of the showing at which the front reaches each tile. */
   reach: Int32Array;
@@ -3535,12 +3536,20 @@ interface CarveFront {
 
 /** A floor no water climbs: a wall round the tiles the front hasn't reached. */
 const FRONT_WALL = 1024;
+/** How far from the tiles a carve changes its front holds damp land as well as dry (tiles, the eight neighbours a
+ *  step): its banks and the land beside them. Damp land held everywhere took the films off the edge of every water on
+ *  the map and stopped it spreading there, so a lake or a cave's stream 40 tiles from the carve ran differently (up to
+ *  0.02 on Highlands 96² seed 22, #1181); at 3 the films at the edge of the next valley's water still were (2e-4
+ *  there); at 2 none is. Dry land is held at any distance: held only within 2, the carve's water spilled past its banks
+ *  and ran downhill ahead of the cut (#1222). */
+const FRONT_MARGIN = 2;
 /** Water up to this deep ahead of the front is a film on damp ground, held with its tile. */
 const FRONT_FILM = 0.05;
 
 /** The front for a carve's water, its held tiles taken out of `depth` and `contamination` (the water the
- *  simulation starts from) and walled off in `model`. */
-function carveFront(p: CarvePlay, model: WaterModel, depth: Float64Array, contamination: Float64Array): CarveFront {
+ *  simulation starts from, its top column on a map with caves) and walled off in `model`; `wet`, on a map with
+ *  caves, the tiles with water in any column. */
+function carveFront(p: CarvePlay, model: WaterModel, depth: Float64Array, contamination: Float64Array, wet?: Uint8Array): CarveFront {
   const changes = p.run.records.changes;
   const total = changes.length - 1;
   const { W, H } = model;
@@ -3566,9 +3575,10 @@ function carveFront(p: CarvePlay, model: WaterModel, depth: Float64Array, contam
         const i = changes[s][j];
         if (reach[i] < 0 && changes[s][j + 1] !== before[i]) reach[i] = s;
       }
+  const far = new Uint8Array(N);
   for (let i = 0; i < N; i++) if (reach[i] >= 0) queue[tail++] = i;
   if (!tail) reach.fill(0);
-  // (each other tile: its nearest changed tile's step, breadth first over the eight neighbours)
+  // (each other tile: its nearest changed tile's step and how far it is from it, breadth first over the eight neighbours)
   for (let head = 0; head < tail; head++) {
     const i = queue[head];
     const x = i % W;
@@ -3581,6 +3591,7 @@ function carveFront(p: CarvePlay, model: WaterModel, depth: Float64Array, contam
         const j = yy * W + xx;
         if (reach[j] >= 0) continue;
         reach[j] = reach[i];
+        far[j] = Math.min(255, far[i] + 1);
         queue[tail++] = j;
       }
   }
@@ -3589,7 +3600,7 @@ function carveFront(p: CarvePlay, model: WaterModel, depth: Float64Array, contam
   const film = new Float64Array(N);
   const filmBad = new Float64Array(N);
   for (let i = 0; i < N; i++)
-    if (reach[i] > 0 && !(depth[i] > FRONT_FILM)) {
+    if (reach[i] > 0 && (far[i] <= FRONT_MARGIN ? !(depth[i] > FRONT_FILM) : !(depth[i] > 0 || wet?.[i]))) {
       held[i] = 1;
       base[i] = model.floor[i];
       model.floor[i] = FRONT_WALL;
@@ -3862,8 +3873,9 @@ async function runForceWater(token: number): Promise<void> {
 let forceStack: {
   force: Parameters<typeof forceFrame>[0];
   live: StackLive;
-  /** The map's water model when the force started (its stored lakes, its removals). */
+  /** The map's water model when the force started (its stored lakes, its removals), and the water it started from. */
   model: WaterModel;
+  start: NonNullable<ReturnType<typeof stackStart>>;
   /** Each tile's terrain as the force's map has it (its voxels), the ground shown (its heights), and the masks the
    *  engine is on (the ground, with the front's walls). */
   base: Uint32Array;
@@ -3912,7 +3924,9 @@ function startForceStack(f: NonNullable<typeof force>, start: NonNullable<Return
       depth[i] = from.depth[c];
       contamination[i] = from.contamination[c];
     }
-    front = carveFront(p, { ...model, floor: Float64Array.from(m.heights) }, depth, contamination);
+    const wet = new Uint8Array(N);
+    for (let c = 0; c < from.depth.length; c++) if (from.depth[c] > 0) wet[c % N] = 1;
+    front = carveFront(p, { ...model, floor: Float64Array.from(m.heights) }, depth, contamination, wet);
     for (let i = 0; i < N; i++) {
       const c = top(i);
       if (!front.held[i] || c < 0) continue;
@@ -3920,13 +3934,21 @@ function startForceStack(f: NonNullable<typeof force>, start: NonNullable<Return
       from.contamination[c] = 0;
     }
   }
-  const w: NonNullable<typeof forceStack> = { force: f, live: null as unknown as StackLive, model, base, ground: m.heights.slice(), mask: base, objects: m.entities, rows, front, seen: null as unknown as SeenWater, seenTicks: 0 };
+  const w: NonNullable<typeof forceStack> = { force: f, live: null as unknown as StackLive, model, start, base, ground: m.heights.slice(), mask: base, objects: m.entities, rows, front, seen: null as unknown as SeenWater, seenTicks: 0 };
   w.mask = forceStackMask(w);
   w.live = new StackLive({ ...model, stacked: { mask: w.mask.slice(), objects: rows } }, from, start.flows);
   const f0 = w.live.frame();
   w.seen = new SeenWater(f0.depth, f0.contamination);
   forceStack = w;
   if (autoWater) setTimeout(() => void runForceStack(token), 0);
+}
+
+/** The water a force's water on a map with caves started from, on the map's own ground and objects, the ticks it has
+ *  run since, its water now, every column, and the tiles a carve's front holds now (tests/contract/carveBornAsItCuts.test.ts
+ *  runs the map's own water the same ticks beside it); null with no such force at work. */
+export function forceStackSince(): { model: WaterModel; from: LiveStack; flows: StackSettle | null; ticks: number; now: LiveStack; held: Uint8Array | null } | null {
+  const w = forceStack;
+  return w && force === w.force ? { model: w.model, from: w.start.from, flows: w.start.flows, ticks: w.live.ticks, now: w.live.state(), held: w.front?.held.slice() ?? null } : null;
 }
 
 /** Whether the force's water flows now (as `forceWaterFlows`), the engine brought to the land and objects shown and
@@ -4089,6 +4111,38 @@ function restoreView(s: MapSession): ViewUpdate {
   return view;
 }
 
+/** The map's water as a force found it, flowing (`waterBefore`), as a view. */
+function waterBeforeView(s: MapSession, b: NonNullable<NonNullable<typeof force>["waterBefore"]>): WaterView {
+  if (!b.stack) return waterOf(s, { depth: b.flowing!.water.depth, contamination: b.flowing!.water.contamination, out: b.flowing!.water.out ?? null });
+  const st = b.stack;
+  const N = st.count.length;
+  const depth = new Float64Array(N);
+  const contamination = new Float64Array(N);
+  for (let i = 0; i < N; i++) {
+    if (!st.count[i]) continue;
+    const c = (st.count[i] - 1) * N + i;
+    depth[i] = st.depth[c];
+    contamination[i] = st.contamination[c];
+  }
+  return waterOf(s, { depth, contamination, stack: st, out: null });
+}
+
+/** A water view of its own: the page gets each event's buffers and each answer's transferred, so one view sent twice
+ *  (as an event, then in an answer) leaves the answer unsendable, and the page keeps the force's land (#1222). */
+function waterCopy(v: WaterView): WaterView {
+  return { count: v.count, tile: v.tile.slice(), floor: v.floor.slice(), depth: v.depth.slice(), contamination: v.contamination.slice(), ...(v.outflow ? { outflow: v.outflow.slice() } : {}) };
+}
+
+/** The map's water as force `f` found it, exactly (a copy taken then), the force dropped: still flowing after an edit,
+ *  it flows on from there, not from the settle before the edit. */
+function waterAsFound(s: MapSession, f: NonNullable<typeof force>): WaterView {
+  const before = f.waterBefore && s.waterStale ? f.waterBefore : null;
+  if (!before) return waterOf(s);
+  if (before.stack) stackRest = { session: s, model: s.built.waterModel, stack: before.stack };
+  else handoff = before.flowing;
+  return waterBeforeView(s, before);
+}
+
 /** Esc (or undo) for a force (D341): all of it goes at once, whenever it arrives, and the map's water
  *  carries on. `gesture` names the force (the page's); left out, the force at work. At work, it is
  *  dropped; already kept and still the latest step (its keep was on its way when Esc came), it is
@@ -4102,9 +4156,10 @@ export function forceCancel(gesture?: number): ForceTakenBack {
     const flowing = forceWater?.force === f || forceStack?.force === f;
     endForceWater();
     if (!s || f.session !== s) return { taken: null };
+    const water = waterAsFound(s, f);
     // (the force's water frames still on their way give way to the map's water)
-    if (flowing) listener?.({ kind: "water", version, water: waterOf(s), done: 1, ticks: 0, draft: true });
-    const view = restoreView(s);
+    if (flowing) listener?.({ kind: "water", version, water: waterCopy(water), done: 1, ticks: 0, draft: true });
+    const view = { ...restoreView(s), water };
     kickWater();
     return { ...view, taken: "work" };
   }
@@ -4149,9 +4204,11 @@ export function forceStop(gesture?: number): SessionUpdate & { kept: boolean; so
   const flowedStack = forceStackState(f);
   endForceWater();
   const refused = (errors: string[]) => {
+    // (nothing kept: the map's water flows on as the force found it, as Esc leaves it)
+    const water = waterAsFound(s, f);
     // (the force's water frames still on their way give way to the map's water)
-    if (flowed || flowedStack) listener?.({ kind: "water", version, water: waterOf(s), done: 1, ticks: 0, draft: true });
-    const view = restoreView(s);
+    if (flowed || flowedStack) listener?.({ kind: "water", version, water: waterCopy(water), done: 1, ticks: 0, draft: true });
+    const view = { ...restoreView(s), water };
     kickWater();
     return { ok: false, errors, info: sessionInfo(s), view, ms: Math.round(performance.now() - t0), kept: false };
   };

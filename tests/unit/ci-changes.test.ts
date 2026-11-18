@@ -129,9 +129,9 @@ describe("the page job", () => {
 });
 
 describe("the forces job", () => {
-  it("is a force's Rust, its Wasm, the TypeScript round it (its settings among it) and the forces' rows", () => {
-    for (const f of ["rust/forces/src/trough.rs", "rust/Cargo.lock", "src/core/forces/rust/forcesWasm.ts", "src/core/forces/settings.ts", "src/core/forces/glaciate/model.ts", "src/editor/ForceRows.tsx", "src/editor/forces/useForceRun.tsx", "src/editor/forceDriver.ts"]) expect(isForces(f), f).toBe(true);
-    for (const f of ["rust/water/src/lib.rs", "src/core/gen/generate.ts", "src/editor/Editor.tsx", "tests/e2e/glaciate.spec.ts", "src/core/forces/README.md", "docs/sheets/force-glaciate.jpg"]) expect(isForces(f), f).toBe(false);
+  it("is a force's Rust, its Wasm, the TypeScript round it (its settings among it), the forces' rows, the worker that runs a force and the water it steps", () => {
+    for (const f of ["rust/forces/src/trough.rs", "rust/Cargo.lock", "src/core/forces/rust/forcesWasm.ts", "src/core/forces/settings.ts", "src/core/forces/glaciate/model.ts", "src/editor/ForceRows.tsx", "src/editor/forces/useForceRun.tsx", "src/editor/forceDriver.ts", "src/worker/session.ts", "src/worker/generator.worker.ts", "src/core/sim/water.ts", "src/core/sim/stackWater.ts", "src/core/sim/stackLive.ts"]) expect(isForces(f), f).toBe(true);
+    for (const f of ["rust/water/src/lib.rs", "src/core/gen/generate.ts", "src/editor/Editor.tsx", "src/ui/App.tsx", "src/render3d/model.ts", "src/worker/collabEdit.ts", "src/core/sim/prefill.ts", "tests/e2e/glaciate.spec.ts", "src/core/forces/README.md", "docs/sheets/force-glaciate.jpg"]) expect(isForces(f), f).toBe(false);
   });
   it("runs only for a pull request into dev (light) that touches a force, and when the change can't be read", () => {
     expect(needsForces(["rust/forces/src/lib.rs", "docs/STATUS.md"], "light")).toBe(true);

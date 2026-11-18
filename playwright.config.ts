@@ -37,7 +37,7 @@ export default defineConfig({
     baseURL: `http://localhost:${port}/dam-good-maps/`,
     channel,
     // the Standard look, held: the tests of the look check Standard's colours, and a GPU would
-    // otherwise pick the High look by itself (D284); look-high.spec.ts clears it to try High. The first-keep note marked
+    // otherwise pick the High look by itself (D284); look-high.spec.ts and look-high-scenes.spec.ts clear it to try High. The first-keep note marked
     // as shown: up for 8 s over the view's middle after a test's first edit, it takes the clicks and hovers meant for
     // the map (dev's run 40766826335); generate-new-map.spec.ts clears it to check the note
     storageState: {

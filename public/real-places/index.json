@@ -1,6 +1,6 @@
 {
  "format": 1,
- "count": 84,
+ "count": 81,
  "families": [
   {
    "id": "fan",
@@ -99,8 +99,8 @@
    "metres": 60,
    "data": "data/thousand-islands-saint-lawrence.json.gz",
    "image": "cards/thousand-islands-saint-lawrence.jpg",
-   "bytes": 232385,
-   "sha256": "bd253c48ea0dbb262bb835a330ee0a5b99ba73c118d4ba1b6720303df87adbb7",
+   "bytes": 231800,
+   "sha256": "81dfae3823adb1d8dbebe1d25db02b2dd25c7c9056332c1ebc520463045d6b69",
    "faults": []
   },
   {
@@ -113,8 +113,8 @@
    "metres": 30,
    "data": "data/badlands-national-park.json.gz",
    "image": "cards/badlands-national-park.jpg",
-   "bytes": 179043,
-   "sha256": "4fd7628bc1451f48aea5003a493a85d8ddccf5788d6e11649869ff030a569848",
+   "bytes": 150944,
+   "sha256": "c0ddebcc0f12d4ec0142db797b6fa50050099f7e65b6bbcecee4c333b40d3d4f",
    "faults": []
   },
   {
@@ -127,11 +127,9 @@
    "metres": 60,
    "data": "data/toklat-river.json.gz",
    "image": "cards/toklat-river.jpg",
-   "bytes": 181085,
-   "sha256": "45e736182bf1914d3c602d4870db718526325187a13cf85cc948ceac4ca618f5",
-   "faults": [
-    "water.source_in_flow"
-   ]
+   "bytes": 162447,
+   "sha256": "a56f9fb728844af26b1894b7bc9ea663819ec16e9c0086118e11be474946903c",
+   "faults": []
   },
   {
    "id": "crater-lake",
@@ -143,8 +141,8 @@
    "metres": 30,
    "data": "data/crater-lake.json.gz",
    "image": "cards/crater-lake.jpg",
-   "bytes": 178737,
-   "sha256": "9b02029409325788b99f204b5eb94e65bb90d1952b62148a7f8ec98b87e6bccd",
+   "bytes": 101191,
+   "sha256": "e417822a06fbebb9e780c87181cd9face452cb348284461e711641f2816a310c",
    "faults": []
   },
   {
@@ -157,29 +155,9 @@
    "metres": 30,
    "data": "data/colca-canyon.json.gz",
    "image": "cards/colca-canyon.jpg",
-   "bytes": 252977,
-   "sha256": "212fdaca55ea8465e584dd49327a4d14aa1f48fe86777fab378821c6cc03db14",
-   "faults": [
-    "start.water"
-   ]
-  },
-  {
-   "id": "twelve-apostles",
-   "name": "Twelve Apostles",
-   "family": "coast",
-   "familyName": "Coast",
-   "plays": "Cliffs and small basins along the shore.",
-   "size": 128,
-   "metres": 60,
-   "data": "data/twelve-apostles.json.gz",
-   "image": "cards/twelve-apostles.jpg",
-   "bytes": 215799,
-   "sha256": "508d897760bcfb498c7246dc4a64e0d8bf6d653f9a69115967ba3b5d085f47d8",
-   "faults": [
-    "water.source_in_flow",
-    "water.settles",
-    "start.water"
-   ]
+   "bytes": 161260,
+   "sha256": "b3a9dfbb9aed3c9a6a272fdb968c22dc2fa95d02f758ba072bbcbc021671ec82",
+   "faults": []
   },
   {
    "id": "mount-mayon",
@@ -191,11 +169,9 @@
    "metres": 60,
    "data": "data/mount-mayon.json.gz",
    "image": "cards/mount-mayon.jpg",
-   "bytes": 180858,
-   "sha256": "257f731ad81da550622408f2e65e0d058dc4f23fe37e75fe6cf59d5bafbe4edd",
-   "faults": [
-    "start.water"
-   ]
+   "bytes": 172266,
+   "sha256": "73944791c21d10576998327b8229f0453e8953eddf99aa70adcdbaa399c85602",
+   "faults": []
   },
   {
    "id": "rhine-and-moselle",
@@ -235,8 +211,8 @@
    "metres": 120,
    "data": "data/drakensberg-amphitheatre.json.gz",
    "image": "cards/drakensberg-amphitheatre.jpg",
-   "bytes": 165596,
-   "sha256": "1cdba3cb93fa7627bf99e14858eb43644f8d12598cb324374238855323f64548",
+   "bytes": 156032,
+   "sha256": "1f93fd772ccb23a95a910417750fa983d02ce6488bb450b81af78f80162fd311",
    "faults": []
   },
   {
@@ -263,12 +239,9 @@
    "metres": 120,
    "data": "data/death-valley.json.gz",
    "image": "cards/death-valley.jpg",
-   "bytes": 204997,
-   "sha256": "146d81bfc2dcf8058defb40dcc47797a8d282f7ce971cb48ddb39d033500b747",
-   "faults": [
-    "water.source_in_flow",
-    "start.water"
-   ]
+   "bytes": 132782,
+   "sha256": "6e1b90e135445329d533fa0ad103a4ab11e5308ea5a37ac9d0b1644ccc0939e6",
+   "faults": []
   },
   {
    "id": "geirangerfjord",
@@ -280,8 +253,8 @@
    "metres": 30,
    "data": "data/geirangerfjord.json.gz",
    "image": "cards/geirangerfjord.jpg",
-   "bytes": 219952,
-   "sha256": "040c082a1aeb598e6b042c96e5a3c083a305761b4c41ae01bdf19c76012f4262",
+   "bytes": 220009,
+   "sha256": "decfd25496d67e40437e31b730cd6e2ee2d08d1ab7699250e1a14dc5aaf7e52a",
    "faults": [
     "water.source_in_flow"
    ]
@@ -296,8 +269,8 @@
    "metres": 60,
    "data": "data/torres-del-paine.json.gz",
    "image": "cards/torres-del-paine.jpg",
-   "bytes": 252180,
-   "sha256": "6a14eea28ad395d2a9f44c2879d110738d0988816280a5fcc50b3b80408339c1",
+   "bytes": 224389,
+   "sha256": "11e05488cee2240cfceb5cd4d791cbc6f19794ae65d1530a51300d57934159e9",
    "faults": []
   },
   {
@@ -310,8 +283,8 @@
    "metres": 30,
    "data": "data/tiger-leaping-gorge.json.gz",
    "image": "cards/tiger-leaping-gorge.jpg",
-   "bytes": 187879,
-   "sha256": "5b1370c6cdacc93ab7838d6e5d51771e0cdf800226e2ba099236697a6de88009",
+   "bytes": 197869,
+   "sha256": "fef896195d3708a3ea7d3782543db016657cfccb8220d3f4d6edab8a00d57917",
    "faults": []
   },
   {
@@ -324,12 +297,9 @@
    "metres": 120,
    "data": "data/phong-nha.json.gz",
    "image": "cards/phong-nha.jpg",
-   "bytes": 206487,
-   "sha256": "60f898af00171acbd94ecef12be4eaf4bfe2885da5903f17433cb2dc02ad2aa5",
-   "faults": [
-    "water.source_in_flow",
-    "start.water"
-   ]
+   "bytes": 206840,
+   "sha256": "9dc8c7b27a24e74aeff97df430fcb4e86bb69e4fc7c4b86eb0da3e261fa69d87",
+   "faults": []
   },
   {
    "id": "english-lake-district",
@@ -341,11 +311,9 @@
    "metres": 60,
    "data": "data/english-lake-district.json.gz",
    "image": "cards/english-lake-district.jpg",
-   "bytes": 206159,
-   "sha256": "3eb1c8836b58b62368c1538f55f411100cd1e996656aec04fe458a629dc62edf",
-   "faults": [
-    "start.water"
-   ]
+   "bytes": 195662,
+   "sha256": "2ba8054a8a329e890fd513e47d6e0576b797fdc1f9b4597fcff4b3a65fd9cff3",
+   "faults": []
   },
   {
    "id": "uvac-river",
@@ -357,8 +325,8 @@
    "metres": 60,
    "data": "data/uvac-river.json.gz",
    "image": "cards/uvac-river.jpg",
-   "bytes": 163301,
-   "sha256": "48fbf2681434756e74e51a850263866ea49da41544f2a9f6df3102477efbbaf8",
+   "bytes": 122280,
+   "sha256": "b30fff3c2fcbc840379dbfa501e8a121faa32114dbe7e7e702631b3668ca38b2",
    "faults": [
     "start.food"
    ]
@@ -373,11 +341,9 @@
    "metres": 30,
    "data": "data/mount-roraima.json.gz",
    "image": "cards/mount-roraima.jpg",
-   "bytes": 249286,
-   "sha256": "58297b155676648747838a11696b8fffb907cb70079d9fe0672d3a5db0d75d2e",
-   "faults": [
-    "start.wood"
-   ]
+   "bytes": 164577,
+   "sha256": "835fe7ae782f8642b8ce207b829ab8ab2d228b5227412963254cdf3f757c7be3",
+   "faults": []
   },
   {
    "id": "ethiopian-highlands",
@@ -389,8 +355,8 @@
    "metres": 120,
    "data": "data/ethiopian-highlands.json.gz",
    "image": "cards/ethiopian-highlands.jpg",
-   "bytes": 226814,
-   "sha256": "e8ab253e0488cbf73f18302ff699d4a9445f6e4aac05ced8626b9255bf1d7bfc",
+   "bytes": 143368,
+   "sha256": "2f95f3b52281d63ecc45f48b6193bc795146bd0bfbbd7d58449e60db8d10b0fd",
    "faults": []
   },
   {
@@ -419,11 +385,9 @@
    "metres": 30,
    "data": "data/drumheller.json.gz",
    "image": "cards/drumheller.jpg",
-   "bytes": 102651,
-   "sha256": "677c87f0e509910a90462f2c572f11d4c22da359a3507a4507fd939f4f8465aa",
-   "faults": [
-    "start.water"
-   ]
+   "bytes": 78846,
+   "sha256": "01ad0f5b207a279f6af9975009e1adf5c45fe620e919d1c418dc1d32f0f61473",
+   "faults": []
   },
   {
    "id": "tagliamento-river",
@@ -435,8 +399,8 @@
    "metres": 60,
    "data": "data/tagliamento-river.json.gz",
    "image": "cards/tagliamento-river.jpg",
-   "bytes": 168596,
-   "sha256": "ce93fccab203377e2fccec3b8b63b37bdc1f2c692d1d0aa05a3b7f9e5baa335b",
+   "bytes": 170881,
+   "sha256": "9caa8aeaad77c28188359421e4d4a283a13a50c116510f98b80fc29b17df3092",
    "faults": []
   },
   {
@@ -477,11 +441,9 @@
    "metres": 60,
    "data": "data/cliffs-of-moher.json.gz",
    "image": "cards/cliffs-of-moher.jpg",
-   "bytes": 252871,
-   "sha256": "8e28a76a1fcc4c55c87b110b1ce6d0671feab44065e6d347e63bf348c5a88a42",
-   "faults": [
-    "start.water"
-   ]
+   "bytes": 267063,
+   "sha256": "b794e9263fdeae30def054c6236f57ccc12d88d925c4c44cac4975631e96175e",
+   "faults": []
   },
   {
    "id": "paricutin",
@@ -493,8 +455,8 @@
    "metres": 60,
    "data": "data/paricutin.json.gz",
    "image": "cards/paricutin.jpg",
-   "bytes": 160253,
-   "sha256": "00a093f439dc4034708bd8ea5e58325d24f6d2492f87ff5c3303d6d8466b5424",
+   "bytes": 167895,
+   "sha256": "609bb21ae9805011209196b7e8be36c56bd3858cc6074f5bec656fa1b6543a50",
    "faults": []
   },
   {
@@ -553,11 +515,10 @@
    "metres": 60,
    "data": "data/niagara-falls.json.gz",
    "image": "cards/niagara-falls.jpg",
-   "bytes": 188388,
-   "sha256": "a10a4945a0567d792faf5fb8698864f40c374b2bc8a857427fe914db70363f42",
+   "bytes": 206759,
+   "sha256": "ec70c9aaeac0b61c7a69dbeafe2b9c445d71e821e4e068e9606fd8253678306b",
    "faults": [
-    "water.source_in_flow",
-    "start.water"
+    "water.source_in_flow"
    ]
   },
   {
@@ -586,26 +547,9 @@
    "metres": 60,
    "data": "data/chilean-aysen-fjord.json.gz",
    "image": "cards/chilean-aysen-fjord.jpg",
-   "bytes": 135535,
-   "sha256": "6182694774c3746470b73773174f8854ec4e5e6c12aea5902f3ff4ba40cacb53",
+   "bytes": 120750,
+   "sha256": "c8be74982cb3dd5aca72b53559f2e41d3930245cfce06ffb159b99121c2ac7b0",
    "faults": []
-  },
-  {
-   "id": "glencoe",
-   "name": "Glencoe",
-   "family": "glacial",
-   "familyName": "Glacial valley",
-   "plays": "Wide valley floors under high ground, with side valleys hanging above.",
-   "size": 96,
-   "metres": 30,
-   "data": "data/glencoe.json.gz",
-   "image": "cards/glencoe.jpg",
-   "bytes": 149553,
-   "sha256": "a12163e6b1fb882a418320ce42920260903a5045cdb277b63d3d4ebca5655ac5",
-   "faults": [
-    "water.source_in_flow",
-    "start.water"
-   ]
   },
   {
    "id": "verdon-gorge",
@@ -617,8 +561,8 @@
    "metres": 60,
    "data": "data/verdon-gorge.json.gz",
    "image": "cards/verdon-gorge.jpg",
-   "bytes": 147679,
-   "sha256": "d47390a17f9749db5f05568ecb3687a9f06bb92f988b32564017a01dbe764867",
+   "bytes": 123408,
+   "sha256": "b2f6d23d13b0b26dd722db87606fc8c1c2b629863a22944ff818b604d8a10654",
    "faults": []
   },
   {
@@ -662,11 +606,9 @@
    "metres": 30,
    "data": "data/kinabatangan-river.json.gz",
    "image": "cards/kinabatangan-river.jpg",
-   "bytes": 111837,
-   "sha256": "73ffcecc0144f3533c62a2f1264f11f3c23e504c84f423b2be82c963baeb35f0",
-   "faults": [
-    "start.water"
-   ]
+   "bytes": 110543,
+   "sha256": "8d755ebb587ff0354c57a1eda614e593c508a836ea5463bf0ae6acf2dcd4c08d",
+   "faults": []
   },
   {
    "id": "ennedi-plateau",
@@ -678,8 +620,8 @@
    "metres": 60,
    "data": "data/ennedi-plateau.json.gz",
    "image": "cards/ennedi-plateau.jpg",
-   "bytes": 178659,
-   "sha256": "bb2dfd3c8ade4dc61f6d461bb14892faafc9a43bebce99cfe93f867cc82d6c72",
+   "bytes": 128819,
+   "sha256": "30fd8117479a24d342fdfb821a9b173ba549d27a1e320a2bc2610790f230c1b0",
    "faults": []
   },
   {
@@ -692,11 +634,9 @@
    "metres": 120,
    "data": "data/deccan-plateau.json.gz",
    "image": "cards/deccan-plateau.jpg",
-   "bytes": 112078,
-   "sha256": "176780d54f58f464794112e7774d53d55510e5fa8f1465e2feccd45940804484",
-   "faults": [
-    "start.water"
-   ]
+   "bytes": 112691,
+   "sha256": "176f029833fbbd71769fdba3914ccd0280ed3da82f1b834bd966abb2dba54ba0",
+   "faults": []
   },
   {
    "id": "bardenas-reales",
@@ -708,8 +648,8 @@
    "metres": 60,
    "data": "data/bardenas-reales.json.gz",
    "image": "cards/bardenas-reales.jpg",
-   "bytes": 454195,
-   "sha256": "397c060bd94b857c1b9eab99c4b61135673f2bcef77d9ed98ea4ef9c9b832ab3",
+   "bytes": 403342,
+   "sha256": "d3cbaf845015594c9d034f0f92f19835766f435badbbf282ce4136a3c598f0e8",
    "faults": []
   },
   {
@@ -722,8 +662,8 @@
    "metres": 30,
    "data": "data/waimakariri-river.json.gz",
    "image": "cards/waimakariri-river.jpg",
-   "bytes": 604705,
-   "sha256": "ab3f4d957c63e4b14d97ffa0ec1b7f8a569d5a9c76a652a8512e99d70fb4f9e5",
+   "bytes": 613919,
+   "sha256": "e0050567488d6aae4fbca10b3ac53353372d72e4a2289759d72784cebeddb80c",
    "faults": []
   },
   {
@@ -736,8 +676,8 @@
    "metres": 30,
    "data": "data/lake-toba.json.gz",
    "image": "cards/lake-toba.jpg",
-   "bytes": 241187,
-   "sha256": "a07ab425d290214d05cc299744bcd0619fa5eecf7260d28d1016da9339ac733e",
+   "bytes": 181865,
+   "sha256": "9b8f47d3fd96ddac00e1516e400e36543abf0101b92278a54e438bc091db8899",
    "faults": []
   },
   {
@@ -778,11 +718,9 @@
    "metres": 30,
    "data": "data/mount-etna.json.gz",
    "image": "cards/mount-etna.jpg",
-   "bytes": 507576,
-   "sha256": "f1a369e2f3dc41bf3978d85af1918e22c3d7aebaef128ebc826660969b0a7791",
-   "faults": [
-    "start.water"
-   ]
+   "bytes": 139777,
+   "sha256": "ed9f1570badddfdb0dada2d0a1e1d4eca2061c0a50e7efcb89797d90f16b8924",
+   "faults": []
   },
   {
    "id": "godavari-delta",
@@ -811,8 +749,8 @@
    "metres": 60,
    "data": "data/niagara-escarpment-hamilton.json.gz",
    "image": "cards/niagara-escarpment-hamilton.jpg",
-   "bytes": 428033,
-   "sha256": "ed75fc01ab814b92b60ebeb30743388b266bf1d695c2861bddf43c916241694b",
+   "bytes": 338207,
+   "sha256": "82937815acf8d6cc6fd384a7d711bad54a79aadc2af258034174db6789adf346",
    "faults": []
   },
   {
@@ -911,8 +849,8 @@
    "metres": 30,
    "data": "data/bungle-bungle.json.gz",
    "image": "cards/bungle-bungle.jpg",
-   "bytes": 338500,
-   "sha256": "68fad1b0d51d7897c027f515c29a21649c4a06e0b449d17f60004ab868001f6c",
+   "bytes": 295865,
+   "sha256": "7be9e0eea70957f692d58d246bf62ac6b046f1db78c57623cd6ba276dd76c056",
    "faults": []
   },
   {
@@ -925,8 +863,8 @@
    "metres": 120,
    "data": "data/tibetan-plateau.json.gz",
    "image": "cards/tibetan-plateau.jpg",
-   "bytes": 446197,
-   "sha256": "e71813c6b2778bf54d598de3aa5778afdc1f7acda09ef3dd16510027ab2479d2",
+   "bytes": 406369,
+   "sha256": "542efc61ff2e68709034637e110fad1ab365513182965fbb6a1d25e840d0e98b",
    "faults": [
     "water.outflow"
    ]
@@ -941,11 +879,9 @@
    "metres": 60,
    "data": "data/painted-desert.json.gz",
    "image": "cards/painted-desert.jpg",
-   "bytes": 208464,
-   "sha256": "90737387ae0a45728abe3bdd47daa235dafc5a524cef5c4b8be1739ca9bde71f",
-   "faults": [
-    "water.source_in_flow"
-   ]
+   "bytes": 123385,
+   "sha256": "06190f8c12d08174f7cbbfc3943df92bb6d8678f4b3ca24462a9ffff6de558c2",
+   "faults": []
   },
   {
    "id": "skeidara-outwash",
@@ -957,25 +893,9 @@
    "metres": 120,
    "data": "data/skeidara-outwash.json.gz",
    "image": "cards/skeidara-outwash.jpg",
-   "bytes": 137479,
-   "sha256": "17bebb61219b0cdc8357d271addffb34c86ce174c94646ea1dd29083cea131f0",
+   "bytes": 139176,
+   "sha256": "92e09b42c31cca706f7be2ac9e54e06ec775202070bc912565d0def11034c2b1",
    "faults": []
-  },
-  {
-   "id": "ngorongoro",
-   "name": "Ngorongoro",
-   "family": "caldera",
-   "familyName": "Caldera",
-   "plays": "A volcanic bowl; a dam on its outlet can hold a large lake.",
-   "size": 256,
-   "metres": 30,
-   "data": "data/ngorongoro.json.gz",
-   "image": "cards/ngorongoro.jpg",
-   "bytes": 550241,
-   "sha256": "bdd36870ab963836f63bd35aaceb340281a50d70c12bd8b16015ca996784ca4f",
-   "faults": [
-    "start.water"
-   ]
   },
   {
    "id": "fish-river-canyon",
@@ -987,11 +907,9 @@
    "metres": 60,
    "data": "data/fish-river-canyon.json.gz",
    "image": "cards/fish-river-canyon.jpg",
-   "bytes": 225684,
-   "sha256": "b1cf4e1542f560b801f40e77e6676baf898fa0f28a49ba227f548f1bdb80e268",
-   "faults": [
-    "start.water"
-   ]
+   "bytes": 228912,
+   "sha256": "ef5f4509e82a4731a7dfed218c658cf02d38a1f1b507e8179236f2eeb0d48fa0",
+   "faults": []
   },
   {
    "id": "mount-fuji",
@@ -1019,8 +937,8 @@
    "metres": 30,
    "data": "data/blue-mountains-jamison.json.gz",
    "image": "cards/blue-mountains-jamison.jpg",
-   "bytes": 167708,
-   "sha256": "5360a4bea90a90b470be93906de8b11447a3966b730c84d30c3218e2cfe08936",
+   "bytes": 138759,
+   "sha256": "ff83abe1b0ac5947982731f23f82a1860a2572b0bbc199a3e7994bc9b0d964ce",
    "faults": []
   },
   {
@@ -1047,8 +965,8 @@
    "metres": 30,
    "data": "data/atacama-fan.json.gz",
    "image": "cards/atacama-fan.jpg",
-   "bytes": 217324,
-   "sha256": "b91d8b84ef16460010063687d3b03a35ffccd96e378d6cdd20ebd2729b7efd00",
+   "bytes": 106313,
+   "sha256": "7add1d2d0f27f36b021c3037c770fcecc323f50d300ba842c79fe6bc9c7ab049",
    "faults": []
   },
   {
@@ -1093,8 +1011,8 @@
    "metres": 30,
    "data": "data/todgha-gorge.json.gz",
    "image": "cards/todgha-gorge.jpg",
-   "bytes": 198389,
-   "sha256": "1573df3b902067559eeee92a769396dca59e85b070ba884b75783dc42172d982",
+   "bytes": 113790,
+   "sha256": "fca486d69ba94d9f370729366406ba1b4e525e63057d572e6eca5dafad2fdf60",
    "faults": []
   },
   {
@@ -1123,8 +1041,8 @@
    "metres": 60,
    "data": "data/goosenecks-san-juan.json.gz",
    "image": "cards/goosenecks-san-juan.jpg",
-   "bytes": 193056,
-   "sha256": "7c623dcb7150dc765f2939b88eca115858a255b3f08353841bba2b76f10dabf7",
+   "bytes": 178490,
+   "sha256": "c1dd6938916db3be623f8ef7fd17134a6e3c9b362268f07a4cb8f58734df4ad5",
    "faults": []
   },
   {
@@ -1137,11 +1055,9 @@
    "metres": 120,
    "data": "data/monument-valley.json.gz",
    "image": "cards/monument-valley.jpg",
-   "bytes": 260577,
-   "sha256": "d3b01e05ab580bbca94b9c358dd989b012d9dcccdc7dc4ccc0f3831ae544fb3f",
-   "faults": [
-    "water.source_in_flow"
-   ]
+   "bytes": 112491,
+   "sha256": "260abca766f13e4684fc26803de7a77c9020badfb64f53bda6f8cbc52ee9cfc6",
+   "faults": []
   },
   {
    "id": "colorado-plateau",
@@ -1153,8 +1069,8 @@
    "metres": 30,
    "data": "data/colorado-plateau.json.gz",
    "image": "cards/colorado-plateau.jpg",
-   "bytes": 156589,
-   "sha256": "0feabad6a2be72116c71e1020c2a3fd962b9382f148924feb8fbe7ab19e5b4d8",
+   "bytes": 108912,
+   "sha256": "95493b32f4baf524f8ab623c61893789e1c3f09b5bb06565e85a0d8148a446b6",
    "faults": [
     "start.wood",
     "start.wood_floor",
@@ -1171,8 +1087,8 @@
    "metres": 30,
    "data": "data/brahmaputra-near-majuli.json.gz",
    "image": "cards/brahmaputra-near-majuli.jpg",
-   "bytes": 161885,
-   "sha256": "86495144af431df7af08d45a868bb95f9c82b9148c8946b5ea0589be6b8eda79",
+   "bytes": 161639,
+   "sha256": "91c052e64300433deaedb56ed01fc1be98bfc25cbbd0f0d4bac8919e09fa47e7",
    "faults": [
     "start.wood",
     "start.wood_floor"
@@ -1204,8 +1120,8 @@
    "metres": 120,
    "data": "data/copper-canyon.json.gz",
    "image": "cards/copper-canyon.jpg",
-   "bytes": 110390,
-   "sha256": "7895189d7f938f2f910a4a303c4f5c0375eaddfffdd35cbb114f0f96d81a0e88",
+   "bytes": 106519,
+   "sha256": "1125f64c2bdddb62f5519368c5fc0cecc78136de24bc18bd17a80326d8e543d7",
    "faults": []
   },
   {
@@ -1218,8 +1134,8 @@
    "metres": 30,
    "data": "data/mount-taranaki.json.gz",
    "image": "cards/mount-taranaki.jpg",
-   "bytes": 271704,
-   "sha256": "a0866759c1906e6ad5f8d0a247f8ce000ed663d5406a97203142e0922ae83888",
+   "bytes": 162648,
+   "sha256": "c3e745021632fa68df8aca2a9572885eec83c77c7030874b5da7936c36aa735c",
    "faults": []
   },
   {
@@ -1232,8 +1148,8 @@
    "metres": 30,
    "data": "data/bandiagara.json.gz",
    "image": "cards/bandiagara.jpg",
-   "bytes": 162094,
-   "sha256": "f69b12e7fe8cde58a79bf92f15f65cf8504a1d270b074b15f09792822a8b92df",
+   "bytes": 113487,
+   "sha256": "b6fa9f54b9dbf9fc73b92449a0317c2f614e22d774ad11badee47df3985bdc9c",
    "faults": []
   },
   {
@@ -1246,11 +1162,10 @@
    "metres": 60,
    "data": "data/iguazu-falls.json.gz",
    "image": "cards/iguazu-falls.jpg",
-   "bytes": 247223,
-   "sha256": "1764bb4cfce5555890ec10e77df61c3ac8ba04015236c888b4fa2f38dedff2c0",
+   "bytes": 270742,
+   "sha256": "1742abe230ead524ce4f7a3c7cc3c2da0996af081e07a7d02cd3f6ccdbcf2af4",
    "faults": [
-    "water.source_in_flow",
-    "start.water"
+    "water.source_in_flow"
    ]
   },
   {
@@ -1277,11 +1192,9 @@
    "metres": 60,
    "data": "data/yosemite-valley.json.gz",
    "image": "cards/yosemite-valley.jpg",
-   "bytes": 136701,
-   "sha256": "a8376b519d4930e9fb6d5b7067d1e641565275fc99c82dbb5ffeb224c0f86e55",
-   "faults": [
-    "start.water"
-   ]
+   "bytes": 137428,
+   "sha256": "57a33b2fe4949696aaeef5dd94f732c1a5f1ae2949dde21d2568be3482c8c10a",
+   "faults": []
   },
   {
    "id": "tara-gorge",
@@ -1293,11 +1206,9 @@
    "metres": 60,
    "data": "data/tara-gorge.json.gz",
    "image": "cards/tara-gorge.jpg",
-   "bytes": 182962,
-   "sha256": "c3f4b35280e58f2b4523423a5812ab3baa472dcfa4894525de6aff8fcc80eff5",
-   "faults": [
-    "water.source_in_flow"
-   ]
+   "bytes": 134959,
+   "sha256": "21cd4ea20a6593126a9696af019f455e61f8ef10ad2e9eb9b8d180d032d81414",
+   "faults": []
   },
   {
    "id": "tsingy-bemaraha",
@@ -1339,11 +1250,9 @@
    "metres": 30,
    "data": "data/capitol-reef.json.gz",
    "image": "cards/capitol-reef.jpg",
-   "bytes": 137950,
-   "sha256": "b0cc15d772b6ab571f96b96e5428bab117f6ad5aa8fc75e9d59aec24136bb95a",
-   "faults": [
-    "start.water"
-   ]
+   "bytes": 122205,
+   "sha256": "187fdef9591c4d809de149a2d0857aa68a2c8bfa57c0cb1bddafa2fc28678ef6",
+   "faults": []
   },
   {
    "id": "altiplano",

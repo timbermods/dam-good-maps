@@ -64,7 +64,19 @@ import { decodeSpecFragment, encodeSpecFragment, makeSpec, type MapSpec } from "
 // `93bb3867…` byte for byte, the round forms at their meant size not reaching this premise's land, D148;
 // and generator 0.10.37's version alone (the Nightly of 2026-11-16): with the version set back to 0.10.36 the branch gives
 // `c42349c0…` byte for byte, Generous's forms kept in and a small map's gentle rescue land not reaching this map, D148)
-const SHA = "a7b0b746860cc6895619f112a5d2b4d88d12d98212e4e9a2398aeb2c0a205e66";
+// and generator 0.10.38's version alone (the dead-stand cap): with the version set back to 0.10.37 the branch gives
+// `a7b0b746…` byte for byte, D148;
+// and generator 0.10.39's plates (D(plates-turned)) over the cap: `96638837…` before it; each plate's rim ragged by noise moves its
+// uplands, every property above unchanged (the cap's stands (#1213) move this map no further: the branch gives `1eed1d4c…`
+// with the cap merged in and without it), D148
+// and generator 0.10.40's version alone (#1225, small maps at their own scale): with the version set back to 0.10.39 the
+// branch gives `1eed1d4c…` byte for byte, D148
+// and generator 0.10.42's version alone (#1227, Easy start shaped on the settled water, which a map without Easy start never
+// reaches): with the version set back to 0.10.40 the branch gives `5e8e12c9…` byte for byte, D148
+// and generator 0.10.43's version alone (D(highlands-slot), a gorge winding at a small map's scale, which a 128² map never
+// reaches; #1236 merged after #1227): `4dd5345e…` before it,
+// and dev with its version set to 0.10.43 gives this branch's bytes, D148
+const SHA = "63980a48abbc1155f80d8d213d6d0ea7bbdfb6af650e1f77db7de88c57877da0";
 
 // (a Hard map whose start lake parts as it falls: the single analytic reading stood 0.32 over the run there, PR #1040;
 // seed 5 for 7 since D518 with dev's ways out by a ramp's line (#1061), D148: seed 7's Hard lake stair holds no plan now

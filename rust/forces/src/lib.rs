@@ -13055,15 +13055,11 @@ fn quake(before: &Map, mut m: Map, s0: &Settings, intent: &Intent, extra: &[u8])
             }
         }
     }
-    // A force always has a visible effect (D356): a Lift that moved nothing, or a Slide that moved
-    // too little to see (fewer than 9 tiles: level ground slid along level ground, as on a plateau or
-    // a plain), splits the ground along the fault, its moving side a level up and the other a level
-    // down, on what the quake left.
-    let unseen = if slide {
-        (0..nn).filter(|&i| m.heights[i] != before.heights[i]).count() < 9
-    } else {
-        m.heights == before.heights
-    };
+    // A force always has a visible effect (D356): a quake that moved too little to see (fewer than 9
+    // tiles: a Slide of level ground along level ground, as on a plateau or a plain, or a Lift on the
+    // map's edge whose raised side lies off the map, leaving only the fault's own few tiles) splits the
+    // ground along the fault, its moving side a level up and the other a level down, on what the quake left.
+    let unseen = (0..nn).filter(|&i| m.heights[i] != before.heights[i]).count() < 9;
     if unseen {
         let base = m.heights.clone();
         let cap = min(22.0, m.ceiling);

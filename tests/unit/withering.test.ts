@@ -3,7 +3,7 @@
 
 import { describe, expect, it } from "vitest";
 import { hazardDays } from "../../src/core/sim/weather";
-import { DAYS_TO_DIE_DRY, dyingCause, WATER_BAND, waterAboveBase, witheredByDay, type DaySoil, type Plant } from "../../src/core/sim/withering";
+import { DAYS_TO_DIE_DRY, dyingCause, plantGround, WATER_BAND, waterAboveBase, witheredByDay, type DaySoil, type Plant } from "../../src/core/sim/withering";
 
 /** One tile's soil per day, day 0 first: a letter each: "m" moist, "d" dry, "c" dry and contaminated, "x" moist and contaminated. */
 const series = (pattern: string): DaySoil[] =>
@@ -83,6 +83,40 @@ describe("the plants a held day has surely killed", () => {
       { moisture: [0, 9, 0], contamination: [0, 5, 0] },
     ];
     expect(Array.from(witheredByDay(days, [{ tile: 1, template: "Oak" }, { tile: 0, template: "Oak" }, { tile: 2, template: "Succulent" }]))).toEqual([1, 0, 0]);
+  });
+
+  // On a map with caves or overhangs, a day's soil has each tile's top and every run top below it (`runs`, the session
+  // worker's `caveDaySoil`): tile 1 of two has its top at level 9 and a cave's floor at level 4 under the roof.
+  const caveDays = (top: string, floor: string): DaySoil[] =>
+    [...top].map((t, k) => {
+      const f = floor[k];
+      return {
+        moisture: [9, t === "m" || t === "x" ? 9 : 0],
+        contamination: [0, t === "c" || t === "x" ? 40 : 0],
+        runs: { tile: [1], level: [4], moisture: [f === "m" || f === "x" ? 9 : 0], contamination: [f === "c" || f === "x" ? 40 : 0] },
+      };
+    });
+  const onTop = (template: string): Plant => ({ tile: 1, template, level: 9 });
+  const inCave = (template: string): Plant => ({ tile: 1, template, level: 4 });
+
+  it("a plant on a cave's floor withers by its run top's soil, not its roof's: two plants on one tile, each by its own ground", () => {
+    // a badtide poisons the cave's floor while the roof's top stays moist and clean: the plant in the cave dies, the one on top lives
+    expect(Array.from(witheredByDay(caveDays("mmmm", "mxxx"), [onTop("Pine"), inCave("Birch")]))).toEqual([0, 1]);
+    // a long drought dries the roof's top while the cave's floor stays moist: the plant on top dies, the one in the cave lives
+    const dry = "m" + "d".repeat(16);
+    expect(Array.from(witheredByDay(caveDays(dry, "m".repeat(dry.length)), [onTop("Pine"), inCave("Pine")]))).toEqual([1, 0]);
+  });
+
+  it("a plant reads its tile's top where no run top is at its level, or with no level or no runs, as on every other map", () => {
+    const day = caveDays("m", "c")[0];
+    expect(plantGround(day, 1, 4)).toBe(0);
+    expect(plantGround(day, 1, 9)).toBe(-1);
+    expect(plantGround(day, 1, 6)).toBe(-1);
+    expect(plantGround(day, 0, 4)).toBe(-1);
+    expect(plantGround(day, 1, undefined)).toBe(-1);
+    expect(plantGround({ moisture: day.moisture, contamination: day.contamination }, 1, 4)).toBe(-1);
+    // (a plant with no level, as before, on the top's soil: moist and clean, alive)
+    expect(witheredByDay(caveDays("mmmm", "mxxx"), [{ tile: 1, template: "Birch" }])[0]).toBe(0);
   });
 });
 

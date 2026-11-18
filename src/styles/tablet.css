@@ -20,6 +20,35 @@
     font-size: 16px;
   }
 
+  /* the map's name renamed in the header: a field as on a phone, the title's room wide and a finger tall, its type 16px
+     (the field lay over the name's own 13px box, and the browser zoomed the page to read it); the name shown keeps the
+     header's size */
+  .editor:not([data-phone]) .editor-title:has(h1.title-editing) {
+    width: var(--title-max, auto);
+  }
+
+  .editor:not([data-phone]) .editor-title h1.title-editing .title-wrap {
+    display: block;
+  }
+
+  .editor:not([data-phone]) .editor-title h1.title-editing .title-button {
+    display: none;
+  }
+
+  .editor:not([data-phone]) .editor-title h1.title-editing input {
+    position: static;
+    display: block;
+    box-sizing: border-box;
+    width: 100%;
+    height: 44px;
+    padding: 0 8px;
+    border: 1px solid color-mix(in srgb, var(--ink) 22%, transparent);
+    border-radius: 6px;
+    font-size: 16px;
+    line-height: 20px;
+    text-align: left;
+  }
+
   .editor:not([data-phone]) input[type="range"],
   html:not([data-phone]) .dialog input[type="range"] {
     height: 44px;

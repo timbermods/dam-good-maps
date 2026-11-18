@@ -207,6 +207,7 @@ npm run gen -- --seeds 1-10 --sizes 96,128,256 --out out/batch
   gallery on a desktop and a phone, and every local investigation map through import, 3D and export.
 - `npm run places` rebuilds the Real places data from the landscape survey's library, checking every
   map. `npm run places -- --check` says whether the committed data matches a fresh run.
+  `--check --shard 2/5` checks only the second of five shares of the places, and the whole set's index.
 - `npm run bench` times generation at 128²; `npm run bench:water` times the water settle at 256².
 - `npm run bench:preview` times the editor's water preview after local edits at 256².
 - `npm run bench:3d` measures the 3D view's build time and frame rate at 256² in Chrome. It opens

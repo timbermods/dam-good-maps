@@ -36,7 +36,7 @@ env:
 
 jobs:
   heavy-tests:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 90
     steps:
       - uses: actions/checkout@v7
@@ -61,7 +61,7 @@ jobs:
   # (planning). Red means the list moved: regenerate it (npm run intentions) in a pull request that says which intention
   # moved and why.
   intentions:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 60
     strategy:
       fail-fast: false
@@ -79,11 +79,24 @@ jobs:
       - name: The intention list on ${{ matrix.theme }} is the generator's
         run: npm run intentions -- --check --theme ${{ matrix.theme }}
 
-  # Real places' data matches a fresh build. Its own job, beside the heavy tests: the build searches
-  # each place's start spots and springs (D245, tools/real-places.ts), about 25 min on a runner.
+  # Real places' data matches a fresh build, in five shards, each on its own runner (`--check --shard i/5`,
+  # tools/lib/placeShards.ts: the places dealt out biggest first, so each shard gets three or four of the sixteen 256² maps and
+  # its share of the rest; every place in exactly one shard). Each shard compares its places' data, cards and index entries
+  # with the committed ones, and checks the whole set's index and files from what is committed (no build), so the five
+  # together say what one full `--check` says. The build searches each place's start spots and springs (D245, D521,
+  # tools/real-places.ts), each candidate a full build and settle: one job took 23.5 min when it was written
+  # (2026-10-25), 5.6 min once its places ran one process a core (#1105), then 54 to 90 min once the springs were
+  # searched on every place (#1149, 2026-11-14), past its 90 on the slower runners. A shard is the slowest place it
+  # holds (Waimakariri River, 16 to 29 min by the runner) or a fifth of the rest, so each takes about 13 to 30 min.
+  # Raising the shard count is the fix if the rest outgrows them; the slowest place sets the floor. Never a longer limit.
   places:
-    runs-on: ubuntu-latest
+    name: places (${{ matrix.shard }}/5)
+    runs-on: ubuntu-24.04
     timeout-minutes: 90
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2, 3, 4, 5]
     steps:
       - uses: actions/checkout@v7
         with:
@@ -93,12 +106,12 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
-      - name: Real places match a fresh build (public/real-places, tools/real-places.ts)
+      - name: Real places match a fresh build, shard ${{ matrix.shard }} of 5 (public/real-places, tools/real-places.ts)
         run: |
-          npm run places -- --check || { echo "::error::The Real places data is stale: run npm run places and commit"; exit 1; }
+          npm run places -- --check --shard ${{ matrix.shard }}/5 || { echo "::error::The Real places data is stale: run npm run places and commit"; exit 1; }
 
   oracle:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 90
     steps:
       - uses: actions/checkout@v7
@@ -121,7 +134,7 @@ jobs:
         run: npx tsx tools/first-visit-maps.ts
 
   batches:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 90
     steps:
       - uses: actions/checkout@v7
@@ -188,7 +201,7 @@ jobs:
 
   hosts:
     needs: determinism
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@v7
@@ -209,7 +222,7 @@ jobs:
   issue:
     needs: [heavy-tests, intentions, places, oracle, batches, determinism, hosts]
     if: failure() && github.event_name != 'pull_request'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     permissions:
       issues: write
     steps:

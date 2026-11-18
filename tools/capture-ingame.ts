@@ -78,7 +78,8 @@ function stateOf(snapshotFile: string): { water: { tile: number[]; floor: number
   // (the soil's bytes as the editor holds them)
   const moisture = s.moisture.map(moistureByte);
   const soil = s.soilContamination.map(contaminationByte);
-  const dead = s.plants.filter((p) => p.plant?.dead).map((p) => p.y * s.width + p.x);
+  // (each dead plant's cell, level × W × H + tile, as the renderer's `setWithered` takes them)
+  const dead = s.plants.filter((p) => p.plant?.dead).map((p) => (p.z * s.height + p.y) * s.width + p.x);
   return { water, moisture, soil, dead };
 }
 
