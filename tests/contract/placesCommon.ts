@@ -81,8 +81,8 @@ export const PLACES_BELOW_THE_FLOOR = new Set([
 /** No place is offered without pumpable water within 20 tiles' walk of its start (D(new-films), planning's rulings on
  *  #1201, 2026-11-16 and 2026-11-17): by `startPool`'s rule (src/core/places/spring.ts), the nearest water a pump on a
  *  shore the start walks to draws from with the first pump, in a body that stands as a pool, not a thin sheet. A start
- *  with no water in reach is withheld (tools/real-places.ts prints each with what was tried: Glencoe, Ngorongoro, Fish
- *  River Canyon, and Twelve Apostles by `WITHHELD_UNTIL`). A place whose start has no pool is built again under the pool
+ *  with no water in reach is withheld (tools/real-places.ts prints each with what was tried: Glencoe, Ngorongoro, and
+ *  Twelve Apostles by `WITHHELD_UNTIL`). A place whose start has no pool is built again under the pool
  *  rule (#1218, `runPlace`); these two pass `start.water` on a thin sheet by the start, which the first logs can dam into
  *  a pool, and no mend gives them one: Lofoten's sea is a floor-0 sheet and its three lakes nearest the start give no
  *  pool (no spot by them pumps from them; a bed cut leaves a film, a head source stands in another's flow), and no

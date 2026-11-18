@@ -564,7 +564,6 @@ const TODAY_KEPT: Record<string, string> = {
   "yosemite-valley": "film 104 at 62,1: its bed costs the real water",
   paricutin: "its springs' search ends with less water over real water than today's (5 → 1)",
   "western-ghats-mahabaleshwar": "its one spring by the start puts 550 more tiles over real dry land; the start had water 15.5 tiles' walk away today",
-  "fish-river-canyon": "the spring its search keeps puts 160 more tiles over real dry land and gives the start water only past its walk (none → 42.3 of 20)",
   altiplano: "its one spring by the start (2,54) puts 299 more tiles over real dry land than today's (697 → 996) with the start's water where it was (8.2 tiles' walk); without it the turns leave the start 19.8 tiles from water",
   "roaring-river-fan": "its search puts 138 more tiles over real dry land than today's (602 → 740) and takes the start's water from 1.4 to 10.2 tiles' walk; the start's spring that held it nearer (70,57) leaves it at 4",
 };
@@ -1066,6 +1065,8 @@ interface Outcome {
   measure?: Measure;
   /** Whether its start's water within its walk is a pool (`startPool`); false too for a place withheld for no water. */
   pool?: boolean;
+  /** The generate profile's checks its build fails (an offered place's). */
+  fails?: string[];
 }
 /** The water over real water and over real dry land, the latter as the floor-0 sheet and the rest (`realParts`). */
 type Measure = ReturnType<typeof realParts>;
@@ -1083,10 +1084,13 @@ function runPlace(item: LibraryItem): Outcome | null {
   if (!b) return a;
   const offered = !!a.entries.length;
   const gained = offered && b.entries.length ? b.entries[0].faults.filter((f) => f !== "start.water" && !a.entries[0].faults.includes(f)) : [];
+  // (nor a start's land or wood check the first build passed: the pool rule's moves may cost them on the way)
+  const lost = offered ? (b.fails ?? []).filter((id) => (START_LAND.includes(id) || WOOD_CHECKS.includes(id)) && !(a.fails ?? []).includes(id)) : [];
   const why = [
     ...(b.pool ? [] : ["its start has no pool either"]),
     ...(b.failed ? ["it fails a check"] : []),
     ...(gained.length ? [`it gains ${gained.join(", ")}`] : []),
+    ...(lost.length ? [`its start fails ${lost.join(", ")}`] : []),
     ...(offered && a.measure && b.measure && b.measure.real < a.measure.real ? [`real water ${a.measure.real} → ${b.measure.real}`] : []),
   ];
   if (!why.length) return { ...b, lines: [...b.lines, `   the pool rule's build kept (#1218): built as before, ${offered ? `its start's water is not a pool${a.measure ? ` (real water ${a.measure.real}, real dry land ${a.measure.dry})` : ""}` : "it is withheld for no water"}`] };
@@ -1639,6 +1643,7 @@ function finishPlace(item: LibraryItem, place: PlaceData, columns: number, t: nu
   // within its walk, until no offered place's start is without a pool, `PLACES_START_WITHOUT_POOL`: no place gains a fault)
   out.pool = startPool(place, built.heights, built.settle.depth, built.settle.contamination, { thin: FILM_DEPTH, thinShare: FILM_THIN_SHARE }) !== null;
   const faults = PLACE_FAULT_CHECKS.filter((id) => strictFails.includes(id));
+  out.fails = [...strictFails];
   say(
     `${unknown.length || !loads ? "FAIL" : "ok  "} ${place.W}² ${String(ms).padStart(6)} ms  ticks ${String(built.settle.ticks).padStart(5)}${built.settle.settled ? "" : " (not settled)"}  ${place.name}` +
       (blocking.length ? `  export: ${blocking.map((c) => c.id).join(", ")}` : "") +
