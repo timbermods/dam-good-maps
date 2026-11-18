@@ -73,7 +73,9 @@ describe("A broken poisoned-floodplain ladder fails its works checks", () => {
   });
 
   it("works.paid: a rung under its floor", () => {
-    expect(ids((w) => (w.id === "swampLevee" ? { ...w, paid: false, note: "clears 0" } : w))).toContain("works.paid");
+    // (the first levee the ladder lists: step 6 left seed 5's swamp levee off it, under its floor; updated to the land, D148)
+    const lv = good.ladder.works.find((w) => w.id === "swampLevee" || w.id === "lowLevee")!;
+    expect(ids((w) => (w.id === lv.id ? { ...w, paid: false, note: "clears 0" } : w))).toContain("works.paid");
   });
 
   it("turn.byNumber: a dam no higher than the narrows' floor leaves the red water on the valley's floor", () => {
