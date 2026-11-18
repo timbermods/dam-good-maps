@@ -585,9 +585,10 @@ export function pickStart(
         }
         // the player's settings weigh on the intentions' preference too: they are asked for
         const settingsFit = (0.3 + 0.7 * benchFit * benchFit) * (0.3 + 0.7 * walkFit) * (0.4 + 0.6 * storeFit) * (0.5 + 0.5 * footFit);
-        // (what it is worth to a settlement, against a place at the targets: D(pick-start))
+        // (what it is worth to a settlement, against a place at the targets: D(pick-start); it scales the whole score,
+        // the seed's draw too, so between places worth the same the draw weighs as before and only worth tilts it)
         const worth = worthAt(i, moistNear);
-        const score = (pref * (0.5 + 0.5 * room) * (0.6 + 0.4 * Math.min(1, moistNear / 500)) * dry * foodFit + 0.8 * intent) * settingsFit * (easy ? Math.min(1, flat / 600) : 1) * ((1 + worth) / (1 + worthRef)) + 0.25 * rng.float();
+        const score = ((pref * (0.5 + 0.5 * room) * (0.6 + 0.4 * Math.min(1, moistNear / 500)) * dry * foodFit + 0.8 * intent) * settingsFit * (easy ? Math.min(1, flat / 600) : 1) + 0.25 * rng.float()) * ((1 + worth) / (1 + worthRef));
         cands.push({ i, score, kind, walk: w, levelled: uneven, droughtOk, intent, sameLevel, worth });
       }
     }

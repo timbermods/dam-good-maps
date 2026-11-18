@@ -100,7 +100,8 @@ describe("Showcase mode (D488 (2))", () => {
     // off the new maps by hand with `arcOf` and `showcaseSearch` at tries: 3; before it the asked map's partial vista was 0.48, its
     // dam 23 tiles north-east and its drowned village 28 tiles north-east; the second sibling had 6 levels of relief in its vista,
     // the first drought's choice at 14 tiles' walk, no valley, a 9-level mesa 40 tiles south, a 5-tile dam 43 tiles south-west
-    // holding 5,400 and no mystery (a partial one, 0.4); ranked [2, 0, 1] as now)
+    // holding 5,400 and no mystery (a partial one, 0.4); ranked [2, 0, 1] as now; with the pick's draw scaled by the worth too, the
+    // asked map's dam 28 tiles north-east is now 29 and its looks 0.46 now 0.48)
     // the asked map: a dam to build and a drowned village; no landmark, no valley, no vista (the strength 0.41 of a partial one)
     // and a partial first-drought choice (0.4)
     expect(a.vista.met).toBe(false);
@@ -109,7 +110,7 @@ describe("Showcase mode (D488 (2))", () => {
     expect(a.drought.met).toBe(false);
     expect(a.drought.strength).toBe(0.4);
     expect(a.valley.met).toBe(false);
-    expect(a.project.say).toMatch(/^An 8-tile dam across a narrows 28 tiles north-east of the start would hold 5,700 water\.$/);
+    expect(a.project.say).toMatch(/^An 8-tile dam across a narrows 29 tiles north-east of the start would hold 5,700 water\.$/);
     expect(a.mystery.met).toBe(true);
     expect(a.mystery.say).toMatch(/^A drowned village stands in a lake's shallows 30 tiles east of the start/);
     // the first sibling: a 9-level mesa in view, a dam to build and a drowned village; no valley, no vista (a partial one) and no
@@ -138,7 +139,7 @@ describe("Showcase mode (D488 (2))", () => {
     for (const c of seen) expect(c.score).toBeCloseTo(arcScore(c.arc!) + SHOWCASE_LOOKS * c.looks!, 9);
     // the best three, best first: the second sibling (5 beats: the vista, a valley, a landmark, a project and a mystery), the
     // asked map (2 beats: a project and a mystery), then the first sibling (3 beats: a landmark, a project and a mystery) whose picture
-    // holds the least (its looks 0.20, against 0.46 and 0.65): the arcs rank [2, 1, 0], the score with the looks [2, 0, 1]
+    // holds the least (its looks 0.20, against 0.48 and 0.65): the arcs rank [2, 1, 0], the score with the looks [2, 0, 1]
     expect(arcScore(c)).toBeGreaterThan(arcScore(b));
     expect(arcScore(b)).toBeGreaterThan(arcScore(a));
     expect(seen[2].looks!).toBeGreaterThan(seen[1].looks!);

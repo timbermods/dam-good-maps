@@ -22,21 +22,21 @@
    "canyon": 0,
    "highlands": 4,
    "lakeBasin": 0,
-   "delta": 1,
+   "delta": 2,
    "islands": 0
   },
   "landmark": {
    "riverValley": 9,
    "canyon": 10,
-   "highlands": 10,
+   "highlands": 11,
    "lakeBasin": 7,
    "delta": 9,
    "islands": 12
   },
   "farmland-past-gorge": {
-   "riverValley": 2,
+   "riverValley": 1,
    "canyon": 4,
-   "highlands": 1,
+   "highlands": 0,
    "lakeBasin": 2,
    "delta": 0,
    "islands": 2
@@ -66,7 +66,7 @@
    "islands": 0
   },
   "meeting-waters": {
-   "riverValley": 8,
+   "riverValley": 10,
    "canyon": 3,
    "highlands": 1,
    "lakeBasin": 4,
@@ -74,7 +74,7 @@
    "islands": 1
   },
   "long-view": {
-   "riverValley": 0,
+   "riverValley": 1,
    "canyon": 5,
    "highlands": 7,
    "lakeBasin": 7,
@@ -170,11 +170,11 @@
    "islands": 0
   },
   "relic-pinnacle": {
-   "riverValley": 2,
+   "riverValley": 3,
    "canyon": 7,
    "highlands": 5,
    "lakeBasin": 6,
-   "delta": 6,
+   "delta": 5,
    "islands": 4
   },
   "plug-lake": {
