@@ -13,7 +13,9 @@ import { LISTED, PLAIN_WORKS_BLOCKING, plainMeasure, plainWorksFailures, TURN } 
 import { plainOf } from "../../src/core/premise/premises/poisonedPlain";
 import { makeSpec } from "../../src/core/spec/mapspec";
 
-const spec = makeSpec({ seed: 2, size: { x: 128, y: 128 }, theme: "any", premise: "any" });
+// (seed 5: step 5 moved the start and the walls, and seed 2 at 128² now holds on its third attempt; the test is of a map
+// that holds on its first)
+const spec = makeSpec({ seed: 5, size: { x: 128, y: 128 }, theme: "any", premise: "any" });
 const made = plainMap(spec);
 if ("reason" in made) throw new Error(made.reason);
 const good: PlainMap = made;
@@ -78,6 +80,17 @@ describe("A broken poisoned-floodplain ladder fails its works checks", () => {
     const turn = site("turn");
     const low = Math.min(...turn.tiles.map((i) => heights[i]));
     expect(ids((w) => (w.id === "turn" ? { ...w, level: low } : w))).toContain("turn.byNumber");
+  });
+
+  it("turn.byNumber: red water that leaves the map by an edge other than the Dry Fork's (step 5)", () => {
+    // (the Dry Fork's end moved to the map's far corner from where it leaves: the dam's water still leaves where it
+    // did, now an edge that is not the Dry Fork's; the settle's proof counts such water a leak, 256² seed 4 its plateau)
+    const moved = JSON.parse(JSON.stringify(good.land.plan));
+    const path = plainOf(moved)!.fork.path;
+    const end = path[path.length - 1];
+    path[path.length - 1] = [end[0] < plan.W / 2 ? plan.W : 0, end[1] < plan.H / 2 ? plan.H : 0];
+    const failed = plainWorksFailures({ land: { ...good.land, plan: moved }, heights, ladder: good.ladder });
+    expect(failed.find((f) => f.id === "turn.byNumber")?.reason).toMatch(/leaves the map at/);
   });
 
   it("riverIn.byNumber: a weir a level lower leaves the slough's mouth dry", () => {
