@@ -86,7 +86,8 @@ describe("the editor's document in the worker", () => {
     expect(c.blocking).toEqual([]);
     const out = await ed.exportTimber(true);
     expect(out.ok).toBe(true);
-    expect(out.fileName).toBe("dgm-river-valley-77.timber");
+    // (the map's own generated name, D443 amended 2026-11-18; it was dgm-river-valley-77 before, D148)
+    expect(out.fileName).toBe(`${gen.name}.timber`);
   });
 
   it("an unedited generated map exports the generator's own file, and history jumps", async () => {
@@ -116,7 +117,7 @@ describe("the editor's document in the worker", () => {
     const bytes = writeTimber(r.file);
     const open = ed.openTimber(bytes, "Mine.timber");
     expect(open.info.kind).toBe("import");
-    expect(open.info.timberName).toBe("dgm-mine.timber");
+    expect(open.info.timberName).toBe("Mine.timber"); // (its own name, D443 amended 2026-11-18)
     expect(open.view.water.count).toBe(r.built.water.filter((d) => d > 0.001).length);
     // since M8 the water and colony checks run on imports too (decisions-pending #9)
     const c = (await ed.backgroundCheck())!.check;

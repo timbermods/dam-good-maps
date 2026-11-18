@@ -175,6 +175,9 @@ function Help(p: { onClose(): void }) {
             Press <strong>Save to Timberborn</strong>. The first time, pick <code>Documents\Timberborn\Maps</code>. In a browser that can't save to a folder, <strong>Download .timber</strong> instead and move the file there.
           </li>
           <li>
+            The file takes the map's name. To give it another, use <strong>File → Save as…</strong>.
+          </li>
+          <li>
             On a phone, <strong>Save</strong> opens the share sheet. Send the file to the computer that plays, then move it there.
           </li>
           <li>
@@ -260,7 +263,7 @@ function TouchHelp(p: { onClose(): void; phone: boolean; tablet: boolean }) {
         <ol>
           {p.phone ? (
             <li>
-              Tap <strong>Save</strong>. It opens the share sheet: send the file to the computer that plays, then move it to <code>Documents\Timberborn\Maps</code>.
+              Tap <strong>Save</strong>. It opens the share sheet: send the file to the computer that plays, then move it to <code>Documents\Timberborn\Maps</code>. To name the file, use <strong>Save as…</strong> in the menu.
             </li>
           ) : (
             <li>

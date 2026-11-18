@@ -79,7 +79,7 @@ import { DEAD_TREES_KEEP_LOGS, LOG_FLOOR_WALK, LOGS_PER_TREE_SPECIES } from "../
 import { startWalkField } from "../src/core/resources/baseline";
 import { writeTimber } from "../src/core/format/timber";
 import { SettleCache } from "../src/core/features/build";
-import { namedFile } from "../src/core/gen/pack";
+import { mapFileName } from "../src/core/format/fileName";
 import { relaxEdges } from "../src/core/land/levels";
 import { EDITOR_LEVEL } from "../src/core/spec/mapspec";
 import { edgeLip } from "../src/core/water/edgeLip";
@@ -1668,7 +1668,7 @@ function finishPlace(item: LibraryItem, place: PlaceData, columns: number, t: nu
     sha256: sha256(bytes),
     faults: [...faults],
   });
-  if (placeFileName(place) !== namedFile(place.name)) throw new Error(`${place.name}: file name ${placeFileName(place)}`);
+  if (placeFileName(place) !== mapFileName(place.name)) throw new Error(`${place.name}: file name ${placeFileName(place)}`);
   if (waterMeasure) say(waterLine(built, place));
   // what opens is what the game keeps (planning's rule, #236: no known list): the file's water model settled again,
   // as the first edit settles it, keeps the wet tiles within 1 % and every body of 30 tiles or more; and no film above

@@ -40,8 +40,9 @@ The generator:
   source. For a peaceful map, set **Badwater** to **No badwater**.
 - The address is the map's link: copy it to share the map. It carries the settings, not your edits.
 - **Save to Timberborn** puts the map straight into the game's custom maps. The first time, pick
-  `Documents\Timberborn\Maps`; after that it is one click (Chrome and Edge). A map with the same
-  name is kept, and the new one gets a number: `dgm-river-valley-7-2.timber`.
+  `Documents\Timberborn\Maps`; after that it is one click (Chrome and Edge). The file takes the
+  map's name. A map with the same name is kept, and the new one gets a number:
+  `Old Loop Lakelands-2.timber`. **File → Save as…** saves it under a name you choose.
 - In other browsers it downloads the `.timber`: move it to `Documents\Timberborn\Maps`.
   **File → Download project** keeps the map for editing later.
 

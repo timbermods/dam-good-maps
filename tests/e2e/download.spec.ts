@@ -8,7 +8,7 @@ import { readdirSync, readFileSync, rmSync } from "node:fs";
 import { join } from "node:path";
 import { expect, test } from "@playwright/test";
 import { encodeSpecFragment, makeSpec } from "../../src/core/spec/mapspec";
-import { expectReady, openEditor, openFileMenu } from "./open";
+import { expectReady, openEditor, openFileMenu, shownName } from "./open";
 import { expectSavedFile } from "./savedFile";
 
 const SEED = 4242;
@@ -32,6 +32,9 @@ test("File → Download .timber on a freshly generated map gives the file tools/
   const download = page.waitForEvent("download", { timeout: 120_000 });
   await menu.getByRole("menuitem", { name: "Download .timber" }).click();
   const d = await download;
-  expect(d.suggestedFilename(), "the downloaded file's name").toBe(gen.name);
+  // (the page names the file by the map's name as the header shows it, D443 amended 2026-11-18; tools/gen.ts keeps its
+  // batch name, dgm-river-valley-4242.timber, which the page's was until then, D148)
+  expect(gen.name, "tools/gen.ts's batch name").toBe(`dgm-river-valley-${SEED}.timber`);
+  expect(d.suggestedFilename(), "the downloaded file's name").toBe(`${await shownName(page)}.timber`);
   await expectSavedFile(page, new Uint8Array(readFileSync((await d.path())!)), gen.bytes, "the downloaded file against tools/gen.ts's");
 });

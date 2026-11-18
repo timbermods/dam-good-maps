@@ -9,6 +9,7 @@ import { join } from "node:path";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import opsSchema from "../../src/core/doc/ops.schema.json" with { type: "json" };
 import { naturalSize } from "../../src/core/forces/craterize";
+import { mapFileName } from "../../src/core/format/fileName";
 import { closeAll, generateMap, mapOf, MOST_OPEN, WHERE_MOST } from "../src/maps";
 import { callTool, TOOLS } from "../src/server";
 
@@ -143,12 +144,13 @@ describe("the MCP server's words", () => {
             expect(v.length, `${row.id} ${key}`).toBeLessThanOrEqual(WHERE_MOST);
             if (v.length === WHERE_MOST) expect(row.where[`${key}Total`] ?? WHERE_MOST).toBeGreaterThanOrEqual(WHERE_MOST);
           }
-      // save: a generated map with its own name keeps the seed's file name; another name names the files
+      // save: the files take the map's name as written, its own or another (D443 amended 2026-11-18; until then
+      // dgm-river-valley-2 and dgm-hollow-test, D148)
       const own = s.meta.name;
       expect((await callTool("save", { map: handle, folder: dir, name: own })).isError).toBeFalsy();
-      expect(readdirSync(dir)).toContain("dgm-river-valley-2.timber");
+      expect(readdirSync(dir)).toContain(mapFileName(own));
       await callTool("save", { map: handle, folder: dir, name: "Hollow Test" });
-      expect(readdirSync(dir)).toContain("dgm-hollow-test.timber");
+      expect(readdirSync(dir)).toContain("Hollow Test.timber");
       // a map no longer open: the refusal says why and what to do
       for (let k2 = 0; k2 < MOST_OPEN; k2++) generateMap({ theme: "riverValley", size: 48, seed: k2 + 1 });
       const gone = await callTool("describe", { map: handle });

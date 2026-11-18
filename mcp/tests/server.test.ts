@@ -12,6 +12,7 @@ import { join } from "node:path";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { decodeProject } from "../../src/core/doc/document";
 import { MapSession } from "../../src/core/doc/session";
+import { mapFileName } from "../../src/core/format/fileName";
 import { jobOf, setMostJobs, setWaitMs } from "../src/jobs";
 import { generate } from "../../src/core/gen/generate";
 import { closeAll, exportFiles, mapOf, specOf } from "../src/maps";
@@ -132,7 +133,9 @@ describe("the Dam Good Maps MCP server", () => {
     const saved = await call("save", { map: "map-1", folder: dir });
     expect(saved.isError, textOf(saved)).toBeFalsy();
     const files = readdirSync(dir).sort();
-    expect(files).toEqual(["dgm-river-valley-2.damgoodmaps.json", "dgm-river-valley-2.timber"]);
+    // (named by the map's own name, D443 amended 2026-11-18; dgm-river-valley-2 before, D148)
+    const stem = mapFileName(s.meta.name).replace(/[.]timber$/, "");
+    expect(files).toEqual([`${stem}.damgoodmaps.json`, `${stem}.timber`]);
     const timber = readFileSync(join(dir, files[1]));
     const project = readFileSync(join(dir, files[0]));
     // the bytes are the core's export of the same project: the project opened afresh and exported as the page does
@@ -144,7 +147,7 @@ describe("the Dam Good Maps MCP server", () => {
     expect(Buffer.compare(project, Buffer.from(s.project(9)))).toBe(0);
     // a second save never overwrites: it takes the next free name
     await call("save", { map: "map-1", folder: dir });
-    expect(readdirSync(dir).sort()).toContain("dgm-river-valley-2-2.timber");
+    expect(readdirSync(dir).sort()).toContain(`${stem}-2.timber`);
     // open, then save: the same bytes
     const opened = await call("open", { path: join(dir, files[0]) });
     expect(opened.isError, textOf(opened)).toBeFalsy();

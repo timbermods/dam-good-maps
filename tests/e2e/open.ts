@@ -96,6 +96,11 @@ export async function waitForEditor(page: Page, opts: { timeout?: number } = {})
   await page.waitForFunction(() => !!window.dgmEditor && !!window.dgm3d, null, { timeout: opts.timeout ?? 120_000 });
 }
 
+/** The map's name as the header shows it: what its files are named by (D443). */
+export async function shownName(page: Page): Promise<string> {
+  return ((await page.locator(".editor-title h1 .title-button").textContent()) ?? "").trim();
+}
+
 /** The generated map is on show and checked: its checks passed (the dot beside Save says "Ready to play"). */
 export async function expectReady(page: Page, timeout = 120_000): Promise<void> {
   await expect(page.getByRole("button", { name: /^Checks: Ready to play/ })).toBeVisible({ timeout });
