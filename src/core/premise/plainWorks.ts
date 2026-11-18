@@ -56,6 +56,10 @@ export const LISTED = ["brookPond", "turn", "riverIn"] as const;
 export const SWAMP_LEVEE = { tiles: 20, near: 4 } as const;
 /** How far from the Dry Fork's end its edge tiles are its own (`turn.byNumber`, `turn.proved`). */
 const FORK_END = 6;
+/** The Dry Fork's edge as the settled water reaches it: the map's edge within this share of the side of its line's
+ *  end (its valley's lower end can be a hollow that spills to the edge beside the line's own way, seed 10 at 256², or
+ *  round a corner, seed 8 at 192²; `turn.proved`); `turn.byNumber` refuses red water that leaves by an edge farther off (step 5). */
+export const FORK_EDGE = 0.25;
 
 type Change = [tile: number, floor: number][];
 
@@ -595,24 +599,35 @@ const turnByNumber: PlainWorksInvariant = {
     const flow = flowThrough({ ...m, floor: withSite(heights, turn), emitters: red });
     const on = floorTiles(plan, land.relief.floor);
     const end = forkEnd(plan);
+    const fe = p.fork.path[p.fork.path.length - 1];
     let edge = false;
     let floor = -1;
+    let other = -1;
     let stands = -Infinity;
+    const W = plan.W;
+    const H = plan.H;
     for (let i = 0; i < on.length; i++) {
       if (!flow.path[i]) continue;
       if (on[i] && floor < 0) floor = i;
       if (end(i)) edge = true;
+      else if (other < 0 && (i % W === 0 || i % W === W - 1 || i < W || i >= W * (H - 1)) && dist([(i % W) + 0.5, Math.floor(i / W) + 0.5], fe) > FORK_EDGE * W) other = i;
       if (land.found.into.includes(i)) stands = Math.max(stands, flow.level[i]);
     }
     if (floor >= 0) return no(`With the dam, the red water still reaches the valley's floor at ${floor % plan.W}, ${Math.floor(floor / plan.W)}`);
     if (stands < p.col.level) return no(`With the dam, the red water stands at ${stands === -Infinity ? "nothing" : stands} on the col's way, under the col's ${p.col.level}`);
+    if (other >= 0) return no(`With the dam, the red water leaves the map at ${other % W}, ${Math.floor(other / W)}, off ${plan.names[I.fork] ?? I.fork}'s edge`);
     if (!edge) return no(`With the dam, the red water never reaches ${plan.names[I.fork] ?? I.fork}'s edge`);
     return ok;
   },
 };
 
 /** `riverIn.byNumber` (§7): the river's water by `flowThrough` with the weir built stands at the slough's mouth's bed or
- *  over and runs down the slough to the backswamp. */
+ *  over, and the slough's own way carries water at that level to the backswamp: from the mouth along the slough (its
+ *  tiles within its half-width and a tile and a half of its line) over ground no higher, to the backswamp beside its
+ *  end. (The slough's carry is read on its bed, not by the river's flow: the weir stands at the mouth's bed, so the
+ *  river's pond spills over the weir and into the slough at one level, and `flowThrough` sends a pond's water out by
+ *  one way only, the river's; the core's settle, its water over the weir's crest, runs both. Step 5: seed 10 at 128²
+ *  was refused here while the settle greened 60.5 % of its floor down that slough.) */
 const riverInByNumber: PlainWorksInvariant = {
   id: "riverIn.byNumber",
   test({ land, heights, ladder }) {
@@ -621,21 +636,39 @@ const riverInByNumber: PlainWorksInvariant = {
     const inn = ladder.works.find((x) => x.id === "riverIn");
     if (!inn?.tiles.length) return no("The river in has no weir");
     const m = stageModel(water);
-    const flow = flowThrough({ ...m, floor: withSite(heights, inn), emitters: m.emitters.filter((e) => !(e.contamination > 0)) });
+    const floor = withSite(heights, inn);
+    const flow = flowThrough({ ...m, floor, emitters: m.emitters.filter((e) => !(e.contamination > 0)) });
     const sl = p.sloughs[0];
-    const { W } = plan;
+    const { W, H } = plan;
+    const N = W * H;
     const fl = land.relief.floor;
     const head = sl.path[0];
     const end = sl.path[sl.path.length - 1];
-    let mouth = false;
-    let swamp = false;
-    for (let i = 0; i < flow.path.length; i++) {
-      if (!flow.path[i]) continue;
-      const q: Point = [(i % W) + 0.5, Math.floor(i / W) + 0.5];
-      if (fl[i] === 4 && dist(q, head) <= sl.half + 1.5 && flow.level[i] >= sl.bed[0]) mouth = true;
-      if (fl[i] === 2 && dist(q, end) <= sl.half + 3) swamp = true;
+    const at = (i: number): Point => [(i % W) + 0.5, Math.floor(i / W) + 0.5];
+    const mouth: number[] = [];
+    let level = -Infinity;
+    for (let i = 0; i < N; i++) {
+      if (!flow.path[i] || fl[i] !== 4 || dist(at(i), head) > sl.half + 1.5 || flow.level[i] < sl.bed[0]) continue;
+      mouth.push(i);
+      level = Math.max(level, flow.level[i]);
     }
-    if (!mouth) return no(`With the weir, the river never stands at ${plan.names[sl.id] ?? sl.id}'s mouth`);
+    if (!mouth.length) return no(`With the weir, the river never stands at ${plan.names[sl.id] ?? sl.id}'s mouth`);
+    const bed = (i: number) => floor[i] <= level && pathDist(at(i)[0], at(i)[1], sl.path).d <= sl.half + 1.5;
+    const seen = new Uint8Array(N);
+    const q = [...mouth];
+    for (const i of q) seen[i] = 1;
+    let swamp = false;
+    while (q.length && !swamp) {
+      const i = q.pop()!;
+      const x = i % W;
+      for (const j of [x > 0 ? i - 1 : -1, x + 1 < W ? i + 1 : -1, i - W, i + W]) {
+        if (j < 0 || j >= N || seen[j]) continue;
+        if (fl[j] === 2 && floor[j] <= level && dist(at(j), end) <= sl.half + 3) swamp = true;
+        if (!bed(j)) continue;
+        seen[j] = 1;
+        q.push(j);
+      }
+    }
     if (!swamp) return no(`With the weir, the river's water never runs down ${plan.names[sl.id] ?? sl.id} to the backswamp`);
     return ok;
   },
