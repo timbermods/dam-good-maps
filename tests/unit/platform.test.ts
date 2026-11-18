@@ -6,7 +6,7 @@
 
 import "fake-indexeddb/auto";
 import { describe, expect, it } from "vitest";
-import { chooseMapsFolder, chooseSaveFolder, saveIntoFolder, isMapsFolder, liveDeps, storage, saveToTimberborn, type Autosave, type SaveToTimberbornDeps } from "../../src/platform";
+import { chooseMapsFolder, chooseSaveFolder, saveIntoFolder, isMapsFolder, liveDeps, peekSaveName, storage, saveToTimberborn, type Autosave, type SaveToTimberbornDeps } from "../../src/platform";
 
 function fakeFolder(name: string, writes: { name: string; bytes: Uint8Array }[]): FileSystemDirectoryHandle {
   return {
@@ -341,7 +341,7 @@ describe("saveToTimberborn: never overwrites an existing map", () => {
     expect(writes).toEqual([{ name: "dgm-river-valley-7.timber", bytes }]);
   });
 
-  it("saves as 'name-2' when the plain name is already taken, with the same bytes", async () => {
+  it("saves as 'name (2)' when the plain name is already taken, with the same bytes", async () => {
     const writes: { name: string; bytes: Uint8Array }[] = [];
     const folder = fakeFolderWithFiles("Maps", new Set(["dgm-river-valley-7.timber"]), writes);
     const bytes = new Uint8Array([1, 2, 3, 250, 255]);
@@ -361,13 +361,13 @@ describe("saveToTimberborn: never overwrites an existing map", () => {
 
     const r = await saveToTimberborn(bytes, "dgm-river-valley-7.timber", deps);
 
-    expect(r).toEqual({ via: "fsa", folder: "Maps", savedAs: "dgm-river-valley-7-2.timber" });
-    expect(writes).toEqual([{ name: "dgm-river-valley-7-2.timber", bytes }]);
+    expect(r).toEqual({ via: "fsa", folder: "Maps", savedAs: "dgm-river-valley-7 (2).timber" });
+    expect(writes).toEqual([{ name: "dgm-river-valley-7 (2).timber", bytes }]);
   });
 
-  it("keeps counting up when '-2' is taken too", async () => {
+  it("keeps counting up when '(2)' is taken too", async () => {
     const writes: { name: string; bytes: Uint8Array }[] = [];
-    const folder = fakeFolderWithFiles("Maps", new Set(["dgm-river-valley-7.timber", "dgm-river-valley-7-2.timber"]), writes);
+    const folder = fakeFolderWithFiles("Maps", new Set(["dgm-river-valley-7.timber", "dgm-river-valley-7 (2).timber"]), writes);
     const bytes = new Uint8Array([1, 2, 3]);
     const deps: SaveToTimberbornDeps = {
       supported: () => true,
@@ -385,8 +385,8 @@ describe("saveToTimberborn: never overwrites an existing map", () => {
 
     const r = await saveToTimberborn(bytes, "dgm-river-valley-7.timber", deps);
 
-    expect(r).toEqual({ via: "fsa", folder: "Maps", savedAs: "dgm-river-valley-7-3.timber" });
-    expect(writes).toEqual([{ name: "dgm-river-valley-7-3.timber", bytes }]);
+    expect(r).toEqual({ via: "fsa", folder: "Maps", savedAs: "dgm-river-valley-7 (3).timber" });
+    expect(writes).toEqual([{ name: "dgm-river-valley-7 (3).timber", bytes }]);
   });
 });
 
@@ -403,5 +403,21 @@ describe("the folder handle has its own database, apart from the autosave", () =
     const loaded = await storage.load();
     expect(loaded?.name).toBe("a.timber");
     expect(loaded?.bytes).toEqual(autosave.bytes);
+  });
+});
+
+describe("Save as… asks the Maps folder quietly what a name would be saved as", () => {
+  const peekDeps = (folder: FileSystemDirectoryHandle | null) => ({ supported: () => true, freeName: liveDeps.freeName, recallQuietly: async () => folder });
+
+  it("the name itself when it is free, 'name (2)' when a map has it", async () => {
+    const maps = fakeFolderWithFiles("Maps", new Set(["Old Loop Lakelands.timber"]), []);
+    expect(await peekSaveName("Beaver Bend.timber", peekDeps(maps))).toBe("Beaver Bend.timber");
+    expect(await peekSaveName("Old Loop Lakelands.timber", peekDeps(maps))).toBe("Old Loop Lakelands (2).timber");
+  });
+
+  it("nothing known without a folder whose permission stands, or in another browser", async () => {
+    expect(await peekSaveName("A.timber", peekDeps(null))).toBeNull();
+    expect(await peekSaveName("A.timber", { ...peekDeps(fakeFolderWithFiles("Documents", new Set(), [])) })).toBeNull();
+    expect(await peekSaveName("A.timber", { ...peekDeps(null), supported: () => false })).toBeNull();
   });
 });

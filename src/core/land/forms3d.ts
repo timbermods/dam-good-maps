@@ -808,8 +808,14 @@ function gorgeArches(c: Ctx, n: number): { forms: FormPlan[]; why: string } {
         if (!inside(W, H, x, y, MARGIN + 2)) continue;
         // across the river's run: along x when it runs mostly along y
         const across: [number, number] = Math.abs(by - ay) >= Math.abs(bx - ax) ? [1, 0] : [0, 1];
+        const way = courseAxis(path, k);
         const site = archSite(c, x, y, across, widest);
-        if (site) sites.push(site);
+        if (site) sites.push({ ...site, way });
+        // (where the gorge runs along a diagonal, the crossing along the other axis too: it is as short)
+        if (way % 2) {
+          const other = archSite(c, x, y, [across[1], across[0]], widest);
+          if (other) sites.push({ ...other, way });
+        }
       }
     }
   }
@@ -840,6 +846,32 @@ interface Site {
   /** The highest water surface under it, rounded up to a whole layer. */
   water: number;
   clear: number;
+  /** The way the gorge runs at the crossing: the compass axis nearest its course there (`SEE_HEADINGS` 0–3). */
+  way?: number;
+}
+
+/** The way a gorge's arch is seen through (`SEE_HEADINGS` 0–3), read back from where it is best seen from: along a
+ *  diagonal when `from` stands as many tiles off it along x as along y, else along the axis it stands off it most. */
+export function archWay(at: number, from: number, W: number): number {
+  const dx = (from % W) - (at % W);
+  const dy = Math.floor(from / W) - Math.floor(at / W);
+  if (dx !== 0 && Math.abs(dx) === Math.abs(dy)) return dx === dy ? 1 : 3;
+  return Math.abs(dx) >= Math.abs(dy) ? 0 : 2;
+}
+
+/** tan 22.5°: a course within it of an axis runs along that axis, else along a diagonal. */
+const TAN_EIGHTH = 0.41421356237309503;
+
+/** The compass axis (`SEE_HEADINGS` 0–3) nearest a course's run at its point `k`, over three points either side of it: a
+ *  winding gorge runs along a diagonal as often as along x or y. Exact arithmetic: no angle is taken. */
+function courseAxis(path: readonly (readonly [number, number])[], k: number): number {
+  const a = path[Math.max(0, k - 3)];
+  const b = path[Math.min(path.length - 1, k + 3)];
+  const dx = b[0] - a[0];
+  const dy = b[1] - a[1];
+  if (Math.abs(dy) <= TAN_EIGHTH * Math.abs(dx)) return 0;
+  if (Math.abs(dx) <= TAN_EIGHTH * Math.abs(dy)) return 2;
+  return dx * dy > 0 ? 1 : 3;
 }
 
 /** Where a crossing at (x, y) along `across` meets rims at one height a few tiles apart. */
@@ -992,12 +1024,15 @@ function arch(c: Ctx, s: Site): FormPlan | null {
     if (!band.every((e) => e.o !== spine || kept.get(e.i)! & (1 << topLayer))) continue;
     for (const [i, m] of kept) if (m === mask[i]) kept.delete(i);
     // (kept where nothing falls and the game's camera sees through under it, both ways along the gorge,
-    // to the river beyond: an arch, not a grotto closed at the back, D503)
+    // to the river beyond: an arch, not a grotto closed at the back, D503. Along the gorge is along the
+    // deck's own axis, or, where a winding gorge runs along a diagonal at the crossing, along that
+    // diagonal, where its walls close the sightline along the axis)
     const wetAt = (i: number, z: number) => inp.water[i] > 0.01 && z >= heights[i] && z < heights[i] + inp.water[i];
     let seen: ReturnType<typeof seeThrough> | null = null;
+    const axis = along[0] ? 0 : 2;
     const reads = () => {
       seen = seeThrough({ W, H, mask, wet: wetAt }, underRock(mask, N, kept.keys()), true);
-      return readsThrough(seen, [along[0] ? 0 : 2]);
+      return readsThrough(seen, s.way === undefined || s.way === axis ? [axis] : [axis, s.way]);
     };
     if (!commit(c, kept, reads)) return null;
     const s2 = seen! as ReturnType<typeof seeThrough>;
@@ -1007,12 +1042,18 @@ function arch(c: Ctx, s: Site): FormPlan | null {
     const under = lowestSolidAbove(kept.get(mid)!, heights[mid]);
     const mx = mid % W;
     const my = Math.floor(mid / W);
-    // (best seen from the end of the gorge its sightlines come from most)
-    const fwd = along[0] ? s2.ways[0][0] + s2.ways[1][0] : s2.ways[0][2] + s2.ways[1][2];
-    const back = along[0] ? s2.ways[0][4] + s2.ways[1][4] : s2.ways[0][6] + s2.ways[1][6];
+    // (best seen from the end of the gorge its sightlines come from most: along the axis it is seen through, 12 tiles off
+    // along x or y, up to 8 each way along a diagonal, as many along x as along y, so `checkForm` reads the diagonal back)
+    const w = readsThrough(s2, [axis]) ? axis : s.way!;
+    const fwd = s2.ways[0][w] + s2.ways[1][w];
+    const back = s2.ways[0][w + 4] + s2.ways[1][w + 4];
     const sgn = fwd >= back ? -1 : 1;
-    const fx = Math.max(0, Math.min(W - 1, mx + sgn * along[0] * 12));
-    const fy = Math.max(0, Math.min(H - 1, my + sgn * along[1] * 12));
+    const ux = sgn * Math.sign(SEE_HEADINGS[w][0]);
+    const uy = sgn * Math.sign(SEE_HEADINGS[w][1]);
+    const room = (m: number, u: number, n: number) => (u > 0 ? n - 1 - m : u < 0 ? m : Infinity);
+    const reach = w % 2 ? Math.min(8, room(mx, ux, W), room(my, uy, H)) : 12;
+    const fx = Math.max(0, Math.min(W - 1, mx + ux * reach));
+    const fy = Math.max(0, Math.min(H - 1, my + uy * reach));
     return { id: "gorge-arch", at: mid, from: fy * W + fx, tiles: [...kept.keys()].sort((a, b) => a - b), note: `a span ${s.hi - s.lo + 1} across and ${wide} wide at level ${s.rim}, ${under - wet} levels of air over the water at its crown` };
   }
   return null;

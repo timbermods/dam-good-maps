@@ -243,6 +243,16 @@ export function View3D(props: View3DProps) {
     r.setMarkers(markers);
     // the Flow view as the player left it (D353; off by default), where the editor has its switch
     if (props.togglesInButtons && (flow || again)) r.setFlow(flow);
+    // the browser took the view's context away: a line over the blank view if it is not back within a second (it
+    // draws again in Standard when it is: renderer.ts restoreContext)
+    let lostTimer = 0;
+    r.onLost = (lost) => {
+      clearTimeout(lostTimer);
+      if (lost) lostTimer = window.setTimeout(() => setError("The 3D view stopped drawing. If it stays blank, reload the page."), 1000);
+      else setError(null);
+    };
+    // (a renderer taken while its context is gone: the last view's or the warmed one's)
+    if (r.contextLost) r.onLost(true);
     r.onHover = (hit, seen) => {
       onHover.current?.(hit, seen);
       if (!props.legendInCorner) return;
@@ -288,6 +298,8 @@ export function View3D(props: View3DProps) {
       setMade(null);
       clearTimeout(t);
       clearTimeout(rt);
+      clearTimeout(lostTimer);
+      r.onLost = null;
       if (window.dgm3d?.renderer === r) delete window.dgm3d;
       // the editor's view keeps its renderer for the next map's (a new map re-mounts the editor); any other view's goes
       if (props.legendInCorner) {
@@ -647,7 +659,7 @@ export function View3D(props: View3DProps) {
           <span class="ps-label">Layers shown</span>
           {props.cornerLevel}
         </div>
-        {ps.look ? <div class="ps-grid">{ps.look}</div> : null}
+        {ps.look ? <div class="ps-grid ps-look">{ps.look}</div> : null}
       </section>
       {ps.minimap ? (
         <section class="ps-group" aria-labelledby="ps-minimap">
@@ -731,9 +743,10 @@ export function View3D(props: View3DProps) {
 /** A row of the Show column (Layout 2): a 14px checkbox at the left of its name, as in Timberborn's settings; the
  *  row itself is never lit, a click anywhere on it toggles it. An overlay's own legend sits beside it while it is
  *  on. */
-export function ShowRow(p: { on: boolean; onToggle(): void; tip: { title: string; "data-keys"?: string }; children: ComponentChildren; legend?: ComponentChildren; controls?: string }) {
+/** `wide`: a name longer than a chip of a phone's Show sheet holds ("Caves and overhangs"): there it takes two chips' room. */
+export function ShowRow(p: { on: boolean; onToggle(): void; tip: { title: string; "data-keys"?: string }; children: ComponentChildren; legend?: ComponentChildren; controls?: string; wide?: boolean }) {
   return (
-    <div class="show-item">
+    <div class={p.wide ? "show-item long-name" : "show-item"}>
       <button type="button" class="show-row" role="checkbox" aria-checked={p.on} aria-controls={p.controls} {...p.tip} onClick={p.onToggle}>
         <span class={`cb${p.on ? " on" : ""}`} aria-hidden="true">
           {p.on ? (

@@ -26,6 +26,10 @@ import { distanceFrom, levelRegions, MinHeap, N4, N8 } from "../math/grid";
 import type { Rng } from "../math/rng";
 import { WET } from "../validate/playability";
 import * as portable from "../math/portable";
+import { benchAt, benchRegions } from "./startValue";
+
+// (the bench is read in gen/startValue.ts, the start's measure, which the land stage reads too)
+export { benchAt, benchRegions };
 
 export interface StartPick {
   x: number;
@@ -191,20 +195,35 @@ export function shoreWalkAny(h: ArrayLike<number>, W: number, H: number, D: Arra
 }
 
 /** From a start at (x, y), over the slopes the build derives for it: moist dry tiles within 20
- *  tiles' walk, and (with `C`) the walk to the nearest pump shore (the water rule, D153). */
-export function startWalks(h: Uint8Array, W: number, H: number, D: ArrayLike<number>, C: ArrayLike<number> | null, M: ArrayLike<number>, x: number, y: number, rule: number): { moist: number; water: number } {
+ *  tiles' walk, and (with `C`) the walk to the nearest pump shore (the water rule, D153); with `full`, the dry land it
+ *  walks to (`reach`) and the moist ground within 20 tiles' walk (`wood`) over the slopes the build places
+ *  (gen/startValue.ts reads them). */
+export function startWalks(h: Uint8Array, W: number, H: number, D: ArrayLike<number>, C: ArrayLike<number> | null, M: ArrayLike<number>, x: number, y: number, rule: number, full = false): { moist: number; water: number; reach: number; wood: number } {
   const occ = new Uint8Array(W * H);
   for (let dy = -2; dy <= 2; dy++) for (let dx = -2; dx <= 2; dx++) occ[(y + dy) * W + x + dx] = 1;
   const slopes = placeSlopes(h, W, H, { x, y }, occ, { ...SLOPE_RULES, bigRegion: 0 });
   const d = walkDistance(h, W, H, null, slopeLinks(slopes, W, H), { x, y }, Math.max(20, rule));
   let n = 0;
   for (let i = 0; i < W * H; i++) if (d[i] <= 20 && M[i] > 0 && !(D[i] > 0.001)) n++;
+  // with `full`, the land the start walks to over the slopes the build places (`SLOPE_RULES`), as `start.reach`
+  // counts it, and the moist ground within 20 tiles' walk over them, where its wood will grow
+  let reach = 0;
+  let wood = n;
+  if (full) {
+    const built = placeSlopes(h, W, H, { x, y }, occ, SLOPE_RULES);
+    const f = walkDistance(h, W, H, null, slopeLinks(built, W, H), { x, y }, Infinity);
+    wood = 0;
+    for (let i = 0; i < W * H; i++) {
+      if (f[i] < Infinity && !(D[i] > WET)) reach++;
+      if (f[i] <= 20 && M[i] > 0 && !(D[i] > 0.001)) wood++;
+    }
+  }
   let water = Infinity;
   if (C) {
     const shore = pumpShores(h, D, C, W, H);
     for (let i = 0; i < W * H; i++) if (shore[i] && d[i] < water) water = d[i];
   }
-  return { moist: n, water };
+  return { moist: n, water, reach, wood };
 }
 
 const S2 = Math.SQRT2;
@@ -373,42 +392,6 @@ export function prepareStart(h: Uint8Array, W: number, H: number,
   let opening: OpeningLand | null = null;
   const openingLand = (): OpeningLand => (opening ??= prepareOpening(h, W, H, D, fallsOf(h, D, W, H, 1.5)));
   return { walk, walkAny, walkKept, dWet, boxSum, regions, benches, dLake, dFall, dJoin, dSpring, medianLevel, margin, storeSum, foodSum, openingLand };
-}
-
-/** The dry level regions a start's bench is read from (D515, `startBench`): dry ground (no water on it, off the
- *  hydrology's channels and lakes) joined at one level, 4-connected, with each region's size; water is -1. */
-export function benchRegions(h: Uint8Array, W: number, H: number, D: ArrayLike<number>, water: ArrayLike<number>): { labels: Int32Array; size: number[] } {
-  const N = W * H;
-  const labels = new Int32Array(N).fill(-1);
-  const size: number[] = [];
-  const dry = (i: number) => !(D[i] > 0.001) && water[i] !== 1 && water[i] !== 2;
-  const queue = new Int32Array(N);
-  for (let s0 = 0; s0 < N; s0++) {
-    if (labels[s0] >= 0 || !dry(s0)) continue;
-    const lab = size.length;
-    const lv = h[s0];
-    labels[s0] = lab;
-    let head = 0;
-    let tail = 0;
-    queue[tail++] = s0;
-    while (head < tail) {
-      const i = queue[head++];
-      const x = i % W;
-      const y = (i - x) / W;
-      if (x + 1 < W && labels[i + 1] < 0 && h[i + 1] === lv && dry(i + 1)) { labels[i + 1] = lab; queue[tail++] = i + 1; }
-      if (x > 0 && labels[i - 1] < 0 && h[i - 1] === lv && dry(i - 1)) { labels[i - 1] = lab; queue[tail++] = i - 1; }
-      if (y + 1 < H && labels[i + W] < 0 && h[i + W] === lv && dry(i + W)) { labels[i + W] = lab; queue[tail++] = i + W; }
-      if (y > 0 && labels[i - W] < 0 && h[i - W] === lv && dry(i - W)) { labels[i - W] = lab; queue[tail++] = i - W; }
-    }
-    size.push(tail);
-  }
-  return { labels, size };
-}
-
-/** The bench a start at tile i stands on (`benchRegions`), in tiles: 0 on water. */
-export function benchAt(benches: { labels: Int32Array; size: number[] }, i: number): number {
-  const k = benches.labels[i];
-  return k >= 0 ? benches.size[k] : 0;
 }
 
 export type StartPreparation = ReturnType<typeof prepareStart>;

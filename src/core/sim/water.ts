@@ -350,6 +350,10 @@ export interface SettleOptions {
    *  they lose to evaporation is not the water changing (D222, D413): the settle stops at the first
    *  check where only that still changed (`steadyApartFromSealed`). */
   sealed?: readonly number[];
+  /** Asked at every check that has not settled (D(start-spring-stop)): true ends the settle there, unsettled and
+   *  `stopped`, as one that plainly won't settle before its limit. The answer comes from the check alone, never a
+   *  clock, so the same water always stops at the same check. */
+  watch?: SettleWatch;
   /** How many checks in a row must pass before it stops (default 1), unless a check is calm: no more than
    *  `movedShare` of the tiles moved by over half `tol` either. The preview's (sim/preview.ts) takes 2: a surge
    *  passing down a river rises by under `tol` between two checks on every tile, and one check that falls on its
@@ -357,11 +361,32 @@ export interface SettleOptions {
   passes?: number;
 }
 
+/** One check of a settle that has not settled, for `SettleOptions.watch`. */
+export interface SettleCheck {
+  /** The check's number (1 the first) and how many the settle may make. */
+  k: number;
+  checks: number;
+  /** The water's volume at the check, and its change since the last (signed). */
+  vol: number;
+  dVol: number;
+  /** The tiles whose depth moved by more than the tolerance since the last check, the tolerance, and their mean
+   *  move. */
+  moved: number;
+  tol: number;
+  meanMove: number;
+  /** The share of tiles the settle lets still move. */
+  movedShare: number;
+  N: number;
+}
+export type SettleWatch = (c: SettleCheck) => boolean;
+
 export interface SettleResult {
   /** The settle's own test passed (PLAN §11.3), at the check `ticks` gives. */
   settled: boolean;
   /** Ticks run: the water is the water at this tick. */
   ticks: number;
+  /** When a `SettleOptions.watch` ended it at a check (D(start-spring-stop)): the water plainly won't settle. */
+  stopped?: boolean;
   /** When the settle stopped because, at a check, the water was steady apart from sealed basins
    *  evaporating (D222, D413), though its own test had not passed: that check's tick (`ticks` too).
    *  Such water has settled: only real flow is the water still changing (`waterSteady`). */
@@ -477,6 +502,7 @@ export class SettleRun {
   private readonly tol: number;
   private readonly movedShare: number;
   private readonly sealed: readonly number[] | null;
+  private readonly watch: SettleWatch | null;
   private readonly passes: number;
   private passed = 0;
   private prev: Float64Array;
@@ -493,6 +519,7 @@ export class SettleRun {
     this.tol = opts.tol ?? 0.005;
     this.movedShare = opts.movedShare ?? 0.005;
     this.sealed = opts.sealed?.length ? opts.sealed : null;
+    this.watch = opts.watch ?? null;
     this.every = opts.checkEvery ?? 128;
     this.passes = opts.passes ?? 1;
     this.checks = Math.floor((maxDays * TICKS_PER_DAY) / this.every);
@@ -537,14 +564,17 @@ export class SettleRun {
       const vol = sim.volume();
       const dv = Math.abs(vol - this.prevVol) / Math.max(vol, 1e-9);
       let moved = 0;
+      let moveSum = 0;
       let stirred = 0;
       const D = sim.D;
       const prev = this.prev;
       const half = this.tol / 2;
       for (let i = 0; i < sim.N; i++) {
-        const dd = Math.abs(D[i] - prev[i]);
-        if (dd > this.tol) moved++;
-        else if (dd > half) stirred++;
+        const m = Math.abs(D[i] - prev[i]);
+        if (m > this.tol) {
+          moved++;
+          moveSum += m;
+        } else if (m > half) stirred++;
       }
       this.k++;
       const still = dv < 0.002 && moved <= this.movedShare * sim.N;
@@ -555,6 +585,8 @@ export class SettleRun {
       const calm = still && moved + stirred <= this.movedShare * sim.N;
       if (this.passed >= this.passes || calm) this.result = still ? { settled: true, ticks: sim.ticks } : { settled: false, ticks: sim.ticks, steadyTicks: sim.ticks };
       else if (this.k >= this.checks) this.result = { settled: false, ticks: sim.ticks };
+      else if (this.watch && this.watch({ k: this.k, checks: this.checks, vol, dVol: vol - this.prevVol, moved, tol: this.tol, meanMove: moved ? moveSum / moved : 0, movedShare: this.movedShare, N: sim.N }))
+        this.result = { settled: false, ticks: sim.ticks, stopped: true };
       if (!this.result) {
         this.prev = D.slice();
         this.prevVol = vol;

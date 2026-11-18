@@ -54,7 +54,7 @@ concurrency:
 jobs:
   changes:
     if: github.event_name != 'pull_request' || !github.event.pull_request.draft
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 5
     permissions:
       contents: read
@@ -111,7 +111,7 @@ jobs:
       fail-fast: false
       matrix:
         shard: [1, 2, 3, 4]
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@v7
@@ -144,16 +144,17 @@ jobs:
   # src/styles/ (`page` from tools/ci-changes.mjs, light mode only) runs the specs that catch a page's layout faults, on the
   # same steps as a browser shard (one worker each, a build each, about a minute before the first test): the clipping net in
   # full (textClipping: five widths, light and dark, 50 tests, about 33 minutes of tests on one worker, so ten shards of five
-  # tests, the slowest about 5.3 minutes) and, in three shards, the layout spec and the specs that pin the page's rows, menus,
-  # panels, tooltips and key caps (about 10 minutes of tests; the slowest shard 4 minutes). Each job is about six minutes.
-  # Times from dev's run 42961949825. A shard is a contiguous run of tests (--shard splits by count, in file order), so a
+  # tests, the slowest about 5.3 minutes) and, in six shards, the layout spec and the specs that pin the page's rows, menus,
+  # panels, tooltips and key caps (three shards until 2026-11-18: the phone's tests had grown the last one to 14 minutes of
+  # tests, 28 tests, and it was cancelled at the job's 15, run 44252916061; a shard that outgrows its limit gets more
+  # shards, never a longer limit). A shard is a contiguous run of tests (--shard splits by count, in file order), so a
   # new test or a new width may move the slowest one; rebalance the numbers then. Any other pull request skips the job, and so
   # does every other event: dev's tip still runs all the browser specs. A PR that touches the page merges only when it is green.
   page:
     needs: changes
     if: needs.changes.outputs.page == 'true' && github.event_name == 'pull_request' && github.base_ref == 'dev'
     name: page (${{ matrix.group }} ${{ matrix.shard }}/${{ matrix.of }})
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 15
     strategy:
       fail-fast: false
@@ -169,9 +170,12 @@ jobs:
           - { group: clipping, shard: 8, of: 10, specs: tests/e2e/textClipping.spec.ts }
           - { group: clipping, shard: 9, of: 10, specs: tests/e2e/textClipping.spec.ts }
           - { group: clipping, shard: 10, of: 10, specs: tests/e2e/textClipping.spec.ts }
-          - { group: layout and rows, shard: 1, of: 3, specs: "tests/e2e/layout.spec.ts tests/e2e/tooltips.spec.ts tests/e2e/selectRow.spec.ts tests/e2e/notes.spec.ts tests/e2e/sizes.spec.ts tests/e2e/viewAndHeader.spec.ts tests/e2e/polishLabels.spec.ts tests/e2e/frameInsets.spec.ts tests/e2e/help.spec.ts" }
-          - { group: layout and rows, shard: 2, of: 3, specs: "tests/e2e/layout.spec.ts tests/e2e/tooltips.spec.ts tests/e2e/selectRow.spec.ts tests/e2e/notes.spec.ts tests/e2e/sizes.spec.ts tests/e2e/viewAndHeader.spec.ts tests/e2e/polishLabels.spec.ts tests/e2e/frameInsets.spec.ts tests/e2e/help.spec.ts" }
-          - { group: layout and rows, shard: 3, of: 3, specs: "tests/e2e/layout.spec.ts tests/e2e/tooltips.spec.ts tests/e2e/selectRow.spec.ts tests/e2e/notes.spec.ts tests/e2e/sizes.spec.ts tests/e2e/viewAndHeader.spec.ts tests/e2e/polishLabels.spec.ts tests/e2e/frameInsets.spec.ts tests/e2e/help.spec.ts" }
+          - { group: layout and rows, shard: 1, of: 6, specs: "tests/e2e/layout.spec.ts tests/e2e/tooltips.spec.ts tests/e2e/selectRow.spec.ts tests/e2e/notes.spec.ts tests/e2e/sizes.spec.ts tests/e2e/viewAndHeader.spec.ts tests/e2e/polishLabels.spec.ts tests/e2e/frameInsets.spec.ts tests/e2e/help.spec.ts" }
+          - { group: layout and rows, shard: 2, of: 6, specs: "tests/e2e/layout.spec.ts tests/e2e/tooltips.spec.ts tests/e2e/selectRow.spec.ts tests/e2e/notes.spec.ts tests/e2e/sizes.spec.ts tests/e2e/viewAndHeader.spec.ts tests/e2e/polishLabels.spec.ts tests/e2e/frameInsets.spec.ts tests/e2e/help.spec.ts" }
+          - { group: layout and rows, shard: 3, of: 6, specs: "tests/e2e/layout.spec.ts tests/e2e/tooltips.spec.ts tests/e2e/selectRow.spec.ts tests/e2e/notes.spec.ts tests/e2e/sizes.spec.ts tests/e2e/viewAndHeader.spec.ts tests/e2e/polishLabels.spec.ts tests/e2e/frameInsets.spec.ts tests/e2e/help.spec.ts" }
+          - { group: layout and rows, shard: 4, of: 6, specs: "tests/e2e/layout.spec.ts tests/e2e/tooltips.spec.ts tests/e2e/selectRow.spec.ts tests/e2e/notes.spec.ts tests/e2e/sizes.spec.ts tests/e2e/viewAndHeader.spec.ts tests/e2e/polishLabels.spec.ts tests/e2e/frameInsets.spec.ts tests/e2e/help.spec.ts" }
+          - { group: layout and rows, shard: 5, of: 6, specs: "tests/e2e/layout.spec.ts tests/e2e/tooltips.spec.ts tests/e2e/selectRow.spec.ts tests/e2e/notes.spec.ts tests/e2e/sizes.spec.ts tests/e2e/viewAndHeader.spec.ts tests/e2e/polishLabels.spec.ts tests/e2e/frameInsets.spec.ts tests/e2e/help.spec.ts" }
+          - { group: layout and rows, shard: 6, of: 6, specs: "tests/e2e/layout.spec.ts tests/e2e/tooltips.spec.ts tests/e2e/selectRow.spec.ts tests/e2e/notes.spec.ts tests/e2e/sizes.spec.ts tests/e2e/viewAndHeader.spec.ts tests/e2e/polishLabels.spec.ts tests/e2e/frameInsets.spec.ts tests/e2e/help.spec.ts" }
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-node@v7
@@ -192,15 +196,16 @@ jobs:
           retention-days: 7
 
   # A pull request into dev that touches the forces (a force's Rust, its Wasm, the TypeScript round it, its settings or its
-  # row: `forces` from tools/ci-changes.mjs `isForces`, light mode only) runs the forces' browser specs before the merge, on
-  # the same steps as the page job: two merges of a force went red on dev without them (#1054: glaciate.spec.ts's Size).
+  # row, the worker that runs it, src/worker/session.ts and generator.worker.ts, or the water it steps: `forces` from
+  # tools/ci-changes.mjs `isForces`, light mode only) runs the forces' browser specs before the merge, on the same steps as
+  # the page job: merges went red on dev without them (#1054: glaciate.spec.ts's Size; #1222: a take-back left the land).
   # About 9 minutes of tests on one worker (glaciate, forces, forceKeys, forceSpeed, force-save, erode and carve), so three
   # shards. Any other pull request and every other event skips it: dev's tip still runs all the browser specs.
   forces:
     needs: changes
     if: needs.changes.outputs.forces == 'true' && github.event_name == 'pull_request' && github.base_ref == 'dev'
     name: forces (${{ matrix.shard }}/3)
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 20
     strategy:
       fail-fast: false
@@ -240,13 +245,21 @@ jobs:
   # Twenty shards since 2026-11-15: at fifteen, shard 14 (the end of textClipping, timelapse, tooltips and touch.spec's
   # eighteen tests at about a minute each) ran out its 30 minutes with every test passing, on a PR (run 43738242890) and
   # on dev (43738527160). A quarter fewer tests a shard puts it near 22 minutes.
+  # Shard 9 ran out its 30 on #1224 and #1227 (2026-11-18, 33 of 34 tests done): the split is by test count, so it cannot tell
+  # a five-second test from a one-minute one, and one file holding fourteen of the minute-long ones, look-high.spec.ts,
+  # landed whole beside the layout specs' tail: 14.5 to 17.5 minutes of tests (dev's runs 44202042420 and 44204241674), and on a
+  # slow runner (the system libraries took 8 minutes to install on one) past the 30. That file is now two,
+  # look-high.spec.ts (five tests) and look-high-scenes.spec.ts (nine), which the shards share: shard 9 holds 10.8 to 13.1
+  # minutes of tests and shard 10 holds 6.4 to 7.4. When a shard outgrows its time again, find its heavy file in the log
+  # (each test's time is there) and split that file; the slowest shards by the same measure are 3 (forces, up to 19 minutes) and
+  # 19 (touch.spec.ts, up to 19).
   browser:
     needs: changes
     # (not on a pull request into dev: the browser specs run on dev's tip once it merges; except one that can change what
     # the generator makes, `generator` from tools/ci-changes.mjs, which runs them before the merge, as a page PR runs `page`)
     if: needs.changes.outputs.heavy == 'true' && (!(github.event_name == 'pull_request' && github.base_ref == 'dev') || needs.changes.outputs.generator == 'true')
     name: browser (${{ matrix.shard }}/20)
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 30
     strategy:
       fail-fast: false
@@ -274,7 +287,7 @@ jobs:
   oracle:
     needs: changes
     if: needs.changes.outputs.suites == 'true'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@v7
@@ -297,7 +310,7 @@ jobs:
   generation:
     needs: changes
     if: needs.changes.outputs.suites == 'true'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@v7
@@ -361,7 +374,7 @@ jobs:
     name: engines and rust
     needs: changes
     if: needs.changes.outputs.suites == 'true' || needs.changes.outputs.rust == 'true'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     permissions:
       contents: read
     timeout-minutes: 45

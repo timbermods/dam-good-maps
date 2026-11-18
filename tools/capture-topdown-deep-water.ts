@@ -45,7 +45,7 @@ const CAMS_JS = `(() => {
 })()`;
 
 /** Page side: the median colour of the clean water three or more levels deep at each tile's middle, and how many of
- *  those tiles are black (the spec's measure, look-high.spec.ts). */
+ *  those tiles are black (the spec's measure, look-high-scenes.spec.ts). */
 const DEEP_JS = `(() => {
   const r = window.dgm3d.renderer, g = r.gl.getContext();
   r.renderNow();

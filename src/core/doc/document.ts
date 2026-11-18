@@ -27,7 +27,8 @@ import type { Runs } from "../math/grid";
 import { GENERATOR_VERSION, upgradeHighestTerrain, upgradeMineSites, upgradeRetiredFields, upgradeSpec, upgradeVariety, upgradeVerticality, type Difficulty, type MapSpec } from "../spec/mapspec";
 import { jsonEqual } from "../spec/mergepatch";
 import { validateFeatures, validateSpec } from "../spec/schema";
-import { description, fileName, mapName, namedFile, toTimberFile } from "../gen/pack";
+import { description, fileName, mapName, toTimberFile } from "../gen/pack";
+import { fileStemOf, mapProjectFileName } from "../format/fileName";
 import { baseFromFile, runsOfColumns, type BaseMap } from "./base";
 import type { TerrainData } from "../terrain/runs";
 import { forceOfCarve, type SavedCarve } from "../forces/op";
@@ -211,7 +212,9 @@ export function keepGeneratedWords(doc: MapDocument, r: GeneratedWords): void {
 export function importDocument(bytes: Uint8Array, fileName: string, place?: string): MapDocument {
   const file = readTimber(bytes);
   const report = normalizeImport(file);
-  const name = fileName.replace(/^.*[\\/]/, "").replace(/\.timber$/i, "") || "Imported map";
+  const stem = fileName.replace(/^.*[\\/]/, "").replace(/\.timber$/i, "").trim();
+  // (the file's own name, unless it leaves nothing to name a file by: then a plain one, so every save has a name)
+  const name = fileStemOf(stem).ok ? stem : "Imported map";
   const md = file.metadata ?? {};
   return {
     formatVersion: 3,
@@ -424,9 +427,12 @@ export function decodeProject(bytes: Uint8Array): MapDocument {
   const doc = raw as MapDocument;
   // a stored map that is not one (a hand-edited file) is left out: the project opens by rebuilding
   if ("stored" in doc && (!doc.stored || typeof doc.stored !== "object")) delete doc.stored;
-  // a project saved without a stored name opens with the name it has always had (D382)
+  // a project saved without a stored name, or with one that makes no file name (a hand-made file: the app only saves
+  // names `cleanMapName` keeps), opens with the name it has always had (D382); a name the app wrote comes through as it is
   const meta = ((doc as { meta?: Partial<DocMeta> }).meta ??= {} as DocMeta);
-  if (typeof meta.name !== "string" || !meta.name.trim()) meta.name = meta.generatedName ?? (doc.spec ? mapName(doc.spec) : "Imported map");
+  const named = typeof meta.name === "string" ? cleanMapName(meta.name) : null;
+  if (named?.ok) meta.name = named.name;
+  else meta.name = meta.generatedName ?? (doc.spec ? mapName(doc.spec) : "Imported map");
   checkDocument(doc);
   if (notes.length) (doc as MapDocument & RetiredNotes).__retiredNotes = notes;
   return doc;
@@ -484,25 +490,25 @@ export function documentAt(doc: MapDocument, edits: number): MapDocument {
   return { ...rest, baseFeatures: baseFeaturesOf(doc), features: state.features, edits: cut };
 }
 
-/** A map's name as the player typed it, trimmed; an empty one is refused with a one-line reason (D443). */
+/** A map's name as the player typed it, trimmed; an empty one, or one that leaves nothing to name its files by (only
+ *  dots, spaces and marks a file name can't hold), is refused with a one-line reason (D443): the map's name is its
+ *  files' name (format/fileName.ts). */
 export type NameResult = { ok: true; name: string } | { ok: false; reason: string };
 export function cleanMapName(name: string): NameResult {
   const t = name.trim();
-  return t ? { ok: true, name: t } : { ok: false, reason: "A map needs a name" };
+  if (!t) return { ok: false, reason: "A map needs a name" };
+  const f = fileStemOf(t);
+  return f.ok ? { ok: true, name: t } : f;
 }
 
-/** Whether a map's name is no longer the one it was given: a generated map's own name (its theme's)
- *  keeps its seed-based file name; a renamed one is named like any named map (D443). */
-export function isRenamed(spec: MapSpec | null, name: string, generatedName?: string): boolean {
-  return !spec || (name !== mapName(spec) && name !== generatedName);
-}
-
-/** The project file's name: the map's saved name (D345, B10) with its own extension. */
+/** A batch's project file name for a generated map, beside `fileName`'s .timber (tools/gen.ts, the oracle); a saved
+ *  project is named by the map's name (`documentFileName`). */
 export function projectFileName(spec: MapSpec, seedWord?: string): string {
   return fileName(spec, seedWord).replace(/\.timber$/, ".damgoodmaps.json");
 }
 
 /** The project file's name for any document. */
 export function documentFileName(doc: MapDocument): string {
-  return doc.spec && !isRenamed(doc.spec, doc.meta.name, doc.meta.generatedName) ? projectFileName(doc.spec, doc.meta.seedWord) : namedFile(doc.meta.name).replace(/\.timber$/, ".damgoodmaps.json");
+  // (the map's name as the header shows it, D443 amended 2026-11-18: a generated map's own name too)
+  return mapProjectFileName(doc.meta.name);
 }

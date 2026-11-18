@@ -116,12 +116,12 @@ function reader(): Reader {
 function TouchLines(p: { phone: boolean; tablet: boolean }) {
   return (
     <>
-      <li>Tap the map to read a tile. With a tool in hand, tap or drag on the map to use it.</li>
+      <li>Tap the map to read a tile. With a brush in hand, drag on the map to paint.</li>
       <li>Drag one finger to move the view while nothing is in hand.</li>
       <li>Pinch to zoom. Turn two fingers to turn the view, and move them up or down together to tilt it.</li>
       <li>Double tap to zoom in where you tap. On an object, the first tap also selects it.</li>
       <li>Tap with two fingers to undo, with three to redo.</li>
-      <li>With a force or Block in hand, drag to draw its line or sweep. It shows above your finger, and lifting applies it. A second finger cancels it.</li>
+      <li>With an object, a force or Block in hand, press the map and drag. It shows above your finger, and lifting places or applies it. A tap changes nothing. A second finger cancels it.</li>
       <li>With nothing in hand, hold a finger still for a moment, then drag to select land. A second finger cancels it.</li>
       <li>A second finger stops any stroke, and nothing is changed.</li>
       <li>
@@ -173,6 +173,9 @@ function Help(p: { onClose(): void }) {
         <ol>
           <li>
             Press <strong>Save to Timberborn</strong>. The first time, pick <code>Documents\Timberborn\Maps</code>. In a browser that can't save to a folder, <strong>Download .timber</strong> instead and move the file there.
+          </li>
+          <li>
+            The file takes the map's name. To give it another, use <strong>File → Save as…</strong>.
           </li>
           <li>
             On a phone, <strong>Save</strong> opens the share sheet. Send the file to the computer that plays, then move it there.
@@ -245,14 +248,14 @@ function TouchHelp(p: { onClose(): void; phone: boolean; tablet: boolean }) {
           </li>
           {p.phone ? (
             <li>
-              Shape it. The tools are in the row at the foot, the trees, sources and ruins under <strong>Objects</strong>. Pick one, then tap or drag on the map.
+              Shape it. The tools are in the row at the foot, the trees, sources and ruins under <strong>Objects</strong>. Pick one, then drag on the map. An object or a force shows above your finger, and lifting applies it.
             </li>
           ) : p.tablet ? (
             <li>
-              Shape it. The brushes and forces are in the bar at the bottom, the trees, sources and ruins under <strong>Objects</strong>. Pick one, then tap or drag on the map.
+              Shape it. The brushes and forces are in the bar at the bottom, the trees, sources and ruins under <strong>Objects</strong>. Pick one, then drag on the map. An object or a force shows above your finger, and lifting applies it.
             </li>
           ) : (
-            <li>Shape it. The brushes and forces are in the bar at the bottom, the trees, sources and ruins on the right. Pick one, then tap or drag on the map.</li>
+            <li>Shape it. The brushes and forces are in the bar at the bottom, the trees, sources and ruins on the right. Pick one, then drag on the map. An object or a force shows above your finger, and lifting applies it.</li>
           )}
           <li>The dot at the top is green when the map is ready to play. Amber means something to look at: tap it.</li>
         </ol>
@@ -260,7 +263,7 @@ function TouchHelp(p: { onClose(): void; phone: boolean; tablet: boolean }) {
         <ol>
           {p.phone ? (
             <li>
-              Tap <strong>Save</strong>. It opens the share sheet: send the file to the computer that plays, then move it to <code>Documents\Timberborn\Maps</code>.
+              Tap <strong>Save</strong>. It opens the share sheet: send the file to the computer that plays, then move it to <code>Documents\Timberborn\Maps</code>. To name the file, use <strong>Save as…</strong> in the menu.
             </li>
           ) : (
             <li>

@@ -19,8 +19,12 @@ describe("the Python validator on an imported map with a cave", () => {
     // seed 3 again since generator 0.10.18's dead stands on the dry land, D516, D148: seed 2 has no hillside clear of objects now, seed 3 has five;
     // seed 6 for seed 3 since generator 0.10.20's warped contour edges and compact rises, D518, D148: seed 3 has no hillside clear of objects now, seed 6 has seven;
     // seed 3 for seed 6 since generator 0.10.27, D(new-leaks) with 0.10.26's ruin fields, D148: seed 6 has no hillside clear of objects now, seed 3 has seven;
-    // seed 3 → 2 at 0.10.29 (#1186), D148: the disc's land (the weathering's disc of the square's area, the washes' brush and swing) leaves seed 3 no hillside clear of objects; seed 2, the nearest, has one, and 4 has none)
-    const r = generate(makeSpec({ seed: 2, theme: "riverValley", size: { x: 64, y: 64 } }));
+    // seed 3 → 2 at 0.10.29 (#1186), D148: the disc's land (the weathering's disc of the square's area, the washes' brush and swing) leaves seed 3 no hillside clear of objects; seed 2, the nearest, has one, and 4 has none;
+    // seed 2 → 6 at 0.10.40, small maps at their own scale (#1193, D(small-own-scale), D148): a 64² map stands 9 levels, not 13, and of
+    // seeds 1–6 only seed 6 has a three-level hillside clear of objects, two;
+    // seed 6 → 1 at 0.10.46, D(new-ditch) and D(sea-steps) on #1225's land, D148: the gullies leave seed 6 no hillside clear of objects;
+    // of seeds 1–12, 1, 3, 4 and 12 have one and pass, seed 1 the first)
+    const r = generate(makeSpec({ seed: 1, theme: "riverValley", size: { x: 64, y: 64 } }));
     const s = MapSession.fromGenerated(r, r.file);
     const { x, y, z } = hillside(s);
     expect(s.apply(dig(x, y, z, "-x")).errors).toEqual([]);

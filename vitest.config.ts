@@ -32,7 +32,9 @@ const HEAVY = [
   "tests/contract/premiseGateWater.heavy.test.ts", // the wall with one gate's water settled on five plans (PREMISES §5.1)
   "tests/contract/premiseGateLand.heavy.test.ts", // the wall with one gate's maps built and checked on four seeds (PREMISES §5.1)
   "tests/contract/premisePlainLand.heavy.test.ts", // the poisoned floodplain's land on seeds 1 and 2 at three sizes (its design's §9 row 2)
-  "tests/contract/premisePlainWater.heavy.test.ts", // the poisoned floodplain's maps settled on seeds 1 and 2 at three sizes (its design's §9 row 3)
+  "tests/contract/premisePlainWater.heavy.test.ts", // the poisoned floodplain's maps settled on seeds 1 to 12 at three sizes (its design's §9 row 3)
+  "tests/contract/premisePlainWorks.heavy.test.ts", // the poisoned floodplain's two proofs on seeds 1 and 2 at three sizes (its design's §9 row 4)
+  "tests/contract/premisePlainChannels.heavy.test.ts", // the poisoned floodplain's old channels leave its levees whole, seeds 1 to 12 at three sizes
   "tests/contract/premiseStair256.heavy.test.ts", // the lake stair at 256², seeds 1 to 3 in two themes, none falling back (PREMISES §3.3)
   "tests/contract/premiseThreads.heavy.test.ts", // the premise mode on four threads, its drought beside the map, is the one-thread map (D455)
 ];

@@ -3,7 +3,7 @@
 
 import { createHash } from "node:crypto";
 import { expect, test } from "@playwright/test";
-import { openEditor, openFileMenu } from "./open";
+import { openEditor, openFileMenu, shownName } from "./open";
 import { generate } from "../../src/core/gen/generate";
 import { encodeSpecFragment, GENERATOR_VERSION, makeSpec } from "../../src/core/spec/mapspec";
 
@@ -33,5 +33,6 @@ test("the page generates a map and offers both downloads", async ({ page }) => {
   await expect(menu.getByRole("menuitem", { name: "Download project" })).toBeEnabled();
   const download = page.waitForEvent("download");
   await menu.getByRole("menuitem", { name: "Download .timber" }).click();
-  expect((await download).suggestedFilename()).toBe("dgm-river-valley-4242.timber");
+  // (named by the map's name as the header shows it, D443 amended 2026-11-18; it was dgm-river-valley-4242, D148)
+  expect((await download).suggestedFilename()).toBe(`${await shownName(page)}.timber`);
 });

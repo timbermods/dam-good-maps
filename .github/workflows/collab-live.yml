@@ -21,7 +21,7 @@ concurrency:
 
 jobs:
   live:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@v7
@@ -32,8 +32,9 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
-      - name: Install Chromium and Firefox for Playwright
-        run: npx playwright install --with-deps chromium firefox
+      - uses: ./.github/actions/playwright
+        with:
+          browsers: chromium firefox
       - name: Connection test against the deployed function
         run: npx playwright test -c playwright.collab-live.config.ts
         env:

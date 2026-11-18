@@ -14,7 +14,7 @@
 //   node tools/ci-changes.mjs <base sha> <head sha> [--full | --light]
 //
 // prints heavy, suites, rust, test, page, generator and forces (and writes them to $GITHUB_OUTPUT). forces (pull requests
-// into dev only): the change touches a force's Rust, its Wasm, its settings or its row (`isForces`), so the `forces` job's
+// into dev only): the change touches a force's Rust, its Wasm, its settings, its row, the worker that runs it or the water it steps (`isForces`), so the `forces` job's
 // browser specs run before the merge. page (pull requests into dev
 // only): the change touches src/editor/, src/ui/, src/render3d/ or src/styles/, so the `page` job's browser specs run
 // before the merge. generator (pull requests into dev only): the change can change what the generator makes
@@ -153,9 +153,12 @@ export function needsPage(files, mode = "auto") {
 }
 
 /** The forces: their Rust (rust/forces/), its committed Wasm and the TypeScript round them (src/core/forces/: the bridge,
- *  each force's run, its settings and their ranges) and the forces' rows on the page. A pull request into dev touching any
- *  of them runs the `forces` job (ci.yml), the forces' browser specs, before the merge: two merges of a force went red on
- *  dev for want of them (#1054's Size in glaciate.spec.ts). */
+ *  each force's run, its settings and their ranges), the forces' rows on the page, and the worker that runs a force
+ *  (src/worker/session.ts, its frames, its water and its take-back; generator.worker.ts, which hands them to the page)
+ *  with the water a running force steps (src/core/sim/: the heightfield's water.ts, the stacked stackWater.ts and
+ *  stackLive.ts). A pull request into dev touching any of them runs the `forces` job (ci.yml), the forces' browser specs,
+ *  before the merge: merges went red on dev for want of them (#1054's Size in glaciate.spec.ts; #1222, a take-back's
+ *  answer the worker could not send, so the page kept the force's land). */
 export function isForces(path) {
   if (isDocument(path)) return false;
   return (
@@ -164,6 +167,9 @@ export function isForces(path) {
     path === "src/editor/ForceRows.tsx" ||
     path.startsWith("src/editor/forces/") ||
     path === "src/editor/forceDriver.ts" ||
+    path === "src/worker/session.ts" ||
+    path === "src/worker/generator.worker.ts" ||
+    ["src/core/sim/water.ts", "src/core/sim/stackWater.ts", "src/core/sim/stackLive.ts"].includes(path) ||
     path === "rust/Cargo.toml" ||
     path === "rust/Cargo.lock"
   );

@@ -15,7 +15,7 @@ permissions: {}
 jobs:
   ping:
     if: github.event.label.name == 'needs-kyler'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 2
     steps:
       - name: Send the ping

@@ -110,7 +110,7 @@ export function useMarkers(ed: Ed): MarkersSlice {
     const r = renderer.current;
     if (!r || (!shownGroups.length && !shownNotes.length)) return null;
     void viewTick;
-    const items: LabelIn[] = [];
+    let items: LabelIn[] = [];
     for (const k of shownGroups) {
       const g = groups[k];
       if (!g) continue;
@@ -125,6 +125,17 @@ export function useMarkers(ed: Ed): MarkersSlice {
       if (!p.visible) return;
       items.push({ id: NOTE_ID + k, ax: p.x, ay: p.y, count: 1, strength: 0, bad: false, feeding: false, target: false, text: n.text, ...(FLUIDS[n.template]?.needsDrill ? { warn: true } : {}) });
     });
+    // with an object in hand, a finger's press shows only the label of the source nearest its aim (planning, #1074): every
+    // source's label round the spot stood over the ground the finger was placing on
+    const press = ed.fingerAim;
+    if (press && ed.shelf) {
+      const box = r.canvas.getBoundingClientRect();
+      const x = press.aim.x - box.left;
+      const y = press.aim.y - box.top;
+      let nearest: LabelIn | null = null;
+      for (const i of items) if (i.id < NOTE_ID && (!nearest || Math.hypot(i.ax - x, i.ay - y) < Math.hypot(nearest.ax - x, nearest.ay - y))) nearest = i;
+      items = nearest ? [nearest] : [];
+    }
     return items.length ? <SourceLabels items={items} /> : null;
   }
 

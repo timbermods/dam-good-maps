@@ -26,8 +26,8 @@ export function mapName(spec: MapSpec): string {
   return spec.theme === "any" ? "Dam Good Map" : THEME_NAMES[spec.theme];
 }
 
-/** A word made safe for a file name: lowercase letters and digits, single dashes between (D345, B10). */
-export function fileSlug(text: string): string {
+/** A word made safe for a file name: lowercase letters and digits, single dashes between. */
+function fileSlug(text: string): string {
   return text
     .normalize("NFKD")
     .replace(/[̀-ͯ]/g, "")
@@ -36,18 +36,12 @@ export function fileSlug(text: string): string {
     .replace(/^-+|-+$/g, "");
 }
 
-/** The name a saved map gets (D345, B10): `dgm-<theme>-<seed>.timber`, the theme the map has (Any for a
- *  Surprise me map) and the seed as typed when it is a word (made file-safe), else its number. */
+/** A batch's file name for a generated map (tools/gen.ts, the oracle, probe batches): `dgm-<theme>-<seed>.timber`,
+ *  one per seed in a folder of many. Never the name the page or the MCP server saves a map under: that is the map's
+ *  own name (format/fileName.ts `mapFileName`, D443). */
 export function fileName(spec: MapSpec, seedWord?: string): string {
   const word = seedWord ? fileSlug(seedWord) : "";
   return `dgm-${fileSlug(THEME_NAMES[spec.theme])}-${word || spec.seed}.timber`;
-}
-
-/** The name a saved map gets when it is not a generated one (a real place, an opened file): `dgm-` and
- *  its name made file-safe, unless it starts with `dgm-` already (D345, B10). */
-export function namedFile(name: string): string {
-  const slug = fileSlug(name) || "map";
-  return `${slug.startsWith("dgm-") ? slug : `dgm-${slug}`}.timber`;
 }
 
 /** A map made with Sources: None (D330): its description says where its water went. */

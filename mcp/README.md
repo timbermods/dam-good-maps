@@ -65,7 +65,7 @@ opens there from its saved project file.
 Start Timberborn, choose **New game** and pick the map from the custom maps.
 
 Each save writes two files: the map (`.timber`) and its project (`.damgoodmaps.json`). A save never replaces a file:
-a second map with the same name gets `-2`. To keep editing, ask Claude to open the project, or open it on the
+a second map with the same name is numbered: `Old Loop Lakelands (2).timber`. To keep editing, ask Claude to open the project, or open it on the
 [Dam Good Maps website](https://timbermods.github.io/dam-good-maps/) from **File → Open…**.
 
 Dam Good Maps is free software under the AGPL. The maps you make are yours. Timberborn is a game by Mechanistry; this

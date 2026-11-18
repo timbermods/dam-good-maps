@@ -47,7 +47,12 @@ const spec = (theme: ThemeId, size: number, seed: number, badwaterDistance?: num
 
 describe("the shown land's bounds (#236)", () => {
   it("above 128², a shown land failing the same way three times in a row ends its round, and is never dropped within it", () => {
-    // (Highlands 136², badwater distance 60, seed 2 → 6 at 0.10.29 (#1186), D148: the disc's land (the weathering's disc of the square's area, the washes' brush and swing) gives seed 2 no
+    // (Highlands 136², badwater distance 60, seed 2 → 1 at 0.10.46, D(new-ditch) and D(sea-steps) on #1217's land, D148: seed 2 passes
+    // now with no round ended by the bound; of seeds 1–8 only 1 and 6 end a round, each passing the whole test;
+    // seed 6 → 2 at 0.10.30, D(new-ditch) and D(sea-steps), D148: the badwater drains by
+    // gullies, so seed 6's lands moved and it passes on its 17th attempt with no round ended by the bound; of seeds 1–8 only 2
+    // ends a round now, and none breaks the shown land's rules;
+    // seed 2 → 6 at 0.10.29 (#1186), D148: the disc's land (the weathering's disc of the square's area, the washes' brush and swing) gives seed 2 no
     // round ended by the bound, it passing on land 5; of seeds 1 and 3–20 only 6, 14 and 16 end a round now, and none breaks the shown land's rules;
     // seed 2 since generator 0.10.27, D(new-leaks): a course's water leaves only by its own way,
     // so the land moved, D148: seed 1 passes on its first shown land now, with no round ended by the bound; of seeds 1–5, 8 and 10 only
@@ -60,7 +65,7 @@ describe("the shown land's bounds (#236)", () => {
     // ends; seed 4 for generator 0.10.7, whose first shown land's start was within 60 tiles of its badwater on every
     // attempt, until D504's springs toward the far land changed its land: its shown land now fails once and passes, D148; of
     // seeds 1–8, 1 and 5 end a round; seed 15 for 1 since generator 0.10.20's contour edges, D518, D148: seed 1's attempts now fail as drawn lands, never three alike on a shown one, so no round ends by the bound, and of seeds 1–60 only 15, 19, 26, 30, 32, 43, 51, 54 and 57 end one)
-    const { steps, passed } = traced(spec("highlands", 136, 6, 60));
+    const { steps, passed } = traced(spec("highlands", 136, 1, 60));
     expect(passed).toBe(true);
     const at = JSON.stringify(steps);
     let ended = 0;
@@ -82,8 +87,12 @@ describe("the shown land's bounds (#236)", () => {
     // (seed 2: it fails six attempts before its map, with several reasons; seed 1 makes its map at the first since generator 0.10.7, D502;
     // seed 1 since generator 0.10.24's round forms, the look round, D148: seed 2 fails one attempt now, and seed 1 fails four, each
     // for its own reason;
-    // seed 1 → 3 at 0.10.36: seeds 1 and 2 fail only one attempt now, the others gone from their land (#1205); seed 3 fails more than one)
-    const { progress, failures } = traced(spec("riverValley", 64, 3));
+    // seed 1 → 3 at 0.10.36: seeds 1 and 2 fail only one attempt now, the others gone from their land (#1205); seed 3 fails more than one;
+    // seed 3 → 5 at 0.10.40, small maps at their own scale (#1193, D(small-own-scale), D148): seeds 1 and 3 make their map at the first
+    // attempt now, seed 5 at its ninth;
+    // seed 5 → 2 at 0.10.44, a tributary deep under a wall winding at a small map's scale (D(gorge-followups), D148): seed 5 makes
+    // its map at the first attempt now, seed 2, the first of seeds 1–10 that fails more than one, at its third)
+    const { progress, failures } = traced(spec("riverValley", 64, 2));
     expect(failures.length).toBeGreaterThan(1);
     expect(progress[0].failed).toBeUndefined();
     expect(progress[0].tried).toBe(0);
