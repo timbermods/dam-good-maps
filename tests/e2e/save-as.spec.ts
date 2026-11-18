@@ -57,14 +57,14 @@ test("Save as… names the map and its file; a name taken in Maps is said before
   expect(await shownName(page)).toBe("Old Loop Lakelands");
   await expect(undo).toBeDisabled();
 
-  // Ctrl+Shift+S again: the name is in Maps now, and the field says so before Enter; the save takes "-2"
+  // Ctrl+Shift+S again: the name is in Maps now, and the field says so before Enter; the save takes " (2)"
   await page.locator("canvas").first().hover();
   await page.keyboard.press("Control+Shift+S");
   await expect(card).toBeVisible();
-  await expect(card.locator(".save-as-file")).toHaveText("A map called Old Loop Lakelands.timber is in Maps: saves as Old Loop Lakelands-2.timber");
+  await expect(card.locator(".save-as-file")).toHaveText("A map called Old Loop Lakelands.timber is in Maps: saves as Old Loop Lakelands (2).timber");
   await page.keyboard.press("Enter");
-  await expect(page.getByRole("status").filter({ hasText: /^Saved Old Loop Lakelands-2\.timber to Maps\./ })).toBeVisible({ timeout: 120_000 });
-  expect(await filesInMaps(page)).toEqual(["Old Loop Lakelands-2.timber", "Old Loop Lakelands.timber"]);
+  await expect(page.getByRole("status").filter({ hasText: /^Saved Old Loop Lakelands \(2\)\.timber to Maps\./ })).toBeVisible({ timeout: 120_000 });
+  expect(await filesInMaps(page)).toEqual(["Old Loop Lakelands (2).timber", "Old Loop Lakelands.timber"]);
 
   // Esc leaves, nothing saved or renamed
   await page.keyboard.press("Control+Shift+S");

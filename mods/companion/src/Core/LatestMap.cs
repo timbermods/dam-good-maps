@@ -125,16 +125,18 @@ namespace DGMCompanion
             return metadata != null && (IsDamGoodMaps(metadata) || IsDamGoodMapsName(System.IO.Path.GetFileName(path)));
         }
 
-        private static readonly Regex ResaveSuffix = new Regex(@"^(.*)-(\d+)$", RegexOptions.CultureInvariant);
+        // The number a re-save takes: " (2)" as the app writes it now (D443, 2026-11-18), "-2" as it did before.
+        private static readonly Regex ResaveSuffix = new Regex(@"^(.*)(?:-(\d+)| \((\d+)\))$", RegexOptions.CultureInvariant);
 
-        // The app never overwrites a map: saving the same map again gives "name-2.timber", then "-3" (D162). The
-        // family of a map file is the original name and those suffixed names. A played file "x-7-2" belongs to
-        // the family of "x-7" when that file is in the folder; a played "x-7" (or a "dgm-river-valley-2" seed
-        // name whose root file is not there) is its own root.
+        // The app never overwrites a map: saving the same map again gives "name (2).timber", then "(3)" (D162, D443;
+        // "name-2" in older saves). The family of a map file is the original name and those numbered names. A played
+        // file "Lake (2)" belongs to the family of "Lake" when that file is in the folder; a played "Lake" (or a
+        // "dgm-river-valley-2" seed name whose root file is not there) is its own root.
         public static string FamilyRoot(string stem, ICollection<string> stemsInFolder)
         {
             Match m = ResaveSuffix.Match(stem);
-            if (m.Success && int.Parse(m.Groups[2].Value, CultureInfo.InvariantCulture) >= 2 && stemsInFolder.Contains(m.Groups[1].Value, StringComparer.OrdinalIgnoreCase))
+            string digits = m.Success ? (m.Groups[2].Success ? m.Groups[2].Value : m.Groups[3].Value) : null;
+            if (m.Success && int.Parse(digits, CultureInfo.InvariantCulture) >= 2 && stemsInFolder.Contains(m.Groups[1].Value, StringComparer.OrdinalIgnoreCase))
             {
                 return m.Groups[1].Value;
             }
@@ -147,8 +149,14 @@ namespace DGMCompanion
             {
                 return true;
             }
-            return stem.Length > root.Length + 1 && stem.StartsWith(root + "-", StringComparison.OrdinalIgnoreCase)
-                && int.TryParse(stem.Substring(root.Length + 1), NumberStyles.None, CultureInfo.InvariantCulture, out int n) && n >= 2;
+            if (stem.Length > root.Length + 1 && stem.StartsWith(root + "-", StringComparison.OrdinalIgnoreCase)
+                && int.TryParse(stem.Substring(root.Length + 1), NumberStyles.None, CultureInfo.InvariantCulture, out int n) && n >= 2)
+            {
+                return true;
+            }
+            // "root (2)", "root (3)": the number inside the brackets, nothing after them
+            return stem.Length > root.Length + 3 && stem.StartsWith(root + " (", StringComparison.OrdinalIgnoreCase) && stem.EndsWith(")", StringComparison.Ordinal)
+                && int.TryParse(stem.Substring(root.Length + 2, stem.Length - root.Length - 3), NumberStyles.None, CultureInfo.InvariantCulture, out int k) && k >= 2;
         }
 
         // The newest save of the map being played: the newest readable Dam Good Maps file of its family in the

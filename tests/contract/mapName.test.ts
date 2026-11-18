@@ -77,4 +77,27 @@ describe("renaming a map (D443)", () => {
     delete raw.meta.name;
     expect(decodeProject(gzipSync(strToU8(JSON.stringify(raw)))).meta.name).toBe(was);
   });
+
+  it("a hand-made project whose name makes no file name opens with the name it had, as an empty one does", () => {
+    const s = open();
+    const was = s.meta.name;
+    const raw = JSON.parse(strFromU8(gunzipSync(encodeProject(s.document))));
+    // (what is left of each is nothing a file can be called, D443: the same rule Rename and Save as apply)
+    for (const bad of ["???", " ... ", "<|>", ".timber", "‮‬‏", 7, null]) {
+      raw.meta.name = bad;
+      expect(decodeProject(gzipSync(strToU8(JSON.stringify(raw)))).meta.name, String(bad)).toBe(was);
+    }
+  });
+
+  it("a name the app could have written comes through a project unchanged, byte for byte (D455)", () => {
+    const s = open();
+    // (every name here passes `setName`, so the app can save it; the stored name is the trimmed one)
+    for (const name of ["Old Loop Lakelands", "Drumheller (Alberta)", "Émile's dam", "ビーバーの谷", "CON", "Lake.timber.", "A‮B", "Lakes: North/South", "x".repeat(300), " Padded "]) {
+      expect(s.setName(name).ok, name).toBe(true);
+      const bytes = s.project(9);
+      const opened = decodeProject(bytes);
+      expect(opened.meta.name).toBe(s.meta.name);
+      expect(Buffer.compare(Buffer.from(encodeProject(opened)), Buffer.from(bytes)), name).toBe(0);
+    }
+  });
 });

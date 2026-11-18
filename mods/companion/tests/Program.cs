@@ -230,6 +230,11 @@ namespace DGMCompanion.Tests
             Check(LatestMap.FamilyRoot("x-7-2", new[] { "x-7", "x-7-2" }) == "x-7", "x-7-2 belongs to x-7 when x-7 is there");
             Check(LatestMap.FamilyRoot("dgm-river-valley-2", new[] { "dgm-river-valley-2" }) == "dgm-river-valley-2", "a seed name whose root is absent is its own root");
             Check(LatestMap.FamilyRoot("x-7-1", new[] { "x-7", "x-7-1" }) == "x-7-1", "-1 is a seed, not a re-save");
+            // The numbered copy the app writes now (D443, 2026-11-18): "Old Loop Lakelands (2)".
+            Check(LatestMap.FamilyRoot("Old Loop Lakelands (2)", new[] { "Old Loop Lakelands", "Old Loop Lakelands (2)" }) == "Old Loop Lakelands", "'Name (2)' belongs to 'Name' when 'Name' is there");
+            Check(LatestMap.FamilyRoot("Old Loop Lakelands (2)", new[] { "Old Loop Lakelands (2)" }) == "Old Loop Lakelands (2)", "'Name (2)' whose root is absent is its own root");
+            Check(LatestMap.FamilyRoot("Lake (1)", new[] { "Lake", "Lake (1)" }) == "Lake (1)", "(1) is not a re-save");
+            Check(LatestMap.InFamily("Lake (3)", "Lake") && LatestMap.InFamily("Lake-2", "Lake") && !LatestMap.InFamily("Lake (1)", "Lake") && !LatestMap.InFamily("Lake (2) x", "Lake") && !LatestMap.InFamily("Lake (x)", "Lake") && !LatestMap.InFamily("Lakes (2)", "Lake"), "the family holds 'Name (n)' and 'Name-n' for n of 2 and more, and nothing that only starts alike");
             Check(LatestMap.IsDamGoodMapsFile(two) && !LatestMap.IsDamGoodMapsFile(Path.Combine(folder, "nowhere.timber")), "a Dam Good Maps file is recognised by path");
         }
 
