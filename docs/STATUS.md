@@ -14,7 +14,17 @@ game launch until he lifts it. The page session is stopped (worktree `DamGoodMap
 
 ## Released
 
-Latest: `phone-layouts-done` (2026-11-13): dev 78e71d52 released into `main` at 4d04c0ee.
+Latest: `tilt-forms-done` (2026-11-16, PR #1211): dev eda351c9 released into `main` at e4a403e, generator 0.10.23 → 0.10.37;
+the deploy and the live check passed (run 43939200291). Phones' two-finger tilt (#1196), rivers kept to their courses (#1145),
+round forms at their meant size and Verticality reaching again (#1102, #1205), Generous's reach and the 48² starved start
+(#1208). The Nightly on eda351c9 was green on every job. The scheduled Nightly checks out dev.
+Before it: `places-water-done` (2026-11-15, PR #1171): dev 256c63ec into `main` at b28357fe, run 43737217595; 55 PRs since
+`phone-pages-done`: Real places under the game's water rules, caves and blocks, drawn as the game draws (D496, D497). The
+release tool was mended in #1179.
+Before it: `phone-pages-done` (2026-11-14, PR #1100): dev b7415d78 into `main` at 221c977a, run 43559009084: the menu's
+pages on a phone (#1074) and Real places regenerated on today's land.
+Before it: `phone-layouts-done` (2026-11-13, PR #1093): dev 78e71d52 released into `main` at 4d04c0ee.
+The full notes of each release are on the Progress log (#57).
 Before it: `naturalize-done` (2026-11-09, PR #896, dev d5d44fd2 into `main` at 8d31cefa): 36 PRs, #851 to #893. Naturalize runs
 in its own worker, so the land follows the brush within two frames (p50 702 to 13-15 ms), undo waits for a stroke still
 landing, and forces keep clock time on slow views. It also carries the game's look for grass, dry land, shadow edges, bloom

@@ -39,6 +39,8 @@ function failingPage(extra: Record<string, unknown> = {}) {
     kept: { current: true }, nameRef: { current: "Old map" }, sayBriefly() {},
     saver: { flush: async () => void (env.keeping.current = false), changed() {} },
     setReplacingMap() {},
+    // (the generate's running clock and its bounds, makingClock.ts)
+    setStoppedEasier() {}, beginClock() {}, endClock() {}, makingRun: { current: null }, progressNow: { current: null },
     // (no shared session: the page is alone)
     together: { isHost: false, isGuest: false, announce() {}, cancelAnnounce() {}, newMap: async () => {} }, sharedGen: { current: null }, committing: { current: false },
     ...extra,

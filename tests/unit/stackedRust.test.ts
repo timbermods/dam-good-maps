@@ -80,6 +80,12 @@ describe('Rust stacked water', () => {
             expect(() => m.op(4, 37)).toThrow(/^Water emitter parameters are malformed\.$/);
             (m.view(15) as Float64Array)[0] = 1;
             m.op(0);
+            // (a view of the emitters alone leaves the water trusted, #1210, and the run still checks them)
+            m.op(1, 1, 1);
+            (m.view(15) as Float64Array)[0] = NaN;
+            expect(() => m.op(1, 1, 1)).toThrow(/^Water emitter parameters are malformed\.$/);
+            (m.view(15) as Float64Array)[0] = 1;
+            m.op(1, 1, 1);
             (m.view(6) as Float64Array)[0] = NaN;
             expect(() => m.op(1, 1, 1)).toThrow(/^Water state is malformed\.$/);
         }

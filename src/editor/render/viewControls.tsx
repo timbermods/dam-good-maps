@@ -45,7 +45,7 @@ export function levelLinesButton(ed: Ed) {
 function overlayRow(ed: Ed, k: LayerKind, tipText = `Show ${LAYER_NAMES[k].toLowerCase()}`, key?: string) {
   const { layer, setLayer } = ed;
   return (
-    <ShowRow key={k} on={layer === k} onToggle={() => setLayer(layer === k ? "none" : k)} tip={tip(tipText, key)}>
+    <ShowRow key={k} on={layer === k} onToggle={() => setLayer(layer === k ? "none" : k)} tip={tip(tipText, key)} wide={k === "roofed"}>
       {OVERLAY_WORDS[k]}
     </ShowRow>
   );

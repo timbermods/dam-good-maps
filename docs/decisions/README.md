@@ -92,6 +92,8 @@ Read this index, then [how-we-work.md](how-we-work.md), then only the topic file
 ## [The generator](generator.md)
 
 - D(start-spring-stop): A start spring's settle ends where it plainly won't settle; the spring is refused as the limit refuses it
+- D(highlands-slot): A gorge (cut 3 levels or more at its water) winds at its map's scale under 128²: its meander's wavelength and taper by the narrower side's ratio to 128, never under half
+- D(plates-turned): A premise's plates are turned off the grid and their rims ragged by noise at every size; D518's 128² cap is gone
 - D(new-leaks): A course's water leaves only by its own way: pools only inside banks that hold them, never a raised lip; nothing beside a course lowered under its water; Delta courses join the fan by plan; no channel left under its reach downstream
 - D527: Every move of a generator control changes the next map, or the control is greyed with its reason
 - D520: The reach rule: a crossing between two bends under 5 wide is a ruled reach past five times its width; every other straight stretch, wider water and lakes at 12 rows
@@ -116,6 +118,7 @@ Read this index, then [how-we-work.md](how-we-work.md), then only the topic file
 - D480: The water story's reach counts the main water
 - D476: Badwater joins the main water
 - D471: Every setting makes a map
+- D(small-own-scale): A map narrower than 96, under 128² of area, is drawn at its own scale from the first round; Highlands from the eighth (amends D471)
 - D469: Badwater mixes with clean water
 - D458: Lake Basin round 2 adopted
 - D464: Lake Basin always reads as one
@@ -228,6 +231,7 @@ Read this index, then [how-we-work.md](how-we-work.md), then only the topic file
 - D(new-ruins): Real places' ruins lie along the land, laid as the generator lays its own (with D518)
 - D521: Real places built under the game's water rules (D311's conversion carried out)
 - D522: Real places' names without "Near", in the id and link too (amends D136)
+- D(new-films): Real places' films by share, mended after the springs' search or the place keeps its build; one spring where no real water lies; springs gone together
 - D166: Pick a place
 
 ## [3D terrain](3d-terrain.md)

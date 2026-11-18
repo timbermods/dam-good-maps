@@ -13,6 +13,10 @@
 //                                          springs, start and plants as they are; writes as a full run would)
 //   npm run places -- --shards 1           (one place after another on this process: the places run on one
 //                                          process a core by default, the same log, files and verdicts)
+//   npm run places -- --check --shard 2/5  (checks only shard 2 of 5's places, tools/lib/placeShards.ts, and the whole
+//                                          set's index and files as committed: the Nightly's `places (i/n)` jobs; every
+//                                          place is in one shard, so the shards together are the full --check)
+//   npm run places -- --times              (a line under each place of where its time went: each step, the settles made)
 //
 // For every named place in the library (the three random-land controls are survey controls, not
 // places, and stay out) it writes:
@@ -23,8 +27,9 @@
 // - index.json: every place for the gallery page, with the sha256 of its .timber and the faults
 //   its own map has (`faults`, from the generate profile's checks). A place whose start fails the floors
 //   (its plants on dry soil cannot move without costing the start its fast wood: no moist ground within
-//   its walk), or one named in WITHHELD_UNTIL until a fault of its land is mended, ships no data, card or
-//   index entry; every run prints it by name with its reason and counts it withheld.
+//   its walk), one whose start has no water within its walk once every mend is tried (#1218), or one named in
+//   WITHHELD_UNTIL until a fault of its land is mended, ships no data, card or index entry; every run prints it by
+//   name with its reason and counts it withheld.
 // Each .timber is built with src/core/places (build, settle, validate, write) and must pass the
 // export profile and every check of the generate profile but the known faults (the conversion's, which
 // every place has, and each place's own, recorded in `faults`); the tool stops on any other that fails.
@@ -62,12 +67,14 @@ import {
   type PlaceIndexEntry,
 } from "../src/core/places/place";
 import { encodeHeights, encodeTiles } from "./lib/placeData";
-import { BODY, FILM_DEPTH, FILM_TILES, WET, compareWater, films, settleFile, startFails } from "./lib/placeWater";
-import { cutBasins, cutBed, floor0Sheet, realFilms, realMask } from "./lib/placeBasins";
+import { BODY, FILM_DEPTH, FILM_THIN_SHARE, FILM_TILES, WET, bodies, compareWater, films, settleFile, startFails } from "./lib/placeWater";
+import { cutBasins, cutBed, filmBasin, floor0Sheet, realFilms, realMask } from "./lib/placeBasins";
 import { decodeTiles as decodeGaps } from "../src/core/places/place";
 import { keepNearest, settlePlants, startWood, startWoodSpecies } from "./lib/placePlants";
 import { flaggedSources, mendSources } from "./lib/placeSources";
-import { searchFeeds } from "./lib/placeFeeds";
+import { FEED_MIN, realMeasure, realParts, searchFeeds, type FeedStep } from "./lib/placeFeeds";
+import { unneededBeds } from "./lib/placeBeds";
+import { claimOrder as placeClaimOrder, parseShard, shardMoves, shardPlaces, type Shard } from "./lib/placeShards";
 import { DEAD_TREES_KEEP_LOGS, LOG_FLOOR_WALK, LOGS_PER_TREE_SPECIES } from "../src/core/data/logFloor";
 import { startWalkField } from "../src/core/resources/baseline";
 import { writeTimber } from "../src/core/format/timber";
@@ -76,7 +83,7 @@ import { namedFile } from "../src/core/gen/pack";
 import { relaxEdges } from "../src/core/land/levels";
 import { EDITOR_LEVEL } from "../src/core/spec/mapspec";
 import { edgeLip } from "../src/core/water/edgeLip";
-import { placeSprings } from "../src/core/places/spring";
+import { aboveStart, placeSprings, startPool } from "../src/core/places/spring";
 import { placeRuins } from "../src/core/places/ruins";
 import { placeStartSpots, startTiles } from "../src/core/places/start";
 import { thumbnailRgba } from "../src/core/render/shade";
@@ -130,10 +137,17 @@ const WOOD_CHECKS = ["start.wood", "start.wood_floor", "start.wood_fast"];
  *  karst Plitvice's start meets every floor since the start's move ranks by the land floors, but its conversion puts
  *  a source in another's flow (`water.source_in_flow`); it left `PLACES_SOURCES_IN_FLOW` (tests/contract/placesCommon.ts,
  *  whose note says Real places 2 places sources only at heads) when #1094 withheld it, and that list never grows:
- *  planning's ruling on #1096. */
+ *  planning's ruling on #1096. Twelve Apostles has no pumpable water within 20 tiles of its start and its build has
+ *  faults no known list takes (`water.settles`, a source in another's flow). A place whose start the run leaves with
+ *  no water within its walk at all is withheld without a name here (no place ships that way: D(new-films), planning's
+ *  rulings on #1201), printed with what was tried; #1218 gave the others it named a pool or leaves that to the run. */
 const WITHHELD_UNTIL: Record<string, string> = {
   "dinaric-karst-plitvice": "withheld until water.source_in_flow is mended (sources at heads only)",
+  "twelve-apostles": "withheld until its start has pumpable water within 20 tiles (#1218: no spot by its real water, the sea, has a pool but one that costs start.level_land and start.forester; the sea's bed floods the start; no spring by the start or by six spots near it stands as a pool) and its water settles (water.settles) with no source in another's flow, which its build has",
 };
+/** The start's springs by the start built in turn, after the best, for one that costs no water over real water
+ *  (planning's ruling of 2026-11-16 on Cliffs of Moher): each is a springs' search of its own. */
+const COSTLESS_TRIES = 6;
 /** How many logs under `start.wood`'s limit a place's start may be and still be topped up to it (a twentieth of Normal's 200). */
 const WOOD_NEAR_MISS = 10;
 
@@ -205,6 +219,14 @@ type Fixture = {
   metres: number;
 };
 
+/** The place's one name (D522, Kyler: "Mount Fuji", not "Near Mount Fuji"): the survey's name without its "Near", its
+ *  scale and its sample's direction. Its id is `slug(name)`. */
+function placeName(item: LibraryItem): string {
+  const survey = item.name.replace(/, \d+ m per tile$/, "").replace(/ \((north|south|east|west|northeast|northwest|southeast|southwest) sample\)$/, "").trim();
+  if (!/^Near /.test(survey)) throw new Error(`${item.id}: unexpected survey name ${survey}`);
+  return RENAME[item.id] ?? survey.replace(/^Near /, "");
+}
+
 /** A library fixture as place data. Every object is checked against what the place's builders
  *  write, so the map is the survey's, object for object. */
 function toPlace(item: LibraryItem, fx: Fixture): PlaceData {
@@ -237,11 +259,7 @@ function toPlace(item: LibraryItem, fx: Fixture): PlaceData {
     edgeLip(heights, W, H, { row: [s.y * W + s.x], surface: heights[s.y * W + s.x] + 1, keep: heads, reach: EDGE_LIP_REACH });
   }
   if (heights.some((v) => v > EDITOR_LEVEL)) throw new Error(`${item.id}: land above level ${EDITOR_LEVEL}`);
-  // the place's one name (D522, Kyler: "Mount Fuji", not "Near Mount Fuji"): the survey's name without its "Near",
-  // its scale and its sample's direction
-  const survey = item.name.replace(/, \d+ m per tile$/, "").replace(/ \((north|south|east|west|northeast|northwest|southeast|southwest) sample\)$/, "").trim();
-  if (!/^Near /.test(survey)) throw new Error(`${item.id}: unexpected survey name ${survey}`);
-  const name = RENAME[item.id] ?? survey.replace(/^Near /, "");
+  const name = placeName(item);
   const fam = FAMILIES[item.family];
   if (!fam) throw new Error(`${item.id}: no family text for ${item.family}`);
   const kinds: Record<"bushes" | "pines" | "birches" | "oaks" | "deadPines" | "ruins", number[]> = { bushes: [], pines: [], birches: [], oaks: [], deadPines: [], ruins: [] };
@@ -340,17 +358,64 @@ function withStart(place: PlaceData, at: [number, number]): PlaceData {
 
 const counts = (c: CheckResult) => !c.ok && !c.advisory && c.applicable !== false && !c.approximate;
 
+/** `--times`: a line under each place of where its run's time went: each step of `runPlace` in turn, and over the
+ *  whole place the builds it checked (`buildChecked`), the settles they made (the rest came from `settles`) and the
+ *  time in their builds and in their checks. Information only: the files are the same. */
+const timesOn = process.argv.includes("--times");
+/** The settle cache, counting the settles it did not hold (each one made). */
+class CountedSettles extends SettleCache {
+  made = 0;
+  override get(m: Parameters<SettleCache["get"]>[0]) {
+    const w = super.get(m);
+    if (!w) this.made++;
+    return w;
+  }
+}
+const spent = { steps: [] as [string, number][], at: 0, builds: 0, build: 0, check: 0 };
+/** Ends the step of the place's run named `name` (`--times`). */
+function lap(name: string): void {
+  const now = performance.now();
+  spent.steps.push([name, now - spent.at]);
+  spent.at = now;
+}
+function timesLine(): string {
+  const s = (ms: number) => `${(ms / 1000).toFixed(1)} s`;
+  const steps = spent.steps.filter(([, ms]) => ms >= 50).map(([k, ms]) => `${k} ${s(ms)}`);
+  return `   times: ${steps.join(", ")}; ${spent.builds} builds checked, ${settles.made} settles made, ${s(spent.build)} building, ${s(spent.check)} checking`;
+}
+
+/** Not a check: what `buildChecked` adds to a place's failures under the pool rule when `start.water` itself fails, the
+ *  start with no water within its walk at all, where `start.water` alone also means water that is not a pool (#1218). */
+const NO_WATER = "start.no_water";
+/** The pool rule (#1218): while set, `start.water` fails for a start whose water within its walk is not a pool
+ *  (`startPool`), so every step that looks for the start's water looks for a pool, and the start's pool on real water
+ *  and the start moved with its spring are tried. A place is built without it first, as before; only one whose start
+ *  then has no pool is built again with it (`runPlace`), so a place whose start has a pool keeps its build. */
+let poolRule = false;
 /** A place built and checked: the export profile (`v`, what the editor's export asks) and every
  *  check of the generate profile (`strict`), with the failures of each that count. */
 /** The settles of the place being run (`runPlace`): its candidates (a start moved, plants moved or planted, a spring
  *  added) are each built and checked, and those whose objects alone differ leave the water as it was, so its settle is
  *  made once, not once a candidate (Katherine Gorge: 44 builds of 7.6 s each). */
-let settles = new SettleCache();
+let settles = new CountedSettles();
 function buildChecked(place: PlaceData) {
+  const t = performance.now();
   const built = buildPlace(place, settles);
+  const t1 = performance.now();
   const v = validatePlace(built);
   const strict = validateMap(built.file, { profile: "generate", designedFor: "normal", features: [], water: { model: built.model, settled: built.settle } });
-  return { built, v, strict, blocking: v.report.checks.filter(counts), strictFails: strict.report.checks.filter(counts).map((c) => c.id) };
+  spent.builds++;
+  spent.build += t1 - t;
+  spent.check += performance.now() - t1;
+  const strictFails = strict.report.checks.filter(counts).map((c) => c.id);
+  // under the pool rule `start.water` fails for a start whose water is not a pool the first pump draws from within its
+  // walk (`startPool`), and `NO_WATER` stands besides where the check itself fails (no water within the walk at all, not
+  // even a thin sheet), so no step takes a thin sheet from a start without a pool
+  if (!poolRule) return { built, v, strict, blocking: v.report.checks.filter(counts), strictFails };
+  if (!strictFails.includes("start.water")) {
+    if (!startPool(place, built.heights, built.settle.depth, built.settle.contamination, { thin: FILM_DEPTH, thinShare: FILM_THIN_SHARE })) strictFails.push("start.water");
+  } else strictFails.push(NO_WATER);
+  return { built, v, strict, blocking: v.report.checks.filter(counts), strictFails };
 }
 
 type Checked = ReturnType<typeof buildChecked>;
@@ -416,11 +481,12 @@ function realOf(libraryId: string, W: number, H: number): Uint8Array {
 
 /** The place with its basins cut where the real water lies, and a bed through each film above floor 0 that no real
  *  water lies under (tools/lib/placeBasins.ts), and its log note. */
-function basinsFor(libraryId: string, place: PlaceData): { place: PlaceData; note: string } {
+function basinsFor(libraryId: string, place: PlaceData): { place: PlaceData; note: string; beds: number[][] } {
+  const beds: number[][] = [];
   const real = realOf(libraryId, place.W, place.H);
   const port = buildPlace(place, undefined, "port").settle.depth;
   let game = buildPlace(place, undefined, "game");
-  const r = cutBasins(decodeHeights(place.heights), place.W, place.H, port, game.settle.depth, game.model.floor, real);
+  const r = cutBasins(decodeHeights(place.heights), place.W, place.H, port, game.settle.depth, game.model.floor, real, FILM_BEFORE);
   const notes: string[] = [];
   for (const b of r.basins) notes.push(`${b.kind} ${b.size} at ${b.at.join(",")} over ${b.real} real-water tiles ${b.cut ? `cut ${b.cut} tiles` : b.kind === "lost" ? "goes" : "not cut"}`);
   let heights = r.heights;
@@ -441,8 +507,10 @@ function basinsFor(libraryId: string, place: PlaceData): { place: PlaceData; not
   // instead, and where none is left the film stays (the check refuses it)
   const inFlow = (p: PlaceData) => flaggedSources(p).flagged.length;
   const flowed = inFlow(place);
+  // (a bed after which the water no longer settles is not cut: `water.settles`, whose list never grows)
+  const settled = game.settle.settled;
   for (let round = 0; round < BED_ROUNDS; round++) {
-    const left = films(game.settle.depth, game.model.floor, place.W, place.H).filter((f) => f.floor0 * 2 <= f.tiles.length);
+    const left = films(game.settle.depth, game.model.floor, place.W, place.H, FILM_BEFORE).filter((f) => f.floor0 * 2 <= f.tiles.length);
     if (!left.length) break;
     let any = false;
     for (const f of left) {
@@ -454,9 +522,15 @@ function basinsFor(libraryId: string, place: PlaceData): { place: PlaceData; not
         bed = cutBed(tried, place.W, place.H, f.tiles, game.settle.depth, place.sources, seed, true);
         if (bed.length && inFlow({ ...place, heights: encodeHeights(tried) }) > flowed) bed = [];
       }
-      notes.push(`film ${f.tiles.length} at ${f.at.join(",")} ${bed.length ? `bed of ${bed.length} tiles` : "has no bed that keeps the sources at their heads"}`);
+      let unsettled = false;
+      if (bed.length && settled && !buildPlace({ ...place, heights: encodeHeights(tried) }, undefined, "game").settle.settled) {
+        bed = [];
+        unsettled = true;
+      }
+      notes.push(`film ${f.tiles.length} at ${f.at.join(",")} ${bed.length ? `bed of ${bed.length} tiles` : unsettled ? "has no bed the water settles with" : "has no bed that keeps the sources at their heads"}`);
       if (bed.length) {
         heights.set(tried);
+        beds.push(bed);
         any = true;
       }
     }
@@ -464,7 +538,84 @@ function basinsFor(libraryId: string, place: PlaceData): { place: PlaceData; not
     place = { ...place, heights: encodeHeights(heights) };
     game = buildPlace(place, undefined, "game");
   }
-  return { place, note: notes.length ? `  water mends: ${notes.join("; ")}` : "" };
+  return { place, note: notes.length ? `  water mends: ${notes.join("; ")}` : "", beds };
+}
+
+/** The films the land is mended for before the springs' search: thin on every tile, as before D(new-films). The films the
+ *  check's share finds besides (`FILM_THIN_SHARE`) are left to the springs' search, and those it leaves get their mend
+ *  after it (`filmsAfter`), so a film the springs take away costs the land nothing. */
+const FILM_BEFORE = 1;
+
+/** The places that keep today's build (dev's: the committed place, its ruins laid again as `--ruins` lays them, which
+ *  gives today's files), by planning's rulings of 2026-11-16 on D(new-films): a place whose film above floor 0 (the
+ *  check's, `FILM_THIN_SHARE`) the springs' search leaves and no mend after it (`filmsAfter`) reaches; one whose search
+ *  ends with less water over real water than today's; and one whose search puts more water over real dry land than
+ *  today's that its start does not need. Every run prints each by name with its reason, and the check passes the film
+ *  today's build has; any other place with a film fails. The list never grows past the places these rulings named. */
+const TODAY_KEPT: Record<string, string> = {
+  "waimakariri-river": "film 363 at 217,230: its bed costs start.farmland and start.forester",
+  "na-pali-coast": "film 519 at 46,1: its bed gives water.outflow and costs real water; film 2199 at 2,62 over the real sea: its basin gives water.outflow and a source in another's flow",
+  gullfoss: "film 435 at 112,25: its bed costs start.food and real water",
+  "taklimakan-kunlun-fan": "film 1506 at 239,75: its bed costs start.farmland and start.forester; films 420 and 439: their beds leave the water unsettled",
+  "milford-sound": "film 359 at 191,121: its bed grows the water over real dry land",
+  "mount-fuji": "film 138 at 28,22: its bed leaves the water unsettled and costs start.food",
+  "victoria-falls": "film 1353 at 35,86: its basin gives water.outflow and costs real water",
+  "ilulissat-icefjord": "film 119 at 19,28: its basin costs real water",
+  "yosemite-valley": "film 104 at 62,1: its bed costs the real water",
+  paricutin: "its springs' search ends with less water over real water than today's (5 → 1)",
+  "western-ghats-mahabaleshwar": "its one spring by the start puts 550 more tiles over real dry land; the start had water 15.5 tiles' walk away today",
+  altiplano: "its one spring by the start (2,54) puts 299 more tiles over real dry land than today's (697 → 996) with the start's water where it was (8.2 tiles' walk); without it the turns leave the start 19.8 tiles from water",
+  "roaring-river-fan": "its search puts 138 more tiles over real dry land than today's (602 → 740) and takes the start's water from 1.4 to 10.2 tiles' walk; the start's spring that held it nearer (70,57) leaves it at 4",
+};
+
+/** The films above floor 0 the searched springs leave (D(new-films): thin on 90 % of their tiles) mended as `basinsFor`
+ *  mends a film: a basin where real water lies under it, else a bed to where its water leaves its flat; each kept only
+ *  where the water still settles, nothing the place passed then fails and no source lands in another's flow. */
+function filmsAfter(libraryId: string, place: PlaceData, had: Checked): { place: PlaceData; r: Checked; note: string } {
+  const real = realOf(libraryId, place.W, place.H);
+  const flow = flaggedSources(place).flagged.length;
+  const { W, H } = place;
+  let cur = place;
+  let r = had;
+  let m = realMeasure(had.built.settle.depth, real);
+  const notes: string[] = [];
+  for (let round = 0; round < BED_ROUNDS; round++) {
+    const left = films(r.built.settle.depth, r.built.model.floor, W, H).filter((f) => f.floor0 * 2 <= f.tiles.length);
+    if (!left.length) break;
+    let any = false;
+    for (const f of left) {
+      const h = decodeHeights(cur.heights);
+      const fb = filmBasin(h, W, H, f.tiles, real);
+      let tried = fb.heights;
+      let what = `basin of ${fb.basin.cut} tiles`;
+      if (!fb.basin.cut) {
+        tried = Uint8Array.from(h);
+        const bed = cutBed(tried, W, H, f.tiles, r.built.settle.depth, cur.sources, hashString(`${seedKey(cur)}:after:${round}`));
+        what = `bed of ${bed.length} tiles`;
+        if (!bed.length) {
+          notes.push(`film ${f.tiles.length} at ${f.at.join(",")} has no bed`);
+          continue;
+        }
+      }
+      const cand = { ...cur, heights: encodeHeights(tried) };
+      const c = buildChecked(cand);
+      const worse = c.strictFails.filter((id) => !r.strictFails.includes(id));
+      // (and the water over real water held, the water over real dry land not grown: D(new-films)'s conditions)
+      const mm = realMeasure(c.built.settle.depth, real);
+      const measure = [...(mm.real < m.real ? [`real water ${m.real} → ${mm.real}`] : []), ...(mm.dry > m.dry ? [`real dry land ${m.dry} → ${mm.dry}`] : [])];
+      if ((r.built.settle.settled && !c.built.settle.settled) || worse.length || measure.length || flaggedSources(cand).flagged.length > flow) {
+        notes.push(`film ${f.tiles.length} at ${f.at.join(",")}: its ${what} refused (${[...worse, ...measure, ...(c.built.settle.settled ? [] : ["the water would not settle"]), ...(flaggedSources(cand).flagged.length > flow ? ["a source in another's flow"] : [])].join(", ")})`);
+        continue;
+      }
+      cur = cand;
+      r = c;
+      m = mm;
+      any = true;
+      notes.push(`film ${f.tiles.length} at ${f.at.join(",")} ${what}`);
+    }
+    if (!any) break;
+  }
+  return { place: cur, r, note: notes.length ? `  films after the springs: ${notes.join("; ")}` : "" };
 }
 
 /** The rounds of beds a place gets: a bed can carry its water on to a flat below, where the next round's bed runs on. */
@@ -485,20 +636,53 @@ function feedsFor(libraryId: string, place: PlaceData): { place: PlaceData; note
   const real = realOf(libraryId, place.W, place.H);
   const base = buildChecked(place);
   const baseFlow = flaggedSources(place).flagged.length;
+  const filmTiles = (b: ReturnType<typeof buildPlace>, p: PlaceData) =>
+    films(b.settle.depth, b.model.floor, p.W, p.H)
+      .filter((f) => f.floor0 * 2 <= f.tiles.length)
+      .reduce((n, f) => n + f.tiles.length, 0);
+  const baseFilm = filmTiles(base.built, place);
   const keep = (p: PlaceData) => {
     const r = buildChecked(p);
-    const worse = r.strictFails.filter((id) => !base.strictFails.includes(id));
-    const filmed = films(r.built.settle.depth, r.built.model.floor, p.W, p.H).some((f) => f.floor0 * 2 <= f.tiles.length);
+    // (the start's water first: a start that loses its water is not a mend, D(new-films))
+    const worse = r.strictFails.filter((id) => !base.strictFails.includes(id)).sort((x, y) => Number(y === "start.water") - Number(x === "start.water"));
+    const filmed = filmTiles(r.built, p) > baseFilm;
     const flow = flaggedSources(p).flagged.length;
-    const why = [...worse, ...(flow > baseFlow ? [`sources in a flow ${baseFlow} → ${flow}`] : []), ...(filmed ? ["film above floor 0"] : [])];
+    // (a start that had water in reach, even past the check's walk, and has none is not a mend either)
+    const lost = waterIn(base.strict) !== null && waterIn(r.strict) === null ? ["the start's water lost"] : [];
+    const why = [...lost, ...worse, ...(flow > baseFlow ? [`sources in a flow ${baseFlow} → ${flow}`] : []), ...(filmed ? ["film above floor 0"] : [])];
     return why.length ? why.join(", ") : null;
   };
   const settle = (p: PlaceData) => buildPlace(p, settles).settle.depth;
-  let r = searchFeeds(place, real, settle, keep);
+  // D245's water floor for a place with no real water: the springs by its start a lone spring may be (src/core/places/spring.ts),
+  // placed on the place's land with no water
+  // (the one spring is the start's, planning's ruling of 2026-11-16: the start then has water within its walk, a spring
+  // above the start first, `aboveStart`)
+  const dryLand = buildPlace({ ...place, sources: [] }, settles);
+  const springs = () => {
+    const dry = { ...place, sources: [] as [number, number, number][] };
+    const at = (above: boolean) => SPRING_TRIES.flatMap(([rule, tries]) => placeSprings(dry, dryLand.heights, dryLand.settle.depth, { rule, tries, key: seedKey(place), above }));
+    const seen = new Set<string>();
+    return [...at(true), ...at(false)].filter((g) => {
+      const k = JSON.stringify(g);
+      return !seen.has(k) && !!seen.add(k);
+    });
+  };
+  // (served: water within the start's walk, and no farther than before the search where it had some within it: no
+  // start worse served, planning's ruling of 2026-11-16)
+  const baseWalk = base.strictFails.includes("start.water") ? null : waterIn(base.strict);
+  const served = (p: PlaceData) => {
+    const c = buildChecked(p);
+    const w = waterIn(c.strict);
+    return !c.strictFails.includes("start.water") && (baseWalk === null || (w !== null && w <= baseWalk)) && poolOf(p) !== null;
+  };
+  // (the start's spring nearest the start first: the walk to its pool)
+  const rank = (p: PlaceData) => poolOf(p)?.walk ?? Infinity;
+  const above = (s: readonly [number, number, number][]) => s.every(([x, y]) => aboveStart(place, dryLand.heights, y * place.W + x));
+  let r = searchFeeds(place, real, settle, keep, { springs, served, above, rank });
   // no place ends with more water over real dry land (planning): one whose search did is searched again with no step
   // raising it
   const again = r.after.dry > r.before.dry ? ` (searched again: real dry land ${r.before.dry} → ${r.after.dry} the first time)` : "";
-  if (again) r = searchFeeds(place, real, settle, keep, { dryNotUp: true });
+  if (again) r = searchFeeds(place, real, settle, keep, { dryNotUp: true, springs, served, above, rank });
   // the floor-0 sheet is information (planning), but a search whose sheet over real dry land grew while the water over
   // real dry land did not fall keeps the springs the place had
   const sheetDry = (p: PlaceData) => {
@@ -511,37 +695,355 @@ function feedsFor(libraryId: string, place: PlaceData): { place: PlaceData; note
     if (now > was) return { place, note: `  springs kept: the search's sheet over real dry land ${was} → ${now} with no fall over real dry land (${r.before.dry} → ${r.after.dry})` };
   }
   const at = (s: [number, number, number] | null) => (s ? `${s[0]},${s[1]}:${s[2].toFixed(2)}` : "gone");
+  const list = (ss: readonly [number, number, number][]) => ss.map((s) => at(s)).join(" ");
+  const step = (s: FeedStep) => (s.kind === "turn" ? `${at(s.from)} → ${at(s.to)}` : s.kind === "one spring" ? `one spring (D245's water floor): ${list(s.now!)} for all ${s.was!.length}` : `together gone: ${list(s.was!.filter((x) => !s.now!.some((y) => y[0] === x[0] && y[1] === x[1])))}`);
   // the refusals that only a source in another's flow stood in the way of: the best of each move, by the measure
-  const flowOnly = r.refused.filter((x) => x.why.split(", ").every((w) => w === "water.source_in_flow" || w.startsWith("sources in a flow")));
+  const flowOnly = r.refused.filter((x) => x.source >= 0 && x.why.split(", ").every((w) => w === "water.source_in_flow" || w.startsWith("sources in a flow")));
   const fmt = (ss: readonly [number, number, number][]) => `${ss.length} (${ss.map((s) => s[2].toFixed(2)).join(" ")})`;
+  // the measure's parts (D(new-films)): the water over real dry land as the floor-0 sheet and everything else
+  const parts = (p: PlaceData) => {
+    const b = buildPlace(p, settles);
+    return realParts(b.settle.depth, b.model.floor, p.W, p.H, real);
+  };
+  const p0 = parts(place);
+  const p1 = r.steps.length ? parts(r.place) : p0;
+  // every place whose springs change shows its start's numbers before and after, its water in reach first
+  const startLine = r.steps.length ? `; start ${startNumbers(base.strict)} → ${startNumbers(buildChecked(r.place).strict)}` : "";
   const note =
-    `  springs searched: real water ${r.before.real} → ${r.after.real}, real dry land ${r.before.dry} → ${r.after.dry}; sources ${fmt(place.sources)} → ${fmt(r.place.sources)}` +
-    (r.steps.length ? ` [${r.steps.map((s) => `${at(s.from)} → ${at(s.to)}`).join("; ")}]` : "") +
+    `  springs searched: real water ${r.before.real} → ${r.after.real}, real dry land ${r.before.dry} → ${r.after.dry} (floor-0 sheet ${p0.sheet} → ${p1.sheet}, the rest ${p0.rest} → ${p1.rest}); sources ${fmt(place.sources)} → ${fmt(r.place.sources)}` +
+    (r.steps.length ? ` [${r.steps.map(step).join("; ")}]` : "") +
+    startLine +
     again +
     (flowOnly.length ? `; better by the measure but for a source in another's flow: ${flowOnly.map((x) => `${at(x.from)} → ${at(x.to)} (real water ${x.real}, real dry land ${x.dry}; ${x.why})`).join("; ")}` : "");
   return { place: r.place, note };
 }
 
+// No place ships with no pumpable water within 20 tiles of its start (D(new-films), planning's ruling of 2026-11-16): a
+// start still without it gets the start's spring, whatever its sealed land had: a spring by it (above it first) whose
+// water stands as a pool the start walks to and pumps from with the first pump (`startPool`), no film above floor 0
+// and nothing else it passed then failing; the fewest failures win, then the nearest pool
+function startSpringFor(at: PlaceData, r0: Checked) {
+  const had = new Set(r0.strictFails);
+  const filmed = (b: ReturnType<typeof buildPlace>) => films(b.settle.depth, b.model.floor, at.W, at.H).filter((f) => f.floor0 * 2 <= f.tiles.length).reduce((n, f) => n + f.tiles.length, 0);
+  const film0 = filmed(r0.built);
+  let best: { add: [number, number, number][]; r: Checked; score: number; walk: number } | null = null;
+  const ok: { add: [number, number, number][]; score: number; walk: number }[] = [];
+  const seen = new Set<string>();
+  for (const above of [true, false])
+    for (const [rule, tries] of SPRING_TRIES)
+      for (const add of placeSprings(at, r0.built.heights, r0.built.settle.depth, { rule, tries, key: seedKey(at), above })) {
+        const k = JSON.stringify(add);
+        if (seen.has(k)) continue;
+        seen.add(k);
+        const cand = { ...at, sources: [...at.sources, ...add] };
+        const r = buildChecked(cand);
+        if (r.strictFails.includes("start.water") || r.strictFails.some((id) => !had.has(id) && !FREE.has(id)) || filmed(r.built) > film0) continue;
+        const pool = poolOf(cand);
+        if (!pool) continue;
+        const sc = startScore(r.strictFails);
+        ok.push({ add, score: sc, walk: pool.walk });
+        if (best && (sc > best.score || (sc === best.score && pool.walk >= best.walk))) continue;
+        best = { add, r, score: sc, walk: pool.walk };
+      }
+  // (every site that passes, the best first: the fewest failures, then the nearest pool, then the order tried)
+  const all = ok.map((c, k) => ({ ...c, k })).sort((a, b) => a.score - b.score || a.walk - b.walk || a.k - b.k);
+  const note = `  the start's spring for its water: ${best ? `${best.add.map((s) => `${s[0]},${s[1]}`).join(" ")}, a pool ${Math.round(best.walk * 10) / 10} tiles' walk away` : `none of ${seen.size} places gives a pool the start pumps from`}`;
+  return { best, note, all };
+}
+
+/** The dry spots by the start tried for a start's spring of their own (`springSpotFor`), those whose land fits first. */
+const SPRING_SPOTS = 6;
+
+/**
+ * A start whose water is a sheet no spring by it lifts into a pool (its spring's water joins the sheet), moved with its
+ * spring (#1218): the dry spots nearest it whose land can give the start's land floors (`placeStartSpots`, no shore
+ * asked), each built and checked, where it fails nothing the start passed but its water, then given the start's spring
+ * there (`startSpringFor`); the first spot whose spring stands as a pool wins. Objects only.
+ */
+function springSpotFor(place: PlaceData, r0: Checked): { best: PlaceData | null; note: string } {
+  const had = new Set(r0.strictFails);
+  const land = { moisture: r0.strict.analysis!.moisture, reach: checkLimit(r0.strict, "start.reach"), moist: checkLimit(r0.strict, "start.farmland") + checkLimit(r0.strict, "start.forester"), within: FARM_WALK };
+  const spots = placeStartSpots(place, r0.built.heights, r0.built.settle.depth, r0.built.settle.contamination, { shore: false, limit: SPRING_SPOTS, land });
+  const tried: string[] = [];
+  for (const at of spots) {
+    // the start moved, its wood grown by it where it falls short (objects only)
+    let cand = withStart(place, at);
+    let r = buildChecked(cand);
+    if (r.strictFails.some((id) => WOOD_CHECKS.includes(id) && !had.has(id))) {
+      const walkField = startWalkField(r.built.heights, cand.W, cand.H, placeEntities(cand, r.built.heights), { x: at[0] + 1, y: at[1] + 1 });
+      const g = growFastWood(cand, r, walkField, { wood: checkLimit(r.strict, "start.wood"), floor: checkLimit(r.strict, "start.wood_floor") }, (c) => c.strictFails.includes("start.wood_fast"));
+      cand = g.place;
+      r = g.r;
+    }
+    // (no water there is what its spring mends: `NO_WATER`; its berries are planted after)
+    const worse = r.strictFails.filter((id) => !had.has(id) && id !== "start.food" && id !== NO_WATER);
+    if (worse.length) {
+      tried.push(`${at.join(",")}: ${worse.join(",")}`);
+      continue;
+    }
+    // its spring, then its berries on the water the spring leaves
+    const ss = startSpringFor(cand, r);
+    if (!ss.best) {
+      tried.push(`${at.join(",")}: no spring by it stands as a pool`);
+      continue;
+    }
+    let done = { ...cand, sources: [...cand.sources, ...ss.best.add] };
+    let rd = ss.best.r;
+    if (rd.strictFails.includes("start.food") && !had.has("start.food")) {
+      const b = startBerries(done, rd);
+      done = b.place;
+      rd = b.r;
+    }
+    const left = rd.strictFails.filter((id) => !had.has(id));
+    if (left.length) {
+      tried.push(`${at.join(",")}: ${left.join(",")} with its spring`);
+      continue;
+    }
+    return { best: done, note: `  the start moved to ${at.join(",")} with its spring at ${ss.best.add.map((s) => `${s[0]},${s[1]}`).join(" ")}, a pool ${Math.round(ss.best.walk * 10) / 10} tiles' walk away` };
+  }
+  return { best: null, note: `  the start moved with its spring: none of ${spots.length} spots (${tried.join("; ")})` };
+}
+
+/** The bushes the `start.food` check's own fix plants by the start (objects only), kept where the start then has more
+ *  living berries and nothing else fails that did not. */
+function startBerries(place: PlaceData, r: Checked): { place: PlaceData; r: Checked } {
+  const food = r.strict.report.checks.find((c) => c.id === "start.food");
+  const tiles = (food?.fix ?? []).flatMap((f) => (f.op === "placeEntity" && f.params.template === "BlueberryBush" ? [f.params.y * place.W + f.params.x] : []));
+  if (!tiles.length) return { place, r };
+  const withBushes = { ...place, bushes: encodeTiles([...new Set([...decodeTiles(place.bushes), ...tiles])].sort((a, b) => a - b)) };
+  const c = buildChecked(withBushes);
+  const after = c.strict.report.checks.find((x) => x.id === "start.food");
+  return after && Number(after.value ?? 0) > Number(food?.value ?? 0) && !c.strictFails.some((id) => !r.strictFails.includes(id)) ? { place: withBushes, r: c } : { place, r };
+}
+
+/** The checks a start's move, spring or pool may newly fail: the start's wood, berries and land are information for a real
+ *  place (D331), and its water is what they look for. */
+const FREE = new Set(["start.wood", "start.food", "start.water", NO_WATER, ...START_LAND]);
+/** A start's failures ranked, the fewest worst first: water, then the land floors, then the starting-logs floor, then the
+ *  berries, then the wood (a spot or spring that costs the start its berries ranks below one that keeps them). */
+const startScore = (fails: string[]) =>
+  (fails.includes(NO_WATER) ? 64 : 0) + (fails.includes("start.water") ? 32 : 0) + (fails.some((id) => LAND_FLOORS.includes(id)) ? 16 : 0) + (fails.includes("start.wood_floor") ? 4 : 0) + (fails.includes("start.food") ? 2 : 0) + (fails.includes("start.wood") ? 1 : 0);
+
+/** A squared straight distance (exact for tiles; compared, never rooted). */
+const dist2 = (dx: number, dy: number) => dx * dx + dy * dy;
+/** How far from the start's middle (tiles, straight) a body of real water is looked at for the start's pool (#1218). */
+const REAL_POOL_REACH = 64;
+/** The bodies of real water tried for the start's pool, the nearest first. */
+const REAL_POOL_BODIES = 3;
+/** The strengths a source at a body of real water's head is tried at: the official maps' weakest first (D171's range). */
+const REAL_HEAD_STRENGTHS = [FEED_MIN, 1];
+/** The spots by a body of real water tried for the start, the nearest the body first. */
+const REAL_POOL_SPOTS = 24;
+
+/**
+ * The start's pool on real water (#1218, D(new-films): real water first): the bodies of real water (the observed-water
+ * mask, 30 tiles or more, `BODY`) within `REAL_POOL_REACH` of the start, the nearest first, each tried
+ * as it is, with its bed cut one level down where the survey's land still stands (`cutLevel`'s rule: real-water tiles
+ * inside the flat's own rim, never twice), and with a source at its head where no source stands in it (the tile nearest
+ * its middle, at `REAL_HEAD_STRENGTHS`; sources only at heads, D171). On each, the start where it is and then the spots
+ * within 20 tiles' walk of a shore nearest the body (`placeStartSpots`), each built and checked, its wood and berries
+ * grown where they fall short (objects only). Kept where the start's pool (`startPool`) lies in that body, nothing the
+ * start passed then fails (its wood, berries and land floors included), the water still settles, no film above floor 0 grows, no source lands in
+ * another's flow and the water over real water is held. The first body and way that gives one wins, its best spot by
+ * the fewest failures, then the nearest pool. `surveyed`: the place's land before any bed or basin was cut.
+ */
+function realPoolFor(libraryId: string, place: PlaceData, surveyed: Uint8Array, r0: Checked): { best: { place: PlaceData; r: Checked } | null; note: string } {
+  const { W, H } = place;
+  const real = realOf(libraryId, W, H);
+  const had = new Set(r0.strictFails);
+  const sx = place.start[0] + 1;
+  const sy = place.start[1] + 1;
+  const near = bodies(Float64Array.from(real), W, H)
+    .map((tiles) => {
+      let d = Infinity;
+      for (const i of tiles) d = Math.min(d, dist2((i % W) - sx, Math.floor(i / W) - sy));
+      return { tiles, d };
+    })
+    .filter((b) => b.d <= REAL_POOL_REACH * REAL_POOL_REACH)
+    .sort((a, b) => a.d - b.d || a.tiles[0] - b.tiles[0])
+    .slice(0, REAL_POOL_BODIES);
+  if (!near.length) return { best: null, note: `  the start's pool on real water: no body of real water within ${REAL_POOL_REACH} tiles` };
+  const filmed = (b: ReturnType<typeof buildPlace>) => films(b.settle.depth, b.model.floor, W, H).filter((f) => f.floor0 * 2 <= f.tiles.length).reduce((n, f) => n + f.tiles.length, 0);
+  const film0 = filmed(r0.built);
+  const m0 = realMeasure(r0.built.settle.depth, real);
+  const flow0 = flaggedSources(place).flagged.length;
+  const landMet = LAND_FLOORS.filter((id) => !had.has(id));
+  const occupied = new Uint8Array(W * H);
+  for (const [x, y] of place.sources) occupied[y * W + x] = 1;
+  for (const gaps of [place.bushes, place.pines, place.birches, place.oaks, place.deadPines, place.deadBirches, place.deadOaks, place.ruins]) for (const i of decodeTiles(gaps)) occupied[i] = 1;
+  for (const i of startTiles(W, place.start)) occupied[i] = 1;
+  const h0 = decodeHeights(place.heights);
+  const tried: string[] = [];
+  for (const body of near) {
+    const inBody = new Uint8Array(W * H);
+    for (const i of body.tiles) inBody[i] = 1;
+    const at = `${body.tiles[0] % W},${Math.floor(body.tiles[0] / W)}`;
+    // the ways: as it is, its bed cut, a source at its head (on the cut bed where there is one)
+    const ways: { what: string; place: PlaceData }[] = [{ what: "as it is", place }];
+    const cut = Uint8Array.from(h0);
+    let n = 0;
+    for (const i of body.tiles) {
+      const L = h0[i];
+      const x = i % W;
+      const y = (i - x) / W;
+      if (L === 0 || h0[i] !== surveyed[i] || x === 0 || y === 0 || x === W - 1 || y === H - 1) continue;
+      if (h0[i - 1] >= L && h0[i + 1] >= L && h0[i - W] >= L && h0[i + W] >= L) {
+        cut[i] = L - 1;
+        n++;
+      }
+    }
+    const bed = n ? { what: `its bed cut (${n} tiles)`, place: { ...place, heights: encodeHeights(cut) } } : null;
+    if (bed) ways.push(bed);
+    if (!place.sources.some(([x, y]) => inBody[y * W + x])) {
+      let cx = 0;
+      let cy = 0;
+      for (const i of body.tiles) {
+        cx += i % W;
+        cy += Math.floor(i / W);
+      }
+      cx /= body.tiles.length;
+      cy /= body.tiles.length;
+      let head = -1;
+      let hd = Infinity;
+      for (const i of body.tiles) {
+        if (occupied[i]) continue;
+        const d = dist2((i % W) - cx, Math.floor(i / W) - cy);
+        if (d < hd) (hd = d), (head = i);
+      }
+      if (head >= 0) {
+        const hx = head % W;
+        const hy = (head - hx) / W;
+        const base = bed ?? ways[0];
+        for (const s of REAL_HEAD_STRENGTHS) ways.push({ what: `${bed ? `${bed.what}, ` : ""}a source at its head ${hx},${hy} (${s})`, place: { ...base.place, sources: [...base.place.sources, [hx, hy, s]] } });
+      }
+    }
+    for (const way of ways) {
+      let c = way.place === place ? r0 : buildChecked(way.place);
+      // (plants the new water leaves on soil that kills them move to moist ground close by or go, as everywhere: #523)
+      if (way.place !== place && c.strictFails.includes("plants.survive") && !had.has("plants.survive") && c.strict.analysis) {
+        const a = c.strict.analysis;
+        way.place = settlePlants(way.place, { moisture: a.moisture, contamination: a.soilContamination, depth: c.built.settle.depth }, a.startDistance, PLANT_REACH).place;
+        c = buildChecked(way.place);
+      }
+      if (way.place !== place) {
+        const mm = realMeasure(c.built.settle.depth, real);
+        const why = [
+          ...(r0.built.settle.settled && !c.built.settle.settled ? ["the water would not settle"] : []),
+          ...(filmed(c.built) > film0 ? ["a film above floor 0"] : []),
+          ...(mm.real < m0.real ? [`real water ${m0.real} → ${mm.real}`] : []),
+          ...(flaggedSources(way.place).flagged.length > flow0 ? ["a source in another's flow"] : []),
+          ...c.strictFails.filter((id) => !had.has(id) && !FREE.has(id)),
+        ];
+        if (why.length) {
+          tried.push(`${body.tiles.length} at ${at} ${way.what}: ${why.join(", ")}`);
+          continue;
+        }
+      }
+      // the start where it is, then the spots by the body
+      const land = { moisture: c.strict.analysis!.moisture, reach: checkLimit(c.strict, "start.reach"), moist: checkLimit(c.strict, "start.farmland") + checkLimit(c.strict, "start.forester"), within: FARM_WALK };
+      const toBody = (s: [number, number]) => {
+        let d = Infinity;
+        for (const i of body.tiles) d = Math.min(d, dist2((i % W) - s[0] - 1, Math.floor(i / W) - s[1] - 1));
+        return d;
+      };
+      const spots = [
+        place.start,
+        ...placeStartSpots(way.place, c.built.heights, c.built.settle.depth, c.built.settle.contamination, { limit: Infinity, walk: 20, land })
+          .map((s) => ({ s, d: toBody(s) }))
+          .sort((a, b) => a.d - b.d || a.s[1] - b.s[1] || a.s[0] - b.s[0])
+          .slice(0, REAL_POOL_SPOTS)
+          .map((x) => x.s),
+      ];
+      let best: { place: PlaceData; r: Checked; score: number; walk: number; at: [number, number] } | null = null;
+      for (const s of spots) {
+        let cand = s === place.start ? way.place : withStart(way.place, s);
+        let r = s === place.start ? c : buildChecked(cand);
+        if (r.strictFails.includes("start.water")) continue;
+        if (r.strictFails.some((id) => WOOD_CHECKS.includes(id) && !had.has(id))) {
+          const walkField = startWalkField(r.built.heights, W, H, placeEntities(cand, r.built.heights), { x: s[0] + 1, y: s[1] + 1 });
+          const g = growFastWood(cand, r, walkField, { wood: checkLimit(r.strict, "start.wood"), floor: checkLimit(r.strict, "start.wood_floor") }, (k) => k.strictFails.includes("start.wood_fast"));
+          cand = g.place;
+          r = g.r;
+        }
+        // (its berries planted where the move costs the start its food: no start number gets worse)
+        if (r.strictFails.includes("start.food") && !had.has("start.food")) ({ place: cand, r } = startBerries(cand, r));
+        const pool = poolOf(cand);
+        if (!pool || !inBody[pool.tile] || r.strictFails.some((id) => !had.has(id) || landMet.includes(id))) continue;
+        const sc = startScore(r.strictFails);
+        if (best && (sc > best.score || (sc === best.score && pool.walk >= best.walk))) continue;
+        best = { place: cand, r, score: sc, walk: pool.walk, at: s };
+      }
+      if (best) {
+        const moved = best.at === place.start ? "the start where it is" : `the start at ${best.at.join(",")}`;
+        return { best, note: `  the start's pool on real water: ${body.tiles.length} tiles at ${at} ${way.what}, ${moved}, a pool ${Math.round(best.walk * 10) / 10} tiles' walk away` };
+      }
+      tried.push(`${body.tiles.length} at ${at} ${way.what}: no spot by it pumps from it (${spots.length - 1} spots)`);
+    }
+  }
+  return { best: null, note: `  the start's pool on real water: none (${tried.join("; ")})` };
+}
+
+/** The pool the start's first settlers pump from (`startPool`: walkable, pumpable with the first pump, not a thin
+ *  sheet), on the place as built; null when there is none within the start's walk. */
+function poolOf(p: PlaceData) {
+  const b = buildPlace(p, settles);
+  return startPool(p, b.heights, b.settle.depth, b.settle.contamination, { thin: FILM_DEPTH, thinShare: FILM_THIN_SHARE });
+}
+
+/** Whether the start has no pumpable water within its walk at all (`start.water` itself fails: not even a thin sheet). */
+function noWaterAtAll(s: Checked["strict"]): boolean {
+  return !s.report.checks.find((c) => c.id === "start.water")?.ok;
+}
+
+/** The walk to the start's water (`start.water`'s value), or null when it has none in reach. */
+function waterIn(s: Checked["strict"]): number | null {
+  const v = s.report.checks.find((c) => c.id === "start.water")?.value;
+  return typeof v === "number" ? v : null;
+}
+
+/** The start's numbers (D(new-films)): its water in reach first (the walk to it, of the check's limit), then its logs,
+ *  its starting-logs floor, its berries and its moist ground for farms. */
+function startNumbers(s: Checked["strict"]): string {
+  const c = (id: string) => s.report.checks.find((x) => x.id === id);
+  const v = (id: string) => {
+    const x = c(id);
+    const val = x?.value;
+    return val === undefined || val === null ? "-" : typeof val === "number" ? String(Math.round(val * 10) / 10) : String(val);
+  };
+  return `water ${v("start.water")}/${c("start.water")?.limit ?? "-"}, wood ${v("start.wood")}, floor ${v("start.wood_floor")}, food ${v("start.food")}, farmland ${v("start.farmland")}`;
+}
+
 /** The water checks every offered place passes, and its floor-0 sheet: one log line. */
-function waterVerdict(libraryId: string, b: ReturnType<typeof buildPlace>): { line: string; failed: boolean } {
+function waterVerdict(libraryId: string, b: ReturnType<typeof buildPlace>, id: string): { line: string; failed: boolean; measure: Measure } {
   const { W, H } = b.model;
   const again = settleFile(b.file);
   const c = compareWater(b.settle.depth, again.water.depth, W, H);
   const unequal = Math.abs(c.change) > 0.01 || c.lost.length > 0;
   const fs = films(b.settle.depth, b.model.floor, W, H);
   const above = fs.filter((f) => f.floor0 * 2 <= f.tiles.length);
-  const sheet = floor0Sheet(b.settle.depth, b.model.floor, W, H, realOf(libraryId, W, H), FILM_DEPTH, FILM_TILES);
+  const real = realOf(libraryId, W, H);
+  const sheet = floor0Sheet(b.settle.depth, b.model.floor, W, H, real, FILM_DEPTH, FILM_TILES);
+  const measure = realParts(b.settle.depth, b.model.floor, W, H, real);
+  // (a place kept on today's build, `TODAY_KEPT`, keeps the film today's build has, printed with the reason)
+  const left = TODAY_KEPT[id];
+  const filmAt = above.map((f) => `${f.tiles.length} tiles at ${f.at.join(",")}`).join("; ");
   const line =
     `   water: opened ${c.wetOpened} wet, settled again ${c.wetSettled}${c.lost.length ? `, ${c.lost.length} bodies of ${BODY}+ lost` : ""}${unequal ? " (FAILS: opened is not settled)" : ""}` +
-    (above.length ? `; FAILS: film above floor 0 (${above.map((f) => `${f.tiles.length} tiles at ${f.at.join(",")}`).join("; ")})` : "") +
-    `; floor-0 sheet ${sheet.tiles} tiles (${sheet.real} over real water, ${sheet.dry} over real dry land)`;
-  return { line, failed: unequal || above.length > 0 };
+    (above.length ? (left ? `; film above floor 0 today's build has (${filmAt}), kept: ${left}` : `; FAILS: film above floor 0 (${filmAt})`) : "") +
+    `; floor-0 sheet ${sheet.tiles} tiles (${sheet.real} over real water, ${sheet.dry} over real dry land)` +
+    `; over real water ${measure.real}, over real dry land ${measure.dry} (floor-0 sheet ${measure.sheet}, the rest ${measure.rest})`;
+  return { line, failed: unequal || (above.length > 0 && !left), measure };
 }
 
 const only = arg("only")?.split(",") ?? null;
 const library = JSON.parse(readFileSync(join(LIBRARY, "index.json"), "utf8")) as { items: LibraryItem[] };
 const items = library.items.filter((it) => it.family !== "random");
 const skipped = library.items.filter((it) => it.family === "random");
+/** `--check --shard i/n` (the Nightly's `places (i/n)` jobs): this run builds and checks only shard i's places
+ *  (tools/lib/placeShards.ts), and the whole set's index and files are checked from what is committed (`checkShard`). */
+const shard = arg("shard") ? parseShard(arg("shard")!) : null;
+if (shard && (!check || only || relayRuins || process.argv.includes("--write"))) throw new Error("--shard i/n goes with --check alone (not --only, --ruins or --write)");
+const mine = shard ? new Set(shardPlaces(items.map((it) => it.size), shard, shardMoves(items.map((it) => it.id), shard.n))) : null;
 
 const files = new Map<string, Uint8Array>();
 const entries: PlaceIndexEntry[] = [];
@@ -559,17 +1061,55 @@ interface Outcome {
   entries: PlaceIndexEntry[];
   files: [string, Uint8Array][];
   failed: boolean;
+  /** D271's measure of its water as it opens (D(new-films): the water over real dry land in its two parts). */
+  measure?: Measure;
+  /** Whether its start's water within its walk is a pool (`startPool`); false too for a place withheld for no water. */
+  pool?: boolean;
+  /** The generate profile's checks its build fails (an offered place's). */
+  fails?: string[];
+}
+/** The water over real water and over real dry land, the latter as the floor-0 sheet and the rest (`realParts`). */
+type Measure = ReturnType<typeof realParts>;
+
+/** One place, built, mended and checked (null: not among `--only`'s): built as before, and where its start then has no
+ *  pool (#1218) built again under the pool rule (`poolRule`), that build kept where its start has a pool, nothing fails
+ *  that the first passed, it gains no fault and holds the water over real water. */
+function runPlace(item: LibraryItem): Outcome | null {
+  poolRule = false;
+  const a = runPlaceOnce(item);
+  if (!a || a.pool !== false || a.failed || relayRuins) return a;
+  poolRule = true;
+  const b = runPlaceOnce(item);
+  poolRule = false;
+  if (!b) return a;
+  const offered = !!a.entries.length;
+  const gained = offered && b.entries.length ? b.entries[0].faults.filter((f) => f !== "start.water" && !a.entries[0].faults.includes(f)) : [];
+  // (nor a start's land or wood check the first build passed: the pool rule's moves may cost them on the way)
+  const lost = offered ? (b.fails ?? []).filter((id) => (START_LAND.includes(id) || WOOD_CHECKS.includes(id)) && !(a.fails ?? []).includes(id)) : [];
+  const why = [
+    ...(b.pool ? [] : ["its start has no pool either"]),
+    ...(b.failed ? ["it fails a check"] : []),
+    ...(gained.length ? [`it gains ${gained.join(", ")}`] : []),
+    ...(lost.length ? [`its start fails ${lost.join(", ")}`] : []),
+    ...(offered && a.measure && b.measure && b.measure.real < a.measure.real ? [`real water ${a.measure.real} → ${b.measure.real}`] : []),
+  ];
+  if (!why.length) return { ...b, lines: [...b.lines, `   the pool rule's build kept (#1218): built as before, ${offered ? `its start's water is not a pool${a.measure ? ` (real water ${a.measure.real}, real dry land ${a.measure.dry})` : ""}` : "it is withheld for no water"}`] };
+  // (what the pool rule's build tried, from its own line: its mends' notes, or why it was withheld)
+  const tried = b.lines[0]?.match(/(?:  the start's pool on real water|  the start's spring for its water|  the start moved with its spring|: its start has no pumpable water).*$/)?.[0].replace(/^: /, "  ") ?? "";
+  return { ...a, lines: [...a.lines, `   the pool rule's build not kept (#1218): ${why.join(", ")};${tried}`] };
 }
 
-/** One place, built, mended and checked (null: not among `--only`'s). */
-function runPlace(item: LibraryItem): Outcome | null {
+function runPlaceOnce(item: LibraryItem): Outcome | null {
   const fx = JSON.parse(new TextDecoder().decode(gunzipSync(new Uint8Array(readFileSync(join(LIBRARY, item.fixture)))))) as Fixture;
   const out: Outcome = { id: "", lines: [], withheld: [], entries: [], files: [], failed: false };
-  settles = new SettleCache();
+  settles = new CountedSettles();
+  Object.assign(spent, { steps: [], at: performance.now(), builds: 0, build: 0, check: 0 });
   const say = (line: string) => void out.lines.push(line);
   const { withheld, entries } = out;
   const files = { set: (k: string, b: Uint8Array) => void out.files.push([k, b]) };
   let place = toPlace(item, fx);
+  // (the survey's land, before any basin or bed is cut: a bed is cut once, never twice)
+  const surveyedHeights = decodeHeights(place.heights);
   // (the columns the survey stood: a place's ruins are laid again to this count, whatever ruins it holds by then)
   const surveyedRuins = decodeTiles(place.ruins).length;
   if (only && !only.includes(place.id)) return null;
@@ -587,23 +1127,60 @@ function runPlace(item: LibraryItem): Outcome | null {
   // `--ruins`: everything before the ruins is the committed place's (its land, water, springs, start and plants, which
   // the ruins never change), and only its ruin fields are laid again: minutes, where the springs' search takes hours.
   // A full run gives the same files (`--check`)
-  if (relayRuins) {
-    const kept = join(OUT, `data/${place.id}.json.gz`);
-    if (!existsSync(kept)) throw new Error(`--ruins: ${kept} is missing (a new place needs the full run)`);
-    const committed = JSON.parse(new TextDecoder().decode(gunzipSync(new Uint8Array(readFileSync(kept))))) as PlaceData;
-    return finishPlace(item, committed, surveyedRuins, t, "  (--ruins: the committed place)", out);
+  // A place whose film no ruled mend reaches and whose ruled build is worse than today's keeps today's build
+  // A place that keeps today's build (`TODAY_KEPT`): the committed place, as `--ruins` takes it
+  const today = !!TODAY_KEPT[place.id];
+  if (relayRuins || today) {
+    const kept = join(today ? "public/real-places" : OUT, `data/${place.id}.json.gz`);
+    if (!existsSync(kept)) throw new Error(`${today ? "TODAY_KEPT" : "--ruins"}: ${kept} is missing (a new place needs the full run)`);
+    let committed = JSON.parse(new TextDecoder().decode(gunzipSync(new Uint8Array(readFileSync(kept))))) as PlaceData;
+    let note = today ? `  today's build kept: ${TODAY_KEPT[place.id]}` : "  (--ruins: the committed place)";
+    // a place kept on today's build whose start has no pool gets one (#1218) as any place does: on real water by it first
+    // (`realPoolFor`), else the start's spring (`startSpringFor`); what it writes is the committed place from then on, which
+    // has its pool, so the next run keeps it as it is
+    if (today && poolRule) {
+      const r = buildChecked(committed);
+      if (r.strictFails.includes("start.water")) {
+        const rp = realPoolFor(item.id, committed, surveyedHeights, r);
+        note += rp.note;
+        if (rp.best) committed = rp.best.place;
+        else {
+          const ss = startSpringFor(committed, r);
+          note += ss.note;
+          if (ss.best) committed = { ...committed, sources: [...committed.sources, ...ss.best.add] };
+          else {
+            const sp = springSpotFor(committed, r);
+            note += sp.note;
+            if (sp.best) committed = sp.best;
+          }
+        }
+      }
+    }
+    if (today && noWaterAtAll(buildChecked(committed).strict)) {
+      out.pool = false;
+      withheld.push(place.name);
+      say(`WITHHELD ${place.W}² ${place.name}: its start has no pumpable water within 20 tiles;${note}`);
+      return out;
+    }
+    return finishPlace(item, committed, surveyedRuins, t, note, out);
   }
   // Sources only at heads (D171, tools/lib/placeSources.ts): a source in another's flow merges into the upstream source
   // where that file's rules allow it; the rest stay, and the place keeps the fault until none is left. (The sealed-land
   // comparison for the start's water below is the survey's own, so it keeps the unmended sources.)
+  // The survey's ruin squares hold no tiles while the start, springs and plants are placed (D(new-films), planning's
+  // ruling of 2026-11-15): the ruins are laid again last, along the land (`layRuins`), so the trees and bushes may stand
+  // where an old square stood
+  place = { ...place, ruins: encodeTiles([]) };
   const surveyed = place;
   // Basins where the real water lies (D521, tools/lib/placeBasins.ts): a body the port's rules showed and the game's
   // lose is cut one level inside its own flat's rim where the observed water lies, so the place's rivers fill it; where
   // none lies it goes. Before the sources' mend, so a source the new lake takes in merges as any other.
   const basin = basinsFor(item.id, place);
   place = basin.place;
+  lap("basins");
   const mend = mendSources(place);
   place = mend.place;
+  lap("sources");
   const mendNote = mend.merges.length || mend.left.length ? `  sources: ${mend.merges.length} merged${mend.left.length ? `, ${mend.left.length} left in a flow (${mend.left.map((l) => `${l.at.join(",")} ${l.why}`).join("; ")})` : ""}` : "";
   let { built, v, strict, blocking, strictFails } = buildChecked(place);
   // A start the opened rivers flood, or that reaches no water a source feeds, moves (D245: the best
@@ -620,11 +1197,10 @@ function runPlace(item: LibraryItem): Outcome | null {
   let moved: [number, number] | null = null;
   let movedWood = "";
   const dry = strictFails.includes("start.dry");
-  const free = new Set(["start.wood", "start.food", "start.water", ...START_LAND]);
+  const free = FREE;
   // (water first, then the land floors, then the starting-logs floor, then the berries, then the wood:
   // a spot or spring that costs the start its berries ranks below one that keeps them)
-  const score = (fails: string[]) =>
-    (fails.includes("start.water") ? 32 : 0) + (fails.some((id) => LAND_FLOORS.includes(id)) ? 16 : 0) + (fails.includes("start.wood_floor") ? 4 : 0) + (fails.includes("start.food") ? 2 : 0) + (fails.includes("start.wood") ? 1 : 0);
+  const score = startScore;
   for (const walk of [undefined, LONG_SHORE_WALK]) {
     if (!strictFails.includes("start.dry") && !strictFails.includes("start.water")) break;
     const had = new Set(strictFails);
@@ -665,6 +1241,7 @@ function runPlace(item: LibraryItem): Outcome | null {
   // spring by its start where no spot gives it water (D245's water floor, src/core/places/spring.ts):
   // opening the edges never leaves a place without the water it had. The best spring the checks
   // pass wins: one that costs nothing ends the search; otherwise the wider tier is tried too.
+  lap("start");
   let spring: [number, number, number][] | null = null;
   if (strictFails.includes("start.water") && !buildChecked({ ...opened, heights: encodeHeights(fx.heights) }).strictFails.includes("start.water")) {
     const had = new Set(strictFails);
@@ -690,6 +1267,7 @@ function runPlace(item: LibraryItem): Outcome | null {
   // shore within `WIDE_SHORE_WALK`, a few tiles apart, that passes `start.water` with the room floor (`start.level_land`)
   // on the settled water, its wood grown where it falls short (objects only), and nothing else it passed then failing;
   // the best wins. Where none does, `start.water` stands: the place keeps D445's note.
+  lap("spring");
   let everySpot = "";
   if (strictFails.includes("start.water")) {
     const had = new Set(strictFails);
@@ -719,17 +1297,161 @@ function runPlace(item: LibraryItem): Outcome | null {
     }
     everySpot = `  every spot tried for water (${all.length}): ${watered} pass start.water with the room floor${best ? "" : watered ? ", none without failing more" : ""}`;
   }
+  // The real water by the start as its pool (#1218: real water first): where the start still has no pool, the bodies of
+  // real water nearest it, each as it is, with its bed cut and with a source at its head, and the start moved beside it
+  // (`realPoolFor`)
+  let realPool = "";
+  if (poolRule && strictFails.includes("start.water")) {
+    const rp = realPoolFor(item.id, place, surveyedHeights, { built, v, strict, blocking, strictFails });
+    realPool = rp.note;
+    if (rp.best) {
+      if (rp.best.place.start[0] !== place.start[0] || rp.best.place.start[1] !== place.start[1]) moved ??= place.start;
+      place = rp.best.place;
+      ({ built, v, strict, blocking, strictFails } = rp.best.r);
+    }
+  }
+  const pre = strictFails.includes("start.water") ? startSpringFor(place, { built, v, strict, blocking, strictFails }) : null;
   // The springs searched under the game's rules (D521, tools/lib/placeFeeds.ts): by D271's measure, the settled water
   // over the real water as high as it goes and over real dry land as low as it goes, by where each spring stands and how
   // strong it is; kept only where no check the place passed then fails and no film above floor 0 stands. After the start
   // has found its water (a move, a spring by it, every spot), so a spring the start drinks from is never the one taken
   // away; before the berries and plants, which settle on the water the springs leave
-  const feeds = feedsFor(item.id, place);
-  if (feeds.place !== place) {
+  lap("every spot");
+  let feeds = feedsFor(item.id, place);
+  // A start given the start's spring is built both ways, the spring before the search and after it (where the start
+  // still has none once the springs are searched), and keeps the better: the start's pool first, then the water over
+  // real water, then D271's measure (a spring before the search can hold a source the search would move off the real
+  // water: Cliffs of Moher, Iguazu Falls)
+  if (pre?.best) {
+    const real = realOf(item.id, place.W, place.H);
+    const judge = (p: PlaceData) => {
+      const c = buildChecked(p);
+      const m = realMeasure(c.built.settle.depth, real);
+      return { served: !c.strictFails.includes("start.water") && poolOf(p) !== null, real: m.real, score: m.score };
+    };
+    let after = { place: feeds.place, note: feeds.note, add: null as [number, number, number][] | null };
+    const ra = buildChecked(feeds.place);
+    if (ra.strictFails.includes("start.water")) {
+      const post = startSpringFor(feeds.place, ra);
+      after = post.best ? { place: { ...feeds.place, sources: [...feeds.place.sources, ...post.best.add] }, note: feeds.note + post.note, add: post.best.add } : { ...after, note: feeds.note + post.note };
+    }
+    let add = pre.best.add;
+    let before = feedsFor(item.id, { ...place, sources: [...place.sources, ...add] });
+    const ja = judge(after.place);
+    let jb = judge(before.place);
+    // (planning's ruling of 2026-11-16: a start with water it can pump outranks real water, but a spring by the start
+    // that costs no real water is looked for first: where the best one costs some, the next sites are built in turn and
+    // the first that serves the start and holds the real water of the search without it wins)
+    const bar = realMeasure(buildChecked(feeds.place).built.settle.depth, real).real;
+    let costNote = "";
+    // (only where the search first leaves the start without its pool: where it gives one, that costs no real water)
+    if (jb.served && jb.real < bar && !ja.served) {
+      costNote = ` (costs real water ${bar} → ${jb.real}`;
+      let found = false;
+      for (const c of pre.all.slice(1, 1 + COSTLESS_TRIES)) {
+        const f = feedsFor(item.id, { ...place, sources: [...place.sources, ...c.add] });
+        const j = judge(f.place);
+        if (j.served && j.real >= bar) {
+          add = c.add;
+          before = f;
+          jb = j;
+          found = true;
+          costNote += `; ${c.add.map((s) => `${s[0]},${s[1]}`).join(" ")} costs none`;
+          break;
+        }
+      }
+      costNote += found ? ")" : `; none of the next ${Math.min(COSTLESS_TRIES, pre.all.length - 1)} sites costs none)`;
+    }
+    if ((jb.served && !ja.served) || (jb.served === ja.served && (jb.real > ja.real || (jb.real === ja.real && jb.score > ja.score)))) {
+      spring = [...(spring ?? []), ...add];
+      everySpot += `  the start's spring for its water: ${add.map((s) => `${s[0]},${s[1]}`).join(" ")} (before the search)${costNote}`;
+      feeds = before;
+    } else {
+      if (after.add) spring = [...(spring ?? []), ...after.add];
+      everySpot += (after.add ? after.note.slice(feeds.note.length) : pre.note.replace(": ", ": not taken, ")) + " (after the search)";
+      feeds = { place: after.place, note: feeds.note };
+    }
+  } else if (pre) {
+    // (no place before the search: one after it, on the water the search leaves)
+    const ra = buildChecked(feeds.place);
+    const post = ra.strictFails.includes("start.water") ? startSpringFor(feeds.place, ra) : null;
+    if (post?.best) {
+      spring = [...(spring ?? []), ...post.best.add];
+      feeds = { place: { ...feeds.place, sources: [...feeds.place.sources, ...post.best.add] }, note: feeds.note };
+    }
+    everySpot += (post ?? pre).note + (post ? " (after the search)" : "");
+  }
+  const searched = feeds.place !== place;
+  if (searched) {
     place = feeds.place;
     ({ built, v, strict, blocking, strictFails } = buildChecked(place));
   }
-  const feedNote = feeds.note;
+  // A start with no allowed spring site and still no pumpable water moves to water (planning's ruling of 2026-11-16: no
+  // place ships with no pumpable water within 20 tiles of its start): the spots within 20 tiles' walk of a shore
+  // (`placeStartSpots`), each built and checked, kept where `start.water` passes, the water stands as the start's pool
+  // (`startPool`) and nothing else it passed then fails, its wood grown where it falls short (objects only); the fewest
+  // failures win, then the nearest pool. Where none passes, the nearest spot with water a pump reaches is logged with
+  // its numbers
+  if (pre && strictFails.includes("start.water")) {
+    const had = new Set(strictFails);
+    const spots = placeStartSpots(place, built.heights, built.settle.depth, built.settle.contamination, { limit: Infinity, walk: 20 });
+    let best: { at: [number, number]; place: PlaceData; r: Checked; score: number; walk: number } | null = null;
+    let near: { at: [number, number]; why: string } | null = null;
+    for (const at of spots) {
+      let cand = withStart(place, at);
+      let r = buildChecked(cand);
+      if (r.strictFails.includes("start.water")) continue;
+      if (r.strictFails.some((id) => WOOD_CHECKS.includes(id) && !had.has(id))) {
+        const walkField = startWalkField(r.built.heights, cand.W, cand.H, placeEntities(cand, r.built.heights), { x: at[0] + 1, y: at[1] + 1 });
+        const g = growFastWood(cand, r, walkField, { wood: checkLimit(r.strict, "start.wood"), floor: checkLimit(r.strict, "start.wood_floor") }, (c) => c.strictFails.includes("start.wood_fast"));
+        cand = g.place;
+        r = g.r;
+      }
+      const pool = poolOf(cand);
+      const worse = r.strictFails.filter((id) => !had.has(id) && !free.has(id));
+      if (!pool || worse.length) {
+        near ??= { at, why: `${!pool ? "its water is a thin sheet, no pool" : ""}${!pool && worse.length ? "; " : ""}${worse.join(", ")}` };
+        continue;
+      }
+      const sc = score(r.strictFails);
+      if (best && (sc > best.score || (sc === best.score && pool.walk >= best.walk))) continue;
+      best = { at, place: cand, r, score: sc, walk: pool.walk };
+    }
+    if (best) {
+      moved ??= place.start;
+      place = best.place;
+      ({ built, v, strict, blocking, strictFails } = best.r);
+    }
+    everySpot += `  the start moved to water (${spots.length} spots within 20 tiles of a shore): ${best ? `${best.at.join(",")}, a pool ${Math.round(best.walk * 10) / 10} tiles' walk away` : near ? `none; the nearest, ${near.at.join(",")}: ${near.why}` : "none pass start.water"}`;
+  }
+  // still none: the start moved to a dry spot near it with its own spring there (`springSpotFor`)
+  if (poolRule && pre && strictFails.includes("start.water")) {
+    const sp = springSpotFor(place, { built, v, strict, blocking, strictFails });
+    everySpot += sp.note;
+    if (sp.best) {
+      moved ??= place.start;
+      spring = [...(spring ?? []), ...sp.best.sources.filter(([x, y]) => !place.sources.some((q) => q[0] === x && q[1] === y))];
+      place = sp.best;
+      ({ built, v, strict, blocking, strictFails } = buildChecked(place));
+    }
+  }
+  // a bed the searched springs leave without its film gives its land back (D331), on the place as it stands now (a start
+  // moved to water above keeps its spot and wood: tools/lib/placeBeds.ts)
+  const unbed = searched ? unneededBeds({ place, r: { built, v, strict, blocking, strictFails } }, basin.beds, { real: realOf(item.id, place.W, place.H), build: buildChecked, inFlow: (p) => flaggedSources(p).flagged.length }) : null;
+  const unbedNote = unbed?.back ? `  land back under ${unbed.back} of ${basin.beds.length} beds the searched springs leave dry` : "";
+  if (unbed?.back) {
+    place = unbed.place;
+    ({ built, v, strict, blocking, strictFails } = unbed.r);
+  }
+  // the films the searched springs leave get their mend (D(new-films)); a film none of whose mends is kept stays, and
+  // the check refuses it (planning: such a place keeps today's build, `TODAY_KEPT`)
+  const after = filmsAfter(item.id, place, { built, v, strict, blocking, strictFails });
+  if (after.place !== place) {
+    place = after.place;
+    ({ built, v, strict, blocking, strictFails } = after.r);
+  }
+  const feedNote = feeds.note + unbedNote + after.note;
+  lap("springs searched");
   // A start short of berries (after a move or a spring, or on its own land) gets the bushes the
   // `start.food` check's own fix plants (the editor's one-click fix: moist tiles within 20 tiles'
   // walk of the start, nearest first; objects only, never land, D331). Where the fix finds too few
@@ -776,6 +1498,7 @@ function runPlace(item: LibraryItem): Outcome | null {
   // it, which stay where they stood as the dead trees they are in the game (DEAD_TREES_KEEP_LOGS); where that is
   // short, the wood moves, not the rule: pines (birches where the place leans to them) on the moist ground nearest
   // it, the fast species `start.wood_fast` (D515) counts, so an oak never lowers its share. The log says so.
+  lap("berries");
   const survive = strict.report.checks.find((c) => c.id === "plants.survive");
   let plants = "";
   let floorsFail = false;
@@ -848,6 +1571,7 @@ function runPlace(item: LibraryItem): Outcome | null {
   }
   // The starting-logs floor met by groves (D245): a start still short of `start.wood` or `start.wood_floor` gets fast
   // trees on the moist ground nearest it (`growFastWood`, objects only), kept only where nothing it passed then fails
+  lap("plants");
   let groves = "";
   if (!floorsFail && strict.analysis && (strictFails.includes("start.wood") || strictFails.includes("start.wood_floor"))) {
     const walk = startWalkField(built.heights, place.W, place.H, placeEntities(place, built.heights), { x: place.start[0] + 1, y: place.start[1] + 1 });
@@ -857,6 +1581,15 @@ function runPlace(item: LibraryItem): Outcome | null {
       ({ built, v, strict, blocking, strictFails } = g.r);
       groves = `  ${g.planted} ${g.kind} planted for the start's wood`;
     }
+  }
+  lap("groves");
+  // No place ships with no pumpable water within 20 tiles of its start (D(new-films), #1218): a start that the steps
+  // above leave with none at all is withheld, printed with what was tried
+  if (noWaterAtAll(strict)) {
+    out.pool = false;
+    withheld.push(place.name);
+    say(`WITHHELD ${place.W}² ${place.name}: its start has no pumpable water within 20 tiles;${realPool}${everySpot}`);
+    return out;
   }
   if (floorsFail) {
     // (a start that cannot keep its wood once its plants stand on ground they live on: never forgotten, never offered)
@@ -873,6 +1606,7 @@ function runPlace(item: LibraryItem): Outcome | null {
     (planted ? `  ${planted} berry bushes planted by the start` : "") +
     plants +
     groves +
+    realPool +
     everySpot;
   return finishPlace(item, place, surveyedRuins, t, notes, out);
 }
@@ -888,22 +1622,28 @@ function finishPlace(item: LibraryItem, place: PlaceData, columns: number, t: nu
   // Ruin fields along the land (D(new-ruins)): the survey's ruled squares go and the generator's laying (D518) lays the
   // place's columns again on its settled ground, objects only. The water and soil they are read from stay as they are
   // (the build throws if the water moved), and a laying that fails a check the place passed is not kept.
+  lap("before the ruins");
   const bare = { ...place, ruins: encodeTiles([]) };
   const laid = layRuins(bare, buildChecked(bare), columns);
   place = laid.place;
   const { built, v, strict, blocking, strictFails } = laid.checked;
   const ruinNote = laid.note;
+  lap("ruins");
   const bytes = writeTimber(built.file);
   const ms = Math.round(performance.now() - t);
   // the conversion's known faults (every place has them, D200) and the places' own recorded
   // ones are not failures of the tool; anything else is, and so is a map the game would not load
   // (and the start-land preferences, information for a real place, D331)
-  const known = new Set<string>([...CONVERSION_FAULT_CHECKS, ...PLACE_FAULT_CHECKS, ...START_LAND]);
+  const known = new Set<string>([...CONVERSION_FAULT_CHECKS, ...PLACE_FAULT_CHECKS, ...START_LAND, NO_WATER]);
   const unknown = [...blocking.map((c) => c.id), ...strictFails].filter((id) => !known.has(id));
   const loads = v.report.checks.every((c) => c.class !== "load" || !counts(c));
   if (unknown.length) for (const c of [...blocking, ...strict.report.checks.filter(counts)]) if (unknown.includes(c.id)) say(`   ${place.name}: ${c.id}: ${c.message}${c.where?.tiles ? ` at ${JSON.stringify(c.where.tiles.slice(0, 4))}` : ""}`);
   if (unknown.length || !loads) out.failed = true;
+  // (whether its start's water is a pool, #1218: the index's `start.water` stays the check's own, a start with no water
+  // within its walk, until no offered place's start is without a pool, `PLACES_START_WITHOUT_POOL`: no place gains a fault)
+  out.pool = startPool(place, built.heights, built.settle.depth, built.settle.contamination, { thin: FILM_DEPTH, thinShare: FILM_THIN_SHARE }) !== null;
   const faults = PLACE_FAULT_CHECKS.filter((id) => strictFails.includes(id));
+  out.fails = [...strictFails];
   say(
     `${unknown.length || !loads ? "FAIL" : "ok  "} ${place.W}² ${String(ms).padStart(6)} ms  ticks ${String(built.settle.ticks).padStart(5)}${built.settle.settled ? "" : " (not settled)"}  ${place.name}` +
       (blocking.length ? `  export: ${blocking.map((c) => c.id).join(", ")}` : "") +
@@ -933,9 +1673,13 @@ function finishPlace(item: LibraryItem, place: PlaceData, columns: number, t: nu
   // what opens is what the game keeps (planning's rule, #236: no known list): the file's water model settled again,
   // as the first edit settles it, keeps the wet tiles within 1 % and every body of 30 tiles or more; and no film above
   // floor 0. A floor-0 sheet the edge's spill holds (D303) is allowed and counted, over real water and real dry land.
-  const w = waterVerdict(item.id, built);
+  lap("files");
+  const w = waterVerdict(item.id, built, place.id);
   say(w.line);
+  out.measure = w.measure;
   if (w.failed) out.failed = true;
+  lap("water verdict");
+  if (timesOn) say(timesLine());
   return out;
 }
 
@@ -981,13 +1725,19 @@ if (claimDir) {
     // written whole, then renamed, so a run stopped part-way never leaves half an outcome for `--resume`
     writeFileSync(join(claimDir, `out-${i}.json.part`), JSON.stringify(o ? { ...o, files: o.files.map(([f, b]) => [f, Buffer.from(b).toString("base64")]) } : null));
     renameSync(join(claimDir, `out-${i}.json.part`), join(claimDir, `out-${i}.json`));
-    if (o) console.error(`done ${items[i].id} (${o.id}) in ${Math.round((performance.now() - t) / 1000)} s; ${readdirSync(claimDir).filter((f) => /^out-\d+\.json$/.test(f)).length} of ${items.length} places`);
+    if (o) console.error(`done ${items[i].id} (${o.id}) in ${Math.round((performance.now() - t) / 1000)} s; ${readdirSync(claimDir).filter((f) => /^out-\d+\.json$/.test(f)).length} of ${mine?.size ?? items.length} places`);
   }
   process.exit(0);
 }
 const outcomes: (Outcome | null)[] = await runShards();
+/** The offered places' measure, summed (D(new-films): over real water; over real dry land as the floor-0 sheet and the rest). */
+const totals = { real: 0, dry: 0, sheet: 0, rest: 0 };
+/** The places kept on today's build (`TODAY_KEPT`), by name. */
+const kept: string[] = [];
 for (const o of outcomes) {
   if (!o) continue;
+  if (TODAY_KEPT[o.id] && o.entries.length) kept.push(o.entries[0].name);
+  if (o.measure) for (const k of ["real", "dry", "sheet", "rest"] as const) totals[k] += o.measure[k];
   for (const line of o.lines) console.log(line);
   withheld.push(...o.withheld);
   if (o.failed) failures++;
@@ -1001,13 +1751,13 @@ for (const o of outcomes) {
 /** The order the processes claim the places in: the biggest maps first (their settles are the longest), the library's
  *  order among equals. */
 function claimOrder(): number[] {
-  return items.map((_, i) => i).sort((a, b) => items[b].size - items[a].size || a - b);
+  return placeClaimOrder(items.map((it) => it.size)).filter((i) => !mine || mine.has(i));
 }
 
 /** Every place's outcome, in the library's order: on `SHARDS` processes (no more than `--only` names), or on this one for a single place or a machine of one core. */
 async function runShards(): Promise<(Outcome | null)[]> {
-  const n = Math.min(SHARDS, only ? only.length : items.length);
-  if (n <= 1) return items.map((item) => runPlace(item));
+  const n = Math.min(SHARDS, only ? only.length : (mine?.size ?? items.length));
+  if (n <= 1) return items.map((item, i) => (mine && !mine.has(i) ? null : runPlace(item)));
   // `--resume <dir>`: the places' outcomes are kept in <dir> (one file each, as each place ends), and a run started again
   // with the same <dir> and the same code skips the places already done there; a place claimed but never finished (the
   // run stopped) is claimed again
@@ -1035,6 +1785,7 @@ async function runShards(): Promise<(Outcome | null)[]> {
       ),
     );
     return items.map((_, i) => {
+      if (mine && !mine.has(i)) return null;
       const raw = JSON.parse(readFileSync(join(dir, `out-${i}.json`), "utf8")) as (Omit<Outcome, "files"> & { files: [string, string][] }) | null;
       return raw ? { ...raw, files: raw.files.map(([f, b]): [string, Uint8Array] => [f, new Uint8Array(Buffer.from(b, "base64"))]) } : null;
     });
@@ -1043,21 +1794,80 @@ async function runShards(): Promise<(Outcome | null)[]> {
   }
 }
 
+/**
+ * `--check --shard i/n`: what a full `--check` says, split so the shards together say it. This shard's places, built
+ * fresh: each offered one's data and card are the committed bytes and its index entry is the committed one; each withheld
+ * one has no entry, data or card. The whole set, from what is committed (no build, every shard): index.json is the bytes
+ * the tool makes from its own entries, those entries are library places in the library's order, once each, and every
+ * file under data/ and cards/ is one an entry names. Every place is in exactly one shard, so the shards' union is the
+ * full check: the same files compared, the same entries, no place offered that a fresh run withholds or the reverse.
+ */
+function checkShard(s: Shard): never {
+  const differ: string[] = [];
+  const committed = JSON.parse(readFileSync(join(OUT, "index.json"), "utf8")) as PlaceIndex;
+  const byId = new Map(committed.places.map((e) => [e.id, e]));
+  let offered = 0;
+  for (const o of outcomes) {
+    if (!o) continue;
+    for (const [k, b] of o.files) {
+      const p = join(OUT, k);
+      if (!existsSync(p) || sha256(new Uint8Array(readFileSync(p))) !== sha256(b)) differ.push(k);
+    }
+    for (const e of o.entries) {
+      offered++;
+      if (JSON.stringify(byId.get(e.id)) !== JSON.stringify(e)) differ.push(`index.json (${e.id})`);
+    }
+    if (o.withheld.length) {
+      if (byId.has(o.id)) differ.push(`index.json (${o.id}, withheld)`);
+      for (const k of [`data/${o.id}.json.gz`, `cards/${o.id}.jpg`]) if (existsSync(join(OUT, k))) differ.push(`${k} (withheld)`);
+    }
+  }
+  // the whole set, from the committed files
+  const ids = items.map((it) => slug(placeName(it)));
+  if (new Set(ids).size !== ids.length) throw new Error("two library places have one id");
+  const at = committed.places.map((e) => ids.indexOf(e.id));
+  if (at.some((k, j) => k < 0 || (j > 0 && k <= at[j - 1]))) differ.push("index.json (its places are not library places once each, in the library's order)");
+  if (sha256(new Uint8Array(readFileSync(join(OUT, "index.json")))) !== sha256(indexBytes(committed.places))) differ.push("index.json (not the tool's index of its own entries)");
+  const named = new Set(committed.places.flatMap((e) => [e.data, e.image]));
+  for (const dir of ["data", "cards"]) {
+    if (!existsSync(join(OUT, dir))) continue;
+    for (const f of readdirSync(join(OUT, dir))) if (!named.has(`${dir}/${f}`)) differ.push(`${dir}/${f} (no index entry names it)`);
+  }
+  console.log(
+    `shard ${s.i} of ${s.n}: ${offered} offered, ${withheld.length} withheld${withheld.length ? `: ${withheld.join(", ")}` : ""} of its ${mine!.size} places; ${Math.round((performance.now() - t0) / 1000)} s. ` +
+      `The whole set as committed: ${committed.places.length} offered of ${items.length}; left out ${skipped.length} random-land controls (${skipped.map((x) => x.id).join(", ")}).`,
+  );
+  if (differ.length) {
+    console.error(`${OUT} differs from a fresh run: ${differ.join(", ")}. Run npm run places.`);
+    process.exit(1);
+  }
+  console.log(`${OUT} matches a fresh run for shard ${s.i} of ${s.n}, and the whole set's index and files hold together`);
+  process.exit(0);
+}
+
 if (failures) {
   console.error(`${failures} place(s) failed a check: nothing written`);
   process.exit(1);
 }
 
-// the gallery keeps the library's order: rounds of one place per family, so neighbours differ
-const families = [...new Set(entries.map((e) => e.family))].map((id) => ({ id, name: FAMILIES[id].name })).sort((a, b) => a.name.localeCompare(b.name));
-const index: PlaceIndex = { format: 1, count: entries.length, families, sizes: [...new Set(entries.map((e) => e.size))].sort((a, b) => a - b), places: entries };
-files.set("index.json", strToU8(JSON.stringify(index, null, 1) + "\n"));
+if (shard) checkShard(shard);
+
+/** index.json's bytes for these entries (the offered places, in the library's order: the gallery keeps it, rounds of one
+ *  place per family, so neighbours differ). */
+function indexBytes(entries: PlaceIndexEntry[]): Uint8Array {
+  const families = [...new Set(entries.map((e) => e.family))].map((id) => ({ id, name: FAMILIES[id].name })).sort((a, b) => a.name.localeCompare(b.name));
+  const index: PlaceIndex = { format: 1, count: entries.length, families, sizes: [...new Set(entries.map((e) => e.size))].sort((a, b) => a - b), places: entries };
+  return strToU8(JSON.stringify(index, null, 1) + "\n");
+}
+files.set("index.json", indexBytes(entries));
 
 const total = [...files.values()].reduce((s, b) => s + b.length, 0);
 const dataBytes = [...files].filter(([k]) => k.startsWith("data/")).reduce((s, [, b]) => s + b.length, 0);
 const cardBytes = [...files].filter(([k]) => k.startsWith("cards/")).reduce((s, [, b]) => s + b.length, 0);
 console.log(
   `${entries.length} offered, ${withheld.length} withheld${withheld.length ? `: ${withheld.join(", ")}` : ""}; ${Math.round((performance.now() - t0) / 1000)} s; left out ${skipped.length} random-land controls (${skipped.map((s) => s.id).join(", ")}). ` +
+    `Water over real water ${totals.real} tiles, over real dry land ${totals.dry} (floor-0 sheet no deeper than ${FILM_DEPTH} ${totals.sheet}, the rest ${totals.rest}). ` +
+    (kept.length ? `${kept.length} kept on today's build: ${kept.join(", ")}. ` : "") +
     `Data ${(dataBytes / 1024).toFixed(0)} KB, cards ${(cardBytes / 1024).toFixed(0)} KB (${(cardBytes / 1024 / Math.max(1, entries.length)).toFixed(1)} KB each), total ${(total / 1024).toFixed(0)} KB.`,
 );
 

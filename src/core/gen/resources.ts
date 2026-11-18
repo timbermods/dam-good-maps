@@ -164,45 +164,54 @@ export function planResources(spec: MapSpec, g: Ground, candidate: number, attem
   const ruinRng = stream(seed, "ruins", candidate, attempt);
   const fieldId = (tiles: number[]) => featureId(seed, "ruinField", anchorRole("ruinField", tiles));
   // (Easy start, D495: a small field of ruins the colony walks to, 15 tiles' walk out to the target's less 2, on
-  // a level of dry ground beyond the start's clearing; its scrap counts toward the map's)
+  // a level of dry ground beyond the start's clearing, or of green ground where that walk has none dry; its scrap
+  // counts toward the map's)
   const easy = constraints?.easy ?? null;
   let easyScrap = 0;
   if (easy && walk && g.start) {
     const er = stream(seed, "easy-ruins", candidate, attempt);
     const lo = 15;
     const hi = Math.max(lo + 1, easy.ruins - 2);
-    const seeds: number[] = [];
-    for (let i = 0; i < N; i++) if (free[i] && !moist[i] && walk[i] >= lo && walk[i] <= hi && startDist[i] >= 12) seeds.push(i);
-    for (let tries = 0; tries < 12 && seeds.length; tries++) {
-      const s0 = seeds[er.int(0, seeds.length)];
-      const want = 6 + er.int(0, 5);
-      const tiles = [s0];
-      const got = new Set(tiles);
-      for (let k = 0; k < tiles.length && tiles.length < want; k++) {
-        const c = tiles[k];
-        const cx = c % W;
-        const cy = (c - cx) / W;
-        for (const [nx, ny] of [[cx + 1, cy], [cx - 1, cy], [cx, cy + 1], [cx, cy - 1]] as const) {
-          if (nx < 0 || ny < 0 || nx >= W || ny >= H || tiles.length >= want) continue;
-          const n = ny * W + nx;
-          if (got.has(n) || !free[n] || g.heights[n] !== g.heights[s0] || walk[n] > hi + 2 || startDist[n] < 12) continue;
-          got.add(n);
-          tiles.push(n);
+    const dry: number[] = [];
+    const green: number[] = [];
+    for (let i = 0; i < N; i++) if (free[i] && walk[i] >= lo && walk[i] <= hi && startDist[i] >= 12) (moist[i] ? green : dry).push(i);
+    // (dry ground first. A start on a wide green valley floor has none on its walk, or only a few lone tiles on the
+    // slopes above it that no field fits (River Valley 512 × 128: 8 dry tiles, each a level of its own, and 109 green
+    // on the floor): the field then stands on the green, as the game's own ruins do, rather than the finished map
+    // being refused for its metal)
+    let placed = false;
+    for (const seeds of [dry, green]) {
+      for (let tries = 0; tries < 12 && seeds.length && !placed; tries++) {
+        const s0 = seeds[er.int(0, seeds.length)];
+        const want = 6 + er.int(0, 5);
+        const tiles = [s0];
+        const got = new Set(tiles);
+        for (let k = 0; k < tiles.length && tiles.length < want; k++) {
+          const c = tiles[k];
+          const cx = c % W;
+          const cy = (c - cx) / W;
+          for (const [nx, ny] of [[cx + 1, cy], [cx - 1, cy], [cx, cy + 1], [cx, cy - 1]] as const) {
+            if (nx < 0 || ny < 0 || nx >= W || ny >= H || tiles.length >= want) continue;
+            const n = ny * W + nx;
+            if (got.has(n) || !free[n] || g.heights[n] !== g.heights[s0] || walk[n] > hi + 2 || startDist[n] < 12) continue;
+            got.add(n);
+            tiles.push(n);
+          }
         }
+        if (tiles.length < 5) continue;
+        tiles.sort((a, b) => a - b);
+        const role = "ruinField/easyStart";
+        const id = featureId(seed, "ruinField", role);
+        const tallness = 0.3;
+        easyScrap = ruinColumns(tiles, W, stream(seed, id, "heights"), tallness).scrap;
+        out.push({ id, kind: "ruinField", origin: "generated", role, locked: false, params: { area: tilesToRuns(tiles, W), scrapTarget: easyScrap, heightMix: [...RUIN_HEIGHT_SHARES], centerBias: 0, layout: { tallness } } });
+        for (const i of tiles) {
+          const x = i % W;
+          const y = (i - x) / W;
+          for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) if (x + dx >= 0 && y + dy >= 0 && x + dx < W && y + dy < H) free[(y + dy) * W + x + dx] = 0;
+        }
+        placed = true;
       }
-      if (tiles.length < 5) continue;
-      tiles.sort((a, b) => a - b);
-      const role = "ruinField/easyStart";
-      const id = featureId(seed, "ruinField", role);
-      const tallness = 0.3;
-      easyScrap = ruinColumns(tiles, W, stream(seed, id, "heights"), tallness).scrap;
-      out.push({ id, kind: "ruinField", origin: "generated", role, locked: false, params: { area: tilesToRuns(tiles, W), scrapTarget: easyScrap, heightMix: [...RUIN_HEIGHT_SHARES], centerBias: 0, layout: { tallness } } });
-      for (const i of tiles) {
-        const x = i % W;
-        const y = (i - x) / W;
-        for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) if (x + dx >= 0 && y + dy >= 0 && x + dx < W && y + dy < H) free[(y + dy) * W + x + dx] = 0;
-      }
-      break;
     }
   }
   syncTaken();

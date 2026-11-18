@@ -13,11 +13,12 @@ const LINES: [FirstStep, string][] = [
   ["water", "Add water: pick Water source on the right, then click where the water starts."],
 ];
 
-/** The same hints for a finger, wherever the phone layouts put the tools (#1074). */
+/** The same hints for a finger, wherever the phone layouts put the tools (#1074): an object is pressed, dragged and
+ *  lifted into place (EDITOR_PLAN §7, "Touch": a tap places nothing). */
 const TOUCH_LINES: Record<FirstStep, string> = {
   paint: "Shape the land: pick a brush, then drag a finger on the map.",
-  place: "Place things: tap Objects, pick one, then tap the map.",
-  water: "Add water: in Objects, pick Water source, then tap where the water starts.",
+  place: "Place things: tap Objects, pick one, then press the map, drag to the spot and lift.",
+  water: "Add water: in Objects, pick Water source, then press the map and lift where the water starts.",
 };
 
 /** The steps done so far (all three when the hints are over). */

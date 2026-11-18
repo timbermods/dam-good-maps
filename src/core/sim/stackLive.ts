@@ -68,11 +68,6 @@ export interface EdgeMomentum {
  *  on flowing (a stroke's tops reshaped, the next edit) instead of starting every river from rest. */
 export type LiveStack = StackSettle & { edges?: EdgeMomentum };
 
-/** An edge's key, the same in any build of the map: its column's tile and floor, its direction and its target's floor
- *  (the target's tile is the neighbour that way). */
-function edgeKey(N: number, column: number, floor: number, dir: number, targetFloor: number): number {
-  return (((column % N) * 64 + floor) * 4 + dir) * 64 + targetFloor;
-}
 
 /** One frame of the live water: every column (`stack`, not a settle), the water seen from above (each tile's top
  *  column, `depth` and `contamination`), and each column's outflows (four a column id, stackWater.ts `columnFlows`). */
@@ -190,21 +185,38 @@ export class StackLive {
     this.checked = this.preview ? (this.m.copy(STACK_FIELD.depth) as Float64Array) : null;
   }
 
-  /** Each edge's momentum from the edge of `e` with the same key (`edgeKey`); none on an edge whose column or target
-   *  is new (its ground changed). */
+  /** Each edge's momentum from the edge of `e` that matches it (its column's tile and floor, its direction and its
+   *  target's floor; the target's tile is the neighbour that way); none on an edge whose column or target is new (its
+   *  ground changed). The edges off the map's edge, where a river leaves it, carry theirs too: a river leaving the map
+   *  keeps running at the speed it had, not stopped at every build (#1181, up to 0.97 on Highlands 96² seed 22). */
   private carryMomentum(e: EdgeMomentum, out: Float64Array): void {
     const N = this.N;
-    const old = new Map<number, number>();
-    for (let c = 0; c + 1 < e.start.length; c++)
-      for (let k = e.start[c]; k < e.start[c + 1]; k++) if (e.out[k] !== 0 && e.target[k] >= 0) old.set(edgeKey(N, c, e.floor[c], e.dir[k], e.floor[e.target[k]]), e.out[k]);
-    if (!old.size) return;
-    for (let c = 0; c + 1 < this.start.length; c++)
-      for (let k = this.start[c]; k < this.start[c + 1]; k++) {
+    const slots = e.start.length - 1;
+    for (let c = 0; c + 1 < this.start.length; c++) {
+      const a = this.start[c];
+      const b = this.start[c + 1];
+      if (a === b) continue;
+      // (its column in `e`: the same tile and floor)
+      const f = this.floor[c];
+      let oc = -1;
+      for (let q = c % N; q < slots && oc < 0; q += N) if (e.floor[q] === f && e.start[q] < e.start[q + 1]) oc = q;
+      if (oc < 0) continue;
+      const oa = e.start[oc];
+      const ob = e.start[oc + 1];
+      for (let k = a; k < b; k++) {
+        // (an edge there the same way to a target on the same floor; none off the map's edge, where both have no target)
         const t = this.target[k];
-        if (t < 0) continue;
-        const v = old.get(edgeKey(N, c, this.floor[c], this.dir[k], this.floor[t]));
-        if (v !== undefined) out[k] = v;
+        const tf = t >= 0 ? this.floor[t] : -1;
+        const d = this.dir[k];
+        for (let j = oa; j < ob; j++) {
+          if (e.dir[j] !== d) continue;
+          const u = e.target[j];
+          if ((u >= 0 ? e.floor[u] : -1) !== tf) continue;
+          if (e.out[j] !== 0) out[k] = e.out[j];
+          break;
+        }
       }
+    }
   }
 
   /** Each edge's momentum from a settle's flows (four a column id, its column matched by tile and floor). A column

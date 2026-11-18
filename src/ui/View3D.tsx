@@ -647,7 +647,7 @@ export function View3D(props: View3DProps) {
           <span class="ps-label">Layers shown</span>
           {props.cornerLevel}
         </div>
-        {ps.look ? <div class="ps-grid">{ps.look}</div> : null}
+        {ps.look ? <div class="ps-grid ps-look">{ps.look}</div> : null}
       </section>
       {ps.minimap ? (
         <section class="ps-group" aria-labelledby="ps-minimap">
@@ -731,9 +731,10 @@ export function View3D(props: View3DProps) {
 /** A row of the Show column (Layout 2): a 14px checkbox at the left of its name, as in Timberborn's settings; the
  *  row itself is never lit, a click anywhere on it toggles it. An overlay's own legend sits beside it while it is
  *  on. */
-export function ShowRow(p: { on: boolean; onToggle(): void; tip: { title: string; "data-keys"?: string }; children: ComponentChildren; legend?: ComponentChildren; controls?: string }) {
+/** `wide`: a name longer than a chip of a phone's Show sheet holds ("Caves and overhangs"): there it takes two chips' room. */
+export function ShowRow(p: { on: boolean; onToggle(): void; tip: { title: string; "data-keys"?: string }; children: ComponentChildren; legend?: ComponentChildren; controls?: string; wide?: boolean }) {
   return (
-    <div class="show-item">
+    <div class={p.wide ? "show-item long-name" : "show-item"}>
       <button type="button" class="show-row" role="checkbox" aria-checked={p.on} aria-controls={p.controls} {...p.tip} onClick={p.onToggle}>
         <span class={`cb${p.on ? " on" : ""}`} aria-hidden="true">
           {p.on ? (
