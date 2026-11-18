@@ -29,8 +29,8 @@ import { sourcesInFlow } from "../analysis/sources";
 import { STRAIGHT_LIMITS, straightness, tooStraight } from "../analysis/straight";
 import { damWalls } from "../analysis/ridge";
 import { risenBasin, wearOutlet } from "../water/outletWear";
-import { TICKS_PER_DAY, WaterSim } from "../sim/water";
-import { prefill, spillLevels } from "../sim/prefill";
+import { TICKS_PER_DAY, WaterSim, type SettleWatch } from "../sim/water";
+import { DRAIN_DAYS, prefill, spillLevels, watchedSettle } from "../sim/prefill";
 import { holdSeaLip, islandToExpandTo, seaLevel, standIslandsClear } from "../land/islands";
 import { unit } from "../land/num";
 import { entityJson, type EntitySpec } from "../format/entities";
@@ -1344,6 +1344,35 @@ function springByStart(b: BuildResult, rule: number, seed: number, attempt: numb
     if (tryWith(f)) return f;
   }
   return null;
+}
+
+/** When a start spring's settle plainly won't settle (D(start-spring-stop)): a body of water over `body` of the map
+ *  has moved more than the settle's tolerance at every one of the last `run` checks, filling all the while (a sea
+ *  or a lake the spring still raises), and its move, shrinking as it has over those checks, would not come under the
+ *  tolerance until `margin` times the checks the settle has left (its drain days counted). The full settle would end
+ *  at its limit unsettled, and the spring be refused, as this refuses it, without the ticks. */
+const SPRING_STOP = { body: 0.05, run: 8, margin: 2 } as const;
+
+/** The watch of a start spring's settle (`SPRING_STOP`), fresh for each settle. */
+function springWatch(): SettleWatch {
+  const drainChecks = Math.floor((DRAIN_DAYS * TICKS_PER_DAY) / 128);
+  let phase = -1;
+  let moves: number[] = [];
+  return (c) => {
+    if (c.checks !== phase) {
+      phase = c.checks;
+      moves = [];
+    }
+    moves.push(c.moved > SPRING_STOP.body * c.N && c.dVol > 0 ? c.meanMove : 0);
+    const n = moves.length;
+    if (n <= SPRING_STOP.run) return false;
+    const last = moves.slice(n - 1 - SPRING_STOP.run);
+    if (last.some((m) => !(m > c.tol))) return false;
+    const r = portable.pow(last[last.length - 1] / last[0], 1 / SPRING_STOP.run);
+    const left = c.checks - c.k + (c.checks > drainChecks ? drainChecks : 0);
+    const need = r >= 1 ? Infinity : portable.log(c.tol / last[last.length - 1]) / portable.log(r);
+    return need > SPRING_STOP.margin * left;
+  };
 }
 
 /** The largest group (20+ tiles, 4-connected) of water still falling at the end of a settle that
@@ -3382,6 +3411,19 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
           if (wetRing(guessB, at) || !(startWaterServed(guessB, rule, droughtDays) <= aim)) {
             contains.delete(f.id);
             return false;
+          }
+          // (D(start-spring-stop): its water settled watched; water that plainly won't settle before the settle's limit,
+          // a sea the spring still fills, is refused there as the limit would refuse it. A settle that ends is the
+          // canonical one, which the build below takes from the cache)
+          if (!caves && !cache.get(model)) {
+            const w = watchedSettle(model, springWatch());
+            if (w?.stopped) {
+              cache.spend();
+              info.settles++;
+              contains.delete(f.id);
+              return false;
+            }
+            if (w) cache.set(model, w);
           }
         }
         const bs = build([...lay, f], "resources");
