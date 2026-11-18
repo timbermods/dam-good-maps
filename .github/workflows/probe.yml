@@ -49,7 +49,7 @@ jobs:
   issue:
     needs: probe
     if: failure() && github.event_name != 'pull_request'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     permissions:
       issues: write
     steps:
