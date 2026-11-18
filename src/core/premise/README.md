@@ -140,13 +140,38 @@ control on the page yet); and step 9's core: the theme and the premise as two ch
   `START_WOOD_CLEAR` off the start, then the dead band's dead stands as its `PremiseDress`, `deadBand`), the badwater
   source in a niche dug level in the Red Spring's pool (`redNiche`), and holds a map whose shared checks pass (the
   start's among them) and whose `settled` invariants hold (`settledFailures`: `river.clean`, `water.leaks`,
-  `plain.bands`, `fall.settled`, `levee.holds`), within 3 settles (`PLAIN_SETTLES`). Each measure is its own export
+  `plain.bands`, `fall.settled`, `fall.whole`, `levee.holds`), within 3 settles (`PLAIN_SETTLES`). Each measure is its own export
   (`plainCourses`, `plainLeaks`, `cleanWater`, `riverRed` on the file's own values, `format/world.ts`
-  `fileContamination`, `settledBands`, `redFallDrop`, `badtideReach`), and the
+  `fileContamination`, `settledBands`, `redFallDrop`, `redFallCurtain` by the shared fall judge `curtain.ts`,
+  `badtideReach`), and the
   reports with no bound: `riverStand` (the river's steps, its water under the levees' crest and the plain) and
   `redMix` (the mix below the join, `joinEdge`, and how far traces creep above it). The river's steps themselves are
   drawn in the plan (`poisonedPlain.ts` `riverSteps`, `riverStage`, `riffles`). `tools/capture-plain.ts --water`
-  draws the sheet.
+  draws the sheet. Step 4: a land whose works fail a blocking check by number is drawn again before its settle
+  (`plainWorksOf`, the turn's pond held to the col first, `plainWorks.ts` `holdTurn`); the red source's niche
+  stands within `NICHE_NEAR` of the plan's source point (the gulch's head). A map whose floor is under 60 % green with
+  both works built (`riverInBands`: the weir and the dam raised on the built ground, the core's settle and soil, the
+  proof's green exactly) is drawn again (`riverIn.green`, planning's ruling of 2026-11-17); that settle also gives the
+  ladder what is left to win (`leftToWin`, `Ladder.left`: the dry floor's share, and of it the share a ditch from any
+  clean water reaches, `ditchReach`, and the share that needs a pump; shown, never a bar).
+- `curtain.ts`: the shared fall judge (one whole curtain, no pillar, ledge or basin), used by the falls' contract tests
+  and sweep and by the poisoned floodplain's `fall.whole`.
+- `plainWorks.ts`: the poisoned floodplain's ladder (its §9 row 4), each rung a template on the land, measured as
+  `ladder.ts` measures with the soil's contamination counted (`estimateGain`'s `poison`, and `heights` for a work that
+  raises dry ground): the low place's levee (`lowLeveeSite`), the pond on the start's brook (`pondSite`), the
+  backswamp's levee where the dead band laps onto the plain most (`swampLeveeSite`), the turn's dam a level over the
+  col, six tiles or fewer, below the col's way and the red source (`turnSite`, `TURN`; its pond's rim at the col's
+  level raised where it would spill beside the col, `holdTurn`), the river in's weir to the slough's bed (`weirSite`,
+  the slough's mouth cut to its bed by `plainLand.ts` `sloughMouths`). The map lists the rungs that buy their floor
+  and always the pond, the turn and the river in (`listPaid`, `LISTED`; the pond widened by `POND.step` until it
+  holds its floor). The levees' clears
+  are read again on the settled water (`settledClears`: the stage stands the river shallower than the core). Its
+  checks by number (`PLAIN_WORKS_CHECKS`: `works.sites`, `works.paid`, `turn.byNumber`, `riverIn.byNumber`; all but
+  `works.paid` blocking). `plainProof.ts`: the two proofs, the turn and then the river in built as operations on the
+  settled map's session and the core's water and soil read (`turn.proved`, `riverIn.proved`: `RIVER_IN`, the floor
+  60 % green and the start dry, with what is left to win beside it); offline only, so the
+  generator never loads the session. `tools/plain-works.ts` runs both over seeds; `tools/capture-plain.ts --works`
+  draws the sheet (as made, after the turn, after the river in).
 - `gateWater.ts`: the wall with one gate's stage 1 (§5.1 "As built (water)"): `gateWater` (the shared `waterByNumber`,
   then the leat's bar, the Veil's foot a level under the sill with its outer row the ribbon, the first frame's beds under
   two), `GATE_WATER_CHECKS` (the shared ones, the Still Pool a `Body.backwater`; `gate.dry`, `frame.water`) and `gateSettleModel` (the undrawn ground over every
@@ -245,8 +270,11 @@ a broken plan for every `plan` invariant, the Four Lakes fixture `tests/fixtures
 variety, a broken plan for every `plan` invariant); `premisePlainPlan.test.ts` (quick: the poisoned floodplain kept out of the choices, its eligibility, seeds 1 to 12 a
 size with day 1's bands, variety, its diagram, a broken plan for every `plan` invariant); `premisePlainWater.test.ts`
 (quick: a map at 128² holding on its first attempt, its start, its three sources, its bands and dead stands, the same
-map for the same seed, a broken map for every `settled` invariant) and `premisePlainWater.heavy.test.ts` (the sheet's
-six on their first attempt, the Red Fall one whole curtain as settled); `gateBrooks.test.ts` (quick: the brooks' meander: its swing and
+map for the same seed, a broken map for every `settled` invariant) and `premisePlainWater.heavy.test.ts` (seeds 1
+to 12 at each size, each holding every check with the Red Fall one whole curtain as settled, first attempts at least
+`FIRST`: 9 of 12 at 192² and 256²); `premisePlainWorks.test.ts` (quick: a map at
+128² that lists the pond, the turn and the river in and only rungs that buy their floors, each on its land, the turn
+six tiles or fewer, a broken ladder for every works check) and `premisePlainWorks.heavy.test.ts` (the two proofs on seeds 1 and 2 at each size); `gateBrooks.test.ts` (quick: the brooks' meander: its swing and
 wavelength, no curve touching itself, the straight head, the steps aside on a steep reach, the room, one of six draws
 with no straight reach at any angle, a trunk's straight reach and tight loop);
 `premiseGateWorks.test.ts` (quick: the works invariants on two plans, the rungs and their gains, the card, a broken

@@ -1,12 +1,12 @@
 // The poisoned floodplain's stage 3, the water and the hazard (docs/design/poisoned-floodplain.md §2, §4, §7 "settled",
 // §9 row 3): a map at 128² built and settled on its first attempt, its start passing every start check, the river
-// clean, every water on its course, the bands by the game's soil inside their ranges, the Red Fall falling, the levee
-// holding a badtide, the dead band under dead trees; the same map for the same seed; and a hand-broken map for every
-// settled invariant. The six of the sheet (seeds 1 and 2 at each size) are premisePlainWater.heavy.test.ts.
+// clean, every water on its course, the bands by the game's soil inside their ranges, the Red Fall falling as one whole
+// curtain, the levee holding a badtide, the dead band under dead trees; the same map for the same seed; and a
+// hand-broken map for every settled invariant. The six of the sheet (seeds 1 and 2 at each size) are premisePlainWater.heavy.test.ts.
 
 import { describe, expect, it } from "vitest";
 import { runsToTiles } from "../../src/core/math/grid";
-import { badtideReach, cleanWater, floorTiles, plainCourses, plainLeaks, plainMap, redFallDrop, riverRed, settledBands, settledFailures, WET, type PlainMap } from "../../src/core/premise/plainMap";
+import { badtideReach, cleanWater, floorTiles, plainCourses, plainLeaks, plainMap, redFallCurtain, redFallDrop, riverRed, settledBands, settledFailures, WET, type PlainMap } from "../../src/core/premise/plainMap";
 import { DEAD_SHARE, DRY_LEAST, PLAIN_IDS, plainOf } from "../../src/core/premise/premises/poisonedPlain";
 import { makeSpec } from "../../src/core/spec/mapspec";
 
@@ -106,6 +106,16 @@ describe("Broken poisoned-floodplain water fails its settled invariants", () => 
     const k = plan.bodies.findIndex((x) => x.id === PLAIN_IDS.redPool) + 1;
     for (let i = 0; i < N; i++) if (water.raster.lake[i] === k && d[i] >= WET) d[i] += 2;
     expect(ids({ fall: redFallDrop(plan, water, b.heights, d) })).toContain("fall.settled");
+  });
+
+  it("fall.whole: a pillar of dry ground at the middle of the Red Fall's lip splits its curtain", () => {
+    const lips = water.raster.lips[PLAIN_IDS.redFall] ?? [];
+    const mid = lips[lips.length >> 1];
+    const h = b.heights.slice();
+    const d = b.water.slice();
+    h[mid] += 3;
+    d[mid] = 0;
+    expect(ids({ curtain: redFallCurtain(plan, water, { heights: h, water: d }) })).toContain("fall.whole");
   });
 
   it("levee.holds: the levees' banks levelled to the plain", () => {

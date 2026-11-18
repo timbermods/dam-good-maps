@@ -1184,23 +1184,99 @@ function planHydroSingle(E: Float64Array, h: Uint8Array, g: Genome, seed: number
     }
     return q;
   };
+  // A course's hollows, read once (D453). A long valley is one hollow, and every sample of a river through it flooded
+  // it again, each time once for every level its way out was cut down by: 30 million tiles a plan at 512 × 128, ten
+  // times what a square map of that area floods, for the same answer each time. Within one course's profile the
+  // ground stays as it is, so what a flood gives depends only on where it starts and the level it stays below: each is
+  // kept and handed out again, in the same order, and what the first flood is read for (its size, its lowest tile) is
+  // kept for the whole hollow. `newCourse` forgets them all: the course before it cut the ground.
+  const kept = new Map<number, number[]>();
+  const keptFlood = (from: number, below: number): number[] => {
+    const key = Number.isInteger(below) && below >= 0 && below < 4096 ? from * 4096 + below : -1;
+    let tiles = key >= 0 ? kept.get(key) : undefined;
+    if (!tiles) {
+      tiles = flood(from, below);
+      if (key >= 0) kept.set(key, tiles);
+    }
+    return tiles;
+  };
+  /** A hollow as its first flood found it: the level it stood below, its size, its lowest ground, how many tiles
+   *  stand that low and the one that does when it is the only one. */
+  const basins: { below: number; size: number; low: number; lows: number; only: number }[] = [];
+  const basinOf = new Int32Array(N).fill(-1);
+  const newCourse = (): void => {
+    kept.clear();
+    basins.length = 0;
+    basinOf.fill(-1);
+  };
+  /** The first tile at the hollow's lowest level, in the order a flood from `from` reaches them (the tile the
+   *  hollow is cut down to): the flood, stopped there. */
+  const firstLow = (from: number, below: number, low: number): number => {
+    if (h[from] === low) return from;
+    const seen = new Uint8Array(N);
+    const q = [from];
+    seen[from] = 1;
+    for (let k = 0; k < q.length; k++) {
+      const i = q[k];
+      const x = i % W;
+      const y = (i - x) / W;
+      for (const [dx, dy] of N4) {
+        const xx = x + dx;
+        const yy = y + dy;
+        if (xx < 0 || yy < 0 || xx >= W || yy >= H) continue;
+        const j = yy * W + xx;
+        if (seen[j] || h[j] >= below) continue;
+        if (h[j] === low) return j;
+        seen[j] = 1;
+        q.push(j);
+      }
+    }
+    return from;
+  };
   const hollow = (seedCell: number, maxSill = Infinity): { tiles: number[]; sill: number } | null => {
     if (!(depth[seedCell] > 0)) return null;
     let sill = lv.filled[seedCell];
-    let tiles = flood(seedCell, sill);
     // cut the outlet down until the lake fits the budget, and (M9b) until it stands below where its
     // river begins (`maxSill`)
     // (round 6, D432: an island sea is the map's water, not a lake of the budget: cut to it, a sea a
     // setting's lean had put over the budget drained to its floor)
     const sea = !!seaAt?.[seedCell];
-    while (((tiles.length > budget && !sea) || sill > maxSill) && sill > 1) {
-      sill--;
-      const lowest = tiles.reduce((m, i) => (h[i] < h[m] ? i : m), tiles[0]);
-      if (h[lowest] >= sill) return null;
-      tiles = flood(lowest, sill);
+    const cutMore = (size: number) => ((size > budget && !sea) || sill > maxSill) && sill > 1;
+    // (the hollow's first flood, or what the one before it from this hollow found)
+    let basin = basinOf[seedCell] >= 0 && basins[basinOf[seedCell]].below === sill ? basins[basinOf[seedCell]] : null;
+    let tiles: number[] | null = null;
+    let lowest = -1;
+    if (!basin) {
+      tiles = keptFlood(seedCell, sill);
+      lowest = tiles.reduce((m, i) => (h[i] < h[m] ? i : m), tiles[0]);
+      // (a seed standing at the level or over it is in its own flood only: such a flood is no other tile's)
+      if (h[seedCell] < sill) {
+        const low = h[lowest];
+        let lows = 0;
+        for (const i of tiles) if (h[i] === low) lows++;
+        basin = { below: sill, size: tiles.length, low, lows, only: lows === 1 ? lowest : -1 };
+        for (const i of tiles) basinOf[i] = basins.length;
+        basins.push(basin);
+      }
     }
-    if (sill > maxSill || tiles.length < 6) return null;
-    return { tiles, sill };
+    const size = basin ? basin.size : tiles!.length;
+    if (!cutMore(size)) {
+      if (sill > maxSill || size < 6) return null;
+      return { tiles: tiles ?? keptFlood(seedCell, sill), sill };
+    }
+    if (lowest < 0) lowest = basin!.only >= 0 ? basin!.only : firstLow(seedCell, sill, basin!.low);
+    // (every flood from here on starts at that lowest tile, so it stays the lowest and the first of each; a level
+    // still over `maxSill` is cut down whatever its flood would hold, so it is not flooded)
+    let cut: number[] = [];
+    for (;;) {
+      sill--;
+      if (h[lowest] >= sill) return null;
+      if (sill > maxSill && sill > 1) continue;
+      cut = keptFlood(lowest, sill);
+      if (!cutMore(cut.length)) break;
+    }
+    if (sill > maxSill || cut.length < 6) return null;
+    return { tiles: cut, sill };
   };
 
   /** The bed along a path, sampled every tile of arc: never rising, `cut` levels below the lowest
@@ -1208,6 +1284,7 @@ function planHydroSingle(E: Float64Array, h: Uint8Array, g: Genome, seed: number
   const profileOf = (path: Point[], width: number, cut: number, withLakes: boolean, rid: string, half: (s: number, L: number) => number, startBed = Infinity, endBed = -Infinity, maxSill = Infinity, floorOthers = false) => {
     // An intentional plugged lake keeps its impoundment; it is a distinct water feature.
     const valleyMain = g.theme === "riverValley" && !g.intentions.includes("plug-lake") && rid === featureId(seed, "river", "river/main");
+    if (withLakes) newCourse();
     const st = stamp(path, W, H, Math.ceil(width / 2 + g.hydro.floor * 1.5 + 3 + (natural ? width * 0.15 : 0)));
     const L = arcLength(path);
     const n = Math.max(2, Math.ceil(L));
@@ -1220,9 +1297,12 @@ function planHydroSingle(E: Float64Array, h: Uint8Array, g: Genome, seed: number
      *  round the channel lower than the sill, outside the lake, drains away lower than it (to an
      *  edge, or a lower hollow). The river's water could not rise to fill the lake; it is no lake of
      *  this river's (M9b: its course stood dry through a hollow above its bed). */
+    const spillSets = new Map<number[], Set<number>>();
     const spillsUpstream = (lk: { tiles: number[]; sill: number }, j: number): boolean => {
       if (!natural) return false;
-      const inIt = new Set(lk.tiles);
+      // (a hollow's tiles are the same list each time it is read on this course, `keptFlood`)
+      let inIt = spillSets.get(lk.tiles);
+      if (!inIt) spillSets.set(lk.tiles, (inIt = new Set(lk.tiles)));
       for (let q = j - 1; q >= 0 && prof[q] < lk.sill; q--) {
         const t = ringAt[q];
         if (t >= 0 && !inIt.has(t) && lakeOf[t] < 0 && h[t] < lk.sill && lv.filled[t] < lk.sill) return true;
@@ -1292,7 +1372,8 @@ function planHydroSingle(E: Float64Array, h: Uint8Array, g: Genome, seed: number
             lakeOf[i] = id;
             water[i] = 2;
           }
-          lakes.push({ tiles: lk.tiles, outletBed: lk.sill - 1, river: rid });
+          // (its own list: the kept flood's stays as it was read)
+          lakes.push({ tiles: lk.tiles.slice(), outletBed: lk.sill - 1, river: rid });
           inLake = id;
         }
       }
