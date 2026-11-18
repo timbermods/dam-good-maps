@@ -78,8 +78,8 @@ way, proposes the change on [#236](https://github.com/timbermods/dam-good-maps/i
   42599783087). A shard that outgrows its 30 minutes gets more shards, never a second worker or a longer limit. (`--shard` splits by test count, so one file of minute-long tests can crowd a shard: split the file, as look-high.spec.ts became two on 2026-11-18.) The
   nightly's Real places check runs the same way, in five shards (`places (i/5)`, `npm run places -- --check --shard i/5`,
   since 2026-11-16: one job took 54 to 90 minutes of its 90 once the springs were searched on every place, #1149).
-  **The `page` job (2026-11-10):** a PR into dev that changes `src/editor/`, `src/ui/`, `src/render3d/` or `src/styles/` also runs the `page` job (thirteen
-  small shards), in about six minutes: the clipping net in full (`textClipping`) and the specs that pin the page's layout, rows, menus, tooltips and key caps
+  **The `page` job (2026-11-10):** a PR into dev that changes `src/editor/`, `src/ui/`, `src/render3d/` or `src/styles/` also runs the `page` job (sixteen
+  small shards: ten for the clipping net, six for the layout and rows since 2026-11-18), in about six minutes: the clipping net in full (`textClipping`) and the specs that pin the page's layout, rows, menus, tooltips and key caps
   (the list is in `ci.yml`). A PR that touches no page file skips it. A PR that touches the page merges only when `page` is green (a
   failed spec is a real fault in the page, fixed in the PR); the rest of the browser specs still run on dev after the merge.
   **The `forces` job:** a PR into dev that changes a force (its Rust, its Wasm, `src/core/forces/`, its row), the worker
