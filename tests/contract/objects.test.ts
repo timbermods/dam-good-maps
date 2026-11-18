@@ -315,8 +315,11 @@ describe("the generator's M7 set pieces keep their rules (ROADMAP M7)", () => {
     // Highlands 2, 9, 11, 13, 16, 18) against 14 at 0.10.43;
     // the same five at 0.10.46 (D(new-ditch) and D(sea-steps) on #1240's land), D148: of Canyon and Highlands 96² seeds 1–20, 14
     // take one (Canyon 1, 4, 6, 7, 9, 10, 12, 13, 17; Highlands 2, 9, 11, 13, 16) against 15 at 0.10.44, every one holding 0.65
-    // or more but Canyon 12's 0.56)
-    for (const [theme, seed] of [["canyon", 4], ["canyon", 7], ["canyon", 10], ["canyon", 13], ["highlands", 9]] as [ThemeId, number][]) {
+    // or more but Canyon 12's 0.56;
+    // canyon 13 → 16 and highlands 9 → 11 at 0.10.47 (D(ruled-water): a course beside another joins it), D148: the water moved and
+    // those two rivers take no weir now; of Canyon and Highlands 96² seeds 1–20, 13 take one (Canyon 1, 4, 6, 7, 9, 10, 16, 17;
+    // Highlands 2, 11, 12, 13, 16) against 14 at 0.10.46, every one holding 0.65 or more)
+    for (const [theme, seed] of [["canyon", 4], ["canyon", 7], ["canyon", 10], ["canyon", 16], ["highlands", 11]] as [ThemeId, number][]) {
       const r = generate(makeSpec({ seed, size: { x: 96, y: 96 }, theme }));
       const w = r.features.find((g) => g.kind === "mapObject" && g.params.kind === "weir");
       if (!w || w.kind !== "mapObject") continue;
