@@ -21,7 +21,9 @@
 // - `levee.holds`: in a badtide's water (the river red, its depth as settled) the game's soil rule poisons the plain
 //   only within 7 tiles of the river along a low place in the levee, beyond what day 1 has dead already.
 // - `riverIn.green` (planning's ruling of 2026-11-17): with the turn's dam and the river in's weir raised on the built
-//   ground, the core's settle and the game's soil (`riverInBands`, the proof's own green), the floor 60 % green or more.
+//   ground, the core's settle and the game's soil (`riverInBands`, the proof's own green), the floor 60 % green or more,
+//   and the start's ground (its middle tile and `START_KEEP` round it) left dry: a start the river's rise covers is no
+//   start (step 5, the proof's own `start === 0`).
 //
 // Its ladder is `plainWorks.ts`'s (step 4): a land whose works fail a blocking check by number (`PLAIN_WORKS_BLOCKING`)
 // is drawn again before its settle. Not offered (`premises/dev.ts`).
@@ -30,6 +32,7 @@ import { modelOf, soilOnWater, type BuildResult } from "../features/build";
 import { featureId } from "../features/ids";
 import { footprintAt } from "../features/objects";
 import type { Feature, ForestFeature } from "../features/schema";
+import { startMiddleTile } from "../format/footprints";
 import { fileContamination } from "../format/world";
 import { pickSeeds } from "../gen/blobs";
 import { distanceFrom, runsToTiles, tilesToRuns } from "../math/grid";
@@ -79,10 +82,12 @@ export const START_WOOD_CLEAR = NEAR_WALK + 2;
 export const NICHE_NEAR = 4;
 
 /** The red source's 3 × 3 at the gulch's head: of the 3 × 3s whose nine tiles all lie on the Red Spring's pool (stage
- *  1's tiles of that body), or failing one on the pool and the Red Fall's bed together, the one nearest the plan's
- *  source point within `NICHE_NEAR` of it; failing both, the 3 × 3 round the source point itself. Its min corner, or
- *  null where the plan has no red source. Its ground is levelled to its lowest tile (`digNiche`), so the source stands
- *  on one floor (the game's `entities.placement`). */
+ *  1's tiles of that body), or failing one on the pool and the Red Fall's bed together, or failing both whose middle
+ *  tile lies on the pool, the one nearest the plan's source point within `NICHE_NEAR` of it. Its min corner, or null
+ *  where the plan has no red source or no such 3 × 3 (`plainMap` refuses that land, `source.niche`; step 5: it fell
+ *  back to the 3 × 3 round the source point, never checked to lie on the pool, on seed 6 at 128², where the pool's
+ *  tiles held no whole 3 × 3). Its ground is levelled to its lowest tile (`digNiche`), so the source stands on one
+ *  floor (the game's `entities.placement`), in the pool's basin. */
 export function redNiche(plan: PremisePlan, w: StageWater): [number, number] | null {
   const r = w.raster;
   const { W, H } = plan;
@@ -90,14 +95,18 @@ export function redNiche(plan: PremisePlan, w: StageWater): [number, number] | n
   const fall = plan.links.findIndex((l) => l.id === I.redFall) + 1;
   const src = plan.sources.find((s) => s.bad);
   if (!k || !src) return null;
-  for (const on of [(i: number) => r.lake[i] === k, (i: number) => r.lake[i] === k || (r.channel[i] === fall && !r.crest[i])]) {
+  const pool = (i: number) => r.lake[i] === k;
+  const tiers: ((x: number, y: number) => boolean)[] = [pool, (i: number) => pool(i) || (r.channel[i] === fall && !r.crest[i])].map((on) => (x: number, y: number) => {
+    for (let dy = 0; dy < 3; dy++) for (let dx = 0; dx < 3; dx++) if (!on((y + dy) * W + x + dx)) return false;
+    return true;
+  });
+  tiers.push((x, y) => pool((y + 1) * W + x + 1));
+  for (const holds of tiers) {
     let best: [number, number] | null = null;
     let bd = Infinity;
     for (let y = 0; y + 2 < H; y++)
       for (let x = 0; x + 2 < W; x++) {
-        let ok = true;
-        for (let dy = 0; dy < 3 && ok; dy++) for (let dx = 0; dx < 3 && ok; dx++) ok = on((y + dy) * W + x + dx);
-        if (!ok) continue;
+        if (!holds(x, y)) continue;
         const dx = x + 1.5 - src.at[0];
         const dy = y + 1.5 - src.at[1];
         const d = dx * dx + dy * dy;
@@ -105,7 +114,7 @@ export function redNiche(plan: PremisePlan, w: StageWater): [number, number] | n
       }
     if (best) return best;
   }
-  return [Math.max(0, Math.min(W - 3, Math.floor(src.at[0]) - 1)), Math.max(0, Math.min(H - 3, Math.floor(src.at[1]) - 1))];
+  return null;
 }
 
 /** The niche's ground levelled to its lowest tile, taking ground away only. */
@@ -420,6 +429,16 @@ export function badtideReach(plan: PremisePlan, w: StageWater, relief: Pick<Plai
 /** `riverIn.green` (§7, planning's ruling of 2026-11-17): the floor's least green with the turn and the river in. */
 export const RIVER_IN_GREEN = 0.6;
 
+/** The start's ground the works must leave dry (`riverIn.green`, `plainProof.ts`): its middle tile and this many
+ *  tiles round it. */
+export const START_KEEP = 3;
+
+/** Whether tile `i` is on the start's ground (`START_KEEP` round the start's middle tile). */
+export function onStartGround(start: Parameters<typeof startMiddleTile>[0], W: number): (i: number) => boolean {
+  const [sx, sy] = startMiddleTile(start);
+  return (i) => Math.abs((i % W) - sx) <= START_KEEP && Math.abs(Math.floor(i / W) - sy) <= START_KEEP;
+}
+
 /** The tiles a ditch a level deep reaches from `from` (water): dug over dry ground, it carries the water to a tile
  *  where no tile on the way, the tile itself among them, stands more than a level over the water's surface where the
  *  ditch leaves it (a riser up stops it; ground falling away does not, the water runs down it). Each tile takes the
@@ -475,7 +494,7 @@ export function leftToWin(W: number, H: number, on: Uint8Array, s: { heights: Ar
  *  their levels on the map's ground and objects (`modelOf`), one canonical settle and the game's soil on it
  *  (`soilOnWater`), as the proof's session settles them (`plainProof.ts`), and what is left to win then
  *  (`leftToWin`). Null where a work has no site. */
-export function riverInBands(land: PlainLand, ladder: Ladder, built: Pick<BuildResult, "W" | "H" | "heights" | "entities">): { bands: ReturnType<typeof settledBands>; left: ReturnType<typeof leftToWin> } | null {
+export function riverInBands(land: PlainLand, ladder: Ladder, built: Pick<BuildResult, "W" | "H" | "heights" | "entities" | "water">): { bands: ReturnType<typeof settledBands>; left: ReturnType<typeof leftToWin>; start: number } | null {
   const { plan } = land;
   const heights = Uint8Array.from(built.heights);
   for (const id of ["turn", "riverIn"]) {
@@ -488,7 +507,20 @@ export function riverInBands(land: PlainLand, ladder: Ladder, built: Pick<BuildR
   const soil = soilOnWater(m, settle.depth, settle.contamination);
   const on = floorTiles(plan, land.relief.floor);
   const st = { heights, water: settle.depth, contamination: settle.contamination, moisture: soil.moisture, soilContamination: soil.contamination };
-  return { bands: settledBands(on, st), left: leftToWin(built.W, built.H, on, st) };
+  // (the start's ground the works' water covers: its tiles wet with both works built, dry on the map as made)
+  const onStart = onStartGround(land.frame.start, built.W);
+  let start = 0;
+  for (let i = 0; i < built.W * built.H; i++) if (onStart(i) && settle.depth[i] >= WET && !(built.water[i] >= WET)) start++;
+  return { bands: settledBands(on, st), left: leftToWin(built.W, built.H, on, st), start };
+}
+
+/** `riverIn.green`'s one-line reason, or null where it holds: a work with no site, the start's ground under the works'
+ *  water, or the floor under `RIVER_IN_GREEN` green. */
+export function riverInFailure(ri: ReturnType<typeof riverInBands>): string | null {
+  if (!ri) return "riverIn.green: a work has no site";
+  if (ri.start > 0) return `riverIn.green: with the turn and the river in, ${ri.start} tiles of the start's ground are under water`;
+  if (ri.bands.green < RIVER_IN_GREEN) return `riverIn.green: with the turn and the river in the floor is ${Math.round(100 * ri.bands.green)} % green (${100 * RIVER_IN_GREEN} % or more)`;
+  return null;
 }
 
 // ------------------------------------------------------------------------------------------------- the dead band's wood
@@ -642,7 +674,7 @@ export function plainMapOf(spec: MapSpec, land: PlainLand & { held: boolean }, t
   const { plan, water } = land;
   const t0 = performance.now();
   const { heights, niche, ladder } = ground;
-  const pl: PremiseLand = { water, heights, niches: niche ? { badwater: niche } : {}, laid: { plugs: {}, banks: {} }, notes: niche ? [] : ["the red source finds no room in the Red Spring's pool"], standsOffStart: START_WOOD_CLEAR };
+  const pl: PremiseLand = { water, heights, niches: niche ? { badwater: niche } : {}, laid: { plugs: {}, banks: {} }, notes: [], standsOffStart: START_WOOD_CLEAR };
   const s: MapSpec = { ...JSON.parse(JSON.stringify(spec)), accepted: { attempt: land.attempt, candidate: 0 } };
   const style = premiseStyle(theme, spec, land.attempt);
   const base = premiseBase(s, plan, pl, land.frame.start, ladder, style);
@@ -689,6 +721,10 @@ export function plainMap(spec: MapSpec, theme: StyleTheme = "riverValley"): Plai
     }
     // (the works by number, before the settle: a land whose turn or river in does not work is drawn again)
     const ground = plainWorksOf(land);
+    if (!ground.niche) {
+      failed.push(`source.niche: the red source finds no 3 × 3 on the Red Spring's pool within ${NICHE_NEAR} tiles of its point`);
+      continue;
+    }
     const block = ground.works.find((f) => (PLAIN_WORKS_BLOCKING as readonly string[]).includes(f.id));
     if (block) {
       failed.push(`${block.id}: ${block.reason}`);
@@ -711,8 +747,9 @@ export function plainMap(spec: MapSpec, theme: StyleTheme = "riverValley"): Plai
     const ri = riverInBands(land, m.ladder, m.map.built);
     out.riverIn = ri?.bands ?? null;
     if (ri) out.ladder.left = ri.left;
-    if (!ri || ri.bands.green < RIVER_IN_GREEN) {
-      failed.push(`riverIn.green: ${ri ? `with the turn and the river in the floor is ${Math.round(100 * ri.bands.green)} % green (${100 * RIVER_IN_GREEN} % or more)` : "a work has no site"}`);
+    const riFail = riverInFailure(ri);
+    if (riFail) {
+      failed.push(riFail);
       continue;
     }
     return { ...out, held: true };

@@ -73,6 +73,8 @@ import {
   turnOf,
   walk,
   WALL,
+  FLOOR_WARP,
+  floorWarpSeeds,
   WINDOW,
   framedRuns,
   type PlainNumbers,
@@ -100,11 +102,6 @@ const GULCH_BANK = 2;
 
 // ------------------------------------------------------------------------------------------------- the numbers
 
-/** The floor's lines are read through a warp of `amp` tiles (noise `cell` tiles across), so no contour follows the
- *  plan's lines exactly; the backswamp's edge wanders a further `swamp` tiles, and the plain's risers a further `riser`
- *  tiles down the valley (noise `riserCell`: the plan's risers wander a tile or two, and on the ground read as ruled
- *  lines across the plain). */
-export const FLOOR_WARP = { amp: 2.2, cell: 13, swamp: 1.2, swampCell: 9, riser: 7, riserCell: 11, calm: [4, 8] as const } as const;
 /** The start's terrace: its lip a lobe `bulge` tiles down the valley at its middle (of its width), wandering `wander`
  *  tiles by noise `cell` across; its side toward the river `strip` tiles past the levee's foot (the river's own strip
  *  of plain); its edge steps down a level to a bench `step` tiles wide, then to the plain (a bench wide enough to be a
@@ -673,8 +670,8 @@ export function plainRelief(plan: PremisePlan, w: StageWater, upland: Uint8Array
   const r = w.raster;
   const T = turnOf(plan, p);
   const sky = Math.max(plan.top, plan.sky ?? plan.top);
-  const sWu = S(plan, "warp.u");
-  const sWv = S(plan, "warp.v");
+  // (the plan read its walls' feet through the same warp: `poisonedPlain.ts` `wallFoot`)
+  const { u: sWu, v: sWv } = floorWarpSeeds(plan.seed, W, H);
   const sSw = S(plan, "swamp");
   const sRiser = S(plan, "riser");
   const sLip = S(plan, "lip");
@@ -935,6 +932,16 @@ export function plainRelief(plan: PremisePlan, w: StageWater, upland: Uint8Array
   }
   // the sloughs: dry beds a level under the plain
   for (const sl of p.sloughs) {
+    // (and never over the plan's bed, which falls or holds from the mouth down: a slough that wanders up the valley past
+    // a riser keeps its bed there, step 5: seed 1 at 128², its bed a level over its mouth across the riser above it,
+    // held the river in back, `riverIn.byNumber`)
+    const cum = [0];
+    for (let k = 0; k + 1 < sl.path.length; k++) cum.push(cum[k] + dist(sl.path[k], sl.path[k + 1]));
+    const bedAt = (s: number) => {
+      let k = 0;
+      while (k + 1 < cum.length && cum[k + 1] <= s) k++;
+      return sl.bed[k] ?? Infinity;
+    };
     for (let y = 0; y < H; y++)
       for (let x = 0; x < W; x++) {
         const i = y * W + x;
@@ -943,7 +950,7 @@ export function plainRelief(plan: PremisePlan, w: StageWater, upland: Uint8Array
         if (q.d > sl.half + 0.35) continue;
         // (the bed's level where it runs: a level under the plain there, never under the backswamp's)
         const [u, v] = toLocal(T, [x + 0.5, y + 0.5]);
-        const want = levelAt(p, u, v) - 1;
+        const want = Math.min(levelAt(p, u, v) - 1, bedAt(q.s));
         if (want < h[i]) {
           h[i] = want;
           floor[i] = 4;
