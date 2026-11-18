@@ -241,6 +241,14 @@ jobs:
   # Twenty shards since 2026-11-15: at fifteen, shard 14 (the end of textClipping, timelapse, tooltips and touch.spec's
   # eighteen tests at about a minute each) ran out its 30 minutes with every test passing, on a PR (run 43738242890) and
   # on dev (43738527160). A quarter fewer tests a shard puts it near 22 minutes.
+  # Shard 9 ran out its 30 on #1224 and #1227 (2026-11-18, 33 of 34 tests done): the split is by test count, so it cannot tell
+  # a five-second test from a one-minute one, and one file holding fourteen of the minute-long ones, look-high.spec.ts,
+  # landed whole beside the layout specs' tail: 14.5 to 17.5 minutes of tests (dev's runs 44202042420 and 44204241674), and on a
+  # slow runner (the system libraries took 8 minutes to install on one) past the 30. That file is now two,
+  # look-high.spec.ts (five tests) and look-high-scenes.spec.ts (nine), which the shards share: shard 9 holds 10.8 to 13.1
+  # minutes of tests and shard 10 holds 6.4 to 7.4. When a shard outgrows its time again, find its heavy file in the log
+  # (each test's time is there) and split that file; the slowest shards by the same measure are 3 (forces, up to 19 minutes) and
+  # 19 (touch.spec.ts, up to 19).
   browser:
     needs: changes
     # (not on a pull request into dev: the browser specs run on dev's tip once it merges; except one that can change what

@@ -75,7 +75,7 @@ way, proposes the change on [#236](https://github.com/timbermods/dam-good-maps/i
   merge broke it, or that merge is reverted. The planning session watches dev's runs and sends each failure to its owner.
   No full run by hand except for a release. The browser shards run one worker each (fifteen shards since 2026-11-09, twenty since 2026-11-15): a
   second worker beside a spec that draws in software made it two to three times slower and red (runs 42592717654,
-  42599783087). A shard that outgrows its 30 minutes gets more shards, never a second worker or a longer limit. The
+  42599783087). A shard that outgrows its 30 minutes gets more shards, never a second worker or a longer limit. (`--shard` splits by test count, so one file of minute-long tests can crowd a shard: split the file, as look-high.spec.ts became two on 2026-11-18.) The
   nightly's Real places check runs the same way, in five shards (`places (i/5)`, `npm run places -- --check --shard i/5`,
   since 2026-11-16: one job took 54 to 90 minutes of its 90 once the springs were searched on every place, #1149).
   **The `page` job (2026-11-10):** a PR into dev that changes `src/editor/`, `src/ui/`, `src/render3d/` or `src/styles/` also runs the `page` job (thirteen
