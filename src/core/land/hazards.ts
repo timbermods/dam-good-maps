@@ -28,7 +28,9 @@
 // else the site is no site; (4) it is at most `DITCH_CAP` tiles long; (5) the sites are found from the water
 // outward (the fall lines that reach such water), and the pits are drawn from them, those ending in a river or
 // lake first, a join next, the map's edge last.
-// Islands' ditches are drawn as before (`windDitch`), its own ruling to come (D498 (3)).
+// Islands' ditches are drawn as before (`windDitch`), its own ruling to come (D498 (3)). A land with no site a
+// fall-line gully serves (D(new-ditch) (14)) takes the ditch as before too, `BadwaterAsk.ditch`: the gully is the
+// better way out for badwater, never a reason to refuse the land.
 //
 // Ported from the design version 2 prototype (investigation/generative/v2/hazards.ts).
 
@@ -66,6 +68,9 @@ export interface Hazards {
   /** The join to the main water runs into water that passed the start planned from (D476): the start
    *  is then found by other clean water (a reading for the generator's fixes). */
   past?: boolean;
+  /** The pits drain by the ditch as before the gully, the land having no site a fall-line gully serves
+   *  (D(new-ditch) (14), `BadwaterAsk.ditch`). */
+  ditch?: boolean;
 }
 
 export interface BadwaterAsk {
@@ -104,6 +109,9 @@ export interface BadwaterAsk {
   /** The places prepared for the start before the land is shown, the plan's own first (D85 read as the player meets
    *  it, D(new-ditch) (13)): no gully turns bad the nearest clean water of any of them. */
   starts?: { x: number; y: number }[] | null;
+  /** The ditch as before the gully (D(new-ditch) (14)): where a land has no site a fall-line gully serves, the
+   *  badwater takes the place the rule the gully replaced gives it, the attempt going on; Islands' ditch. */
+  ditch?: boolean;
 }
 
 /** The theme's main water, which badwater joins on most maps (D476), from the hydrology's own plan:
@@ -985,7 +993,7 @@ export function planBadwater(h: Uint8Array, W: number, H: number, wetNow: ArrayL
   // (the gullies drawn so far, D(new-ditch) (2): a later gully may join one, which goes on below as one bed. `beds`: each
   // bed tile's level and its gully; `joinable`: their beds and stepped banks outside their pits' squares, which a later
   // gully may cut through to its join and the ground it keeps off leaves out)
-  const gullies = !ask.sea;
+  const gullies = !ask.sea && !ask.ditch;
   const beds = new Map<number, { g: number; lv: number }>();
   const drawn: { plan: BadwaterPlan; tiles: number[]; levels: number[]; pit: Uint8Array; cx: number; cy: number }[] = [];
   const joinable = new Uint8Array(N);
@@ -1725,5 +1733,6 @@ export function planBadwater(h: Uint8Array, W: number, H: number, wetNow: ArrayL
     }
   }
   out.heights = hh;
+  if (ask.ditch && !ask.sea && out.count) out.ditch = true;
   return out;
 }

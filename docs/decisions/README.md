@@ -92,7 +92,7 @@ Read this index, then [how-we-work.md](how-we-work.md), then only the topic file
 ## [The generator](generator.md)
 
 - D(highlands-slot): A gorge (cut 3 levels or more at its water) winds at its map's scale under 128²: its meander's wavelength and taper by the narrower side's ratio to 128, never under half
-- D(new-ditch): The badwater ditch takes a gully's shape: down its fall line, wandering, 1 to 3 wide, stepped banks, at most 40 tiles, ending in water D476 and D498 let it join, at another gully, or at the edge last
+- D(new-ditch): The badwater ditch takes a gully's shape: down its fall line, wandering, 1 to 3 wide, stepped banks, at most 40 tiles, ending in water D476 and D498 let it join, at another gully, or at the edge last; a land with no gully site takes the ditch as before
 - D(sea-steps): The sea steps keep the sea below a course's last edge: an inflow's own edge is never lowered under the water standing on its course
 - D(plates-turned): A premise's plates are turned off the grid and their rims ragged by noise at every size; D518's 128² cap is gone
 - D(new-leaks): A course's water leaves only by its own way: pools only inside banks that hold them, never a raised lip; nothing beside a course lowered under its water; Delta courses join the fan by plan; no channel left under its reach downstream

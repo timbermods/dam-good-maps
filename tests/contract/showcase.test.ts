@@ -1,6 +1,6 @@
 // Showcase mode (D488 (2)): the search makes the asked map's siblings in order, measures each one's arc,
 // keeps the best three that pass, and each pick's share spec regenerates its file byte for byte. The beats
-// asserted here were read off these three maps by hand (Lake Basin 96², seed 2, variations 0–2) and re-read off the new maps for generator 0.10.13 (D507, D148), 0.10.16 (ground with grade, D148), 0.10.17 (the start's floors, D515, D148) 0.10.20 (contour edges, D518, D148), 0.10.21 (the look round, D518, D148), 0.10.24 (round forms, D148), 0.10.27 (D(new-leaks), D148), 0.10.29 (#1186, D148), 0.10.36 (#1205, D148) and 0.10.46 (D(new-ditch), D(sea-steps), D148).
+// asserted here were read off these three maps by hand (Lake Basin 96², seed 2, variations 0–2) and re-read off the new maps for generator 0.10.13 (D507, D148), 0.10.16 (ground with grade, D148), 0.10.17 (the start's floors, D515, D148) 0.10.20 (contour edges, D518, D148), 0.10.21 (the look round, D518, D148), 0.10.24 (round forms, D148), 0.10.27 (D(new-leaks), D148), 0.10.29 (#1186, D148), 0.10.36 (#1205, D148) and 0.10.46 (D(new-ditch), D(sea-steps), D148; the asked map again with (14), D148).
 
 import { createHash } from "node:crypto";
 import { describe, expect, it } from "vitest";
@@ -79,18 +79,22 @@ describe("Showcase mode (D488 (2))", () => {
     // tiles east, a 4-tile dam 60 tiles east holding 5,900 and a drowned village 31 tiles east, no vista; the first sibling the
     // vista of 9 levels of relief, a 9-tile dam 37 tiles west holding 8,400 and a drowned village 53 tiles west; the second a
     // 4-tile dam 54 tiles south-west holding 5,300 and a drowned village 51 tiles south-west; ranked [1, 0, 2])
-    // the asked map: the vista, a 9-level butte in view and a dam to build; no valley, no mystery (a partial one, 0.4) and a
-    // partial first-drought choice (0.4)
-    expect(a.vista.met).toBe(true);
-    expect(a.vista.say).toBe("The opening view takes in open water and the butte.");
+    // (D(new-ditch) (14), D148: the asked map's land has no site a fall-line gully serves, so its badwater takes the ditch as
+    // before and the map is again the one read before the gullies, above; its beats read off it by hand with `arcOf` and
+    // `showcaseSearch` at tries: 3; the two siblings unchanged; before it the asked map had the vista, a 9-level butte 30 tiles
+    // south-west and a 4-tile dam 30 tiles west holding 6,000)
+    // the asked map: a dam to build, an 8-level mesa in view and a drowned village; no vista (a partial one, 0.4), no valley
+    // and a partial first-drought choice (0.4)
+    expect(a.vista.met).toBe(false);
+    expect(a.vista.strength).toBeCloseTo(0.4, 1);
     expect(a.landmark.met).toBe(true);
-    expect(a.landmark.say).toMatch(/^A 9-level butte stands 30 tiles south-west of the start, in the opening view\.$/);
+    expect(a.landmark.say).toMatch(/^An 8-level mesa stands 39 tiles east of the start, in the opening view\.$/);
     expect(a.drought.met).toBe(false);
     expect(a.drought.strength).toBe(0.4);
     expect(a.valley.met).toBe(false);
-    expect(a.project.say).toMatch(/^A 4-tile dam across a narrows 30 tiles west of the start would hold 6,000 water\.$/);
-    expect(a.mystery.met).toBe(false);
-    expect(a.mystery.strength).toBe(0.4);
+    expect(a.project.say).toMatch(/^A 4-tile dam across a narrows 60 tiles east of the start would hold 5,900 water\.$/);
+    expect(a.mystery.met).toBe(true);
+    expect(a.mystery.say).toMatch(/^A drowned village stands in a lake's shallows 31 tiles east of the start/);
     // the first sibling: every beat but the vista (a partial one): the first drought's choice, a hidden valley, a dam to build,
     // a 9-level mesa in view and a drowned village
     expect(b.vista.met).toBe(false);
@@ -118,8 +122,8 @@ describe("Showcase mode (D488 (2))", () => {
     // each is ranked by its arc and its opening picture's looks (SHOWCASE_LOOKS, docs/progress/showcase-looks.md)
     for (const c of seen) expect(c.score).toBeCloseTo(arcScore(c.arc!) + SHOWCASE_LOOKS * c.looks!, 9);
     // the best three, best first: the first sibling (5 beats: all but the vista), the second (5 beats: all but the first
-    // drought's choice), the asked map (3 beats: the vista, a landmark and a project)
-    // (the asked map's picture holds more than the second sibling's, its looks 0.47 against 0.30, but not enough to outrank
+    // drought's choice), the asked map (3 beats: a project, a landmark and a mystery)
+    // (the asked map's picture holds more than the second sibling's, its looks 0.48 against 0.30, but not enough to outrank
     // the second's higher arc, 5.68 to 3.53)
     expect(seen[0].looks!).toBeGreaterThan(seen[2].looks!);
     expect(arcScore(c)).toBeGreaterThan(arcScore(a));

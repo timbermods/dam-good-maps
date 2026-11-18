@@ -49,6 +49,8 @@ interface Row {
   pits: Pit[];
   start: [number, number] | null;
   checks: Record<string, number | string | null>;
+  /** The generator's fixes on the map (`info.fixes`), "badwater by a ditch" among them. */
+  fixes: string[];
   ms: number;
 }
 
@@ -121,6 +123,7 @@ async function measure(): Promise<void> {
         pits,
         start: st ? st.params.position : null,
         checks,
+        fixes: r.info.fixes ?? [],
         ms: Math.round(performance.now() - t),
       };
       if (pngDir && b) {
