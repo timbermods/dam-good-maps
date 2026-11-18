@@ -4,6 +4,10 @@ description: >-
   (the install uses the project's own Playwright). On a cache hit only the system libraries are installed.
   The system libraries come from Ubuntu's archive: install-deps.sh tries three times and, when the runner's first
   mirror does not answer, takes it off the mirror list so apt uses the main archive.
+  The browsers are built for one Ubuntu release, so every job names its image (`ubuntu-24.04`, never
+  `ubuntu-latest`) and the cache key holds the image: on 2026-11-18 `ubuntu-latest` gave ubuntu-26.04 on some runs,
+  where the cached WebKit could not start (libicudata.so.74 missing) and the libraries took minutes to install.
+  Moving to a newer image is one change: the image's name in the workflows, with a Playwright that supports it.
 inputs:
   browsers:
     description: Space-separated browsers, for example "chromium" or "chromium firefox webkit".
@@ -18,7 +22,7 @@ runs:
         BROWSERS: ${{ inputs.browsers }}
       run: |
         version=$(node -p "require('./package-lock.json').packages['node_modules/@playwright/test'].version")
-        echo "key=playwright-$RUNNER_OS-$version-${BROWSERS// /-}" >> "$GITHUB_OUTPUT"
+        echo "key=playwright-$RUNNER_OS-${ImageOS:-image}-$version-${BROWSERS// /-}" >> "$GITHUB_OUTPUT"
     - name: Cached browsers
       id: cache
       uses: actions/cache@v4
