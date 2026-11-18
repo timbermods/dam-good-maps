@@ -367,11 +367,13 @@ describe("a generated map with Easy start on", () => {
   });
 
   it("never plants a map whose start missed one of them", () => {
-    // (Highlands 128², seed 14: its fifth attempt's start misses the room's target. A generator change that moves
+    // (Highlands 128², seed 60: its fifth attempt's start misses the room's target. A generator change that moves
     // this map takes another seed with such an attempt: tools/attempts.ts --easy lists them. Seed 2 → 14 at
     // 0.10.47, D(terrace-edges), D148: seed 2's land moved and none of its attempts misses one now; seed 8's first
-    // miss comes at its 24th attempt, seed 14's at the fifth)
-    const spec = makeSpec({ seed: 14, theme: "highlands" });
+    // miss comes at its 24th attempt, seed 14's at the fifth. Seed 14 → 60 at 0.10.48, D(terrace-edges) merged with
+    // D(ruled-water), D148: of Highlands 128² seeds 1–76 over their first 12 attempts only seed 30 (its ninth, the
+    // badtide's day) and seed 60 (its fifth, the room) miss one)
+    const spec = makeSpec({ seed: 60, theme: "highlands" });
     spec.settings.start.easyStart = true;
     const land = new Set<string>(EASY_LAND);
     const stages: string[] = [];

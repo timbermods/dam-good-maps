@@ -1,5 +1,5 @@
 {
- "generatorVersion": "0.10.47",
+ "generatorVersion": "0.10.48",
  "side": 128,
  "seeds": [
   1,
@@ -22,22 +22,22 @@
    "canyon": 1,
    "highlands": 4,
    "lakeBasin": 0,
-   "delta": 2,
+   "delta": 3,
    "islands": 0
   },
   "landmark": {
-   "riverValley": 8,
-   "canyon": 10,
-   "highlands": 10,
-   "lakeBasin": 7,
-   "delta": 10,
+   "riverValley": 10,
+   "canyon": 8,
+   "highlands": 12,
+   "lakeBasin": 8,
+   "delta": 7,
    "islands": 11
   },
   "farmland-past-gorge": {
    "riverValley": 1,
    "canyon": 4,
-   "highlands": 0,
-   "lakeBasin": 2,
+   "highlands": 1,
+   "lakeBasin": 3,
    "delta": 0,
    "islands": 3
   },
@@ -45,16 +45,16 @@
    "riverValley": 2,
    "canyon": 4,
    "highlands": 1,
-   "lakeBasin": 1,
+   "lakeBasin": 2,
    "delta": 2,
    "islands": 0
   },
   "hidden-valley": {
    "riverValley": 7,
    "canyon": 1,
-   "highlands": 2,
+   "highlands": 1,
    "lakeBasin": 1,
-   "delta": 3,
+   "delta": 4,
    "islands": 0
   },
   "high-lake": {
@@ -62,13 +62,13 @@
    "canyon": 0,
    "highlands": 1,
    "lakeBasin": 0,
-   "delta": 5,
+   "delta": 6,
    "islands": 0
   },
   "meeting-waters": {
    "riverValley": 9,
    "canyon": 3,
-   "highlands": 1,
+   "highlands": 2,
    "lakeBasin": 3,
    "delta": 0,
    "islands": 1
@@ -76,22 +76,22 @@
   "long-view": {
    "riverValley": 0,
    "canyon": 4,
-   "highlands": 7,
+   "highlands": 6,
    "lakeBasin": 6,
-   "delta": 7,
+   "delta": 8,
    "islands": 10
   },
   "snaking-river": {
    "riverValley": 10,
    "canyon": 12,
-   "highlands": 11,
+   "highlands": 10,
    "lakeBasin": 12,
-   "delta": 10,
+   "delta": 11,
    "islands": 1
   },
   "crater-rivers": {
    "riverValley": 0,
-   "canyon": 6,
+   "canyon": 7,
    "highlands": 6,
    "lakeBasin": 0,
    "delta": 6,
@@ -100,7 +100,7 @@
   "cliff-falls-lake": {
    "riverValley": 2,
    "canyon": 0,
-   "highlands": 1,
+   "highlands": 2,
    "lakeBasin": 4,
    "delta": 0,
    "islands": 0
@@ -108,7 +108,7 @@
   "oxbow": {
    "riverValley": 1,
    "canyon": 2,
-   "highlands": 1,
+   "highlands": 2,
    "lakeBasin": 8,
    "delta": 0,
    "islands": 0
@@ -116,8 +116,8 @@
   "stepped-lakes": {
    "riverValley": 1,
    "canyon": 2,
-   "highlands": 4,
-   "lakeBasin": 2,
+   "highlands": 3,
+   "lakeBasin": 0,
    "delta": 4,
    "islands": 0
   },
@@ -126,11 +126,11 @@
    "canyon": 0,
    "highlands": 0,
    "lakeBasin": 0,
-   "delta": 1,
+   "delta": 0,
    "islands": 0
   },
   "twin-falls": {
-   "riverValley": 2,
+   "riverValley": 1,
    "canyon": 0,
    "highlands": 3,
    "lakeBasin": 0,
@@ -142,23 +142,23 @@
    "canyon": 11,
    "highlands": 12,
    "lakeBasin": 0,
-   "delta": 4,
+   "delta": 2,
    "islands": 11
   },
   "hanging-valleys": {
    "riverValley": 0,
    "canyon": 0,
-   "highlands": 2,
+   "highlands": 1,
    "lakeBasin": 0,
    "delta": 0,
    "islands": 0
   },
   "two-ways": {
-   "riverValley": 4,
-   "canyon": 4,
+   "riverValley": 5,
+   "canyon": 5,
    "highlands": 3,
-   "lakeBasin": 3,
-   "delta": 4,
+   "lakeBasin": 0,
+   "delta": 3,
    "islands": 0
   },
   "badwater-rich": {
@@ -171,17 +171,17 @@
   },
   "relic-pinnacle": {
    "riverValley": 4,
-   "canyon": 7,
-   "highlands": 5,
-   "lakeBasin": 5,
-   "delta": 5,
+   "canyon": 6,
+   "highlands": 6,
+   "lakeBasin": 4,
+   "delta": 3,
    "islands": 4
   },
   "plug-lake": {
    "riverValley": 6,
    "canyon": 2,
    "highlands": 2,
-   "lakeBasin": 3,
+   "lakeBasin": 2,
    "delta": 2,
    "islands": 0
   },
@@ -189,8 +189,8 @@
    "riverValley": 1,
    "canyon": 0,
    "highlands": 0,
-   "lakeBasin": 5,
-   "delta": 0,
+   "lakeBasin": 4,
+   "delta": 1,
    "islands": 1
   }
  },
@@ -214,7 +214,8 @@
    "canyon"
   ],
   "hidden-valley": [
-   "riverValley"
+   "riverValley",
+   "delta"
   ],
   "high-lake": [
    "delta"
@@ -248,7 +249,6 @@
    "lakeBasin"
   ],
   "stepped-lakes": [
-   "highlands",
    "delta"
   ],
   "split-island": [],
@@ -257,14 +257,12 @@
    "riverValley",
    "canyon",
    "highlands",
-   "delta",
    "islands"
   ],
   "hanging-valleys": [],
   "two-ways": [
    "riverValley",
-   "canyon",
-   "delta"
+   "canyon"
   ],
   "badwater-rich": [],
   "relic-pinnacle": [
@@ -272,7 +270,6 @@
    "canyon",
    "highlands",
    "lakeBasin",
-   "delta",
    "islands"
   ],
   "plug-lake": [

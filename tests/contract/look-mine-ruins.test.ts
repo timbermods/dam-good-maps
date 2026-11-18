@@ -120,10 +120,11 @@ import * as ed from "../../src/worker/session";
 // version alone (with the version set back to 0.10.44 the merged code gives `920ac6af…`): its pits' gullies move its land, the
 // map made on its second attempt, every check passing; the gorge follow-ups do not reach it, so this is the bytes the branch
 // gave before #1240 merged in, D148
-// and generator 0.10.47's level edges (D(terrace-edges): the graded levels read through a fine warp before rounding):
-// `0a7daa74…` before it, not the version alone (with the version set back to 0.10.46 the branch gives `2ee6d2f8…`): the warp
-// moves this map's land, the map still passing every check, D148
-const LIVE_SHA = "65319d888e1c6064d31cbddb083d63d7056bc3da7468a1e8cc7e5cb888ce97aa";
+// and generator 0.10.47's version alone (the merge of #1162's ruled water, D(ruled-water), with #1195 at 0.10.46, which moves none
+// of this map): with the version set back to 0.10.46 the merge gives `0a7daa74…` byte for byte, D148
+// and generator 0.10.48, the merge of D(terrace-edges) with D(ruled-water): the warp moves this map's land (`65319d88…` on the
+// branch at 0.10.47, `8d38367a…` on dev at 0.10.47), the map made on its first attempt, every check passing, D148
+const LIVE_SHA = "8bfdb89774e8903fa5003cd9678fae14f7c659fa2b12b4cd7ba54c6f0191b0ee";
 const spec = () => makeSpec({ seed: 4242, size: { x: 128, y: 128 }, theme: "riverValley", designedFor: "normal" });
 
 describe("mine sites and ruins, models of our own", () => {
