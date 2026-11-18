@@ -8,7 +8,7 @@ import { join, relative, sep } from "node:path";
 import { gunzipSync, gzipSync, strToU8 } from "fflate";
 import { describe, expect, it } from "vitest";
 import { MapSession } from "../../src/core/doc/session";
-import { namedFile } from "../../src/core/gen/pack";
+import { mapFileName } from "../../src/core/format/fileName";
 import { jpegSize } from "../../src/core/validate/checks";
 import { readTimber } from "../../src/core/format/timber";
 import { PROVIDER_NOTICES, WATER_LICENCE, WATER_LICENCE_URL, WATER_NOTICE } from "../../src/core/places/attribution";
@@ -195,7 +195,7 @@ describe("a sample of places", () => {
       expect(s.size).toEqual({ x: e.size, y: e.size });
       expect(s.validate("import", { loadOnly: true }).report.passed).toBe(true);
       const out = s.exportTimber();
-      expect(out.fileName).toBe(namedFile(e.name));
+      expect(out.fileName).toBe(mapFileName(e.name));
       expect(sha256(out.bytes)).toBe(e.sha256);
     }
   });

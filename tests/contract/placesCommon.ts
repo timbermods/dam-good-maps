@@ -5,7 +5,7 @@
 import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
-import { namedFile } from "../../src/core/gen/pack";
+import { mapFileName } from "../../src/core/format/fileName";
 import { readTimber } from "../../src/core/format/timber";
 import { decodeHeights, decodePlaceFile, PLACE_FAULT_CHECKS, placeTimber, type PlaceData, type PlaceIndex, type PlaceIndexEntry } from "../../src/core/places/place";
 import { startPool } from "../../src/core/places/spring";
@@ -181,7 +181,7 @@ export function checkShard(k: number, n: number): void {
       // the export profile passes: an edge wall, a principle (D151), only warns there (D3), and
       // placeTimber refuses only what would not load
       expect(r.validation.report.passed).toBe(true);
-      expect(r.fileName).toBe(namedFile(entry.name));
+      expect(r.fileName).toBe(mapFileName(entry.name));
       // the written file, read back: every check of the strictest profile, on its own settle
       const file = readTimber(r.bytes);
       const v = validateMap(file, { profile: "generate", designedFor: "normal", features: [], water: { model: r.validation.model!, settled: r.validation.water! } });

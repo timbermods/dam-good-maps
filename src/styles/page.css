@@ -4599,3 +4599,62 @@ body:has(.checks-list) .show-key {
 .idea-card p {
   margin: 2px 0 0;
 }
+
+/* Save as… (File, Ctrl+Shift+S): a small card under the header's right group, the map's name in a field with the
+   file's name under it as it is typed */
+.save-as {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 10px;
+  z-index: 20;
+  box-sizing: border-box;
+  width: 360px;
+  max-width: calc(100vw - 20px);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 12px;
+  border: 1px solid var(--rule);
+  border-radius: 8px;
+  background: var(--panel);
+  box-shadow: var(--shadow);
+  font-size: 0.9rem;
+}
+
+.save-as-row {
+  display: flex;
+  gap: 6px;
+}
+
+.save-as-input {
+  box-sizing: border-box;
+  flex: 1 1 auto;
+  min-width: 0;
+  height: 36px;
+  padding: 0 10px;
+  border: 1px solid var(--rule);
+  border-radius: 6px;
+  background: var(--bg);
+  color: var(--ink);
+  font: inherit;
+}
+
+.save-as-input.refused {
+  border-color: var(--warn);
+}
+
+.save-as-go {
+  flex: none;
+  height: 36px;
+}
+
+/* the file's name, whole: a long one wraps rather than being cut */
+.save-as-file {
+  color: var(--muted);
+  font-size: 0.85rem;
+  overflow-wrap: anywhere;
+}
+
+.save-as-file.refused {
+  color: var(--warn);
+}

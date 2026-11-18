@@ -89,7 +89,7 @@ test.describe("the editor's header", () => {
     await page.evaluate(() => void (window.dgmSaveDelayMs = 7000)); // longer than the five seconds Chrome keeps a click fresh
     await saveButton(page).click();
     await expect(page.getByRole("toolbar", { name: "Edit" }).getByRole("button", { name: /^Saving/ })).toBeDisabled(); // the progress shows while the map is built
-    await expect(page.getByRole("status").filter({ hasText: /^Saved dgm-.* to Maps./ })).toBeVisible({ timeout: 120_000 });
+    await expect(page.getByRole("status").filter({ hasText: /^Saved .*\.timber to Maps\./ })).toBeVisible({ timeout: 120_000 });
     expect(await filesIn(page, "Maps")).toHaveLength(1);
     expect(downloads).toBe(0);
   });
@@ -111,7 +111,7 @@ test.describe("the editor's header", () => {
     await (await openFileMenu(page)).getByRole("menuitem", { name: "Choose Maps folder…" }).click();
     await expect(page.getByRole("status").filter({ hasText: /Maps folder set/ })).toBeVisible();
     await saveButton(page).click();
-    await expect(page.getByRole("status").filter({ hasText: /^Saved dgm-.* to Maps./ })).toBeVisible({ timeout: 120_000 });
+    await expect(page.getByRole("status").filter({ hasText: /^Saved .*\.timber to Maps\./ })).toBeVisible({ timeout: 120_000 });
     expect(await filesIn(page, "Maps")).toHaveLength(1);
 
     // a wrong choice later, or a cancel, leaves Maps as it was: the next save does not ask again
@@ -123,7 +123,7 @@ test.describe("the editor's header", () => {
     await expect.poll(() => picks(page)).toBe(4);
     const before = await picks(page);
     await saveButton(page).click();
-    await expect(page.getByRole("status").filter({ hasText: /Saved dgm-.*-2.timber to Maps/ })).toBeVisible({ timeout: 120_000 });
+    await expect(page.getByRole("status").filter({ hasText: /Saved .*-2\.timber to Maps/ })).toBeVisible({ timeout: 120_000 });
     expect(await picks(page)).toBe(before);
     expect(await filesIn(page, "Maps")).toHaveLength(2);
     expect(downloads).toBe(0);

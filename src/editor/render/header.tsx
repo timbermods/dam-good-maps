@@ -1,6 +1,6 @@
 // The editor's header: undo and redo, the checks' dot, save and the history button.
 
-import { canSaveToTimberborn } from "../../platform";
+import { canSaveToTimberborn, peekSaveName } from "../../platform";
 import { LookMenu } from "../../ui/LookMenu";
 import { ChecksDot, Header } from "../Header";
 import type { Ed } from "../ed";
@@ -45,6 +45,9 @@ export function header(ed: Ed, props: EditorProps) {
       canFolder={canSaveToTimberborn()}
       saving={saving}
       onSave={(kind) => void saveMap(kind)}
+      // Save as… (D443): the typed name renames the map through the core, then the save names the file by it
+      onSaveAs={(kind, name) => void saveMap(kind, name.trim() === props.name ? undefined : () => props.onRename(name))}
+      peekSaveName={peekSaveName}
       onChooseFolder={() => void ed.chooseFolder()}
       onOpenFile={props.onOpenFile}
       onNewBlank={props.onNewBlank}

@@ -829,7 +829,7 @@ function documentsFolder(): string {
   return documents;
 }
 
-/** "dgm-river-valley-7" then "dgm-river-valley-7-2", "-3" and on (the page's `freeName`, D191, D345 B10): the first
+/** "Old Loop Lakelands" then "Old Loop Lakelands-2", "-3" and on (the page's `freeName`, D191, D345 B10): the first
  *  stem whose map and project file are both new in the folder. */
 function freeStem(folder: string, stem: string): string {
   const taken = (st: string) => existsSync(join(folder, `${st}.timber`)) || existsSync(join(folder, `${st}.damgoodmaps.json`));
