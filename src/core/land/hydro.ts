@@ -67,6 +67,8 @@ export interface Hydro {
   falls: { x: number; y: number; drop: number; river: string }[];
   arms: Arm[];
   flowTotal: number;
+  /** The tributaries wound as gorges for running deep under a wall (`deepStretch`), not for their planned cut. */
+  deepWound?: number;
 }
 
 export interface HydroOptions {
@@ -975,6 +977,7 @@ function planHydroSingle(E: Float64Array, h: Uint8Array, g: Genome, seed: number
   const floorOf = (flow: number) => (flow >= 1.2 ? g.hydro.floor : g.hydro.floor * 0.3);
   const courses: Point[][] = [];
   const wanders: (Wander | null)[] = [];
+  let deepWound = 0;
   for (const tr of traced) {
     const hd = tr.head;
     const cells = tr.cells;
@@ -1009,11 +1012,15 @@ function planHydroSingle(E: Float64Array, h: Uint8Array, g: Genome, seed: number
         });
     }
     // (a gorge winds at the map's own scale: `gorgeWander`; a course but the main river whose bed runs deep under a wall
-    // for half its gorge's wavelength or more is one, whatever its planned cut, D(gorge-followups))
+    // for half its gorge's wavelength or more is one, whatever its planned cut, D(gorge-followups), unless Canyon's promise
+    // was missed on this land with one wound so: such a tributary is often the canyon itself, in a slot a few tiles wide,
+    // and its bends carry it and its floor out through the slot's thinner wall, Canyon 48² seed 18)
     const wv0 = natural ? wanderOf(g, widthFor(hd.flow)) : null;
     const gw = wv0 && floorOf(hd.flow) < GORGE_FLOOR ? gorgeWander(wv0, W, H) : null;
-    const gorge = !!gw && gw !== wv0 && (cutOf(tr.k, hd.flow) >= GORGE_CUT || (tr.k !== mainK && deepStretch(path, h, W, H, widthFor(hd.flow) / 2, floorOf(hd.flow), cutOf(tr.k, hd.flow)) >= gw.cell / 2));
-    const wv = gorge ? gw : wv0;
+    const byCut = !!gw && gw !== wv0 && cutOf(tr.k, hd.flow) >= GORGE_CUT;
+    const deep = !!gw && gw !== wv0 && !byCut && !g.hydro.tributariesKept && tr.k !== mainK && deepStretch(path, h, W, H, widthFor(hd.flow) / 2, floorOf(hd.flow), cutOf(tr.k, hd.flow)) >= gw.cell / 2;
+    if (deep) deepWound++;
+    const wv = byCut || deep ? gw : wv0;
     if (wv) {
       if (tr.joins >= 0) {
         // the joined river's course is final: end on its nearest point
@@ -2266,7 +2273,7 @@ function planHydroSingle(E: Float64Array, h: Uint8Array, g: Genome, seed: number
     };
     for (const r of rivers) lowerFrom(r, 0, Infinity, 0);
   }
-  return { rivers, water, lakes, falls, arms, flowTotal };
+  return { rivers, water, lakes, falls, arms, flowTotal, ...(deepWound ? { deepWound } : {}) };
 }
 
 /** River Valley tries two courses around a drawn cliff and retains the stronger split.

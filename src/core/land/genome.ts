@@ -276,6 +276,9 @@ export interface Genome {
     bigSplit?: boolean;
     /** Twin falls: the split goes round the main river's biggest drop. */
     splitAtFall?: boolean;
+    /** Canyon's promise missed on a plan where a tributary deep under a wall wound as a gorge (`land/hydro.ts`
+     *  `deepStretch`): this land's next plans leave its tributaries on their own wander (set by `generate.ts`). */
+    tributariesKept?: boolean;
   };
   /** M9b intentions' steering (D274): a relic on ground the start cannot walk to; a plug across a
    *  big lake's outlet. */
