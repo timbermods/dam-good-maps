@@ -84,6 +84,10 @@ import { relaxEdges } from "../src/core/land/levels";
 import { EDITOR_LEVEL } from "../src/core/spec/mapspec";
 import { edgeLip } from "../src/core/water/edgeLip";
 import { aboveStart, placeSprings, startPool } from "../src/core/places/spring";
+import { PUMP_REACH } from "../src/core/analysis/walk";
+import { spillLevels } from "../src/core/sim/prefill";
+import { droughtStorageByDay } from "../src/core/sim/drought";
+import { DROUGHT } from "../src/core/gen/calibrated";
 import { placeRuins } from "../src/core/places/ruins";
 import { placeStartSpots, startTiles } from "../src/core/places/start";
 import { thumbnailRgba } from "../src/core/render/shade";
@@ -983,6 +987,196 @@ function realPoolFor(libraryId: string, place: PlaceData, surveyed: Uint8Array, 
   return { best: null, note: `  the start's pool on real water: none (${tried.join("; ")})` };
 }
 
+/** How far from the start's middle (tiles, straight) a holding hollow is looked for (planning's ruling of 2026-11-18). */
+const HOLLOW_REACH = 40;
+/** The holding hollows tried, the nearest first. */
+const HOLLOW_TRIES = 4;
+/** The strengths the hollow's spring is tried at: the official maps' weakest first (D171's range). */
+const HOLLOW_STRENGTHS = [FEED_MIN, 1];
+/** The spots by a hollow tried for the start, the nearest the hollow first. */
+const HOLLOW_SPOTS = 12;
+/** The depth a pool keeps at a Normal drought's end to count as water the start lasts the drought on: the pump's own
+ *  floor (`startPool`'s wet tile is deeper than this). */
+const HOLLOW_KEEPS = 0.3;
+/** The start's checks whose numbers a move to a hollow must hold or better (its water is what moves): its room, ways
+ *  out, moist ground, wood, fast share and berries. `start.badwater` is held apart: none, or no nearer. */
+const HELD_NUMBERS = ["start.level_land", "start.reach", "start.farmland", "start.forester", "start.wood", "start.wood_floor", "start.wood_fast", "start.food"];
+
+/** The start's pool after a Normal drought, or null (`droughtStorageByDay`: the water below each pool's spill stays,
+ *  less a day's evaporation a day, the generator's measure, D302's second arm). */
+function droughtPool(p: PlaceData, b: ReturnType<typeof buildPlace>) {
+  const after = droughtStorageByDay(b.model, b.settle.depth, DROUGHT.normal.days);
+  return startPool(p, b.heights, after, b.settle.contamination, { thin: FILM_DEPTH, thinShare: 2 });
+}
+
+/**
+ * D302 for a laid pool (planning's ruling of 2026-11-18): the start's water is fed by a running source or lasts the
+ * drought. A start whose pool is fed by a source the tool laid (none of the survey's) and dries in a Normal drought
+ * takes a holding hollow where one is near: the natural closed hollows within `HOLLOW_REACH` of the start's middle
+ * (dry ground at least a level below its spill, `spillLevels`) that, filled to their spill, keep `HOLLOW_KEEPS` by a
+ * shore at a Normal drought's end, the nearest first; each given a spring at its deepest tile (`HOLLOW_STRENGTHS`),
+ * then the start where it is and the spots nearest the hollow (`placeStartSpots`), each built and checked. Kept where
+ * the start has a pool and the pool it has at the drought's end lies in the hollow, nothing the start passed then fails, none of its numbers
+ * falls (`HELD_NUMBERS`; its berries planted where a move costs them, never wood), badwater comes no nearer, the water
+ * settles, no film above floor 0 grows, no source lands in another's flow and the water over real water is held. Far
+ * hollows are not built (the ruling: cheap and safe only); a pool the survey's sources feed is the real water's own.
+ */
+function droughtHollowFor(libraryId: string, fx: Fixture, place: PlaceData, r0: Checked): { best: { place: PlaceData; r: Checked } | null; note: string } {
+  const { W, H } = place;
+  const N = W * H;
+  const pool = startPool(place, r0.built.heights, r0.built.settle.depth, r0.built.settle.contamination, { thin: FILM_DEPTH, thinShare: FILM_THIN_SHARE });
+  if (!pool) return { best: null, note: "" };
+  // the pool's body (its wet tiles joined to the pump's), and whether a source the tool laid feeds it
+  const surveyed = new Set(fx.waterSources.map((s) => s.y * W + s.x));
+  const depth = r0.built.settle.depth;
+  const body = new Uint8Array(N);
+  const q = [pool.tile];
+  body[pool.tile] = 1;
+  while (q.length) {
+    const c = q.pop()!;
+    const x = c % W;
+    for (const n of [x > 0 ? c - 1 : -1, x + 1 < W ? c + 1 : -1, c - W, c + W])
+      if (n >= 0 && n < N && !body[n] && depth[n] > 0.001) {
+        body[n] = 1;
+        q.push(n);
+      }
+  }
+  if (!place.sources.some(([x, y]) => body[y * W + x] && !surveyed.has(y * W + x))) return { best: null, note: "" };
+  if (droughtPool(place, r0.built)) return { best: null, note: "  the start's laid pool lasts a Normal drought (D302)" };
+  // the holding hollows within reach
+  const m = r0.built.model;
+  const f = m.floor;
+  const sp = spillLevels({ ...m });
+  const sx = place.start[0] + 1;
+  const sy = place.start[1] + 1;
+  const hol = new Uint8Array(N);
+  for (let i = 0; i < N; i++) if (dist2((i % W) - sx, Math.floor(i / W) - sy) <= HOLLOW_REACH * HOLLOW_REACH && sp[i] - f[i] >= 1 && depth[i] < HOLLOW_KEEPS) hol[i] = 1;
+  const seen = new Uint8Array(N);
+  const found: { tiles: number[]; d: number; deepest: number }[] = [];
+  for (let s = 0; s < N; s++) {
+    if (!hol[s] || seen[s]) continue;
+    const tiles: number[] = [];
+    const st = [s];
+    seen[s] = 1;
+    while (st.length) {
+      const c = st.pop()!;
+      tiles.push(c);
+      const x = c % W;
+      for (const n of [x > 0 ? c - 1 : -1, x + 1 < W ? c + 1 : -1, c - W, c + W])
+        if (n >= 0 && n < N && hol[n] && !seen[n]) {
+          seen[n] = 1;
+          st.push(n);
+        }
+    }
+    const fill = new Float64Array(N);
+    for (const i of tiles) fill[i] = sp[i] - f[i];
+    const after = droughtStorageByDay(m, fill, DROUGHT.normal.days);
+    // (a shore a pump reaches it from at the drought's end)
+    let d = Infinity;
+    for (const i of tiles) {
+      if (after[i] < HOLLOW_KEEPS) continue;
+      const surf = f[i] + after[i];
+      const x = i % W;
+      for (const n of [x > 0 ? i - 1 : -1, x + 1 < W ? i + 1 : -1, i - W, i + W])
+        if (n >= 0 && n < N && !hol[n] && surf <= f[n] + 0.01 && surf >= f[n] - PUMP_REACH) d = Math.min(d, dist2((i % W) - sx, Math.floor(i / W) - sy));
+    }
+    if (d === Infinity) continue;
+    let deepest = tiles[0];
+    for (const i of tiles) if (sp[i] - f[i] > sp[deepest] - f[deepest]) deepest = i;
+    found.push({ tiles, d, deepest });
+  }
+  if (!found.length) return { best: null, note: `  the start's laid pool dries in a Normal drought and no hollow within ${HOLLOW_REACH} tiles holds one (D302: its source runs)` };
+  found.sort((a, b) => a.d - b.d || a.tiles[0] - b.tiles[0]);
+  const real = realOf(libraryId, W, H);
+  const had = new Set(r0.strictFails);
+  const filmed = (b: ReturnType<typeof buildPlace>) => films(b.settle.depth, b.model.floor, W, H).filter((x) => x.floor0 * 2 <= x.tiles.length).reduce((n, x) => n + x.tiles.length, 0);
+  const film0 = filmed(r0.built);
+  const m0 = realMeasure(depth, real);
+  const flow0 = flaggedSources(place).flagged.length;
+  const occupied = new Uint8Array(N);
+  for (const [x, y] of place.sources) occupied[y * W + x] = 1;
+  for (const i of startTiles(W, place.start)) occupied[i] = 1;
+  const num = (s: Checked["strict"], id: string) => Number(s.report.checks.find((c) => c.id === id)?.value ?? 0);
+  const bad = (s: Checked["strict"]) => {
+    const val = s.report.checks.find((c) => c.id === "start.badwater")?.value;
+    return typeof val === "number" ? val : Infinity;
+  };
+  const tried: string[] = [];
+  for (const h of found.slice(0, HOLLOW_TRIES)) {
+    const inHollow = new Uint8Array(N);
+    for (const i of h.tiles) inHollow[i] = 1;
+    const at = `${h.deepest % W},${Math.floor(h.deepest / W)}`;
+    if (occupied[h.deepest]) {
+      tried.push(`${h.tiles.length} at ${at}: its deepest tile is taken`);
+      continue;
+    }
+    let done: { place: PlaceData; r: Checked; walk: number; at: [number, number]; s: number } | null = null;
+    for (const s of HOLLOW_STRENGTHS) {
+      let wp: PlaceData = { ...place, sources: [...place.sources, [h.deepest % W, Math.floor(h.deepest / W), s]] };
+      let c = buildChecked(wp);
+      // (plants the new water leaves on soil that kills them move to moist ground close by or go, as everywhere: #523)
+      if (c.strictFails.includes("plants.survive") && !had.has("plants.survive") && c.strict.analysis) {
+        const a = c.strict.analysis;
+        wp = settlePlants(wp, { moisture: a.moisture, contamination: a.soilContamination, depth: c.built.settle.depth }, a.startDistance, PLANT_REACH).place;
+        c = buildChecked(wp);
+      }
+      const why = [
+        ...(r0.built.settle.settled && !c.built.settle.settled ? ["the water would not settle"] : []),
+        ...(filmed(c.built) > film0 ? ["a film above floor 0"] : []),
+        ...(realMeasure(c.built.settle.depth, real).real < m0.real ? ["less real water"] : []),
+        ...(flaggedSources(wp).flagged.length > flow0 ? ["a source in another's flow"] : []),
+        ...c.strictFails.filter((id) => !had.has(id) && !FREE.has(id)),
+      ];
+      if (why.length) {
+        tried.push(`${h.tiles.length} at ${at} (${s}): ${why.join(", ")}`);
+        continue;
+      }
+      const toHollow = (p: [number, number]) => {
+        let d = Infinity;
+        for (const i of h.tiles) d = Math.min(d, dist2((i % W) - p[0] - 1, Math.floor(i / W) - p[1] - 1));
+        return d;
+      };
+      const land = { moisture: c.strict.analysis!.moisture, reach: checkLimit(c.strict, "start.reach"), moist: checkLimit(c.strict, "start.farmland") + checkLimit(c.strict, "start.forester"), within: FARM_WALK };
+      const spots: [number, number][] = [
+        place.start,
+        ...placeStartSpots(wp, c.built.heights, c.built.settle.depth, c.built.settle.contamination, { limit: Infinity, walk: 20, land })
+          .map((p) => ({ p, d: toHollow(p) }))
+          .sort((a, b) => a.d - b.d || a.p[1] - b.p[1] || a.p[0] - b.p[0])
+          .slice(0, HOLLOW_SPOTS)
+          .map((x) => x.p),
+      ];
+      let short = "";
+      for (const p of spots) {
+        let cand = p === place.start ? wp : withStart(wp, p);
+        let r = p === place.start ? c : buildChecked(cand);
+        if (r.strictFails.includes("start.food") && !had.has("start.food")) ({ place: cand, r } = startBerries(cand, r));
+        const pl = poolOf(cand);
+        if (!pl) continue;
+        const fall = HELD_NUMBERS.filter((id) => num(r.strict, id) < num(r0.strict, id));
+        const worse = [...new Set([...r.strictFails.filter((id) => !had.has(id)), ...fall.map((id) => `${id} lower`), ...(bad(r.strict) < bad(r0.strict) ? ["start.badwater nearer"] : [])])];
+        if (worse.length) {
+          short ||= `${p.join(",")}: ${worse.join(", ")}`;
+          continue;
+        }
+        const dp = droughtPool(cand, r.built);
+        if (!dp || !inHollow[dp.tile]) {
+          short ||= `${p.join(",")}: ${dp ? "the water it lasts the drought on is not the hollow's" : "its water dries"}`;
+          continue;
+        }
+        if (done && dp.walk >= done.walk) continue;
+        done = { place: cand, r, walk: dp.walk, at: p, s };
+      }
+      if (done) break;
+      tried.push(`${h.tiles.length} at ${at} (${s}): ${short ? `none of ${spots.length} starts by it keeps every number and lasts the drought on it (the first, ${short})` : "no start by it has a pool"}`);
+    }
+    if (done) {
+      const where = done.at === place.start ? "the start where it is" : `the start at ${done.at.join(",")}`;
+      return { best: done, note: `  the start's pool for the drought (D302): a hollow of ${h.tiles.length} tiles at ${at} with a spring (${done.s}), ${where}, a pool ${Math.round(done.walk * 10) / 10} tiles' walk away; start ${startNumbers(r0.strict)} → ${startNumbers(done.r.strict)}` };
+    }
+  }
+  return { best: null, note: `  the start's laid pool dries in a Normal drought; no holding hollow within ${HOLLOW_REACH} tiles kept (${tried.join("; ")})` };
+}
+
 /** The pool the start's first settlers pump from (`startPool`: walkable, pumpable with the first pump, not a thin
  *  sheet), on the place as built; null when there is none within the start's walk. */
 function poolOf(p: PlaceData) {
@@ -1583,6 +1777,18 @@ function runPlaceOnce(item: LibraryItem): Outcome | null {
     }
   }
   lap("groves");
+  // A laid pool that dries in a Normal drought moves to a holding hollow near the start (D302, `droughtHollowFor`)
+  let hollow = "";
+  if (!floorsFail && !noWaterAtAll(strict)) {
+    const dh = droughtHollowFor(item.id, fx, place, { built, v, strict, blocking, strictFails });
+    hollow = dh.note;
+    if (dh.best) {
+      if (dh.best.place.start[0] !== place.start[0] || dh.best.place.start[1] !== place.start[1]) moved ??= place.start;
+      place = dh.best.place;
+      ({ built, v, strict, blocking, strictFails } = dh.best.r);
+    }
+  }
+  lap("hollow");
   // No place ships with no pumpable water within 20 tiles of its start (D(new-films), #1218): a start that the steps
   // above leave with none at all is withheld, printed with what was tried
   if (noWaterAtAll(strict)) {
@@ -1607,7 +1813,8 @@ function runPlaceOnce(item: LibraryItem): Outcome | null {
     plants +
     groves +
     realPool +
-    everySpot;
+    everySpot +
+    hollow;
   return finishPlace(item, place, surveyedRuins, t, notes, out);
 }
 
