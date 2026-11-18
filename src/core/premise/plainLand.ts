@@ -877,7 +877,7 @@ export function plainRelief(plan: PremisePlan, w: StageWater, upland: Uint8Array
             // below a step lies beside the reach above it, and the stream's water came a tile out over the bend, step 6)
             if (sv === gulch && off > 0.5) {
               let up = nq.s;
-              for (let j = Math.ceil(nq.s); j <= len; j++) if (hypot(sv.line[j][0] - u0, sv.line[j][1] - v0) <= sv.half[j] + 1.5) up = j;
+              for (let j = Math.ceil(nq.s); j <= len; j++) if (hypot(sv.line[j][0] - u0, sv.line[j][1] - v0) <= (sv.half[j] ?? sv.half[sv.half.length - 1]) + 1.5) up = j;
               cut = Math.max(cut, floorAt(sv, Math.min(len, up + GULCH_BANK)) + 1);
             }
             if (cut < z) z = cut;

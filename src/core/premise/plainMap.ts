@@ -658,14 +658,47 @@ export function plainSettled(land: PlainLand, map: PremiseMap, deadTrees: number
 }
 
 /** The plain's old channels (the dry washes kept to the plain, `land/washes.ts` `WashInput.within`): a main one at
- *  least `least` tiles long on a 128² map, `per128` of them (both by side elsewhere), `lip` tiles off the sloughs and the backswamp. The plain's own flow runs from
+ *  least `least` tiles long on a 128² map, `per128` of them (both by side elsewhere), `lip` tiles off the sloughs, the
+ *  backswamp and the levees, and `levee` + `lip` off the river's water (the first rung's levee stands up to `levee` past it). The plain's own flow runs from
  *  the levee's back across it to the backswamp, 25 to 45 tiles at 128² (50 to 135 at 256²): the shared pass's 60 (28 at
  *  least) found none there. */
-export const OLD_CHANNELS = { least: 16, per128: [2, 3] as const, lip: 2 };
+export const OLD_CHANNELS = { least: 16, per128: [2, 3] as const, lip: 2, levee: 3 };
+
+/** The tiles within `d` (Chebyshev) of a set tile of `m`. */
+function dilate(m: Uint8Array, W: number, H: number, d: number): Uint8Array {
+  const row = new Uint8Array(W * H);
+  for (let y = 0; y < H; y++) {
+    let last = -Infinity;
+    for (let x = 0; x < W; x++) {
+      if (m[y * W + x]) last = x;
+      if (x - last <= d) row[y * W + x] = 1;
+    }
+    last = Infinity;
+    for (let x = W - 1; x >= 0; x--) {
+      if (m[y * W + x]) last = x;
+      if (last - x <= d) row[y * W + x] = 1;
+    }
+  }
+  const out = new Uint8Array(W * H);
+  for (let x = 0; x < W; x++) {
+    let last = -Infinity;
+    for (let y = 0; y < H; y++) {
+      if (row[y * W + x]) last = y;
+      if (y - last <= d) out[y * W + x] = 1;
+    }
+    last = Infinity;
+    for (let y = H - 1; y >= 0; y--) {
+      if (row[y * W + x]) last = y;
+      if (last - y <= d) out[y * W + x] = 1;
+    }
+  }
+  return out;
+}
 
 /** A land's ground as the map is built on it (the red source's niche dug, the old channels cut) and its ladder on that
- *  ground, with the works checks it fails (`plainWorks.ts`); the start keeps a bench of `bench` level tiles. */
-export function plainWorksOf(land: PlainLand, bench: number): { heights: Uint8Array; niche: [number, number] | null; washes: Wash[]; ramps: [number, number][]; ladder: Ladder; works: { id: string; reason: string }[] } {
+ *  ground, with the works checks it fails (`plainWorks.ts`); the start keeps a bench of `bench` level tiles. `channels`
+ *  false leaves the old channels uncut (the test that they leave the levees as they were). */
+export function plainWorksOf(land: PlainLand, bench: number, channels = true): { heights: Uint8Array; niche: [number, number] | null; washes: Wash[]; ramps: [number, number][]; ladder: Ladder; works: { id: string; reason: string }[] } {
   const heights = land.heights.slice();
   const niche = redNiche(land.plan, land.water);
   if (niche) digNiche(heights, land.plan.W, niche);
@@ -682,22 +715,33 @@ export function plainWorksOf(land: PlainLand, bench: number): { heights: Uint8Ar
   // into a slough took its water off the floor, step 6: 256² seed 4 under `riverIn.green`'s 60 %)
   const cut: PremiseLand = { water: land.water, heights, niches: niche ? { badwater: niche } : {}, laid: { plugs: {}, banks: {} }, notes: [] };
   const { W, H } = land.plan;
+  const N = W * H;
   const fl = land.relief.floor;
-  const tiles = new Uint8Array(W * H);
   const L = OLD_CHANNELS.lip;
-  for (let y = 0; y < H; y++)
-    for (let x = 0; x < W; x++) {
-      if (fl[y * W + x] !== 1) continue;
-      let near = false;
-      for (let dy = -L; dy <= L && !near; dy++)
-        for (let dx = -L; dx <= L && !near; dx++) {
-          const xx = x + dx;
-          const yy = y + dy;
-          if (xx >= 0 && yy >= 0 && xx < W && yy < H && (fl[yy * W + xx] === 2 || fl[yy * W + xx] === 4)) near = true;
-        }
-      if (!near) tiles[y * W + x] = 1;
+  const r = land.water.raster;
+  const river = land.plan.links.findIndex((l) => l.id === I.river) + 1;
+  // (the ground a channel keeps off, each with its margin: the sloughs and the backswamp; the levees, the river's banks
+  // over the land (`relief.bank`) and the plain's edge on a riser over the backswamp or a slough, where the swamp levee
+  // is raised (`plainWorks.ts` `swampLeveeSite`); the river's water, past whose edge the first rung's levee is raised
+  // up to `OLD_CHANNELS.levee` tiles (`lowLeveeSite`). A channel on a levee's flank would lower what the player pays to
+  // break or raise, and no check reads it. The other works, the turn's site, the weir and the pond, and the red source's
+  // niche are off the plain or kept off by every wash's own keep-off, `premise/washes.ts`)
+  const water = new Uint8Array(N);
+  const levee = new Uint8Array(N);
+  const low = new Uint8Array(N);
+  for (let i = 0; i < N; i++) {
+    if (fl[i] === 2 || fl[i] === 4) low[i] = 1;
+    if (river && r.channel[i] === river) water[i] = 1;
+    if (land.relief.bank[i] > 0) levee[i] = 1;
+    else if (fl[i] === 1) {
+      const x = i % W;
+      for (const j of [x > 0 ? i - 1 : -1, x + 1 < W ? i + 1 : -1, i - W, i + W]) if (j >= 0 && j < N && (fl[j] === 2 || fl[j] === 4) && heights[j] < heights[i]) levee[i] = 1;
     }
-  const washes = premiseWashes(land.plan, cut, land.frame.start, land.attempt, bench, { tiles, ...OLD_CHANNELS });
+  }
+  const near = [dilate(low, W, H, L), dilate(levee, W, H, L), dilate(water, W, H, OLD_CHANNELS.levee + L)];
+  const tiles = new Uint8Array(N);
+  for (let i = 0; i < N; i++) if (fl[i] === 1 && !near.some((m) => m[i])) tiles[i] = 1;
+  const washes = channels ? premiseWashes(land.plan, cut, land.frame.start, land.attempt, bench, { tiles, least: OLD_CHANNELS.least, per128: OLD_CHANNELS.per128 }) : [];
   const ladder = plainLadder(land, heights, niche);
   return { heights, niche, washes, ramps: cut.ramps ?? [], ladder, works: plainWorksFailures({ land, heights, ladder, niche }) };
 }

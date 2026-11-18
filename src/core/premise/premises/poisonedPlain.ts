@@ -270,18 +270,18 @@ export const RED_SHARE = { low: 1 / 5, normal: 1 / 4, high: 1 / 3 } as const;
 export const RED_BED = { carry: 1.8, depth: 0.6, least: 3 } as const;
 /** The red stream's half-width for its flow (`RED_BED`). */
 export const redHalf = (flow: number): number => Math.max(RED_BED.least, Math.ceil(flow / (RED_BED.carry * RED_BED.depth))) / 2;
-/** The red stream's pools (step 5, planning: the red stream read as a one-tile thread in the whole-map frame at 192²
- *  and 256²): a stream on a backswamp's flat scours its bends, so its bed widens there by up to `widen` tiles either
- *  side, by how sharply it turns over `window` of its points either way (`turn` degrees and more: the whole widening),
- *  and keeps its own width where it runs straight, over its first `from` points below the Red Pool (the pool's sill is
- *  its head bed, `RED_BED.depth`) and across the plain to its join; never past `edge` tiles short of the backswamp's
- *  edges. The bends' pools are the land's own shape: no width is laid where the stream does not turn. */
 /** The red stream's course across the backswamp (step 6, planning's look at step 5: at 256² seed 2 its meander read
  *  as a drawn wave): meandered by the river's own maker (`gateBrooks.ts` `meander`), its stream's width and its bends
  *  varying along it as the river's do (`TRUNK_VARY`), about an axis that drifts across the backswamp by noise of cell
  *  `cell` tiles, up to `most` of the backswamp's width off its drawn share and within `keep` of it (the room its bends
  *  swing in moves with it, so no reach's lobes are capped alike). */
 export const RED_DRIFT = { most: 0.6, cell: 36, keep: [0.2, 0.8] as const } as const;
+/** The red stream's pools (step 5, planning: the red stream read as a one-tile thread in the whole-map frame at 192²
+ *  and 256²): a stream on a backswamp's flat scours its bends, so its bed widens there by up to `widen` tiles either
+ *  side, by how sharply it turns over `window` of its points either way (`turn` degrees and more: the whole widening),
+ *  and keeps its own width where it runs straight, over its first `from` points below the Red Pool (the pool's sill is
+ *  its head bed, `RED_BED.depth`) and across the plain to its join; never past `edge` tiles short of the backswamp's
+ *  edges. The bends' pools are the land's own shape: no width is laid where the stream does not turn. */
 export const RED_POOLS = { widen: 2, window: 2, turn: 50, from: 3, edge: 1 } as const;
 
 /** The red stream's half-width at each point of its path (local, `RED_POOLS`): its flow's (`half`), widened at its
