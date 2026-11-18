@@ -559,7 +559,6 @@ const TODAY_KEPT: Record<string, string> = {
   "waimakariri-river": "film 363 at 217,230: its bed costs start.farmland and start.forester",
   "na-pali-coast": "film 519 at 46,1: its bed gives water.outflow and costs real water; film 2199 at 2,62 over the real sea: its basin gives water.outflow and a source in another's flow",
   gullfoss: "film 435 at 112,25: its bed costs start.food and real water",
-  "taklimakan-kunlun-fan": "film 1506 at 239,75: its bed costs start.farmland and start.forester; films 420 and 439: their beds leave the water unsettled",
   "milford-sound": "film 359 at 191,121: its bed grows the water over real dry land",
   "mount-fuji": "film 138 at 28,22: its bed leaves the water unsettled and costs start.food",
   "victoria-falls": "film 1353 at 35,86: its basin gives water.outflow and costs real water",
@@ -1089,12 +1088,13 @@ const D302_REASON = "its start meets neither arm of D302: its water within its w
 /** D302 at build (planning's ruling of 2026-11-18): a start's water is fed by a running source or lasts the drought. A
  *  place whose start has no pool within its walk (`startPool`: a thin sheet is not water a source feeds the start) and
  *  none after a Normal drought (`droughtStorageByDay`) is not offered: no data, card or index entry, named with the
- *  reason and its build's line. */
+ *  reason and its build's line. Its build is the fresh one: a withheld place keeps no file, so none is `TODAY_KEPT`. */
 function withheldByD302(o: Outcome | null): Outcome | null {
   if (!o || !o.entries.length || o.d302 !== false) return o;
   const e = o.entries[0];
   const lines = [`WITHHELD ${e.size}² ${e.name}: ${D302_REASON}`, ...o.lines.map((l, k) => (k ? l : `   (its build: ${l.trim()})`))];
-  return { ...o, withheld: [...o.withheld, e.name], entries: [], files: [], pool: false, lines };
+  // (a place withheld ships nothing, so a check its build fails is printed with that build, not counted a failure)
+  return { ...o, withheld: [...o.withheld, e.name], entries: [], files: [], pool: false, failed: false, lines };
 }
 
 /** Whether a start meets D302 (`withheldByD302`): its water within its walk is a pool, or a pool lasts a Normal drought. */
