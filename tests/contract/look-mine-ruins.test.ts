@@ -107,8 +107,9 @@ import * as ed from "../../src/worker/session";
 // and generator 0.10.39 over the cap: `7006d8e4…` before it, the version alone (D(plates-turned) moves a premise's plates, never a
 // theme's land), on the land the cap (#1213, merged in
 // from dev) gives; against this branch's own pin before the merge (`9bd38788…`, the floor pass's cap alone) it moved by land too, D148
-// and generator 0.10.40's version alone on dev (#1225, small maps at their own scale, which a 128² map never reaches: dev's
-// `a7d8de7f…`), D148
+// and generator 0.10.40's version alone (#1225, small maps at their own scale, which a 128² map never reaches), D148
+// and generator 0.10.42's version alone (#1227, Easy start shaped on the settled water, which a map without Easy start never
+// reaches): with the version set back to 0.10.40 the branch gives `a7d8de7f…` byte for byte, D148
 // and generator 0.10.43's gullies and sea steps (D(new-ditch), D(sea-steps)): `94761289…` before it, not the version alone (with
 // the version set back to 0.10.39 the branch gives `2159e2bd…`): its pits' gullies move its land, the map made on its second
 // attempt, every check passing, D148 (`a81e89f1…` at 0.10.41; 0.10.43 the version alone, #1227 taking 0.10.42, D148)

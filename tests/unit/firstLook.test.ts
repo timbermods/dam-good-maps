@@ -1,7 +1,7 @@
 // The map-making dialog's words (Kyler, 2026-10-05): each layout that reaches a stage takes that stage's next wording,
 // a stage a failed layout never reached keeps its place, and past the last the last stays.
 import { expect, test } from "vitest";
-import { countText, elapsedWords, progressText, sayStage, stageText, whyText, type Progress, type Said } from "../../src/ui/FirstLook";
+import { attemptMade, countText, elapsedWords, progressText, sayStage, stageText, whyText, type Progress, type Said } from "../../src/ui/FirstLook";
 
 const at = (said: Said | undefined, stage: string, attempt: number): Progress => ({ attempt, stage, land: null, said: sayStage(said, stage, attempt) });
 
@@ -39,6 +39,15 @@ test("the count line: the attempt and the time so far, said once the first secon
   expect(countText(at(first.said, "land", 2), 134)).toBe("Attempt 3 · 2 min 14 s");
   // the map that passed says its own words
   expect(countText({ ...first, candidate: {} as never }, 90)).toBe("");
+});
+
+test("the attempt counted is every round's: a rescue round's own count starting again never shows a smaller number", () => {
+  // (the generator's stage: its attempt in its round, and the attempts that failed before it, every round's)
+  expect(attemptMade({ attempt: 0 })).toBe(0);
+  expect(attemptMade({ attempt: 3, tried: 3 })).toBe(3);
+  // round 2's first attempt, after 24 failed in round 1: the 25th attempt
+  const made = attemptMade({ attempt: 0, tried: 24 });
+  expect(countText(at(undefined, "land", made), 1920)).toBe("Attempt 25 · 32 min 0 s");
 });
 
 test("the line under the count: why the last try was refused, from the second attempt on; a pause said until the next attempt", () => {

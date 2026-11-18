@@ -272,6 +272,9 @@ async function setUp(page: Page, size: Size, hide: boolean) {
     }
     await expect.poll(() => page.evaluate(() => window.dgm3d!.renderer.objectsHidden)).toBe(true);
   }
+  // (the room settled first: Show's sheet closing slides the view, and a slide still on its way took the view back from
+  // the one set here, to the first view's distance, on a small tablet a map too small for the fingers' room, page-six)
+  await still(page);
   await page.evaluate(() => {
     const r = window.dgm3d!.renderer;
     const m = r.mapState()!;

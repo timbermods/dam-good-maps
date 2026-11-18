@@ -82,6 +82,10 @@ way, proposes the change on [#236](https://github.com/timbermods/dam-good-maps/i
   small shards), in about six minutes: the clipping net in full (`textClipping`) and the specs that pin the page's layout, rows, menus, tooltips and key caps
   (the list is in `ci.yml`). A PR that touches no page file skips it. A PR that touches the page merges only when `page` is green (a
   failed spec is a real fault in the page, fixed in the PR); the rest of the browser specs still run on dev after the merge.
+  **The `forces` job:** a PR into dev that changes a force (its Rust, its Wasm, `src/core/forces/`, its row), the worker
+  that runs it (`src/worker/session.ts`, `generator.worker.ts`) or the water it steps (`src/core/sim/water.ts`,
+  `stackWater.ts`, `stackLive.ts`) also runs the forces' browser specs (`isForces` in tools/ci-changes.mjs; the worker and
+  the water since 2026-11-17: #1222 merged without them and broke taking a force back on dev).
   **A re-merge of dev keeps its approval when the conflict was only in `docs/decisions/*.md`,** the two sides having changed
   different decision lines, and `tools/mergedecisions.py` resolved it. That merge commit says "decisions merged by
   tools/mergedecisions.py", and the merge loop runs `python tools/mergedecisions.py --check <merge commit>` on it before

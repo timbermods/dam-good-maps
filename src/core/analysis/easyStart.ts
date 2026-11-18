@@ -227,7 +227,8 @@ const plural = (n: number, one: string, many = `${one}s`) => `${n} ${n === 1 ? o
 const round = (v: number) => (Number.isFinite(v) ? Math.round(v * 10) / 10 : v);
 
 /** Each target of Easy start as the map holds it (`EASY_START`, scaled by `easyTargets`). A map without a start
- *  has none: an empty list. */
+ *  has none: an empty list. `only` names the rows wanted: the whole-map readings only the others need (the drought's
+ *  soil, the opening frame) are then left out. */
 export function easyStartMeasures(m: EasyStartInput, t: EasyTargets = easyTargets(m.W, m.H), only: readonly string[] | null = null): EasyMeasure[] {
   const { W, H, heights: h, objects } = m;
   const N = W * H;
@@ -237,6 +238,7 @@ export function easyStartMeasures(m: EasyStartInput, t: EasyTargets = easyTarget
   if (!st) return [];
   const { x, y, level: L } = st;
   const out: EasyMeasure[] = [];
+  const asks = (id: string) => !only || only.includes(id);
   const { blocked, links } = walkWorld(objects, W, H);
   const walk = walkDistance(h, W, H, blocked, links, { x, y });
   const reach = new Float64Array(N);
@@ -324,27 +326,30 @@ export function easyStartMeasures(m: EasyStartInput, t: EasyTargets = easyTarget
     ...(badAt >= 0 && nearestBad < t.badwaterSource ? { where: { tiles: [xy(badAt, W)] } } : {}),
   });
 
-  // 4. food that lasts a drought, and farmland
-  const cd = new Float64Array(N);
-  for (let i = 0; i < N; i++) if (kept[i] > 0) cd[i] = C[i];
-  const dryMoist = gameSoil(W, H, h, kept, cd, objects).moisture;
-  let bushes = 0;
-  for (const o of objects) {
-    if (o.template !== "BlueberryBush" || o.x < 0 || o.y < 0 || o.x >= W || o.y >= H) continue;
-    const lnr = o.components?.LivingNaturalResource as { IsDead?: unknown } | undefined;
-    if (lnr && lnr.IsDead === true) continue;
-    const i = o.y * W + o.x;
-    if (reach[i] > t.bushesWithin) continue;
-    if (!(m.moisture[i] > 0) || D[i] > 0 || m.soilContamination[i] > 0 || !(dryMoist[i] > 0)) continue;
-    bushes++;
+  // 4. food that lasts a drought, and farmland (the drought's soil is a whole-map reading: left out where its row is
+  //    not asked for, the generator's read of the land before anything is planted)
+  if (asks("start.easy_food")) {
+    const cd = new Float64Array(N);
+    for (let i = 0; i < N; i++) if (kept[i] > 0) cd[i] = C[i];
+    const dryMoist = gameSoil(W, H, h, kept, cd, objects).moisture;
+    let bushes = 0;
+    for (const o of objects) {
+      if (o.template !== "BlueberryBush" || o.x < 0 || o.y < 0 || o.x >= W || o.y >= H) continue;
+      const lnr = o.components?.LivingNaturalResource as { IsDead?: unknown } | undefined;
+      if (lnr && lnr.IsDead === true) continue;
+      const i = o.y * W + o.x;
+      if (reach[i] > t.bushesWithin) continue;
+      if (!(m.moisture[i] > 0) || D[i] > 0 || m.soilContamination[i] > 0 || !(dryMoist[i] > 0)) continue;
+      bushes++;
+    }
+    out.push({
+      id: "start.easy_food",
+      ok: bushes >= t.bushes,
+      value: bushes,
+      limit: t.bushes,
+      message: `${plural(bushes, "berry bush", "berry bushes")} within ${t.bushesWithin} tiles' walk stay moist through a ${DROUGHT_DAYS}-day drought (at least ${t.bushes})`,
+    });
   }
-  out.push({
-    id: "start.easy_food",
-    ok: bushes >= t.bushes,
-    value: bushes,
-    limit: t.bushes,
-    message: `${plural(bushes, "berry bush", "berry bushes")} within ${t.bushesWithin} tiles' walk stay moist through a ${DROUGHT_DAYS}-day drought (at least ${t.bushes})`,
-  });
   let farmland = 0;
   for (let i = 0; i < N; i++) if (!wet(i) && reach[i] <= t.farmlandWithin && m.moisture[i] > 0 && !(m.soilContamination[i] > 0) && !blocked[i]) farmland++;
   out.push({
@@ -399,16 +404,18 @@ export function easyStartMeasures(m: EasyStartInput, t: EasyTargets = easyTarget
   });
 
   // 8. readable at a glance: the start's water in the game's opening frame
-  const frame = openingFrame({ x, y, z: L, orientation: st.orientation }, W, H, { heights: h, zoom: L * 0.1 }).mask;
-  const shore = served.tile;
-  const seen = shore >= 0 && frame[shore] === 1;
-  out.push({
-    id: "start.easy_view",
-    ok: seen,
-    value: seen ? 1 : 0,
-    limit: 1,
-    message: seen ? "The start's water shows in the game's opening view" : "The start's water is out of the game's opening view",
-  });
+  if (asks("start.easy_view")) {
+    const frame = openingFrame({ x, y, z: L, orientation: st.orientation }, W, H, { heights: h, zoom: L * 0.1 }).mask;
+    const shore = served.tile;
+    const seen = shore >= 0 && frame[shore] === 1;
+    out.push({
+      id: "start.easy_view",
+      ok: seen,
+      value: seen ? 1 : 0,
+      limit: 1,
+      message: seen ? "The start's water shows in the game's opening view" : "The start's water is out of the game's opening view",
+    });
+  }
   // the first badtide, last and only where every other target holds: its run is the slow part, and a map that
   // misses another is planned again anyway
   const asked = only ? out.filter((o) => only.includes(o.id)) : out;

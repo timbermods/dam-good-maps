@@ -1,13 +1,14 @@
 // The editor's markup. The parts that are long are plain functions of the bag (header.tsx,
 // topBar.tsx, viewControls.tsx), called inline here, so the vnode tree is one.
 
-import type { JSX } from "preact";
+import type { ComponentChildren, JSX } from "preact";
+import { useLayoutEffect, useRef } from "preact/hooks";
 import { View3D } from "../../ui/View3D";
 import { LookMenu } from "../../ui/LookMenu";
 import { tip } from "../../ui/Tooltip";
 import { HistoryPanel, StartIndicators } from "../panels";
 import { LEGEND_TEMPLATES } from "../shelfItems";
-import { measureInsets } from "../view/insets";
+import { firstInsets } from "../view/insets";
 import { PointerNote } from "../view/pointerNote";
 import { mapCounts } from "../features";
 import { GeneratorPanel } from "../generator/GeneratorPanel";
@@ -56,20 +57,12 @@ export function editorView(ed: Ed, props: EditorProps) {
   );
   // a phone's pages (#1074), and a tablet's: each of the menu's panels the whole view under the bar, over the dock, a plain
   // way back to the map at its top, scrolling as one page; the desktop's panels as they are
-  const phonePage = (title: string, close: () => void, panel: JSX.Element) =>
+  // (the map's own History opens where the map is now, never where another map's was left)
+  const phonePage = (title: string, close: () => void, panel: JSX.Element, kept = true) =>
     sheets ? (
-      <div class="phone-page" role="region" aria-label={title}>
-        <div class="phone-page-head">
-          <button type="button" class="phone-back" {...tip("Back to the map")} onClick={close}>
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-              <path d="M15 5l-7 7 7 7" />
-            </svg>
-            <span>Map</span>
-          </button>
-          <h2 class="phone-page-title">{title}</h2>
-        </div>
-        <div class="phone-page-body">{panel}</div>
-      </div>
+      <PhonePage title={title} close={close} kept={kept}>
+        {panel}
+      </PhonePage>
     ) : (
       panel
     );
@@ -87,7 +80,7 @@ export function editorView(ed: Ed, props: EditorProps) {
         {props.placesOpen ? phonePage("Real places", () => props.onPlaces(false), <RealPlaces onOpen={props.drawer.onOpenPlace} />) : null}
         {props.mapsOpen ? phonePage("Your maps", () => props.onMaps(false), <YourMaps model={props.drawer} />) : null}
         {/* History in the left panel's place, over the map, one panel at a time (Kyler, 2026-10-06) */}
-        {showHistory ? phonePage("History", () => setShowHistory(false), <HistoryPanel info={info} onJump={(k, step) => void ed.jump(k, step)} onKeep={props.onKeepStep} onClose={() => setShowHistory(false)} />) : null}
+        {showHistory ? phonePage("History", () => setShowHistory(false), <HistoryPanel info={info} onJump={(k, step) => void ed.jump(k, step)} onKeep={props.onKeepStep} onClose={() => setShowHistory(false)} />, false) : null}
         <section class="editor-map" aria-label="Map">
           <div class="editor-map-area">
             <View3D
@@ -105,7 +98,7 @@ export function editorView(ed: Ed, props: EditorProps) {
               besideHeight={levelLinesButton(ed)}
               legendInCorner
               legendOpen={false}
-              frameInsets={measureInsets}
+              frameInsets={firstInsets}
               keepView={props.keepView}
               startMode={props.carry?.mode}
               legendIcon={(label) => (LEGEND_TEMPLATES[label] ? (icons[LEGEND_TEMPLATES[label]] ?? null) : null)}
@@ -173,5 +166,35 @@ export function editorView(ed: Ed, props: EditorProps) {
       <DropTarget onFile={props.onOpenFile} />
     </div>
     </ForceFloor.Provider>
+  );
+}
+
+/** Where each of the menu's pages was scrolled to when it was left, by its title: the menu reopens a page as it was left
+ *  (planning, #1074: a page that covered the map closes once the new map shows, and Map Generator, then Generate, makes the
+ *  next), though the editor is drawn afresh for every map. */
+const pageScroll = new Map<string, number>();
+
+/** One of the menu's pages on a phone or a tablet: the whole view under the bar, Map at its top, scrolling as one. */
+function PhonePage(p: { title: string; close(): void; kept: boolean; children: ComponentChildren }) {
+  const body = useRef<HTMLDivElement>(null);
+  useLayoutEffect(() => {
+    const at = p.kept ? pageScroll.get(p.title) : 0;
+    if (at && body.current) body.current.scrollTop = at;
+  }, []);
+  return (
+    <div class="phone-page" role="region" aria-label={p.title}>
+      <div class="phone-page-head">
+        <button type="button" class="phone-back" {...tip("Back to the map")} onClick={p.close}>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M15 5l-7 7 7 7" />
+          </svg>
+          <span>Map</span>
+        </button>
+        <h2 class="phone-page-title">{p.title}</h2>
+      </div>
+      <div class="phone-page-body" ref={body} onScroll={p.kept ? (e) => pageScroll.set(p.title, (e.currentTarget as HTMLElement).scrollTop) : undefined}>
+        {p.children}
+      </div>
+    </div>
   );
 }
