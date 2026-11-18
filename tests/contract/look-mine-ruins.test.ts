@@ -120,7 +120,9 @@ import * as ed from "../../src/worker/session";
 // version alone (with the version set back to 0.10.44 the merged code gives `920ac6af…`): its pits' gullies move its land, the
 // map made on its second attempt, every check passing; the gorge follow-ups do not reach it, so this is the bytes the branch
 // gave before #1240 merged in, D148
-const LIVE_SHA = "0a7daa745fd9555f0491d54518bc764d1f654e3bb608f3f34cb2c65d1446664d";
+// and generator 0.10.47's version alone (the merge of #1162's ruled water, D(ruled-water), with #1195 at 0.10.46, which moves none
+// of this map): with the version set back to 0.10.46 the merge gives `0a7daa74…` byte for byte, D148
+const LIVE_SHA = "8d38367a59b2acd17f40bb61488748bf31e4f9706cd85f763ac8a31ce5a96bbb";
 const spec = () => makeSpec({ seed: 4242, size: { x: 128, y: 128 }, theme: "riverValley", designedFor: "normal" });
 
 describe("mine sites and ruins, models of our own", () => {
