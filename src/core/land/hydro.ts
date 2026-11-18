@@ -339,6 +339,49 @@ export function gorgeWander(wv: Wander, W: number, H: number): Wander {
   return { ...wv, cell: wv.cell * f, taper: Math.round(7 * f) };
 }
 
+/** The longest stretch of a course, in tiles, along which its bed would run more than `GORGE_CUT` levels under the higher
+ *  of its banks just past its floor: its floor (a level over its bed) under a wall of `GORGE_CUT` or more
+ *  (D(gorge-followups)). A tributary's planned cut is a level or two under the lowest ground beside it, but where it runs
+ *  down a terrace's edge or through a rise its bed follows the lowest ground upstream, and the wall on its high side
+ *  stands at its water: Canyon 48² seed 18's spring tributary, cut a level, ran 13 tiles under a plateau's wall four
+ *  and five levels high, 16.3 tiles of it straight. Its bed as the carve will set it, from the land before any channel
+ *  (the lowest ground within 1.6 tiles of its channel, less its cut, never rising downstream); each bank the highest
+ *  ground one to two tiles past its floor. */
+export function deepStretch(path: Point[], h: Uint8Array, W: number, H: number, half: number, floorHalf: number, cut: number): number {
+  const pts = resample(path, 1);
+  const n = pts.length;
+  const at = (x: number, y: number) => h[Math.round(clamp(y, 0, H - 1)) * W + Math.round(clamp(x, 0, W - 1))];
+  const R = half + 1.6;
+  let run = Infinity;
+  let len = 0;
+  let best = 0;
+  for (let k = 0; k < n; k++) {
+    const [px, py] = pts[k];
+    let ring = Infinity;
+    for (let y = Math.max(0, Math.floor(py - R)); y <= Math.min(H - 1, Math.ceil(py + R)); y++)
+      for (let x = Math.max(0, Math.floor(px - R)); x <= Math.min(W - 1, Math.ceil(px + R)); x++) {
+        const d2 = (x - px) * (x - px) + (y - py) * (y - py);
+        if (d2 >= half * half && d2 <= R * R && h[y * W + x] < ring) ring = h[y * W + x];
+      }
+    if (ring < Infinity) run = Math.min(run, ring - cut);
+    if (!(px >= 0 && py >= 0 && px <= W - 1 && py <= H - 1) || run === Infinity) {
+      len = 0;
+      continue;
+    }
+    const a = pts[Math.max(0, k - 3)];
+    const b = pts[Math.min(n - 1, k + 3)];
+    const dx = b[0] - a[0];
+    const dy = b[1] - a[1];
+    const l = portable.sqrt(dx * dx + dy * dy) || 1;
+    let bank = 0;
+    for (const sg of [-1, 1])
+      for (let t = half + floorHalf + 1; t <= half + floorHalf + 2; t++) bank = Math.max(bank, at(px - (sg * dy * t) / l, py + (sg * dx * t) / l));
+    len = bank - Math.max(BED_FLOOR, run) > GORGE_CUT ? len + 1 : 0;
+    best = Math.max(best, len);
+  }
+  return best;
+}
+
 /** A river's wander from the genome: rivers wander more where the genome's water wanders more (the
  *  snaking river's nudge raises it), and every river meanders: `amp` is the swing off the valley's
  *  line in tiles, `minAmp` the least it keeps where the valley is narrow (it cuts its bends into the
@@ -965,9 +1008,12 @@ function planHydroSingle(E: Float64Array, h: Uint8Array, g: Genome, seed: number
           return [Math.round((lx + (1 - pull) * (px - lx)) * 100) / 100, Math.round((ly + (1 - pull) * (py - ly)) * 100) / 100] as Point;
         });
     }
-    // (a gorge winds at the map's own scale: `gorgeWander`)
+    // (a gorge winds at the map's own scale: `gorgeWander`; a course but the main river whose bed runs deep under a wall
+    // for half its gorge's wavelength or more is one, whatever its planned cut, D(gorge-followups))
     const wv0 = natural ? wanderOf(g, widthFor(hd.flow)) : null;
-    const wv = wv0 && cutOf(tr.k, hd.flow) >= GORGE_CUT && floorOf(hd.flow) < GORGE_FLOOR ? gorgeWander(wv0, W, H) : wv0;
+    const gw = wv0 && floorOf(hd.flow) < GORGE_FLOOR ? gorgeWander(wv0, W, H) : null;
+    const gorge = !!gw && gw !== wv0 && (cutOf(tr.k, hd.flow) >= GORGE_CUT || (tr.k !== mainK && deepStretch(path, h, W, H, widthFor(hd.flow) / 2, floorOf(hd.flow), cutOf(tr.k, hd.flow)) >= gw.cell / 2));
+    const wv = gorge ? gw : wv0;
     if (wv) {
       if (tr.joins >= 0) {
         // the joined river's course is final: end on its nearest point
