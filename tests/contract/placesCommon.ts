@@ -48,8 +48,8 @@ export const PLACES_WATER_KEEPS_MOVING = new Set<string>([]);
  *  sources with no head within 20 tiles and merges that move the depth below too far.
  *  The list only shrinks. */
 export const PLACES_SOURCES_IN_FLOW = new Set([
-  "chocolate-hills", "geirangerfjord", "iguazu-falls", "kenai-aialik-bay", "lofoten", "mamore-river",
-  "mount-fuji", "niagara-falls", "roaring-river-fan", "sete-cidades", "taklimakan-kunlun-fan",
+  "chocolate-hills", "geirangerfjord", "iguazu-falls", "kenai-aialik-bay", "mamore-river",
+  "mount-fuji", "niagara-falls", "roaring-river-fan", "sete-cidades",
 ]);
 
 /** A mine site on every map (Kyler, 2026-09-25): the places as converted for real-places-done have
@@ -83,13 +83,9 @@ export const PLACES_BELOW_THE_FLOOR = new Set([
  *  shore the start walks to draws from with the first pump, in a body that stands as a pool, not a thin sheet. A start
  *  with no water in reach is withheld (tools/real-places.ts prints each with what was tried: Glencoe, Ngorongoro, and
  *  Twelve Apostles by `WITHHELD_UNTIL`). A place whose start has no pool is built again under the pool
- *  rule (#1218, `runPlace`); these two pass `start.water` on a thin sheet by the start, which the first logs can dam into
- *  a pool, and no mend gives them one: Lofoten's sea is a floor-0 sheet and its three lakes nearest the start give no
- *  pool (no spot by them pumps from them; a bed cut leaves a film, a head source stands in another's flow), and no
- *  spring by the start or six dry spots near it stands as a pool; Taklimakan Kunlun fan (today's build, `TODAY_KEPT`)
- *  has no real water within 64 tiles, and every spring by its start or six spots near it joins its sheet. The list only
- *  shrinks. */
-export const PLACES_START_WITHOUT_POOL = new Set(["lofoten", "taklimakan-kunlun-fan"]);
+ *  rule (#1218, `runPlace`), and one whose start then meets neither arm of D302 (no pool, and none lasting a Normal
+ *  drought) is withheld by the tool's rule (`withheldByD302`, planning's ruling of 2026-11-18: Lofoten and Taklimakan
+ *  Kunlun fan, D148: this list held them), so every offered start has a pool. */
 
 /** The start's water is never a sealed puddle (Kyler's D302, M9a), and a start has water a pump
  *  reaches: these places' starts reach no water a source feeds, which `start.water` refuses (a
@@ -201,7 +197,7 @@ export function checkShard(k: number, n: number): void {
       // pumpable water within 20 tiles' walk of the start, standing as a pool (`startPool`, on the place's own settle)
       const data = placeData(entry);
       const pool = startPool(data, decodeHeights(data.heights), r.validation.water!.depth, r.validation.water!.contamination, { within: 20, thin: FILM_DEPTH, thinShare: FILM_THIN_SHARE });
-      expect(pool !== null, `${entry.id}: the start's pool`).toBe(!PLACES_START_WITHOUT_POOL.has(entry.id));
+      expect(pool, `${entry.id}: the start's pool`).not.toBeNull();
       // the faults the index records are the ones this build has: the gallery hides by them (D421)
       const has: Record<(typeof PLACE_FAULT_CHECKS)[number], boolean> = { "water.source_in_flow": f.sourceInFlow, "water.outflow": f.outflow, "water.settles": f.settles, "start.wood": f.wood, "start.wood_floor": f.floor, "start.water": f.startWater, "start.food": f.food, "plants.survive": f.plants };
       expect(entry.faults).toEqual(PLACE_FAULT_CHECKS.filter((id) => has[id]));
