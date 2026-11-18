@@ -432,6 +432,16 @@ const isTerrainKind = (f: Feature) => f.kind === "landform" || f.kind === "setPi
 
 // ------------------------------------------------------------------------------------ entry points
 
+/** The start's entity as a build places it (step 12, after the resources): what reads the start on a build stopped
+ *  before its resources (`stopBeforeResources`), whose entities hold none, adds this one. */
+export function startEntity(start: StartFeature, heights: ArrayLike<number>, W: number): EntitySpec {
+  const [cx, cy] = start.params.position;
+  const o = start.params.orientation;
+  const [x, y] = coordinatesForMinCorner(3, 3, cx - 1, cy - 1, o);
+  // (under a roof, at its level: a cave's floor, the ground under a ledge, D491)
+  return startingLocation({ id: entityId(start.id, "StartingLocation", 0), owner: start.id, x, y, z: start.params.z ?? heights[cy * W + cx], orientation: o, player: start.params.player });
+}
+
 export function build(spec: MapSpec, features: readonly Feature[], opts: BuildOptions = {}): BuildResult {
   return buildMap({ W: spec.size.x, H: spec.size.y, seed: spec.seed, features }, opts);
 }
@@ -1432,13 +1442,7 @@ function run(input: BuildInput, prevResult: BuildResult | null, opts: BuildOptio
   entities.push(...storedResources, ...resourceEntities, ...lateBase.start);
 
   // 12. the start entity
-  if (start) {
-    const [cx, cy] = start.params.position;
-    const o = start.params.orientation;
-    const [x, y] = coordinatesForMinCorner(3, 3, cx - 1, cy - 1, o);
-    // (under a roof, at its level: a cave's floor, the ground under a ledge, D491)
-    entities.push(startingLocation({ id: entityId(start.id, "StartingLocation", 0), owner: start.id, x, y, z: start.params.z ?? heights[cy * W + cx], orientation: o, player: start.params.player }));
-  }
+  if (start) entities.push(startEntity(start, heights, W));
 
   // 13. the second pass of entity edits, on what only exists now
   //    (the generation's kept resources a force carried land where it put them: what holds that
