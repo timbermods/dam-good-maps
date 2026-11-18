@@ -47,7 +47,7 @@ import { discardPreparedRenderer, prepareRenderer } from "../render3d/prepared";
 import type { GeneratorModel, YourMapRow } from "../editor/generator/model";
 import { fetchIndex, fetchPlace, placeFromHash } from "../places/data";
 import { refusingMake } from "./refusingGenerate";
-import { FirstLook, MakingCount, MakingWater, progressText, sayStage, stageText, type Progress } from "./FirstLook";
+import { attemptMade, FirstLook, MakingCount, MakingWater, progressText, sayStage, stageText, type Progress } from "./FirstLook";
 import { tip } from "./Tooltip";
 import { boundOf, offers, startMaking, STOP_AFTER_S, type Bound, type RunningClock } from "./makingClock";
 import { IdeaCard } from "../editor/generator/IdeaCard";
@@ -139,6 +139,18 @@ function initialSpec(): { spec: MapSpec; fromLink: boolean; note?: string } {
 
 /** Easy start (D495), remembered in this browser: a theme, Surprise me and Reset settings keep it (it is no theme's
  *  setting), and a new visit starts with it as it was last set. */
+/** Whether one of the menu's pages (Map Generator, Real places, Your maps) covers more than half of the map's view: a
+ *  phone's or a tablet's, which take the whole view (planning, #1074). Such a page closes when a new map opens, so the
+ *  map shows; a page beside the map (the desktop's panels) stays. */
+function pageCoversMap(): boolean {
+  const page = document.querySelector(".editor-main > .phone-page")?.getBoundingClientRect();
+  const view = document.querySelector(".editor-map")?.getBoundingClientRect();
+  if (!page || !view || !(view.width > 0 && view.height > 0)) return false;
+  const w = Math.max(0, Math.min(page.right, view.right) - Math.max(page.left, view.left));
+  const h = Math.max(0, Math.min(page.bottom, view.bottom) - Math.max(page.top, view.top));
+  return w * h > (view.width * view.height) / 2;
+}
+
 const EASY_KEY = "dgm.easyStart";
 function easyRemembered(): boolean {
   try {
@@ -626,6 +638,8 @@ export function App() {
     setName(e.name);
     setSession(data.info);
     setOpened((o) => ({ key: (o?.key ?? 0) + 1, data, keepView }));
+    // (a new map: the menu's page goes where it covers the map, so the map shows; the menu reopens it as it was left)
+    if (!keepView && pageCoversMap()) setPanel(null);
     const link = data.info.kind === "generated" && data.info.spec ? "#" + encodeSpecFragment(data.info.spec) : place ? `#place=${place}` : "";
     // (a cancelled Generate brings the open map back and keeps the settings picked for the next try, as its name:
     // showcase-craft gap 16)
@@ -1137,14 +1151,16 @@ export function App() {
       const r = await make(
         s,
         proxy((p: GenProgress) => {
+          // (the attempt counted over every round: a rescue round counts its own from 0 again)
+          const made = p.kind === "stage" ? attemptMade(p) : (progressNow.current?.attempt ?? 0);
           // (a new attempt puts a pause behind it)
-          if (p.kind === "stage" && (p.attempt !== progressNow.current?.attempt || p.failed !== progressNow.current?.failed)) mine?.clock.attemptBegan();
+          if (p.kind === "stage" && (made !== progressNow.current?.attempt || p.failed !== progressNow.current?.failed)) mine?.clock.attemptBegan();
           setProgress((q) =>
             p.kind === "stage"
-              ? { attempt: p.attempt, stage: p.stage, land: q?.land ?? null, candidate: q?.candidate ?? null, said: sayStage(q?.said, p.stage, p.attempt), ...(p.failed ? { failed: p.failed } : {}) }
+              ? { attempt: made, stage: p.stage, land: q?.land ?? null, candidate: q?.candidate ?? null, said: sayStage(q?.said, p.stage, made), ...(p.failed ? { failed: p.failed } : {}) }
               : p.kind === "candidate"
-                ? { attempt: p.attempt, stage: q?.stage ?? "check", land: q?.land ?? null, candidate: q?.candidate ?? p, said: q?.said, failed: q?.failed }
-                : { attempt: p.attempt, stage: q?.stage ?? "land", land: p, candidate: q?.candidate ?? null, said: q?.said, failed: q?.failed },
+                ? { attempt: q?.attempt ?? made, stage: q?.stage ?? "check", land: q?.land ?? null, candidate: q?.candidate ?? p, said: q?.said, failed: q?.failed }
+                : { attempt: q?.attempt ?? made, stage: q?.stage ?? "land", land: p, candidate: q?.candidate ?? null, said: q?.said, failed: q?.failed },
           );
         }),
         seedWord,

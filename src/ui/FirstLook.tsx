@@ -9,6 +9,8 @@ import type { GenProgress } from "../worker/api";
 import type { RunningClock } from "./makingClock";
 
 export interface Progress {
+  /** The attempt under way, counted from 0 over every round of the generate (`attemptMade`): a rescue round starts its own
+   *  count again, and a long generate showed "Attempt 10" after many more. */
   attempt: number;
   stage: string;
   land: Extract<GenProgress, { kind: "land" }> | null;
@@ -18,6 +20,12 @@ export interface Progress {
   said?: Said;
   /** Why the last attempt was refused, in the generator's own short phrase (`gen/failWords.ts`); absent before any was. */
   failed?: string;
+}
+
+/** The attempt a stage belongs to, counted over every round of the generate: the attempts that failed before it, every
+ *  round's (`tried`), where the generator says them; else its attempt in its own round. */
+export function attemptMade(p: { attempt: number; tried?: number }): number {
+  return p.tried ?? p.attempt;
 }
 
 /** Each stage's words, one for each layout that reaches it (Kyler, 2026-10-05: a failed layout starts again from the
