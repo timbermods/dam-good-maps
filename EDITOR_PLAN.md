@@ -749,7 +749,9 @@ on one shared forces core, `src/core/forces/` (D203, D206, D220; see its README)
   level round it, to where the force put it, or where the force's rounding would leave that one tile wide to where it
   stood, never down its cliff and never leaving ground one tile wide (the land's own ground that was one tile wide
   before the force, where it still stands, holds no corner down: the tidying may not widen such a ledge by dropping
-  the ridge above it). Craterize, Erupt, Rift and Deposit end with it, and Glaciate's walls; Quake adopts it next.
+  the ridge above it). A tile no square reaches joins ground within two levels of its own before any further off,
+  so the corner of a cliff's foot waits for the low ground beside it and never climbs to the cliff's top. Craterize,
+  Erupt, Rift and Deposit end with it, and Glaciate's walls; Quake adopts it next.
 - **Esc skips, undo takes it back** (D344, A4): while a gesture is still being drawn, Esc cancels it and nothing of
   it lands; once a force plays, Esc (or Skip, for a finger: #1074 slice 3) skips it to its end, its final land kept as
   one step; Ctrl+Z (or Z, or Revert) takes all of it back at any moment, and nothing lands afterwards (D341). The row's
@@ -945,7 +947,9 @@ on one shared forces core, `src/core/forces/` (D203, D206, D220; see its README)
   left on Auto is this, a bowl or a flat floor, never a peak or a ring). The rim's crest is uneven all round and gone on one side, a gap (where the
   ground round it is lowest; the seed's side on level ground), so a lake in the bowl spills at the level of the
   ground round the crater. Beside lower land that is no slope (a canyon, a lake, a plateau's edge) the rim stands
-  whole on the crater's own ground and holds the bowl. Steep walls are a cliff. Terraced walls carry blocks slumped
+  whole on the crater's own ground and holds the bowl, as far down as the crater's own relief reaches (its depth and
+  its rim); land further below, a cliff's foot under a small crater on its brink, keeps its shape, the bowl open over
+  it and the rim on the land as it lies. Steep walls are a cliff. Terraced walls carry blocks slumped
   against the cliff: ovals lying along it, each turned its own way, at its own level, never its neighbour's, with gaps
   where the wall stands whole, so a bench is a short arc that pinches out within a quarter turn and none runs on round
   the bowl. The floor is level, with low hummocks on a large crater. A peak is a broad, low hill, never a tower, a plinth or a
@@ -1671,7 +1675,10 @@ chooses **Automatic**, **High** or **Standard** (a segmented choice, the page's 
 (checkbox rows as the Show column's, a long name hanging under its own first letter); every effect is switchable too
 (`setHighEffect`). A browser drawing in software keeps the light look, with no choice, drawn at one device pixel
 to a CSS pixel (its processor draws every pixel: a tablet's dense screen made each frame four times the work). The camera never moves by
-itself in either look (D265).
+itself in either look (D265). When the browser takes the view's WebGL context away (a GPU reset, a phone or tablet short
+of memory), the view waits for it and draws the map again in Standard, held for the rest of the session; the player's
+saved choice stays. If it is not back within a second, a line over the view says so: "The 3D view stopped drawing. If it
+stays blank, reload the page."
 
 ## 6a. Alive, not mechanical (D240)
 
@@ -2404,6 +2411,13 @@ delivery routes, the artifact edition and bring-your-own-key) is in
     (`bake.worker.ts`, one for the page, shared by every view), trees batched by species (at most 32 draws). Each effect is a uniform switch.
     The automatic choice (`fallback.ts`) reads each frame's GPU time (timer queries; without them every fourth
     frame) and a first quick reading a second after the first map.
+  - A lost WebGL context (`renderer.ts` `loseContext`, `restoreContext`): the view asks for it back (preventing the
+    loss's default), stops drawing and compiles nothing meanwhile (`programs.ts`). three.js makes its own state again on
+    the restore and uploads the geometry and textures from their copies at the next frame; the renderer makes what lived
+    only on the GPU (the patterns drawn into a target, the screen's copies behind the water, the bloom's targets, the
+    timer queries, the programs compiled ahead) and holds Standard (`holdTier`: not saved). The view's own
+    `forceContextLoss` on dispose is not a loss: its listeners are gone first. `View3D.tsx` shows the line over the view
+    while it waits. `tests/e2e/look-high.spec.ts` loses and restores it on High.
 - **The forces** (D203, D206, D220): one shared core in `src/core/forces/` (its README), from Codex's forces core
   (#59): `force.ts` (a run on its own copy of the map, a step at a time: ten steps a second of a carve, whatever
   the frame rate), the shared numbers, rock and object rules, the verbs (`carve/`, checked by

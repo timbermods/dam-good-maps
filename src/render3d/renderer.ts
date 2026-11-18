@@ -18,6 +18,8 @@
 // drawn with the High materials, chosen automatically where it runs smoothly and falling back to
 // Standard where it doesn't (high/fallback.ts); the light look where the browser draws in software.
 // The Standard materials are never changed by High: switching swaps the materials the meshes use.
+// A context the browser takes away (a GPU reset, a phone short of memory) is waited for and drawn again in
+// Standard, held for the session (`loseContext`, `restoreContext`).
 //
 // Controls: left drag orbits (pans in the top-down view), right drag pans, the wheel zooms. On the
 // focused canvas: W A S D or the arrows pan, Q and E turn, + and − zoom (F is the brush's resize,
@@ -613,6 +615,10 @@ export class MapRenderer {
   private frameEnd = 0;
   private resize: ResizeObserver;
   private disposed = false;
+  /** The browser has taken the view's WebGL context away and not given it back yet (`loseContext`). */
+  private lost = false;
+  /** The view's context was taken away (true) or given back and drawn again in Standard (false). */
+  onLost: ((lost: boolean) => void) | null = null;
   /** The press being dragged; a finger's (touch.ts) carries its press, a tap with the resting tool replaying it. */
   private drag: { kind: "orbit" | "pan" | "tool"; x: number; y: number; id: number; moved: number; button: number; touch?: PointerEvent } | null = null;
   /** The fingers on the view and the camera's gesture (touch.ts, #1074). */
@@ -803,6 +809,9 @@ export class MapRenderer {
     }
     this.resize = new ResizeObserver(() => this.fit());
     this.resize.observe(canvas);
+    // (after three.js's own listeners, made with the context: its state is made again before `restoreContext` runs)
+    this.on(canvas, "webglcontextlost", (e) => this.loseContext(e));
+    this.on(canvas, "webglcontextrestored", () => this.restoreContext());
     this.fit();
     if (!this.still && !this.recording) this.bindInput();
     if (!this.software) {
@@ -1353,9 +1362,55 @@ export class MapRenderer {
     this.requestRender();
   }
 
+  /** Whether the browser has taken the view's context away and not given it back yet. */
+  get contextLost(): boolean {
+    return this.lost;
+  }
+
+  /** The browser took the view's context away (a GPU reset, a phone short of memory, too many contexts): nothing is
+   *  drawn until it is given back, which preventing the default asks for (three.js asks too). The view's own
+   *  `forceContextLoss` when it closes never comes here: its listeners are gone first. */
+  private loseContext(e: Event): void {
+    e.preventDefault();
+    if (this.disposed) return;
+    this.lost = true;
+    cancelAnimationFrame(this.frame);
+    this.frame = 0;
+    clearTimeout(this.breath);
+    this.breath = 0;
+    clearTimeout(this.animTimer);
+    this.animTimer = 0;
+    clearTimeout(this.probeTimer);
+    this.onLost?.(true);
+  }
+
+  /** The context is back. three.js has made its own state again (its listener runs first) and uploads the map's
+   *  geometry, textures and programs from their copies at the next frame; what lived only on the GPU is made here: the
+   *  patterns drawn into a target, the screen's copies behind the water and the bloom's targets, the timer queries.
+   *  The view then draws in Standard, held for the session (High's load may be what lost it), the player's saved
+   *  choice kept. */
+  private restoreContext(): void {
+    if (this.disposed || !this.lost) return;
+    this.lost = false;
+    this.patterns.dispose();
+    this.patterns = drawPatterns(this.gl, !this.software);
+    this.uniforms.patternTex.value = this.patterns.texture;
+    this.refraction.contextLost();
+    this.bloom?.dispose();
+    this.bloom = null;
+    this.costTimer = null;
+    this.timer = null;
+    this.programs.restart();
+    this.holdTier("standard");
+    this.requestRender();
+    this.onLost?.(false);
+  }
+
   /** Draw with the High materials, High's lower-cost tier, or the Standard ones. */
   private applyLook(tier: Tier): void {
     if (this.software) return;
+    // (nothing new is set up on a context that is gone: the look is decided when it is back, restoreContext)
+    if (this.lost) return;
     if (!this.highProgramsReady(tier)) return;
     this.lookWaiting = null;
     if (tier !== "standard" && !this.high) {
@@ -4478,7 +4533,7 @@ export class MapRenderer {
   // --------------------------------------------------------------------------------- rendering
 
   requestRender(): void {
-    if (this.frame || this.breath || this.disposed) return;
+    if (this.frame || this.breath || this.disposed || this.lost) return;
     // (a browser drawing slowly, frame after frame (software drawing: about 0.4 s a frame, 2 s on two cores), gets a
     // breath as long as its frame before the next: else frames run back to back and every turn of the page's own work,
     // a force's next steps, its keep, a click, waits a whole frame, so a force that plays in 2 s takes 24 s (D453); a
@@ -4503,7 +4558,8 @@ export class MapRenderer {
   }
 
   renderNow(): void {
-    if (this.disposed) return;
+    // (what changes meanwhile waits for the context: the land's and the water's queues are drawn when it is back)
+    if (this.disposed || this.lost) return;
     this.framesDrawn++;
     // (the water chunks the land queues are drained below, in this frame: `layeredWaterNear`)
     this.landInFrame = true;

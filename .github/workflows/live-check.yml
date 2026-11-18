@@ -38,8 +38,9 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
-      - name: Install Chromium for Playwright
-        run: npx playwright install --with-deps chromium
+      - uses: ./.github/actions/playwright
+        with:
+          browsers: chromium
       - name: Live site against tools/gen.ts
         run: npx playwright test -c playwright.live.config.ts
         env:
