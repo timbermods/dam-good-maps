@@ -123,7 +123,9 @@ import * as ed from "../../src/worker/session";
 // and generator 0.10.47's level edges (D(terrace-edges): the graded levels read through a fine warp before rounding):
 // `0a7daa74…` before it, not the version alone (with the version set back to 0.10.46 the branch gives `2ee6d2f8…`): the warp
 // moves this map's land, the map still passing every check, D148
-const LIVE_SHA = "65319d888e1c6064d31cbddb083d63d7056bc3da7468a1e8cc7e5cb888ce97aa";
+// and generator 0.10.48's version alone (D(pick-start), the start picked for its bench and wood too): `65319d88…` before it,
+// and with the version set back to 0.10.47 the branch gives `65319d88…` byte for byte, this map keeping its start, D148
+const LIVE_SHA = "8bfdb89774e8903fa5003cd9678fae14f7c659fa2b12b4cd7ba54c6f0191b0ee";
 const spec = () => makeSpec({ seed: 4242, size: { x: 128, y: 128 }, theme: "riverValley", designedFor: "normal" });
 
 describe("mine sites and ruins, models of our own", () => {

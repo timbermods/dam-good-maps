@@ -6,8 +6,10 @@
 // moist land within 20 tiles' walk for food and wood. Among the places that qualify, the genome's
 // preferences (a lake shore, a river bank, a confluence, below a fall, a high bench, a spring's
 // stream), the intentions' preferences, the drought-aware preference (#59: water that stays
-// pumpable through the first Normal drought, preferred on Normal and Hard, required on Easy) and the
-// seed choose among the best few, kept 20 tiles apart, so starts differ as much as the land does.
+// pumpable through the first Normal drought, preferred on Normal and Hard, required on Easy) and what
+// the place is worth to a settlement (its bench and the moist ground its wood will grow on,
+// `startWorth`) rank the places; the seed chooses among the best few, kept 20 tiles apart, whose
+// worth stands within `VALUE_MARGIN` of the worthiest of them, so starts differ as much as the land does.
 // The chosen place is turned for the game's opening camera (D493, analysis/opening.ts): among the
 // orientations whose door is on level ground, the one whose opening frame best holds a landmark (else
 // falls, open water, relief), the door nearest the water breaking ties.
@@ -26,7 +28,7 @@ import { distanceFrom, levelRegions, MinHeap, N4, N8 } from "../math/grid";
 import type { Rng } from "../math/rng";
 import { WET } from "../validate/playability";
 import * as portable from "../math/portable";
-import { benchAt, benchRegions } from "./startValue";
+import { benchAt, benchRegions, START_WEIGHTS, startParts, startTargets, VALUE_MARGIN } from "./startValue";
 
 // (the bench is read in gen/startValue.ts, the start's measure, which the land stage reads too)
 export { benchAt, benchRegions };
@@ -292,6 +294,15 @@ export function footAt(foot: SettlerOptions["foot"], i: number): number {
   return k >= 0 && k < foot.size.length ? foot.size[k] : 0;
 }
 
+/** What a place is worth to a settlement when the start is picked (D(pick-start)): `startValue`'s bench and wood
+ *  parts, each a ratio to its target on a log scale, uncapped (`startParts`): D515's bench (`benchRegions`) and the
+ *  moist dry ground a level either side of the start's within 14 tiles, where its wood will grow (`woodAt`'s
+ *  window). A Small Start area (`small`) asks for a small bench: its bench counts up to the target only. */
+export function startWorth(bench: number, moist: number, want: ReturnType<typeof startTargets>, small = false): number {
+  const p = startParts({ bench: small ? Math.min(bench, want.bench) : bench, foot: 0, wood: moist, ways: 0, water: want.water }, want);
+  return p.bench + p.wood;
+}
+
 /** Read-only fields for picks on identical terrain/water. Discard before either changes.
  * Avoid masks, scores, random draws and candidate walks remain private to each pick. */
 export function prepareStart(h: Uint8Array, W: number, H: number,
@@ -456,7 +467,11 @@ export function pickStart(
     const y1 = Math.min(H - 1, y + r);
     return t[(y1 + 1) * (W + 1) + x1 + 1] - t[y0 * (W + 1) + x1 + 1] - t[(y1 + 1) * (W + 1) + x0] + t[y0 * (W + 1) + x0];
   };
-  const cands: { i: number; score: number; kind: string; walk: number; levelled: boolean; droughtOk?: boolean; intent: number; sameLevel: boolean }[] = [];
+    // what a place is worth to a settlement (D(pick-start)): its bench and the moist ground its wood will grow on
+  const worthWant = startTargets(waterRule, opts.benchMin ? { bench: opts.benchMin } : {});
+  const worthAt = (i: number, moist: number): number => startWorth(benchAt(benches, i), moist, worthWant, benchWant < 100);
+  const worthRef = START_WEIGHTS.bench + START_WEIGHTS.wood;
+  const cands: { i: number; score: number; kind: string; walk: number; levelled: boolean; droughtOk?: boolean; intent: number; sameLevel: boolean; worth: number }[] = [];
   // first pass: level ground as it is; second pass (when the first finds nothing): a 5×5 within a
   // level of the center is levelled, as a player would level a spot for the district center
   for (let pass = 0; pass < (opts.level === false ? 1 : 2) && !cands.length; pass++)
@@ -570,8 +585,10 @@ export function pickStart(
         }
         // the player's settings weigh on the intentions' preference too: they are asked for
         const settingsFit = (0.3 + 0.7 * benchFit * benchFit) * (0.3 + 0.7 * walkFit) * (0.4 + 0.6 * storeFit) * (0.5 + 0.5 * footFit);
-        const score = (pref * (0.5 + 0.5 * room) * (0.6 + 0.4 * Math.min(1, moistNear / 500)) * dry * foodFit + 0.8 * intent) * settingsFit * (easy ? Math.min(1, flat / 600) : 1) + 0.25 * rng.float();
-        cands.push({ i, score, kind, walk: w, levelled: uneven, droughtOk, intent, sameLevel });
+        // (what it is worth to a settlement, against a place at the targets: D(pick-start))
+        const worth = worthAt(i, moistNear);
+        const score = (pref * (0.5 + 0.5 * room) * (0.6 + 0.4 * Math.min(1, moistNear / 500)) * dry * foodFit + 0.8 * intent) * settingsFit * (easy ? Math.min(1, flat / 600) : 1) * ((1 + worth) / (1 + worthRef)) + 0.25 * rng.float();
+        cands.push({ i, score, kind, walk: w, levelled: uneven, droughtOk, intent, sameLevel, worth });
       }
     }
   if (!cands.length) return opts.level === false || easy ? null : footed(bankStart(h, W, H, water, hydro, rng, margin, avoid, reach, aimMid));
@@ -598,11 +615,14 @@ export function pickStart(
     top.push(c);
   }
   if (!top.length) return opts.level === false || easy ? null : footed(bankStart(h, W, H, water, hydro, rng, margin, avoid, reach, aimMid));
-  // one of the best few, among those nearly as good as the best (the settings' preferences hold):
-  // the one nearest where the start was expected, else one at random
-  const good = top.filter((t) => t.score >= 0.7 * top[0].score);
+  // one of the best few, among those nearly as good as the best (the settings' preferences hold) and worth nearly as
+  // much to a settlement as the worthiest of them (D(pick-start): a place with a third of another's bench, or half its
+  // moist ground, is never drawn over it): the one nearest where the start was expected, else one at random
+  const near0 = top.filter((t) => t.score >= 0.7 * top[0].score);
   // (a best score under zero, a start intention pulling hard against every place: the best alone)
-  if (!good.length) good.push(top[0]);
+  if (!near0.length) near0.push(top[0]);
+  const worthiest = Math.max(...near0.map((t) => t.worth));
+  const good = near0.filter((t) => t.worth >= worthiest - VALUE_MARGIN);
   let c = good[rng.int(0, good.length)];
   const near = opts.near;
   if (near) {

@@ -91,6 +91,7 @@ Read this index, then [how-we-work.md](how-we-work.md), then only the topic file
 
 ## [The generator](generator.md)
 
+- D(pick-start): The start is picked for its bench and its wood as well as its water: each place's score weighs them, and the seed draws only among the best few worth nearly as much as the worthiest
 - D(terrace-edges): No level's edge runs ruler-straight over a dozen tiles: the graded levels are read through a fine warp before rounding, the water's field left as it is
 - D(gorge-followups): An arch over a gorge is looked for along the heading its gorge runs at the crossing, a diagonal too; a course but the main river deep under a wall for half its gorge's wavelength winds as a gorge, unless on a Canyon land it cost the promise
 - D(start-spring-stop): A start spring's settle ends where it plainly won't settle; the spring is refused as the limit refuses it
