@@ -18,6 +18,7 @@
 // 1's helpers from proto/levels.ts).
 
 import { hash32 } from "../math/hash";
+import * as portable from "../math/portable";
 import { fbm, warpedFbm } from "../math/noise";
 import { levelRegions, MinHeap, N4, N8 } from "../math/grid";
 import { stream, type Rng } from "../math/rng";
@@ -74,7 +75,8 @@ export function snapLevels(E: Float64Array, g: Genome, seed: number, W: number, 
   // (D(terrace-edges): every level's edge read through a fine warp, so no edge the field, the grade or the tableland's
   // outline leaves smooth over a dozen tiles runs ruler-straight; the levels' edges, not the field the water is planned on)
   const ws = hash32(seed, "edge-warp", g.variation);
-  const reach = EDGE_WARP.reach * Math.min(1, Math.min(W, H) / EDGE_WARP.full);
+  const side = Math.min(W, H);
+  const reach = side <= EDGE_WARP.full ? EDGE_WARP.reach * (side / EDGE_WARP.full) : Math.min(EDGE_WARP.most, EDGE_WARP.reach * portable.sqrt(side / EDGE_WARP.full));
   for (let y = 0; y < H; y++)
     for (let x = 0; x < W; x++) {
       const d = Math.min(x, y, W - 1 - x, H - 1 - y);
@@ -126,10 +128,12 @@ export function contourField(E: Float64Array, W: number, H: number, seed: number
   return out;
 }
 
-/** The levels' edge warp (D(terrace-edges)): its reach and its cell, tiles, and its noise's octaves; the reach is scaled by the
- *  map's narrower side over `full` below it (small maps keep their flats whole) and tapers to nothing over a cell at the
- *  map's border. */
-export const EDGE_WARP = { reach: 6, cell: 6, octaves: 2, full: 128 } as const;
+/** The levels' edge warp (D(terrace-edges)): its reach and its cell, tiles, and its noise's octaves. The reach is `reach`
+ *  at `full` (128²): scaled by the map's narrower side over `full` below it (small maps keep their flats whole), by the
+ *  square root of that ratio above it (a 256²'s longer smooth outlines take 8.5 tiles), never over `most` (the warp folds
+ *  the levels more as its reach grows: at 512² a reach of 12 doubled the one- to three-tile level islands it leaves), and
+ *  tapers to nothing over a cell at the map's border. The cell stays 6 tiles at every size. */
+export const EDGE_WARP = { reach: 6, cell: 6, octaves: 2, full: 128, most: 8.5 } as const;
 
 /** The contour field's numbers (D518): its softening, tiles each way, and its warp's reach and cell, tiles. */
 export const CONTOUR = { soften: 1, warp: 5, cell: 20 } as const;
