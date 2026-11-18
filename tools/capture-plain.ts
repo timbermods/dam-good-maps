@@ -25,13 +25,19 @@
 // widest frame) and a close frame of the start from behind it, looking the way it faces; the row's caption opens with
 // the start's numbers (level land, wood, berries within the walk, the clean water's walk and depth, the badwater's
 // distance, the reach) and the generator's version. The sheet is a PNG.
+// With `--look` (step 6), each shot `tag=seed@size` (the whole map, north up) or `tag=seed@size@x,y,d` (a close frame
+// north up at the tile x, y from d tiles off) of the premise's whole map as made, each written as `<tag>.jpg` with its
+// label (the theme, the size, the seed, the generator's version) as `<tag>.txt`; `--compose tag,tag,…` sets saved
+// shots out two to a row, each label under its frame, as `sheet.png` (so a frame made before a change stands beside
+// one made after it).
 //
+//   npx tsx tools/capture-plain.ts --look "a=2@256;b=2@256@120,80,60" | --compose a,b [--out …]
 //   npx tsx tools/capture-plain.ts [--water | --works | --start] [--seeds 1,2] [--sizes 128,192,256] [--maps 2@128,1@192,1@256]
 //                                  [--out C:/dgm-showcase/poisoned-plain/land, .../water with --water,
 //                                   C:/dgm-showcase/premise/plain-works with --works, C:/dgm-showcase/gen/floodplain-5 with --start]
 //                                  [--port 4491] [--dist .scratch/capture-plain-dist] [--quality 80]
 
-import { mkdirSync, writeFileSync } from "node:fs";
+import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { chromium, type Browser } from "@playwright/test";
 import { build, preview } from "vite";
@@ -67,6 +73,18 @@ const MAPS: [seed: number, size: number][] = process.argv.includes("--maps")
 const WATER = process.argv.includes("--water");
 const WORKS = process.argv.includes("--works");
 const START = process.argv.includes("--start");
+/** `--look`'s shots: a tag, the map, and the close frame's tile and distance (none: the whole map). */
+const LOOK: { tag: string; seed: number; size: number; at: [number, number, number] | null }[] = process.argv.includes("--look")
+  ? arg("look", "")
+      .split(";")
+      .filter((t) => t.trim())
+      .map((t) => {
+        const [tag, rest] = t.trim().split("=");
+        const [seed, size, at] = rest.split("@");
+        return { tag, seed: Number(seed), size: Number(size), at: at ? (at.split(",").map(Number) as [number, number, number]) : null };
+      })
+  : [];
+const COMPOSE = process.argv.includes("--compose") ? arg("compose", "").split(",") : null;
 const OUT = arg("out", START ? "C:/dgm-showcase/gen/floodplain-5" : WORKS ? "C:/dgm-showcase/premise/plain-works" : WATER ? "C:/dgm-showcase/poisoned-plain/water" : "C:/dgm-showcase/poisoned-plain/land");
 const PORT = Number(arg("port", "4491"));
 const DIST = arg("dist", ".scratch/capture-plain-dist");
@@ -106,7 +124,7 @@ function courses(land: PlainLand): { pts: Point[]; colour: string }[] {
 
 /** A map to capture: its land, its file on disk and its caption (lines); the frames it takes (both by default) and the
  *  tag its frames' files carry. */
-type Made = { land: PlainLand; timber: string; caption: string; lines: boolean; frames?: ("whole" | "vista" | "start")[]; tag?: string };
+type Made = { land: PlainLand; timber: string; caption: string; lines: boolean; frames?: ("whole" | "vista" | "start" | "at")[]; tag?: string; at?: [number, number, number] };
 
 /** The premise's whole map, settled (`--water`): its file and the caption the sheet asks for, the start first. */
 function waterMap(seed: number, size: number): Made | null {
@@ -209,6 +227,41 @@ function startMap(seed: number, size: number): Made | null {
   return { land: m.land, timber, caption, lines: false, frames: ["whole", "start"], tag: "start" };
 }
 
+/** The premise's whole map as made, its file written once a map (`--look`). */
+const looked = new Map<string, Made | null>();
+function lookMap(seed: number, size: number): Made | null {
+  const key = `${seed}@${size}`;
+  if (looked.has(key)) return looked.get(key)!;
+  const spec = makeSpec({ seed, size: { x: size, y: size }, theme: "any", premise: "any" });
+  const m = plainMap(spec);
+  let made: Made | null = null;
+  if ("reason" in m) console.log(`seed ${seed} at ${size}²: no map: ${m.reason}`);
+  else {
+    const timber = resolve(`.scratch/capture-plain/look-${size}-${seed}.timber`);
+    mkdirSync(resolve(".scratch/capture-plain"), { recursive: true });
+    writeFileSync(timber, writeTimber(m.map.file));
+    made = { land: m.land, timber, caption: `River Valley, the poisoned floodplain, ${size}², seed ${seed}, attempt ${m.attempt + 1}, generator ${GENERATOR_VERSION}`, lines: false, tag: "look" };
+  }
+  looked.set(key, made);
+  return made;
+}
+
+/** Saved shots two to a row, each label under its frame (`--compose`). */
+async function compose(browser: Browser, tags: string[]): Promise<void> {
+  const pw = 640;
+  const cells = tags.map((t) => {
+    const jpg = readFileSync(join(OUT, `${t}.jpg`));
+    const label = readFileSync(join(OUT, `${t}.txt`), "utf8");
+    return `<div style="width:${pw}px"><img src="data:image/jpeg;base64,${jpg.toString("base64")}" style="display:block;width:${pw}px"><div style="padding:4px 6px 10px;line-height:1.35">${label}</div></div>`;
+  });
+  const page = await browser.newPage({ viewport: { width: 2 * pw + 4, height: 400 } });
+  await page.setContent(`<body style="margin:0;background:#1d1d1d;font:13px sans-serif;color:#eee"><div style="display:grid;grid-template-columns:repeat(2,${pw}px);gap:4px">${cells.join("")}</div></body>`);
+  await page.evaluate(() => Promise.all([...document.images].map((i) => i.decode())));
+  writeFileSync(join(OUT, "sheet.png"), await page.screenshot({ type: "png", fullPage: true }));
+  await page.close();
+  console.log(join(OUT, "sheet.png"));
+}
+
 /** The land alone, dry with its start (stage 2). */
 function landMap(seed: number, size: number): Made | null {
   const spec = makeSpec({ seed, size: { x: size, y: size }, theme: "any", premise: "any" });
@@ -284,7 +337,11 @@ async function shoot(browser: Browser, made: Made): Promise<{ shots: Shot[]; cap
   for (const frame of made.frames ?? (["whole", "vista"] as const)) {
     let view: unknown;
     if (frame === "whole") view = { mode: "orbit", yaw: 0, pitch: (WHOLE.pitch * Math.PI) / 180, distance: WHOLE.distance * size, target: [size / 2, 8, -size * (0.5 - WHOLE.south)] };
-    else if (frame === "start") {
+    else if (frame === "at") {
+      const [x, y, d] = made.at!;
+      const z = land.heights[Math.floor(y) * size + Math.floor(x)] ?? 8;
+      view = { mode: "orbit", yaw: 0, pitch: (WHOLE.pitch * Math.PI) / 180, distance: d, target: [x + 0.5, z, -(y + 0.5)] };
+    } else if (frame === "start") {
       // (from behind the start, the way the vista looks: toward the Red Fall's lip)
       const fall = land.plan.links.find((l) => l.id === PLAIN_IDS.redFall)!.fall!;
       const dx = (fall.lip[0][0] + fall.lip[1][0]) / 2 - (mx + 0.5);
@@ -362,11 +419,31 @@ async function shoot(browser: Browser, made: Made): Promise<{ shots: Shot[]; cap
 async function main(): Promise<void> {
   process.env.DGM_BASE = "/";
   mkdirSync(OUT, { recursive: true });
+  if (COMPOSE) {
+    const b = await chromium.launch({ channel: "chrome", headless: false });
+    try {
+      await compose(b, COMPOSE);
+    } finally {
+      await b.close();
+    }
+    return;
+  }
   console.log("building the site…");
   await build({ configFile: "vite.config.ts", base: "/", cacheDir: CACHE, logLevel: "warn", build: { outDir: DIST, emptyOutDir: true } });
   const server = await preview({ configFile: "vite.config.ts", base: "/", cacheDir: CACHE, build: { outDir: DIST }, preview: { port: PORT, strictPort: true }, logLevel: "warn" });
   const browser = await chromium.launch({ channel: "chrome", headless: false });
   try {
+    if (LOOK.length) {
+      for (const sh of LOOK) {
+        const made = lookMap(sh.seed, sh.size);
+        if (!made) continue;
+        const x = await shoot(browser, { ...made, frames: [sh.at ? "at" : "whole"], at: sh.at ?? undefined, tag: sh.tag });
+        writeFileSync(join(OUT, `${sh.tag}.jpg`), x.shots[0].jpg);
+        writeFileSync(join(OUT, `${sh.tag}.txt`), `${made.caption}; ${sh.at ? `close, at ${sh.at[0]}, ${sh.at[1]}` : "the whole map, north up"}`);
+        console.log(sh.tag, made.caption);
+      }
+      return;
+    }
     if (START) {
       // the sheet: a map a row, its whole frame and its start's close frame side by side, the start's numbers under them
       const rows: string[] = [];

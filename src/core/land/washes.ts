@@ -159,6 +159,10 @@ export interface WashInput {
   benchPlates?: Uint8Array;
   /** Canyon's land: the washes are its side canyons (`WASHES.canyon`). */
   canyon?: boolean;
+  /** The one ground the washes run on, their lines and their beds, the least a main wash's length and how many on a
+   *  128² map (by side elsewhere) there (the poisoned floodplain's plain, its old channels: `premise/plainMap.ts`
+   *  `OLD_CHANNELS`); none: the whole map, by `WASHES`. */
+  within?: { tiles: Uint8Array; least: number; per128: readonly [number, number] };
 }
 
 export interface Wash {
@@ -561,7 +565,7 @@ export function planWashes(inp: WashInput): Washes {
   const cutLeast = deep ? deep.cut[0] : 1;
   const cutMost = deep ? deep.cut[1] : WASHES.cutMost;
   const width = deep ? deep.width : WASHES.width;
-  const per128 = deep ? deep.per128 : WASHES.per128;
+  const per128 = inp.within ? inp.within.per128 : deep ? deep.per128 : WASHES.per128;
   const laneMost = deep ? 2 * cutMost : WASHES.ford.lane;
   const h0 = h.slice();
   const mask = new Uint16Array(N);
@@ -594,7 +598,7 @@ export function planWashes(inp: WashInput): Washes {
   for (let i = 0; i < N; i++) {
     const x = i % W;
     const y = (i - x) / W;
-    pass[i] = !wet[i] && !near1[i] && x >= e && y >= e && x < W - e && y < H - e ? 1 : 0;
+    pass[i] = !wet[i] && !near1[i] && x >= e && y >= e && x < W - e && y < H - e && (!inp.within || inp.within.tiles[i]) ? 1 : 0;
     allowed[i] = pass[i] && !keepOff[i] ? 1 : 0;
   }
   // the flow: where rain would run on the land, softened and warped, and tipped up toward the map's edge (a wall), so
@@ -1403,9 +1407,10 @@ export function planWashes(inp: WashInput): Washes {
 
   // ---- the washes: the longest bed a trunk end gives, from the ends with the most land draining through them,
   // spaced, each with its side branches where the flow joins it
+  // (by area; on one ground, by side: a strip of the map holds them along its length)
   const want = Math.max(
     1,
-    Math.round(((per128[0] + rng.int(0, per128[1] - per128[0] + 1)) * N) / (128 * 128)),
+    Math.round(((per128[0] + rng.int(0, per128[1] - per128[0] + 1)) * (inp.within ? Math.min(W, H) / 128 : N / (128 * 128)))),
   );
   const ends: { i: number; score: number; toWater: boolean }[] = [];
   for (let i = 0; i < N; i++) {
@@ -1443,7 +1448,7 @@ export function planWashes(inp: WashInput): Washes {
   };
   const washCount = () => beds.filter((b) => b.kind === "wash").length;
   const tried = new Set<number>();
-  for (const least of [WASHES.least, WASHES.fallback].map((n) => Math.round(n * scale))) {
+  for (const least of (inp.within ? [inp.within.least] : [WASHES.least, WASHES.fallback]).map((n) => Math.round(n * scale))) {
     for (let round = 0; round < 12 && washCount() < want; round++) {
       let pick: { end: number; cut: Cut; hollow: Hollow | null; score: number } | null = null;
       let looked = 0;

@@ -41,6 +41,7 @@ Across the valley, from the near wall to the far wall:
 | The plain | The floodplain: the largest level land on the map | One level, `L`, falling one level down the valley every 40 to 60 tiles as the river's own profile falls (a riser that wanders across the floor, never a straight step: the scar the river's old bends cut into the higher plain, a chain of arcs 16 to 30 tiles across, each bowed 3 to 8 tiles up the valley, meeting in cusps); at most as many risers as leave the Red Fall's 6 or 7 levels under the water's ceiling of 16 (two), farther apart on a longer plain | Mean width `P` across the valley (§2); its length 0.7 to 0.85 of the side along the axis; the floor (plain and backswamp) 20 to 30 % of the map at every size |
 | The backswamp | The floor's lowest strip, under the far wall, where the plain's water gathers | A strip one level under the plain, `L − 1`, 7 to 10 tiles wide at 128² and up to 0.06 of the side on larger maps, its edge with the plain a wandering riser | It carries the red stream, which wanders within it |
 | The slough | An old channel a flood cut from a low place in the levee across the plain to the backswamp | A dry bed one level under the plain, 2 or 3 wide, winding (a bend every 6 to 10 widths), from a low place in the levee's middle third (the upper half of it where the red stream joins the river) to the backswamp: of the low places the land offers there, the one at the lower end of the plain's highest level (§6, planning's ruling of 2026-11-17). One at 128²; at 192² and 256² a second a third of the plain or more above it, from a low place the land offers there (a layout with none is drawn again) | Dry on day 1; it is the river-in's way, already in the land |
+| The old channels | Shallow beds old floods left across the plain, dry since; where a ditch from the river wants to go | The dry washes every map has (D517's shared pass, `land/washes.ts`) kept to the plain (`WashInput.within`, `OLD_CHANNELS`): the plain's own low lines, read on its softened and warped ground, from the levee's back across it toward the backswamp; a bed 3 wide a level under the plain (a branch 2), its fords and its lip, ending in a dry hollow or short of the water, 2 tiles or more off the sloughs and the backswamp. Off the start's ground, the works and the water as every wash is; the dead stands' banks (D516) | A main one 16 tiles or more at 128² (by side elsewhere), 2 to 3 a 128² (by side); the plain's flow gives 25 to 45 tiles at 128², 50 to 135 at 256², and as many as it gives: 0 to 3 at 128², 1 to 4 at 256² on seeds 1 to 3 (step 6) |
 | The far wall | The valley's other side, the edge of a plateau | Big crags and narrow benches from its foot to a crest 9 to 13 over the plain; past it a plateau that rolls by noise and sinks a few levels toward the edge, its side valleys and old valleys cut in it; hard rock at the gulch's mouth | 8 or more over the plain wherever the first frame sees it (within 60 tiles of the start); sheer only at the Red Fall |
 | The side valleys | Hanging valleys of both walls; never a comb | Each a wander: mouths spaced by noise (0.4 to 2.5 of the mean), each off its wall's normal by its own heading (within 35°, its neighbour's never within 10° for more than 12 tiles), turning along it by noise; lengths and widths from wide ranges; some branch, some are alcoves. The far wall's hang at the Red Fall's height | Cut by distance from their wandering lines, their edges jagged by noise |
 | The gulch (the Stain) | A hanging side valley: its stream never cut down to the main floor | A side valley of the far wall found by search (§3), its floor 6 or 7 levels over the backswamp at its mouth (D510), narrow (4 to 7 wide), with a narrows 3 or fewer wide within its lower half | The red source at its head |
@@ -136,6 +137,12 @@ valley in the land the shared relief made:
   (50° or more, the whole widening), never within a tile of the backswamp's edges; where it runs straight it keeps its
   own width, and so below the Red Pool and across the plain to its join (`RED_POOLS`, `redHalves`; step 5: the red
   stream read as a one-tile thread in the whole-map frame at 192² and 256²). No width is laid where it does not turn.
+  Its course on the backswamp meanders by the river's own maker at the stream's width, its bends' length and reach
+  varying along it as the river's do, about an axis that drifts across the backswamp by noise, so the room its bends
+  swing in moves with it (`RED_DRIFT`; step 6: at 256² seed 2 the course was a drawn wave, its axis a fixed share of a
+  backswamp whose width wanders 1.5 tiles, every lobe capped alike: runs of 6 to 9 like lobes on seeds 1 to 8, now 2 to
+  4, the river's 1 to 3; the lobes' lengths vary by 0.35 to 0.65 of their mean, 0.25 to 0.32 before, the river's 0.29
+  to 0.75).
 - **Courses.** The river: in at one edge, out at another, between its levees. The red stream: down the gulch, over the
   Red Fall (a fall of 6 or 7 levels, the landmark, D510: the gulch's mouth stands that far over the backswamp), along the backswamp, then by the seed either into the river in the river's
   last 30 % (D476, D498: the river is never red above the join) or out by the edge on its own. The start's brook: down
@@ -424,6 +431,38 @@ frames, judged by planning.
   The red stream: its bends widened on the backswamp (§4, `RED_POOLS`) read as a stream in the whole-map frame at
   128² and 256², by the land's own shape. Open: at 256² the stream's own meander can read regular over a long reach
   (seed 2), the plan's meander and not its width.
+- *Answered (step 6): the red stream's drift, the gulch's stub, the first attempts and the dry floor.* Seeds 1 to 12,
+  first attempts (`plainMap`'s first land holding): 8 of 12 at 128² (seeds 2 `fork.own`, 8 no layout, 9 `fall.drop`, 10
+  `works.sites`: the turn's dam over 6 tiles), 11 of 12 at 192² (seed 3 `fall.whole`), 10 of 12 at 256² (seed 4
+  `gulch.found`, 5 `riverIn.green`). The target of 11 at 128² and 256² is not met; every refusal left is the
+  search's draw of a check that holds as it is, none a check loosened.
+  (1) The red stream's meander read as a drawn wave over a long reach (seed 2 at 256²): its own sine at one wavelength.
+  It now drifts as the river's does, by the same `meander` with `RED_DRIFT` (§4): the longest run of like lobes fell
+  from 6 to 9 to 2 to 4 (the river's 1 to 3), the lobes' lengths' spread (cv) rose from 0.25–0.32 to 0.35–0.65. Seed
+  2 at 256² still shows one long, gently curved reach in its close frame.
+  (2) The straight north–south stub of red bed on seed 1 at 128² is the gulch's own stream, from the Red Spring down the
+  Stain to the Red Fall's lip: it belongs. It runs straight because the hanging valley is laid square for 5 rows behind
+  the lip (`VALLEY_BACK`), then the narrows, and the course's heading eases from the grid only to 33°. A meander past
+  the hanging valley (the shared `meander`) cut its longest straight run from 13–24 tiles to 7–15 at 128², but moved
+  the found gulch and the turn's site with it: first attempts at 256² fell to 8, under the heavy test's floor of 9, and
+  it leaked at the bends until the gulch's bank was cut a level over the floor upstream of the bend. Withdrawn; the bank
+  mend stays (it is right where any bend meets the bank). Open: bending the gulch's stream with its ground needs the
+  gulch found after it bends.
+  (3) Two mends at the cause: the slough's bed is kept at its level where the levee's bank stood over it (seed 1 at 128²
+  and 256², `riverIn.byNumber`: the slough carried nothing under the bank). Step 5 withdrew a like mend that took the
+  bank off the slough's tiles and drained it (32 % green); this one lowers only the bed's own tiles to the slough's
+  level after stage 1's guard and before the bank's runs are broken: green after the river in 62 % at 128² and 75 % at
+  256² on seed 1. And the gulch's bank where a bend comes near it (above).
+  (4) The old channels: the dry floor carries the plain's own flow lines, from the levee to the backswamp, as dry
+  channels (§1), the shared D517 pass on the plain's floor alone (`planWashes` `within`, `OLD_CHANNELS`), its dead
+  stands on their banks (D516). Seeds 1 to 3: 2, 0 and 1 channels at 128² (127, 0 and 69 tiles), 4, 3 and 4 at 256²
+  (948, 452 and 898 tiles). The floor stays dry: 81 % dry and 8 % green on seed 2 at 256². Seed 2 at 128² finds no
+  line 16 tiles long off the sloughs.
+  The start, seeds 1 to 3 (attempt, level land, wood, berries, clean water's walk, badwater off): 128² 1, 950, 425, 50,
+  8, 21.6; 2, 750, 468, 80, 9.2, 23.0; 1, 735, 318, 64, 11.7, 35.9; 256² 1, 981, 371, 166, 8.8, 39.8; 1, 1316, 470,
+  167, 8.1, 27.1; 1, 798, 279, 140, 6.7, 32.0. Without the old channels the wood is the same or more (481, 468, 318;
+  371, 470, 281): they take none from the start. The level land and badwater moved with the land's mends (the first
+  attempt's map changed), all within the shared floors.
 - *Findings (step 4).* (1) The red source's niche took the bed's first 3 × 3 wherever it lay; on seed 4 at 128² that
   was the gulch's mouth, under the dam, so the dam held nothing back. It now stands within `NICHE_NEAR` of the plan's
   source point, and `turn.byNumber` runs the red water from the niche. (2) Where the narrows' shoulders stand under the
