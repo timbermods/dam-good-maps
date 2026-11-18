@@ -34,14 +34,22 @@ describe("renaming a map (D443)", () => {
     const b = decodeProject(s.project());
     expect(b.meta.name).toBe("Beaver Bend");
     expect({ ...b, meta: { ...b.meta, name: a.meta.name } }).toEqual(a);
-    expect(documentFileName(b)).toBe("dgm-beaver-bend.damgoodmaps.json");
+    // (named by the map's name as written, D443 amended 2026-11-18; it was dgm-beaver-bend before, D148)
+    expect(documentFileName(b)).toBe("Beaver Bend.damgoodmaps.json");
   });
 
-  it("the .timber file's name follows a rename; a generated map keeps its seed name until then", () => {
+  it("the .timber file's name is the map's name: its generated one, then the one it is renamed to", () => {
     const s = open();
-    expect(s.exportTimberName()).toMatch(/^dgm-.*-7\.timber$/);
+    expect(s.exportTimberName()).toBe(`${s.meta.name}.timber`);
     s.setName("Beaver Bend");
-    expect(s.exportTimberName()).toBe("dgm-beaver-bend.timber");
+    expect(s.exportTimberName()).toBe("Beaver Bend.timber");
+  });
+
+  it("refuses a name that leaves nothing to name its files by, and keeps the old one", () => {
+    const s = open();
+    const was = s.meta.name;
+    for (const n of ["???", " ... ", "<|>"]) expect(s.setName(n).ok, n).toBe(false);
+    expect(s.meta.name).toBe(was);
   });
 
   it("Your maps' entry takes the stored name on the next save, given beside the project (never unzipped from it)", async () => {

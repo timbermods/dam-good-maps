@@ -4,7 +4,7 @@
 // and the open map brought back on the next visit.
 
 import { expect, test, type Page } from "@playwright/test";
-import { centreOn, generateButton, openEditor, openFileMenu, openSection, openYourMaps, pick, waitForEditor, topDown } from "./open";
+import { centreOn, generateButton, openEditor, openFileMenu, openSection, openYourMaps, pick, shownName, waitForEditor, topDown } from "./open";
 import { toolInHand, toolPutAway } from "./helpers";
 
 async function drag(page: Page, from: [number, number], to: [number, number]) {
@@ -151,7 +151,8 @@ test("open → edit → Generate replaces the map without asking and Your maps k
   await expect(page.getByRole("button", { name: /^Checks: Ready to play/ })).toBeVisible({ timeout: 60_000 });
   const download = page.waitForEvent("download");
   await (await openFileMenu(page)).getByRole("menuitem", { name: "Download .timber" }).click();
-  expect((await download).suggestedFilename()).toBe("dgm-river-valley-4263.timber");
+  // (named by the map's name as the header shows it, D443 amended 2026-11-18; it was dgm-river-valley-4263, D148)
+  expect((await download).suggestedFilename()).toBe(`${await shownName(page)}.timber`);
   await expect(page.getByRole("status").filter({ hasText: /Move the file to/ })).toBeVisible();
 
   // Generate over the edited map asks nothing and makes a new map (edits never replay onto new land, D336);

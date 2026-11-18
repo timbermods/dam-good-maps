@@ -108,6 +108,7 @@ export function shortcutGroups(): readonly ShortcutGroup[] {
         { what: "Select the whole map", keys: ["Ctrl+A"] },
         { what: "Selection up or down a level", keys: ["↑", "↓"] },
         { what: "Carve a river from a picked source", keys: ["U"] },
+        { what: "Save the map under a name you choose", keys: ["Ctrl+Shift+S"] },
         { what: "Show this list", keys: [SHORTCUTS_KEY] },
       ],
     },

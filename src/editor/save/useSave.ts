@@ -20,7 +20,9 @@ export interface SaveSlice {
   exportProject: () => Promise<void>;
   /** File → Save a picture: the map from the game's opening view, drawn large (D488's picture) and saved as a JPEG. */
   exportPicture: () => Promise<void>;
-  saveMap: (kind: "timberborn" | "download") => Promise<void>;
+  /** `rename`: Save as… (the map renamed through the core, then saved under the new name, D443); it answers the core's
+   *  one-line refusal, or null once the name is stored. */
+  saveMap: (kind: "timberborn" | "download", rename?: () => Promise<string | null>) => Promise<void>;
   /** File -> Choose Maps folder…: pick or change the folder Save to Timberborn writes to. */
   chooseFolder: () => Promise<void>;
   /** An opened file's import flags, each with its fix: the quiet dot lists them (Kyler, 2026-10-03). */
@@ -70,7 +72,7 @@ export function useSave(ed: Ed): SaveSlice {
    *  are confirmed without a question (never written into the map's description). Into the game's Maps folder where the
    *  browser can, else a download. The folder is found first, straight from the click: the picker needs the
    *  click's fresh user activation, which lapses within seconds, long before a big map is built. */
-  async function saveMap(kind: "timberborn" | "download") {
+  async function saveMap(kind: "timberborn" | "download", rename?: () => Promise<string | null>) {
     if (saving) return;
     setSaving({ kind, progress: null });
     setMessage(null);
@@ -87,6 +89,14 @@ export function useSave(ed: Ed): SaveSlice {
         setMessage({ kind: "error", text: wrongFolderNote(choice.picked) });
         return;
       }
+      // Save as…: the map takes the name first, so the file is named by it (after the folder: the picker needs the click)
+      if (rename) {
+        const why = await rename();
+        if (why) {
+          setMessage({ kind: "error", text: `Not saved: ${why}` });
+          return;
+        }
+      }
       // (a force at work is kept first: its land lives outside the map until then, investigation/page-qa F1)
       await ed.forcer.current?.stop();
       ed.endRolls?.();
@@ -101,7 +111,7 @@ export function useSave(ed: Ed): SaveSlice {
         setMessage({ kind: "error", text: `Not saved: ${plain(r.errors[0] ?? "the map has problems to fix first")}`, keep: true });
         return;
       }
-      // (the core names the file: its seed-based name until the map is renamed, then `namedFile`, D443)
+      // (the core names the file: the map's name as the header shows it, kept as written, D443)
       const fileName = r.fileName;
       // the map's 3D picture as its thumbnail (D488), or the core's top-down one
       const bytes = await hero.finish(r);

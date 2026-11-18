@@ -78,7 +78,7 @@ place of its bottom rule.
   playing"; its list closes an open Legend while it is shown, and the Legend returns when it closes), **Save to Timberborn**
   (**Download .timber** in browsers that can't save to a folder), the only lit control, Look, **Together** (a quiet
   button with a small people icon: "Edit this map with someone else"; see "Together" below) and **File** (Open…, New blank map… (below),
-  Download project (says "Saved <file>" in a quiet note, as Download .timber does), Download .timber, Choose Maps folder… (Chrome and Edge), Record a time-lapse… (where the browser can make a video: §6b), Save a picture (§6b), Clear everything, About, then after a hairline Keyboard shortcuts, Help and Report a
+  **Save as…** (Ctrl+Shift+S; below, "Saved names"), Download project (says "Saved <file>" in a quiet note, as Download .timber does), Download .timber, Choose Maps folder… (Chrome and Edge), Record a time-lapse… (where the browser can make a video: §6b), Save a picture (§6b), Clear everything, About, then after a hairline Keyboard shortcuts, Help and Report a
   problem: see "The File menu's help entries" below). **Another like this** (M9b's D278 (1c): a sibling, the
   same theme, settings and intentions on different land, with its own share link) is in the map generator's panel,
   under Surprise me, greyed on an opened map; Reset settings on its "On this map" line. A sibling's variation is shown beside its seed, in the header ("Seed 4242 · 2 · 128×128") and in the panel's Seed line, so a seed copied by hand is known to be only part of its address. **Showcase…** (D488 (2)) sits in
@@ -653,9 +653,21 @@ place of its bottom rule.
   re-hovering (D347, D387 (1)): after each water state the page shows, it asks `readoutWater` for the hovered tile
   (the readout's water words, as rounded and shown) and re-describes only when they differ
   (`tests/contract/waterSignal.test.ts`).
-- **Saved names** (D345, B10): a saved map is `dgm-<theme>-<seed>.timber` (`any` for a Surprise me map; a seed typed
-  as a word made file-safe; a real place, an opened file or a renamed map as `dgm-<name>`); Save to Timberborn never overwrites: a
-  taken name gets `-2`, `-3` (`core/gen/pack.ts` `fileName`, `namedFile`).
+- **Saved names** (D443, amended 2026-11-18): every file is named by the map's name as the header shows it, kept as
+  written ("Old Loop Lakelands.timber", "Old Loop Lakelands.damgoodmaps.json"): a generated map's own name, a renamed
+  map's, a real place's, an opened file's. Only what a file name can't hold on Windows, macOS or Linux is replaced
+  (`\ / : * ? " < > |` and control characters become a space; dots and spaces at either end go; a Windows device name
+  such as CON gets " map"; past 150 characters it is cut), and a name that leaves nothing is refused by Rename and Save
+  as alike in one line (`core/format/fileName.ts` `fileStemOf`). Save to Timberborn never overwrites: a taken name gets
+  `-2`, `-3`. (Batch tools and probe runs still write `dgm-<theme>-<seed>.timber`, `core/gen/pack.ts` `fileName`: many
+  seeds in one folder.) **Save as…** (File, and the phone's menu; Ctrl+Shift+S) opens a small card under the header's right
+  group (on a phone under the bar, the screen's width, its field and **Save** 44px tall, where the keyboard never covers
+  them): the map's name in a field, selected, and under it the file's name as it is typed ("Saves as Old Loop
+  Lakelands.timber"); where the Maps folder is remembered and its permission stands, the folder is asked quietly whether
+  the name is taken, and the line says so before Enter ("A map called … is in Maps: saves as …-2.timber"). Enter or
+  **Save** renames the map through the core (D443: never an undo step; a guest can't rename the host's map) and saves as
+  the header's button does, into the Maps folder or as the download (a phone's share sheet); Esc or a press outside
+  leaves. The saved line says the file's name ("Saved Old Loop Lakelands.timber to Maps.").
   **The folder** (`src/platform/index.ts`): only a folder named `Maps` is accepted (the browser gives a folder's name, not
   its path); any other is refused with one line naming `Documents\Timberborn\Maps`, and the previous choice stands.
   Closing the folder picker is a cancel: nothing is saved or downloaded and nothing is said. A real failure (permission

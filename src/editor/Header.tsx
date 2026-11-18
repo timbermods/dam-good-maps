@@ -20,6 +20,7 @@ import { HelpPanels, REPORT_TIP, reportProblem, showHelpPanel } from "./help/hel
 import { GENERATOR_VERSION } from "../core/spec/mapspec";
 import { BLANK_LEVEL, BLANK_MAX_LEVEL, BLANK_SIZES } from "../core/doc/blankLimits";
 import { ChoiceSetting, NumberSetting } from "./settings";
+import { isSaveAsKey, SAVE_AS_KEY, SaveAs } from "./save/SaveAs";
 
 const ICON = { width: 18, height: 18, viewBox: "0 0 20 20", "aria-hidden": "true" as const, fill: "none", stroke: "currentColor", "stroke-width": 1.8, "stroke-linecap": "round" as const, "stroke-linejoin": "round" as const };
 
@@ -380,6 +381,11 @@ export interface HeaderProps {
   /** A save in progress, and how far along. */
   saving: { kind: "timberborn" | "download"; progress: CheckProgress | null } | null;
   onSave(kind: "timberborn" | "download"): void;
+  /** Save as… (D443): the map renamed to `name` through the core, then saved as `kind` under it. */
+  onSaveAs?(kind: "timberborn" | "download", name: string): void;
+  /** The name a save into the Maps folder would give a file of this name now (a number added where it is taken), asked
+   *  quietly; null when it can't be known without asking the player. */
+  peekSaveName?(fileName: string): Promise<string | null>;
   /** Pick or change the folder Save to Timberborn writes to. */
   onChooseFolder(): void;
   onOpenFile(file: File): void;
@@ -420,6 +426,7 @@ export function Header(p: HeaderProps) {
   const [about, setAbout] = useState(false);
   const [newBlank, setNewBlank] = useState(false);
   const [describing, setDescribing] = useState(false);
+  const [savingAs, setSavingAs] = useState(false);
   // (the time-lapse's dialog, loaded the first time it is asked for)
   const [lapse, setLapse] = useState<typeof import("./timelapse/TimelapseDialog").TimelapseDialog | null>(null);
   const openLapse = () => void import("./timelapse/TimelapseDialog").then((m) => setLapse(() => m.TimelapseDialog));
@@ -503,6 +510,18 @@ export function Header(p: HeaderProps) {
       window.removeEventListener("keydown", key);
     };
   }, [menu]);
+  // Ctrl+Shift+S (Cmd on a Mac): Save as…, from anywhere on the page but a dialog in front of it
+  const canSaveAs = !!p.onSaveAs;
+  useEffect(() => {
+    if (!canSaveAs) return;
+    const key = (e: KeyboardEvent) => {
+      if (!isSaveAsKey(e) || document.querySelector<HTMLElement>(".editor")?.inert) return;
+      e.preventDefault();
+      if (!p.saving) setSavingAs(true);
+    };
+    window.addEventListener("keydown", key);
+    return () => window.removeEventListener("keydown", key);
+  }, [canSaveAs, !!p.saving]);
   const pick = (fn: () => void) => () => {
     setMenu(false);
     fn();
@@ -531,6 +550,13 @@ export function Header(p: HeaderProps) {
         <li role="none" class="menu-together">
           <button type="button" role="menuitem" {...tip("Edit this map with someone else")} onClick={pick(openTogether)}>
             Together…
+          </button>
+        </li>
+      ) : null}
+      {p.onSaveAs ? (
+        <li role="none">
+          <button type="button" role="menuitem" disabled={!!saving} {...tip("Save the map under a name you choose", SAVE_AS_KEY)} onClick={pick(() => setSavingAs(true))}>
+            Save as…
           </button>
         </li>
       ) : null}
@@ -760,6 +786,16 @@ export function Header(p: HeaderProps) {
           </>
         )}
       </div>
+      {savingAs && p.onSaveAs ? (
+        <SaveAs
+          name={p.name}
+          toFolder={p.canFolder}
+          locked={p.renameLocked}
+          peek={p.peekSaveName}
+          onSave={(name) => p.onSaveAs!(primary, name)}
+          onClose={() => setSavingAs(false)}
+        />
+      ) : null}
       {about ? <About onClose={() => setAbout(false)} /> : null}
       {newBlank ? (
         <NewBlank

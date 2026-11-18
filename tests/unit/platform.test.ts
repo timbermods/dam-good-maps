@@ -6,7 +6,7 @@
 
 import "fake-indexeddb/auto";
 import { describe, expect, it } from "vitest";
-import { chooseMapsFolder, chooseSaveFolder, saveIntoFolder, isMapsFolder, liveDeps, storage, saveToTimberborn, type Autosave, type SaveToTimberbornDeps } from "../../src/platform";
+import { chooseMapsFolder, chooseSaveFolder, saveIntoFolder, isMapsFolder, liveDeps, peekSaveName, storage, saveToTimberborn, type Autosave, type SaveToTimberbornDeps } from "../../src/platform";
 
 function fakeFolder(name: string, writes: { name: string; bytes: Uint8Array }[]): FileSystemDirectoryHandle {
   return {
@@ -403,5 +403,21 @@ describe("the folder handle has its own database, apart from the autosave", () =
     const loaded = await storage.load();
     expect(loaded?.name).toBe("a.timber");
     expect(loaded?.bytes).toEqual(autosave.bytes);
+  });
+});
+
+describe("Save as… asks the Maps folder quietly what a name would be saved as", () => {
+  const peekDeps = (folder: FileSystemDirectoryHandle | null) => ({ supported: () => true, freeName: liveDeps.freeName, recallQuietly: async () => folder });
+
+  it("the name itself when it is free, 'name-2' when a map has it", async () => {
+    const maps = fakeFolderWithFiles("Maps", new Set(["Old Loop Lakelands.timber"]), []);
+    expect(await peekSaveName("Beaver Bend.timber", peekDeps(maps))).toBe("Beaver Bend.timber");
+    expect(await peekSaveName("Old Loop Lakelands.timber", peekDeps(maps))).toBe("Old Loop Lakelands-2.timber");
+  });
+
+  it("nothing known without a folder whose permission stands, or in another browser", async () => {
+    expect(await peekSaveName("A.timber", peekDeps(null))).toBeNull();
+    expect(await peekSaveName("A.timber", { ...peekDeps(fakeFolderWithFiles("Documents", new Set(), [])) })).toBeNull();
+    expect(await peekSaveName("A.timber", { ...peekDeps(null), supported: () => false })).toBeNull();
   });
 });
