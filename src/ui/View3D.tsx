@@ -243,6 +243,16 @@ export function View3D(props: View3DProps) {
     r.setMarkers(markers);
     // the Flow view as the player left it (D353; off by default), where the editor has its switch
     if (props.togglesInButtons && (flow || again)) r.setFlow(flow);
+    // the browser took the view's context away: a line over the blank view if it is not back within a second (it
+    // draws again in Standard when it is: renderer.ts restoreContext)
+    let lostTimer = 0;
+    r.onLost = (lost) => {
+      clearTimeout(lostTimer);
+      if (lost) lostTimer = window.setTimeout(() => setError("The 3D view stopped drawing. If it stays blank, reload the page."), 1000);
+      else setError(null);
+    };
+    // (a renderer taken while its context is gone: the last view's or the warmed one's)
+    if (r.contextLost) r.onLost(true);
     r.onHover = (hit, seen) => {
       onHover.current?.(hit, seen);
       if (!props.legendInCorner) return;
@@ -288,6 +298,8 @@ export function View3D(props: View3DProps) {
       setMade(null);
       clearTimeout(t);
       clearTimeout(rt);
+      clearTimeout(lostTimer);
+      r.onLost = null;
       if (window.dgm3d?.renderer === r) delete window.dgm3d;
       // the editor's view keeps its renderer for the next map's (a new map re-mounts the editor); any other view's goes
       if (props.legendInCorner) {

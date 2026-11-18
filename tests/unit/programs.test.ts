@@ -38,8 +38,11 @@ function fakeHost() {
     if (!props.has(m)) props.set(m, {});
     return props.get(m)!;
   };
+  /** The context taken away (the test sets it). */
+  const context = { lost: false };
   const gl = {
     extensions: { has: () => true },
+    getContext: () => ({ isContextLost: () => context.lost }),
     properties: { get },
     compile(obj: { material: ShaderMaterial }) {
       const m = obj.material;
@@ -61,7 +64,7 @@ function fakeHost() {
   };
   const host = { gl, scene: {}, camera: () => ({}), drawnWith: () => [], standIn: () => ({ material: null }), changed: () => {} } as unknown as ProgramsHost;
   const finish = (key: string) => (cache.get(key)!.done = true);
-  return { host, sent, finish, props };
+  return { host, sent, finish, props, context };
 }
 
 const material = (name: string, defines: Record<string, number>) => ({ name, defines, needsUpdate: false, addEventListener: () => {} }) as unknown as ShaderMaterial;
@@ -139,5 +142,33 @@ describe("Programs' queue", () => {
     await vi.advanceTimersByTimeAsync(20);
     expect(switched).toBe(true);
     expect(programs.queued).toBeGreaterThan(0);
+  });
+
+  it("compiles nothing while the context is gone, and when it is back sets every switch and tells everyone waiting", async () => {
+    const { host, sent, props, context } = fakeHost();
+    const programs = new Programs(host);
+    const terrain = material("terrain", { LITE: 0, CUTAWAY: 0 });
+    props.set(terrain, { programs: new Map([["drawn", { key: "drawn", done: true, isReady: () => true }]]) });
+    // the warm-up and a switch of the look in flight when the context goes
+    void programs.warm([[material("q0", { LITE: 0 }), { LITE: 0 }]]);
+    let switched = false;
+    void programs.now([[material("sky", { LITE: 0 }), { LITE: 0 }]]).then(() => (switched = true));
+    await vi.advanceTimersByTimeAsync(0);
+    const before = sent.length;
+    context.lost = true;
+    // a dig while it is gone: nothing sent, the switch waits
+    programs.set(terrain, "CUTAWAY", 1);
+    void programs.warm([[material("q1", { LITE: 0 }), { LITE: 0 }]]);
+    await vi.advanceTimersByTimeAsync(100);
+    expect(sent.length, "nothing compiled on a lost context").toBe(before);
+    expect(terrain.defines.CUTAWAY).toBe(0);
+    // back: the switch made (three.js compiles it at the next frame), those waiting told, nothing left queued
+    context.lost = false;
+    programs.restart();
+    await vi.advanceTimersByTimeAsync(0);
+    expect(terrain.defines.CUTAWAY).toBe(1);
+    expect(programs.settled).toBe(true);
+    expect(switched).toBe(true);
+    expect(programs.queued).toBe(0);
   });
 });

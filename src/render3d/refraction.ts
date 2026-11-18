@@ -221,6 +221,13 @@ export class Refraction {
     gl.state.bindFramebuffer(ctx.DRAW_FRAMEBUFFER, null);
   }
 
+  /** The context was lost and is back: the copies are made again at the next frame (the framebuffer was the old
+   *  context's: dropped, never deleted). */
+  contextLost(): void {
+    this.readFbo = null;
+    this.dispose();
+  }
+
   dispose(): void {
     this.texture?.dispose();
     this.texture = null;
