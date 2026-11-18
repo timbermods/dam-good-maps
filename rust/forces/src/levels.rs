@@ -37,7 +37,9 @@
 //    wider steps between higher walls: a steep slope is a cliff with ledges, never a stair. A cliff
 //    the force made by intent (a jump in its surface) stays where it is, whole.
 // 3. No one-tile pillar, pit, ridge, trench or lone block: the same rule, a pit or a trench filling to
-//    the ground beside it.
+//    the ground beside it. A tile no square reaches joins ground within two levels of its own before any
+//    further off: the corner of a cliff's foot waits for the low ground beside it to settle and never
+//    climbs to the cliff's top.
 //
 // The land's own narrow ground stays where the force changes the ground by a level or less: the tidying
 // never drops a brink, or the corner of a ridge, the force only brushed down its cliff.
@@ -461,6 +463,9 @@ fn squares(heights: &mut [u8], w: usize, h: usize, free: &[bool]) -> bool {
     // The tiles no square reached. Each joins a level that three settled tiles of one of its squares
     // share (the nearest to its own, so it stands in a square there); where none does, a ring of
     // them at a time joins the ground beside it (a trench fills from its sides, then stands in squares).
+    // Ground within two levels of a tile's own settles first: a level further off is joined only when no
+    // tile left can join a nearer one, so the corner of a cliff's foot whose low ground is still to
+    // settle waits for it and never climbs to the cliff's top.
     let mut left: Vec<u32> = (0..w * h).filter(|&i| land[i] == UNSET).map(|i| i as u32).collect();
     let any = !left.is_empty();
     let mut joined: Vec<(u32, u16)> = vec![];
@@ -469,6 +474,7 @@ fn squares(heights: &mut [u8], w: usize, h: usize, free: &[bool]) -> bool {
         _ => Some(to),
     };
     let mut ring = false;
+    let mut further = false;
     while !left.is_empty() {
         joined.clear();
         for &i in &left {
@@ -480,10 +486,13 @@ fn squares(heights: &mut [u8], w: usize, h: usize, free: &[bool]) -> bool {
                 if nx < 0 || ny < 0 || nx >= w as i64 || ny >= h as i64 { UNSET } else { land[ny as usize * w + nx as usize] }
             };
             let mut best = None;
+            let far = |g: u16| (g as i32 - own as i32).abs() > 2;
             if ring {
+                // (from the ground within two levels of its own where there is any)
+                let near = [(-1i64, 0i64), (1, 0), (0, -1), (0, 1)].iter().any(|&(dx, dy)| at(dx, dy) != UNSET && !far(at(dx, dy)));
                 for (dx, dy) in [(-1i64, 0i64), (1, 0), (0, -1), (0, 1)] {
                     let g = at(dx, dy);
-                    if g != UNSET {
+                    if g != UNSET && !(near && far(g)) {
                         best = match best {
                             // (the lowest that is no lower than itself, else the highest)
                             Some(b) if (b >= own && (g < own || g >= b)) || (b < own && g < b) => Some(b),
@@ -494,11 +503,10 @@ fn squares(heights: &mut [u8], w: usize, h: usize, free: &[bool]) -> bool {
             } else {
                 // (a tile that touches settled ground within two levels of its own never joins ground
                 // further off: the brink of a cliff stays on the cliff's top)
-                let far = |g: u16| (g as i32 - own as i32).abs() > 2;
                 let held = [(-1i64, 0i64), (1, 0), (0, -1), (0, 1)].iter().any(|&(dx, dy)| at(dx, dy) != UNSET && !far(at(dx, dy)));
                 for (dx, dy) in [(-1i64, -1i64), (1, -1), (-1, 1), (1, 1)] {
                     let (a, b, c) = (at(dx, 0), at(0, dy), at(dx, dy));
-                    if a != UNSET && a == b && b == c && !(held && far(a)) {
+                    if a != UNSET && a == b && b == c && !((held || !further) && far(a)) {
                         best = nearer(a, best, own);
                     }
                 }
@@ -508,6 +516,10 @@ fn squares(heights: &mut [u8], w: usize, h: usize, free: &[bool]) -> bool {
             }
         }
         if joined.is_empty() {
+            if !ring && !further {
+                further = true;
+                continue;
+            }
             if ring {
                 // (nothing settled beside them: they keep their levels)
                 for &i in &left {
@@ -519,6 +531,7 @@ fn squares(heights: &mut [u8], w: usize, h: usize, free: &[bool]) -> bool {
             continue;
         }
         ring = false;
+        further = false;
         for &(i, to) in &joined {
             land[i as usize] = to;
         }

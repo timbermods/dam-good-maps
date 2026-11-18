@@ -47,7 +47,7 @@ const spec = (theme: ThemeId, size: number, seed: number, badwaterDistance?: num
 
 describe("the shown land's bounds (#236)", () => {
   it("above 128², a shown land failing the same way three times in a row ends its round, and is never dropped within it", () => {
-    // (Highlands 136², badwater distance 60, seed 2 → 1 at 0.10.41, D(new-ditch) and D(sea-steps) on #1217's land, D148: seed 2 passes
+    // (Highlands 136², badwater distance 60, seed 2 → 1 at 0.10.46, D(new-ditch) and D(sea-steps) on #1217's land, D148: seed 2 passes
     // now with no round ended by the bound; of seeds 1–8 only 1 and 6 end a round, each passing the whole test;
     // seed 6 → 2 at 0.10.30, D(new-ditch) and D(sea-steps), D148: the badwater drains by
     // gullies, so seed 6's lands moved and it passes on its 17th attempt with no round ended by the bound; of seeds 1–8 only 2
@@ -89,9 +89,10 @@ describe("the shown land's bounds (#236)", () => {
     // for its own reason;
     // seed 1 → 3 at 0.10.36: seeds 1 and 2 fail only one attempt now, the others gone from their land (#1205); seed 3 fails more than one;
     // seed 3 → 5 at 0.10.40, small maps at their own scale (#1193, D(small-own-scale), D148): seeds 1 and 3 make their map at the first
-    // attempt now, seed 5 at its ninth; kept at 0.10.42, the merge with dev 0.10.40 and the joins of #1162 (D(ruled-water)): seed 5
-    // still makes its map at its ninth attempt, its eight failures for five reasons)
-    const { progress, failures } = traced(spec("riverValley", 64, 5));
+    // attempt now, seed 5 at its ninth;
+    // seed 5 → 2 at 0.10.44, a tributary deep under a wall winding at a small map's scale (D(gorge-followups), D148): seed 5 makes
+    // its map at the first attempt now, seed 2, the first of seeds 1–10 that fails more than one, at its third)
+    const { progress, failures } = traced(spec("riverValley", 64, 2));
     expect(failures.length).toBeGreaterThan(1);
     expect(progress[0].failed).toBeUndefined();
     expect(progress[0].tried).toBe(0);

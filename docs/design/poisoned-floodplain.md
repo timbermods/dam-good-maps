@@ -22,8 +22,14 @@ floor and re-entrants that step back, 0.15 to 0.3 of `P` either way, a spur and 
 has a flank straight for more than the rule below allows). No wall's foot stays
 within 2 tiles of one straight line for longer than 1.2 `P` (`wall.wanders`, a plan invariant; stage 2 holds the same
 of the ground). The land's warp moves the foot a tile or two either way, and where it moves against a bend the foot
-reads straighter on the ground than drawn, so each wall is drawn (up to 32 times) until no run of 1.2 `P` stays within
-3.5 tiles of a line, its little noise 3 tiles over 0.3 `P`; the frames' captions give each wall's longest run. The backswamp and the red stream follow the far wall's foot, so they wander as it does.
+reads straighter on the ground than drawn, so the plan judges each wall on its foot as the ground will draw it
+(`wallFoot`, step 5: the line read through the floor's warp, `FLOOR_WARP`, whose seeds are the spec's alone) and draws
+it (up to 32 times, its little noise 3 tiles over 0.3 `P`) until no run of 1.2 `P` of that foot stays within 3 tiles of
+a line (the rule's 2 and a tile for the ground's rounding); where no draw does, the straightest is given a spur of 5
+tiles, a sine's arch half its straightest run long, at that run's middle and bowed the way the line already bows, up to
+4 times (`spurWhereStraight`). Round 3 judged the line itself with a tile and a half's slack for the warp; at 128², the
+plain at its least width, the flank between two arches read straight on the ground on every draw of seeds 7 and 9. The
+frames' captions give each wall's longest run. The backswamp and the red stream follow the far wall's foot, so they wander as it does.
 
 Across the valley, from the near wall to the far wall:
 
@@ -34,7 +40,7 @@ Across the valley, from the near wall to the far wall:
 | The levees | The banks a river builds from its own floods: highest at the channel, uneven, with low places where old floods broke out | A bank along both sides of the river whose height is noise along the course: one level over the plain for most of its length, level with the plain at 2 to 4 low places (each 4 to 8 tiles long). Its width is noise too, 3 to 6 tiles. It follows the meanders, so it is never straight | No stretch of crest at one height longer than a fifth of the river's length on the plain |
 | The plain | The floodplain: the largest level land on the map | One level, `L`, falling one level down the valley every 40 to 60 tiles as the river's own profile falls (a riser that wanders across the floor, never a straight step: the scar the river's old bends cut into the higher plain, a chain of arcs 16 to 30 tiles across, each bowed 3 to 8 tiles up the valley, meeting in cusps); at most as many risers as leave the Red Fall's 6 or 7 levels under the water's ceiling of 16 (two), farther apart on a longer plain | Mean width `P` across the valley (§2); its length 0.7 to 0.85 of the side along the axis; the floor (plain and backswamp) 20 to 30 % of the map at every size |
 | The backswamp | The floor's lowest strip, under the far wall, where the plain's water gathers | A strip one level under the plain, `L − 1`, 7 to 10 tiles wide at 128² and up to 0.06 of the side on larger maps, its edge with the plain a wandering riser | It carries the red stream, which wanders within it |
-| The slough | An old channel a flood cut from a low place in the levee across the plain to the backswamp | A dry bed one level under the plain, 2 or 3 wide, winding (a bend every 6 to 10 widths), from a low place in the levee's middle third (the upper half of it where the red stream joins the river) to the backswamp. One at 128², two at 192² and 256² | Dry on day 1; it is the river-in's way, already in the land |
+| The slough | An old channel a flood cut from a low place in the levee across the plain to the backswamp | A dry bed one level under the plain, 2 or 3 wide, winding (a bend every 6 to 10 widths), from a low place in the levee's middle third (the upper half of it where the red stream joins the river) to the backswamp: of the low places the land offers there, the one at the lower end of the plain's highest level (§6, planning's ruling of 2026-11-17). One at 128²; at 192² and 256² a second a third of the plain or more above it, from a low place the land offers there (a layout with none is drawn again) | Dry on day 1; it is the river-in's way, already in the land |
 | The far wall | The valley's other side, the edge of a plateau | Big crags and narrow benches from its foot to a crest 9 to 13 over the plain; past it a plateau that rolls by noise and sinks a few levels toward the edge, its side valleys and old valleys cut in it; hard rock at the gulch's mouth | 8 or more over the plain wherever the first frame sees it (within 60 tiles of the start); sheer only at the Red Fall |
 | The side valleys | Hanging valleys of both walls; never a comb | Each a wander: mouths spaced by noise (0.4 to 2.5 of the mean), each off its wall's normal by its own heading (within 35°, its neighbour's never within 10° for more than 12 tiles), turning along it by noise; lengths and widths from wide ranges; some branch, some are alcoves. The far wall's hang at the Red Fall's height | Cut by distance from their wandering lines, their edges jagged by noise |
 | The gulch (the Stain) | A hanging side valley: its stream never cut down to the main floor | A side valley of the far wall found by search (§3), its floor 6 or 7 levels over the backswamp at its mouth (D510), narrow (4 to 7 wide), with a narrows 3 or fewer wide within its lower half | The red source at its head |
@@ -125,7 +131,11 @@ valley in the land the shared relief made:
   as wide as its flow asks, 3 tiles or more (4 at a quarter), so it runs 0.6 deep or less in a bed a level under the
   backswamp (a bed 2 wide ran it over 1 deep, its water over the backswamp's floor and into the sloughs; 3 wide at a
   quarter, 0.7, and the Red Pool, whose water is its stream's head, stood deeper over its sill than a sill's 0.6 and
-  the Red Fall fell short of its height: `RED_BED`).
+  the Red Fall fell short of its height: `RED_BED`). On the backswamp the bed widens at the stream's bends, as a stream
+  on a flat scours its bends: by up to 2 tiles either side, by how sharply it turns over two of its points either way
+  (50° or more, the whole widening), never within a tile of the backswamp's edges; where it runs straight it keeps its
+  own width, and so below the Red Pool and across the plain to its join (`RED_POOLS`, `redHalves`; step 5: the red
+  stream read as a one-tile thread in the whole-map frame at 192² and 256²). No width is laid where it does not turn.
 - **Courses.** The river: in at one edge, out at another, between its levees. The red stream: down the gulch, over the
   Red Fall (a fall of 6 or 7 levels, the landmark, D510: the gulch's mouth stands that far over the backswamp), along the backswamp, then by the seed either into the river in the river's
   last 30 % (D476, D498: the river is never red above the join) or out by the edge on its own. The start's brook: down
@@ -177,6 +187,10 @@ across the plain. By the frame's arithmetic
 (`frame.ts`): the terrace's meadow and the river's shine in the near third; the plain's green and dry bands across the
 middle; the grey band of dead trees and the red thread beyond; the Red Fall under the far wall, inside the frame and
 no smaller than 3 tiles tall on the screen at the opening distance. The fall is the landmark link (`frame.landmark`).
+On a long terrace the start stands nearer its brook than the lip, 13 tiles down the valley from where the brook crosses
+(`TERRACE.brook`, step 5: at 128² the start's bench needs a long terrace on the narrow floor, and from the lip the
+brook ran an 11 to 17 tiles' walk off, the berries by it at the walk's edge), and the gulch's search window is still
+measured from the lip, so the Red Fall stays where the plain below the lip frames it. The works must leave the start's ground dry (§7 `riverIn.green`).
 
 The start's numbers are the shared floors and nothing lower. Its reach is the plain, which is why this start should
 be among the best the generator makes: every verdict on a map of this premise opens with reach, level land, farmland,
@@ -192,12 +206,58 @@ the first build's mean gain, per tile of the side.
 | Small | A notch and a pond on the start's brook | A reserve for the first drought |
 | Small | A levee of 4 to 8 tiles across the nearest low place | The green band there kept from a badtide's tongue |
 | Small | A levee along 20 tiles of the backswamp's riser where the dead band laps onto the plain | A field won back |
-| Medium, **the turn** | A dam of 6 tiles or fewer at the gulch's narrows, two levels high: the red water rises over the col and runs down the Dry Fork to its own edge | The Red Fall stops; the stream's bed in the backswamp goes dry; the dead band's soil clears |
-| Large, **the river in** | A weir on the river just below the slough's low place lifts the river one level; it runs through the low place, down the slough and along the old red bed. A gate at the low place shuts it for a badtide | The dry band and the old dead band watered: the floor's green 70 % or more |
+| Medium, **the turn** | A dam of 6 tiles or fewer at the gulch's narrows (or, where the narrows' shoulders stand too low, the gulch's narrowest line below the col's way), below the red source and a level over the col: the red water rises over the col and runs down the Dry Fork to its own edge | The Red Fall stops; the stream's bed in the backswamp goes dry; the dead band's soil clears |
+| Large, **the river in** | A weir on the river just below the slough's low place lifts the river one level; it runs through the low place, down the slough and along the old red bed. A gate at the low place shuts it for a badtide | The dry band and the old dead band watered: the floor's green 60 % or more (planning's ruling of 2026-11-17); the dry floor left, by ditch and by pump, is shown on the ladder as what is left to win |
 | Either order | The river in before the turn dilutes the red stream below the slough's mouth. Where the mix settles under 0.5, the soil below the mouth clears and the band above it stays dead | A second answer; never required, never refused |
 
 After the turn the gulch behind its dam and the Dry Fork are the places that stay red. The Dry Fork was bare, so
 nothing the player valued is spent.
+
+*As built (step 4, `plainWorks.ts`).* The dam stands a level over the col, not at it: at the col's own level the pond
+behind it spills both ways and the stream splits (seed 1 at 128²: 500 of 501 red tiles stayed on the floor). The
+river in's weir stands at the first slough's bed, a level under the plain, and the slough's mouth is cut to that bed
+through its low place to the river (`plainLand.ts` `sloughMouths`; the river's day-1 stage held under it, so the slough
+is dry until the weir): a mouth level with the plain let a weir lift the river over the plain as a sheet (seed 1 at
+128²: 1,573 tiles). The backswamp's levee stands on whichever riser the dead band laps over most. Each rung's floor
+is two thirds of its mean measured gain per tile of the side (`poisonedPlain.ts` `GIVES`), the levees' gains read on
+the settled water (`settledClears`).
+
+*Planning's ruling of 2026-11-17 (step 4, rounds 2 and 3).* The river in does not water the whole floor, and should
+not: §2's dry band is "more land to win", and dry land that a player can irrigate is the game. So the river in proves
+itself by the floor's green, 60 % or more after the weir, and the start not flooded; nothing else. Two further
+conditions ruled for round 2 were withdrawn on its results: three times day 1's green (it cannot hold where day 1 is
+already a quarter green, and a map that starts greener is not a worse map), and 90 % of the dry floor left ditchable
+from the new course (it measured the wrong thing: dry floor on the river's near side is watered from the river, and
+plain above a riser or beside the deep lower river is land for a pump, which is play, not a fault). The measure is kept
+and shown without a bar: on each map's ladder, what is left to win (`plainMap.ts` `leftToWin`, `Ladder.left`): the
+floor's dry share after both works, and of it the share a ditch from any clean water reaches and the share that needs a
+pump. Of the low places and sloughs the land offers, the river in takes the one whose course and the old red bed part
+the dry band nearest its middle; a second slough only where the land offers a second low place, never drawn. A map
+under 60 % green is drawn again. And the map lists a rung only where it pays its floor (`works.paid`), the pond on
+every map.
+
+*As built (round 2).* The slough's water reaches every level of the plain under its own and none above it (a riser up
+stops it and a player's ditch alike), and the weir backs the river up 70 to 100 tiles, over a second slough's mouth
+above the first but never one below it (on 5 of the 7 maps under 60 % in round 1 the second slough lay below the
+first and stayed dry). So the first slough leaves from the highest level of the plain its range offers 12 tiles of the
+river on, at that level's lower end (`SLOUGH.reach`, `SLOUGH.near`): it and the old red bed then part the dry band
+the river in can water nearest its middle (seed 6 at 128²: a slough just past a riser left the level above it dry;
+round 1's first slough early in its level left the level below it dry). The second, at 192² and over, stands a third
+of the plain or more above the first, at a low place the land offers there; a layout with no room for it is drawn
+again (one slough there instead cost three of the first attempts at 192², their clean river and their green). A map whose
+floor is under 60 % green with both works built (`riverIn.green`: the weir and the dam raised on the built ground, the
+core's settle and soil, the proof's own green) is drawn again. The map lists the levees only where they clear their
+floor (`listPaid`), and the pond, the turn and the river in always; the pond is dug wider, a step at a time, until it
+holds its floor (`POND`). The turn's pond spills only over the col: its rim at the col's level beside it, but the col's
+own way, is raised a level where it runs on to lower ground (`holdTurn`; seed 11 at 128²: a dam at the gulch's mouth
+left a shelf of the wall at the col's level, and 400 red tiles stood on the floor), and the way up to the col is cut
+three tiles wide (seed 2 at 256²: a notch a tile wide ran the red stream a level deep over the col, so the pond stood
+over the dam's crest and a film over it kept the old red bed's water standing on 323 tiles). The dam's line runs square
+to the gulch or along a row or a column of the map, whichever is shorter: square to a slanting gulch it steps
+diagonally and takes a corner tile at each step (seeds 5 and 12 at 128²: 7 tiles where a row takes 5). The gulch's
+floor beside the Red Fall's lip stands a level over the lip wherever it would pour, onto dry ground or onto the Red
+Pool's stream running within the gulch's width below the lip (`bankGulch`; seed 6 at 128² poured a second curtain
+there), so the lip is the gulch's water's only sill and the fall one curtain (`fall.whole`).
 
 ## 7. The invariants
 
@@ -218,26 +278,45 @@ Stage as PREMISES §1.4; each with a hand-broken case in its test.
   plain by `flowThrough` from the col); `levee.wanders` (§1's crest rule, and no straight run of bank over 8 tiles);
   `plain.bands` by the soil's reach on stage 2's ground (dead 8 to 25 %, dry 30 % or more); `terrain.ruled_land`
   (the shared look check, and each wall's side valleys never a comb: `combOf`).
-- **settled** (`plainMap.ts`, on the map built and settled once, its life and dead trees in): `river.clean` (no tile
+- **settled** (`plainMap.ts`, on the map built and settled once, its life and dead trees in): `source.niche` (step 5:
+  the red source's 3 × 3 within `NICHE_NEAR` of the plan's source point, all nine tiles on the Red Spring's pool, else
+  on the pool and the Red Fall's bed, else its middle tile on the pool; a land with none is drawn again, where the
+  niche fell back to the 3 × 3 round the point unchecked); `river.clean` (no tile
   of the clean water, the river above the join, the brook, the springs and the terrace's pool, red as the game loads
   it: read on the map file's own values, `fileContamination`, whose one threshold is the file's rounding of 1e-6 or
   less to 0, `WATER_CONTAMINATION_LEAST`; "above the join" is
   above the middle of the river's last step over the join and above every river tile beside the red stream's cut,
   `joinEdge`; below it the mix is reported per map, `redMix`, with no bound); `water.leaks` (no settled water off its courses: stage 1's bodies and channels, the gaps cut between them and
   the gulch's floor); `plain.bands` again on the settled water and the game's soil; `fall.settled` (the Red Fall
-  drops its drop over the backswamp less the veil's half level, lip to the Red Pool's water, as settled); `levee.holds` (the river's
+  drops its drop over the backswamp less the veil's half level, lip to the Red Pool's water, as settled); `fall.whole`
+  (planning's ruling of 2026-11-17: the Red Fall one whole curtain as settled by the shared fall judge, `curtain.ts`;
+  the pool's only sill is the lip, the gulch's floor beside it, as far as its water reaches, a level over it, as
+  `plainLand.ts` `bankGulch` stands it, the Red Pool's stream below the lip included); `levee.holds` (the river's
   water made red as settled, the game's soil: no tile of the plain past the banks poisoned farther than 7 tiles from the
   river along a low place, its half-width and a tile added); every blocking check of the shared gate, the start's
-  among them. A map that fails one is drawn again, within 3 settles.
-- **works, by number at generate time** (`hold.ts` and `flowThrough`, no settle: speed is a feature): `turn.byNumber`
+  among them; `riverIn.green` (the floor 60 % green or more with both works built, the core's settle on the built
+  ground, and the start's ground, its middle tile and `START_KEEP` (3) tiles round it, dry: a start the river's rise
+  covers is no start; step 5, the proof's own condition, which the generator had not checked). A map that fails one is
+  drawn again, within 3 settles.
+- **works, by number at generate time** (`hold.ts` and `flowThrough`, no settle: speed is a feature): `works.sites`
+  (the pond, the turn and the river in sited on every map, the pond holding its floor, the turn 6 tiles or fewer);
+  `works.paid` (said: the levees under their floor leave the map's list); `turn.byNumber`
   (with the dam's tiles raised, water behind it stands at the col or over and the col's flow reaches the Dry Fork's
-  edge; no path to the plain); `riverIn.byNumber` (with the weir's tiles raised, the river stands at the low
-  place's level or over and the slough carries it to the backswamp).
-- **proof, offline over seeds and in the background after the map opens:** `turn.proved` (settled with the dam in: no
+  edge; no path to the plain, nor to the map's edge off the Dry Fork's, `FORK_EDGE`: step 5, where 256² seed 4's
+  second land sent a sheet of red water over the plateau to another edge, which `turn.proved` counts a leak); `riverIn.byNumber` (with the weir's tiles raised, the river stands at the low
+  place's level or over and the slough carries it to the backswamp, read on the slough's way: from the mouth the tiles
+  within its width no higher than the river's level there reach the backswamp's floor at its end. Step 5: `flowThrough`
+  sends a pond's water out by one outlet, and where the slough's flat had two at one level it read the slough as dry,
+  seed 10 at 128², whose settle greened 60.5 %).
+- **proof, offline over seeds** (`tools/plain-works.ts` and `premisePlainWorks.heavy.test.ts`; the generator never
+  loads the session, so no map is proved after it opens, which this line said until step 5): `turn.proved` (settled with the dam in: no
   water at 0.5 or more on the valley floor, the Dry Fork carrying the whole source, nothing else flooded);
-  `riverIn.proved` (settled with both works: the floor's green 70 % or more, the start not flooded). If the first
-  build's table shows under 70 % on more than a quarter of the seeds, the builder reports the distribution and the
-  second slough's sizes it tried; planning rules the number. It is not lowered silently.
+  `riverIn.proved` (settled with both works, planning's ruling of 2026-11-17, `plainProof.ts` `RIVER_IN`: the floor's
+  green 60 % or more, the start not flooded; the 70 % of the first build and round 2's two further conditions are
+  withdrawn, §6). Beside it, shown and never a bar, what is left to win (`leftToWin`): of the dry floor, the share a
+  ditch a level deep dug from any clean water over dry ground reaches (no tile on the way, itself among them, more than
+  a level over the water's surface where the ditch leaves it: a riser up stops it, ground falling away does not), and the
+  share that needs a pump.
 
 ## 8. What is new in the code
 
@@ -272,8 +351,91 @@ frames, judged by planning.
   then (the 9, puddles off the floor in the gulch, dried by day 12). So the dead band clears within the first day after
   the turn; the player sees the plain green as soon as the river in waters it. No probe batch: the rule and
   the settled maps agree.
-- Whether moisture from the old red bed climbs the backswamp's riser far enough for 70 %: step 4's table decides
-  (§7, `riverIn.proved`).
+- *Ruled (planning, 2026-11-17), and answered (step 4, round 3).* Whether the river in greens enough of the floor.
+  Round 1 measured the 70 % of the first build short on 19 of 36 maps; planning ruled it the wrong bar (§6): the river
+  in is proved by the floor 60 % green or more and the start dry, and what is left to win is shown, not barred. Round
+  2's two further conditions (three times day 1's green, 90 % ditchable from the new course) were withdrawn on its
+  results (§6). The two proofs on seeds 1 to 12 (`tools/plain-works.ts`, round 3, one run after another):
+
+  | Size | First attempt holds | `turn.proved` | `riverIn.proved` | Red Fall whole | Seconds, least to most (mean) |
+  |---|---|---|---|---|---|
+  | 128² | 6 of 12 | 12 of 12 | 12 of 12 | 12 of 12 | 2.1 to 5.7 (3.4) |
+  | 192² | 10 of 12 | 12 of 12 | 12 of 12 | 12 of 12 | 3.8 to 6.3 (4.5) |
+  | 256² | 9 of 12 | 12 of 12 | 12 of 12 | 12 of 12 | 6.1 to 16.0 (9.8) |
+
+  Green after the river in, seeds 1 to 12 (%): 128² 67.0, 80.6, 79.1, 71.5, 86.4, 72.6, 91.7, 82.4, 62.4, 86.8, 62.5,
+  69.8; 192² 92.2, 75.4, 80.4, 68.8, 73.7, 86.7, 86.1, 72.2, 73.7, 71.6, 80.6, 86.6; 256² 70.6, 75.9, 63.9, 76.7, 61.5,
+  63.2, 92.1, 69.0, 66.1, 64.8, 62.6, 72.3. Left to win (`leftToWin`): the floor's dry share after both works 5 to
+  33 %; of it a ditch from clean water reaches 97 % or more on 28 of 36, and the pump's share is over a third on 4
+  (seeds 3 and 11 at 128², 5 and 11 at 256²: plain above a riser over the slough's level, or beside the lower river
+  cut three levels under the plain). The heavy test holds every map to every check and the first attempts to a floor
+  (`premisePlainWater.heavy.test.ts` `FIRST`: 9 of 12 at 192² and 256², 6 at 128² as measured).
+
+  *The six first attempts refused at 128², for step 5's decision whether 128² is offered.* Each map holds on a later
+  attempt (2 or 3; a generate of 3.4 s on the mean). One is the side's own room, five are the search's:
+  (1) seed 1, `plain.bands`: day 1's dead band 7.6 % of the floor, under 8 %; the plan's own count passes, the ground
+  reads under it once the slough sits at its level's lower end and the red stream turns off the backswamp below it. A
+  margin on the plan's count would draw the plan again instead of the land: the search could do better.
+  (2) seed 3, `levee.holds`: a badtide poisons 21 tiles past the levee's low places, beside the map's south edge (y
+  121): the levee's core where the river runs near the edge; the search could do better.
+  (3, 4) seeds 7 and 9, `wall.wanders`: a wall's foot within 2 tiles of a line for 47 and 45 tiles, the most 43; the
+  limit is a share of the plain's width, which stands at its floor at 128², so the bar is tightest there while the
+  walls' wander is drawn as at every size: the search could do better (the wander drawn to the limit).
+  (5) seed 10, `riverIn.byNumber`: by number the slough does not carry the river to the backswamp, but the settle does,
+  60.5 % green: the check by number is stricter than the core; the search could do better.
+  (6) seed 11, `riverIn.green`: 51 % green; at 128² one slough only (no room for a second a third of the plain above
+  it) on a plain at its narrowest, its far side out of the slough's reach: the side's own room.
+- *Answered (step 5): the start, the fixable refusals and 128².* Planning's order: the start first. The generator's
+  `riverIn.green` now refuses a start the works flood (§7), as the proof always did. On seeds 1 to 12, all of step 5 in
+  (`tools/plain-works.ts`, run beside a capture: alone, the run before the last mend took 2.3, 3.8 and 7.6 s on the mean):
+
+  | Size | First attempt holds | `turn.proved` | `riverIn.proved` | Red Fall whole | Seconds, least to most (mean) |
+  |---|---|---|---|---|---|
+  | 128² | 8 of 12 | 12 of 12 | 12 of 12 | 12 of 12 | 1.9 to 6.0 (3.1) |
+  | 192² | 12 of 12 | 12 of 12 | 12 of 12 | 12 of 12 | 3.5 to 6.1 (4.6) |
+  | 256² | 9 of 12 | 12 of 12 | 12 of 12 | 12 of 12 | 5.9 to 17.8 (8.8) |
+
+  Green after the river in, seeds 1 to 12 (%): 128² 62, 65, 83, 76, 71, 76, 88, 76, 61, 71, 96, 70; 192² 73, 73, 85,
+  73, 76, 61, 73, 74, 89, 67, 84, 81; 256² 70, 75, 61, 66, 65, 77, 71, 65, 71, 65, 73, 69. The heavy test's floor at
+  128² is now 8 (`FIRST`).
+
+  The start, against the shared floors (level land 640, wood 200, berries 30 within the walk, clean water within a
+  20-tile walk, reach 1300): at 128² level land 714 to 1034, wood 273 to 542, berries 46 to 90, the clean water a 3 to
+  11 tiles' walk (step 4: 11 to 17, berries 33 to 63), reach 2971 to 6111; at 192² 734 to 1162, 258 to 512, 50 to 134,
+  4 to 11.4; at 256² 879 to 1551, 240 to 541, 82 to 197, 5 to 13.7. The 128² start stands beside the larger sizes'
+  but for berries, which scale with the terrace. Its water walk came from standing the start nearer its brook on a
+  long terrace (§5, `TERRACE.brook`).
+
+  Round 3's six 128² refusals: (1) seed 1, `plain.bands`: its land moved with the walls and its bands hold; its first
+  attempt is refused now by `riverIn.byNumber`, rightly: its slough runs inside the plain's levee bank, which stands
+  over it, and carries nothing (taking the bank off the slough's tiles drained the slough into the river, 32 % green;
+  withdrawn). (2) seed 3, `levee.holds`: its land moved with the walls; it holds on its first attempt. (3, 4) seeds 7
+  and 9, `wall.wanders`: mended at the cause, the walls judged on their foot as the ground draws it and spurred where
+  straight (§1); seed 7 holds first; seed 9's walls hold, and its first attempt is refused by `fall.drop` (no gulch's
+  mouth over the backswamp to read the Red Fall from, its far wall drawn anew). (5) seed 10, `riverIn.byNumber`: mended at the
+  cause, the slough's carry read on its bed (§7); it holds first. (6) seed 11, `riverIn.green`: its land moved and it
+  holds first, 96 % green. Seeds 2 (`fork.own`: the col's water reaches the floor at the map's edge) and 8 (no layout
+  in 24 with room for the red stream's join below the sloughs) held first in round 3 and do not now: the walls' new
+  draws move the far wall, and with it the gulch and the Dry Fork. Mended besides: seed 6's red source fell back to a
+  3 × 3 off the Red Spring's pool (`source.niche`); and 256² seed 4's second land, whose turn sent a sheet of red
+  water over the plateau to another edge (`turn.proved` false on 1 of 36), is refused by `turn.byNumber` and holds on
+  its third.
+
+  The red stream: its bends widened on the backswamp (§4, `RED_POOLS`) read as a stream in the whole-map frame at
+  128² and 256², by the land's own shape. Open: at 256² the stream's own meander can read regular over a long reach
+  (seed 2), the plan's meander and not its width.
+- *Findings (step 4).* (1) The red source's niche took the bed's first 3 × 3 wherever it lay; on seed 4 at 128² that
+  was the gulch's mouth, under the dam, so the dam held nothing back. It now stands within `NICHE_NEAR` of the plan's
+  source point, and `turn.byNumber` runs the red water from the niche. (2) Where the narrows' shoulders stand under the
+  dam's level, the turn's dam takes the gulch's narrowest line below the col's way; a land whose narrowest line is
+  over 6 tiles (seeds 3, 5 and 12 at 128², among others) or whose gulch spills before the col (`turn.byNumber`) is
+  drawn again: these cost the first attempt on 12 of 36. (3) Mended in round 2 at their causes (§6 "As built (round 2)"): seed 2 at
+  256²'s 323 standing red tiles (the col's notch a tile wide; the turn is proved on 36 of 36); the Red Fall's splits
+  (the gulch's floor beside the lip a level over it, onto the Red Pool's stream too; `fall.whole` now refuses a split,
+  and none of the 36 is kept split); and the turn's pond spilling beside the col (`holdTurn`: the 9 first attempts
+  `turn.byNumber` refused in round 1 hold now). (4) The small rungs are uneven, so the map lists only those that pay:
+  of seeds 1 to 12 the low place's levee is listed on 9, 9 and 8 maps at 128², 192² and 256², the backswamp's levee on 8,
+  8 and 2, the pond on all 36.
 - Pairing beyond River Valley and Delta: after step 5, on the judged maps.
 - *Findings (step 3, round 2).* (1) A step of one level does not cut the reach above it off from the red water: the
   river stands about 1.5 deep, over the reach above's bed, and the settle's eddies carry traces up it, 1e-39 to 1e-323

@@ -27,7 +27,7 @@ concurrency:
 jobs:
   deploy:
     if: github.ref == 'refs/heads/main'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 15
     environment: collab-production
     # (bash with pipefail: a failed `wrangler deploy | tee` fails the step)

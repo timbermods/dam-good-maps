@@ -73,6 +73,8 @@ import {
   turnOf,
   walk,
   WALL,
+  FLOOR_WARP,
+  floorWarpSeeds,
   WINDOW,
   framedRuns,
   type PlainNumbers,
@@ -100,11 +102,6 @@ const GULCH_BANK = 2;
 
 // ------------------------------------------------------------------------------------------------- the numbers
 
-/** The floor's lines are read through a warp of `amp` tiles (noise `cell` tiles across), so no contour follows the
- *  plan's lines exactly; the backswamp's edge wanders a further `swamp` tiles, and the plain's risers a further `riser`
- *  tiles down the valley (noise `riserCell`: the plan's risers wander a tile or two, and on the ground read as ruled
- *  lines across the plain). */
-export const FLOOR_WARP = { amp: 2.2, cell: 13, swamp: 1.2, swampCell: 9, riser: 7, riserCell: 11, calm: [4, 8] as const } as const;
 /** The start's terrace: its lip a lobe `bulge` tiles down the valley at its middle (of its width), wandering `wander`
  *  tiles by noise `cell` across; its side toward the river `strip` tiles past the levee's foot (the river's own strip
  *  of plain); its edge steps down a level to a bench `step` tiles wide, then to the plain (a bench wide enough to be a
@@ -673,8 +670,8 @@ export function plainRelief(plan: PremisePlan, w: StageWater, upland: Uint8Array
   const r = w.raster;
   const T = turnOf(plan, p);
   const sky = Math.max(plan.top, plan.sky ?? plan.top);
-  const sWu = S(plan, "warp.u");
-  const sWv = S(plan, "warp.v");
+  // (the plan read its walls' feet through the same warp: `poisonedPlain.ts` `wallFoot`)
+  const { u: sWu, v: sWv } = floorWarpSeeds(plan.seed, W, H);
   const sSw = S(plan, "swamp");
   const sRiser = S(plan, "riser");
   const sLip = S(plan, "lip");
@@ -935,6 +932,16 @@ export function plainRelief(plan: PremisePlan, w: StageWater, upland: Uint8Array
   }
   // the sloughs: dry beds a level under the plain
   for (const sl of p.sloughs) {
+    // (and never over the plan's bed, which falls or holds from the mouth down: a slough that wanders up the valley past
+    // a riser keeps its bed there, step 5: seed 1 at 128², its bed a level over its mouth across the riser above it,
+    // held the river in back, `riverIn.byNumber`)
+    const cum = [0];
+    for (let k = 0; k + 1 < sl.path.length; k++) cum.push(cum[k] + dist(sl.path[k], sl.path[k + 1]));
+    const bedAt = (s: number) => {
+      let k = 0;
+      while (k + 1 < cum.length && cum[k + 1] <= s) k++;
+      return sl.bed[k] ?? Infinity;
+    };
     for (let y = 0; y < H; y++)
       for (let x = 0; x < W; x++) {
         const i = y * W + x;
@@ -943,7 +950,7 @@ export function plainRelief(plan: PremisePlan, w: StageWater, upland: Uint8Array
         if (q.d > sl.half + 0.35) continue;
         // (the bed's level where it runs: a level under the plain there, never under the backswamp's)
         const [u, v] = toLocal(T, [x + 0.5, y + 0.5]);
-        const want = levelAt(p, u, v) - 1;
+        const want = Math.min(levelAt(p, u, v) - 1, bedAt(q.s));
         if (want < h[i]) {
           h[i] = want;
           floor[i] = 4;
@@ -1042,12 +1049,65 @@ export function plainRelief(plan: PremisePlan, w: StageWater, upland: Uint8Array
       for (const j of [x > 0 ? i - 1 : -1, x < W - 1 ? i + 1 : -1, i - W, i + W])
         if (j >= 0 && j < N && !cut[j] && !r.channel[j] && !r.lake[j] && !r.pool[j] && !r.crest[j] && h[j] <= m.bed) h[j] = Math.min(sky, m.bed + 1);
     }
+  // the sloughs' mouths (step 4): each slough's head reaches the river's water through its low place, at its bed
+  for (const m of sloughMouths(plan, w))
+    for (const i of m.tiles) {
+      h[i] = Math.min(h[i], m.bed);
+      banks.over[i] = 0;
+      if (floor[i] === 1 || floor[i] === 2) floor[i] = 4;
+    }
   return { heights: h, floor, valleys, bank: banks.over, levee };
 }
 
-/** The gulch's floor holds its stream to the Red Fall's lip (step 3, round 3): a floor tile beside a drop off the floor,
- *  but onto stage 1's water, stands a level over it as a bank. The mouth's floor ran wider than the lip and spilled
- *  down the face beside the fall. On the land after the mend; how many tiles it raised. */
+/** Where each slough's head reaches the river (step 4: the old flood channel was cut from the river, so its head opens
+ *  on the river's water through the low place it left by): the tiles from its first point to the river's water tile
+ *  nearest it, its half-width and a third either side, but stage 1's own, cut to the slough's head bed, a level under
+ *  the plain. The river's water stands under that bed on day 1 (the plan's `riverSteps` ceiling there), so the slough
+ *  stays dry; a weir below lifts the river over it (the river in, `plainWorks.ts`). With the river's water at its
+ *  bed and the plain round it a level over, it never runs onto the plain: a mouth level with the plain flooded the
+ *  plain in a sheet once the river stood over it (seed 1 at 128², 1,573 tiles). */
+export function sloughMouths(plan: PremisePlan, w: StageWater): { slough: string; tiles: number[]; bed: number }[] {
+  const r = w.raster;
+  const { W, H } = plan;
+  const p = plainOf(plan);
+  const riverK = plan.links.findIndex((l) => l.id === I.river) + 1;
+  if (!p || !riverK) return [];
+  const out: { slough: string; tiles: number[]; bed: number }[] = [];
+  for (const sl of p.sloughs) {
+    const a = sl.path[0];
+    let best = -1;
+    let bd = Infinity;
+    for (let i = 0; i < W * H; i++) {
+      if (r.channel[i] !== riverK) continue;
+      const dx = (i % W) + 0.5 - a[0];
+      const dy = Math.floor(i / W) + 0.5 - a[1];
+      const d = dx * dx + dy * dy;
+      if (d < bd) [bd, best] = [d, i];
+    }
+    if (best < 0) continue;
+    const b: Point = [(best % W) + 0.5, Math.floor(best / W) + 0.5];
+    const reach = sl.half + 0.35;
+    const x0 = Math.max(0, Math.floor(Math.min(a[0], b[0]) - reach - 1));
+    const x1 = Math.min(W - 1, Math.ceil(Math.max(a[0], b[0]) + reach + 1));
+    const y0 = Math.max(0, Math.floor(Math.min(a[1], b[1]) - reach - 1));
+    const y1 = Math.min(H - 1, Math.ceil(Math.max(a[1], b[1]) + reach + 1));
+    const tiles: number[] = [];
+    for (let y = y0; y <= y1; y++)
+      for (let x = x0; x <= x1; x++) {
+        const i = y * W + x;
+        if (r.fixed[i] || r.channel[i] || r.lake[i] || r.pool[i]) continue;
+        if (pathDist(x + 0.5, y + 0.5, [a, b]).d <= reach) tiles.push(i);
+      }
+    out.push({ slough: sl.id, tiles, bed: sl.bed[0] });
+  }
+  return out;
+}
+
+/** The gulch's floor holds its stream to the Red Fall's lip (step 3, round 3; planning's ruling of 2026-11-17, "the
+ *  pool's only sill is the lip"): a floor tile beside a drop off the floor, but the lip's own, stands a level over it
+ *  as a bank. The mouth's floor ran wider than the lip and spilled down the face beside the fall; a floor tile beside
+ *  the Red Pool's stream below the lip poured a second curtain (seed 6 at 128²). On the land after the mend; how many
+ *  tiles it raised. */
 export function bankGulch(plan: PremisePlan, w: StageWater, h: Uint8Array, gulch: SideValley): number {
   const r = w.raster;
   const { W, H } = plan;
@@ -1056,12 +1116,17 @@ export function bankGulch(plan: PremisePlan, w: StageWater, h: Uint8Array, gulch
   const len = gulch.line.length - 1;
   const on = (i: number) => t.s[i] >= 0 && t.s[i] <= len && t.d[i] <= gulch.half[Math.max(0, Math.min(len, Math.round(t.s[i])))] + 0.5;
   const water = (i: number) => r.channel[i] || r.lake[i] || r.pool[i] || r.crest[i];
+  const lip = new Set(r.lips[I.redFall] ?? []);
+  const fall = plan.links.findIndex((l) => l.id === I.redFall) + 1;
+  // (a drop: off the floor, or onto other water than the fall's own, the Red Pool's stream running within the gulch's
+  // width below it)
+  const drop = (j: number) => !on(j) || (water(j) && r.channel[j] !== fall && r.crest[j] !== fall);
   const bank: number[] = [];
   for (let i = 0; i < N; i++) {
-    if (!on(i) || water(i)) continue;
+    if (!on(i) || water(i) || lip.has(i)) continue;
     const x = i % W;
     for (const j of [x > 0 ? i - 1 : -1, x < W - 1 ? i + 1 : -1, i - W, i + W])
-      if (j >= 0 && j < N && !on(j) && !water(j) && h[j] < h[i]) {
+      if (j >= 0 && j < N && drop(j) && h[j] < h[i]) {
         bank.push(i);
         break;
       }
@@ -1543,8 +1608,14 @@ export function mendGulch(plan: PremisePlan, h: Uint8Array, f: GulchFound, floor
   const cut = (i: number, to: number) => {
     if (i >= 0 && i < W * H && !floor[i] && h[i] > to) h[i] = to;
   };
-  // (the way up to the col from the gulch's floor, cut to the col's level)
-  for (const i of f.into) cut(i, f.col.level);
+  // (the way up to the col from the gulch's floor, cut to the col's level three wide, a tile either side, as the way on
+  // is: a notch a tile wide ran the red stream a level deep over the col once the turn's dam stood, so the pond behind
+  // the dam stood at its crest and spilled over it, 256² seed 2)
+  for (const i of f.into) {
+    cut(i, f.col.level);
+    const x = i % W;
+    for (const j of [x > 0 ? i - 1 : -1, x + 1 < W ? i + 1 : -1, i - W, i + W]) cut(j, f.col.level);
+  }
   // (the way stays at the col's level while it runs beside the gulch, its rim a tile and a half past its floor: the
   // gulch's water would pour over a lower tile there)
   const rim = (i: number) => tiles.s[i] >= 0 && tiles.d[i] <= halfAt(sv, tiles.s[i]) + 1.5;

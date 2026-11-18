@@ -113,6 +113,24 @@ on the `TerrainState` the session hands it (`floor`, `masks`, `stackTops`), the 
 the caves' tiles as they are, as before (the planner keeps them, `forceResult`'s check refuses them), and a result
 that would drop ground is refused by the same rule. Moving them onto roofs waits for Erode.
 
+**Craterize by a cliff (2026-11-16).** Land lower than the crater's own ground gave way to it inside the bowl and out
+past the rim, so the rim stood whole beside a canyon or a lake, by any height: the gentlest crater (Power 0, 6 across)
+struck on the brink of a cliff nine levels tall raised its foot from 3 to 12 or 13 (seed 3), and one tile to 17 (seed
+0), where the forces' last step drew the raised ground into a plate with the bowl. Lower land now gives way only as far
+down as the crater's own relief reaches (its depth and its rim); land further below keeps its shape, the bowl open over
+it and the rim and debris on the land as it lies. On that cliff Power 0 raises no tile more than 2 levels (it was 9 to
+14), and Power 55 and 100 change nothing; River Valley 128's craters at Power 100 move the same land (seed 2 0.2 % less).
+On generated cliffs a second cause showed: in the forces' last step (`levels.rs`) a tile no square reached joined the
+level of a square beside it, and where the low ground round it was still to settle it was not held, so a cliff foot's
+corner joined the cliff's top (Canyon 128 seed 3, (64, 18): 4 to 15). Ground within two levels of a tile's own now
+settles first. Struck at Power 0 (its fourth roll) on the brinks of Highlands and Canyon cliffs eight levels tall or
+more (88 strikes on four maps), the highest rise was 9 to 14 levels on 54 and 5 to 8 on 17; now it is 3 or less on 80
+and 4 to 8 on 8. Those 8 are the land's own one-tile slots and notches at the edge of the crater's reach, which the
+tidying still fills when a tile beside them moves by a level: not fixed here. Forces pins (D148): Craterize 3 (`64 0`,
+`64 2` and `odd 1`), Rift 3, Erupt 1, Glaciate 1, each one to seven tiles that joined a far level now at a near one; 8
+of `forces.test.ts`'s 12 crater digests the same way. `forcePower.test.ts` pins the plain cliff and a cut-out of Canyon
+128 seed 3's cliff foot.
+
 **Terrain as built:** `ColumnTerrain.withSurface(heights)` now reshapes each tile's top run to the surface
 (plain tiles exactly as before; on the rest, everything below the top run kept), so the session's `terrain`, the
 export's voxels, the support pass and `columns` (the mesher's voxels, now as they stand) all follow the strokes. A

@@ -3,7 +3,7 @@
 // badwater reaches the ditch's mouth in the settled water ("delivers"), and the start's check numbers (every map
 // verdict opens with the start). One JSON line a map, so a long run can be read while it goes and two checkouts compared.
 //
-//   npx tsx tools/badwater-numbers.ts [--root <checkout>] [--themes any,canyon,...] [--seeds 1-6] [--size 256] [--out file.jsonl]
+//   npx tsx tools/badwater-numbers.ts [--root <checkout>] [--themes any,canyon,...] [--seeds 1-6] [--size 256] [--designed easy|normal|hard] [--out file.jsonl]
 //   npx tsx tools/badwater-numbers.ts [--maps riverValley:1,any:4] [--png <dir>] ...
 //   npx tsx tools/badwater-numbers.ts --tally base.jsonl branch.jsonl
 //
@@ -12,6 +12,7 @@
 // maps instead of every theme and seed; --png also writes each whole map, north up, a tile a pixel, as <theme>-<seed>.png
 // with its row in <theme>-<seed>.json (the ground shaded, water by its depth, badwater magenta by its share, the
 // pits' sources yellow, the start a white ring), for a before | after sheet (`tools/badwater-pairs.py`).
+// --designed sets Designed for (default normal), whose start rule is the badwater distance (D85).
 // A ditch delivers when its last tile, or a tile beside it, holds settled water (over 0.05) with badwater in it (over 0.01).
 
 import { appendFileSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
@@ -48,6 +49,8 @@ interface Row {
   pits: Pit[];
   start: [number, number] | null;
   checks: Record<string, number | string | null>;
+  /** The generator's fixes on the map (`info.fixes`), "badwater by a ditch" among them. */
+  fixes: string[];
   ms: number;
 }
 
@@ -78,7 +81,7 @@ async function measure(): Promise<void> {
   for (const [theme, seed] of maps) {
     {
       const t = performance.now();
-      const spec = makeSpec({ seed, theme, size: { x: size, y: size } });
+      const spec = makeSpec({ seed, theme, size: { x: size, y: size }, designedFor: arg("designed", "normal") });
       const r = generate(spec);
       const W = size;
       const b = r.built;
@@ -120,6 +123,7 @@ async function measure(): Promise<void> {
         pits,
         start: st ? st.params.position : null,
         checks,
+        fixes: r.info.fixes ?? [],
         ms: Math.round(performance.now() - t),
       };
       if (pngDir && b) {

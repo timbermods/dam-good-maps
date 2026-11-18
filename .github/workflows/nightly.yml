@@ -36,7 +36,7 @@ env:
 
 jobs:
   heavy-tests:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 90
     steps:
       - uses: actions/checkout@v7
@@ -61,7 +61,7 @@ jobs:
   # (planning). Red means the list moved: regenerate it (npm run intentions) in a pull request that says which intention
   # moved and why.
   intentions:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 60
     strategy:
       fail-fast: false
@@ -91,7 +91,7 @@ jobs:
   # Raising the shard count is the fix if the rest outgrows them; the slowest place sets the floor. Never a longer limit.
   places:
     name: places (${{ matrix.shard }}/5)
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 90
     strategy:
       fail-fast: false
@@ -111,7 +111,7 @@ jobs:
           npm run places -- --check --shard ${{ matrix.shard }}/5 || { echo "::error::The Real places data is stale: run npm run places and commit"; exit 1; }
 
   oracle:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 90
     steps:
       - uses: actions/checkout@v7
@@ -134,7 +134,7 @@ jobs:
         run: npx tsx tools/first-visit-maps.ts
 
   batches:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 90
     steps:
       - uses: actions/checkout@v7
@@ -187,8 +187,15 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
+      # Linux hosts use the shared action (browsers and the system libraries' .deb files cached, see its comments);
+      # Windows and macOS have no system libraries to install.
+      - uses: ./.github/actions/playwright
+        if: runner.os == 'Linux'
+        with:
+          browsers: chromium firefox webkit
       - name: Install Chromium, Firefox and WebKit for Playwright
-        run: npx playwright install --with-deps chromium firefox webkit
+        if: runner.os != 'Linux'
+        run: npx playwright install chromium firefox webkit
       # (a pull request that changes this file runs the short list, to check the workflow)
       - name: The same results in every engine (the full list)
         run: npx tsx tools/determinism/run.ts --out nightly ${{ github.event_name == 'pull_request' && '--smoke' || '' }}
@@ -201,7 +208,7 @@ jobs:
 
   hosts:
     needs: determinism
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@v7
@@ -222,7 +229,7 @@ jobs:
   issue:
     needs: [heavy-tests, intentions, places, oracle, batches, determinism, hosts]
     if: failure() && github.event_name != 'pull_request'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     permissions:
       issues: write
     steps:

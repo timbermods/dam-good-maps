@@ -107,14 +107,20 @@ import * as ed from "../../src/worker/session";
 // and generator 0.10.39 over the cap: `7006d8e4…` before it, the version alone (D(plates-turned) moves a premise's plates, never a
 // theme's land), on the land the cap (#1213, merged in
 // from dev) gives; against this branch's own pin before the merge (`9bd38788…`, the floor pass's cap alone) it moved by land too, D148
-// and generator 0.10.40's version alone on dev (#1225, small maps at their own scale, which a 128² map never reaches: dev's
-// `a7d8de7f…`), D148
-// and generator 0.10.41's gullies and sea steps (D(new-ditch), D(sea-steps)): `94761289…` before it, not the version alone (with
-// the version set back to 0.10.39 the branch gives `2159e2bd…`): its pits' gullies move its land, the map made on its second
-// attempt, every check passing, D148
-// and generator 0.10.43's version alone (the merge of #1162's ruled water, D(ruled-water), with #1195, which moves none of
-// this map): with the version set back to 0.10.41 the merge gives `a81e89f1…` byte for byte, D148
-const LIVE_SHA = "ce7c8565022a092ce056db75b1074200546d23e1505027fabaeed5c020aef993";
+// and generator 0.10.40's version alone (#1225, small maps at their own scale, which a 128² map never reaches), D148
+// and generator 0.10.42's version alone (#1227, Easy start shaped on the settled water, which a map without Easy start never
+// reaches): with the version set back to 0.10.40 the branch gives `a7d8de7f…` byte for byte, D148
+// and generator 0.10.43's version alone (D(highlands-slot), a gorge winding at a small map's scale, which a 128² map never
+// reaches; #1236 merged after #1227): `424ccea0…` before it,
+// and dev with its version set to 0.10.43 gives this branch's bytes, D148
+// and generator 0.10.44's version alone (D(gorge-followups): a tributary deep under a wall winds at a small map's scale, which a
+// 128² map never reaches, and a gorge arch found along its gorge's heading, which this map never grows):
+// `d452eb0a…` before it, and dev with its version set to 0.10.44 gives this branch's bytes, D148
+// and generator 0.10.46's gullies and sea steps (D(new-ditch), D(sea-steps)) on #1240's land: `d6709d0d…` before them, not the
+// version alone (with the version set back to 0.10.44 the merged code gives `920ac6af…`): its pits' gullies move its land, the
+// map made on its second attempt, every check passing; the gorge follow-ups do not reach it, so this is the bytes the branch
+// gave before #1240 merged in, D148
+const LIVE_SHA = "0a7daa745fd9555f0491d54518bc764d1f654e3bb608f3f34cb2c65d1446664d";
 const spec = () => makeSpec({ seed: 4242, size: { x: 128, y: 128 }, theme: "riverValley", designedFor: "normal" });
 
 describe("mine sites and ruins, models of our own", () => {

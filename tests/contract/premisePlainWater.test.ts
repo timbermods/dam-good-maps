@@ -1,16 +1,22 @@
 // The poisoned floodplain's stage 3, the water and the hazard (docs/design/poisoned-floodplain.md §2, §4, §7 "settled",
 // §9 row 3): a map at 128² built and settled on its first attempt, its start passing every start check, the river
-// clean, every water on its course, the bands by the game's soil inside their ranges, the Red Fall falling, the levee
-// holding a badtide, the dead band under dead trees; the same map for the same seed; and a hand-broken map for every
-// settled invariant. The six of the sheet (seeds 1 and 2 at each size) are premisePlainWater.heavy.test.ts.
+// clean, every water on its course, the bands by the game's soil inside their ranges, the Red Fall falling as one whole
+// curtain, the levee holding a badtide, the dead band under dead trees; the same map for the same seed; and a
+// hand-broken map for every settled invariant, `riverIn.green`'s flooded start among them. Seeds 1 to 12 at each size are
+// premisePlainWater.heavy.test.ts.
 
 import { describe, expect, it } from "vitest";
 import { runsToTiles } from "../../src/core/math/grid";
-import { badtideReach, cleanWater, floorTiles, plainCourses, plainLeaks, plainMap, redFallDrop, riverRed, settledBands, settledFailures, WET, type PlainMap } from "../../src/core/premise/plainMap";
+import { modelOf } from "../../src/core/features/build";
+import { startMiddleTile } from "../../src/core/format/footprints";
+import { badtideReach, cleanWater, floorTiles, plainCourses, plainLeaks, plainMap, redFallCurtain, redFallDrop, riverInBands, riverInFailure, riverRed, settledBands, settledFailures, START_KEEP, WET, type PlainMap } from "../../src/core/premise/plainMap";
+import { canonicalSettle } from "../../src/core/sim/prefill";
 import { DEAD_SHARE, DRY_LEAST, PLAIN_IDS, plainOf } from "../../src/core/premise/premises/poisonedPlain";
 import { makeSpec } from "../../src/core/spec/mapspec";
 
-const spec = makeSpec({ seed: 2, size: { x: 128, y: 128 }, theme: "any", premise: "any" });
+// (seed 5: step 5 moved the start and the walls, and seed 2 at 128² now holds on its third attempt; the test is of a map
+// that holds on its first)
+const spec = makeSpec({ seed: 5, size: { x: 128, y: 128 }, theme: "any", premise: "any" });
 const made = plainMap(spec);
 if ("reason" in made) throw new Error(made.reason);
 const good: PlainMap = made;
@@ -54,7 +60,7 @@ describe("The poisoned floodplain's water", () => {
   it("runs its river in steps under its levees' crest, and reads the river's red on the file's water", () => {
     // (ruling 1 of step 3's round 2: the bed falls a level at riffles, as often as its length needs; the water stands
     // under the levees' crest and the plain beside it all along; a joined map reports the mix below its join, an exit
-    // map has none: since round 3's height budget, seed 2 at 128² joins)
+    // map has none)
     expect(good.settled.stand.steps).toBeGreaterThanOrEqual(1);
     expect(good.settled.stand.crest).toBeGreaterThan(0);
     expect(good.settled.stand.plain).toBeGreaterThan(0);
@@ -108,9 +114,54 @@ describe("Broken poisoned-floodplain water fails its settled invariants", () => 
     expect(ids({ fall: redFallDrop(plan, water, b.heights, d) })).toContain("fall.settled");
   });
 
+  it("fall.whole: a pillar of dry ground at the middle of the Red Fall's lip splits its curtain", () => {
+    const lips = water.raster.lips[PLAIN_IDS.redFall] ?? [];
+    const mid = lips[lips.length >> 1];
+    const h = b.heights.slice();
+    const d = b.water.slice();
+    h[mid] += 3;
+    d[mid] = 0;
+    expect(ids({ curtain: redFallCurtain(plan, water, { heights: h, water: d }) })).toContain("fall.whole");
+  });
+
   it("levee.holds: the levees' banks levelled to the plain", () => {
     const h = b.heights.slice();
     for (let i = 0; i < N; i++) h[i] -= relief.bank[i];
     expect(ids({ badtide: badtideReach(plan, water, relief, { ...b, heights: h }) })).toContain("levee.holds");
+  });
+
+  it("riverIn.green: a start moved onto ground the turn and the river in flood is refused (step 5)", () => {
+    // (the made map's start is dry with both works built; the same map with its start's middle on the tile whose
+    // ground the works' water covers most is refused by the generator's gate, as the proof's `start === 0` refuses it)
+    const ri = riverInBands(good.land, good.ladder, b);
+    expect(ri?.start).toBe(0);
+    expect(riverInFailure(ri)).toBeNull();
+    const h = Uint8Array.from(b.heights);
+    for (const id of ["turn", "riverIn"]) {
+      const s = good.ladder.works.find((x) => x.id === id)!;
+      for (const i of s.tiles) h[i] = Math.max(h[i], s.level!);
+    }
+    const d = canonicalSettle(modelOf({ W, H: W, heights: h, entities: b.entities })).depth;
+    const flooded = (i: number) => d[i] >= WET && !(b.water[i] >= WET);
+    let at = -1;
+    let most = 0;
+    for (let i = 0; i < N; i++) {
+      if (!flooded(i)) continue;
+      let n = 0;
+      for (let dy = -START_KEEP; dy <= START_KEEP; dy++)
+        for (let dx = -START_KEEP; dx <= START_KEEP; dx++) {
+          const x = (i % W) + dx;
+          const y = Math.floor(i / W) + dy;
+          if (x >= 0 && x < W && y >= 0 && y < W && flooded(y * W + x)) n++;
+        }
+      if (n > most) [at, most] = [i, n];
+    }
+    expect(at).toBeGreaterThanOrEqual(0);
+    const st = good.land.frame.start;
+    const [mx, my] = startMiddleTile(st);
+    const moved = { ...st, x: st.x + (at % W) - mx, y: st.y + Math.floor(at / W) - my };
+    const broken = riverInBands({ ...good.land, frame: { ...good.land.frame, start: moved } }, good.ladder, b);
+    expect(broken?.start).toBe(most);
+    expect(riverInFailure(broken)).toMatch(/^riverIn\.green: .*start's ground are under water/);
   });
 });

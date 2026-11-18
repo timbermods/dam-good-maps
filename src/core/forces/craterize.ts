@@ -13,7 +13,9 @@
 // becomes land in the forces' shared last step (rust/forces/src/levels.rs): its slopes cut into plates (no stair
 // of even steps running round), no band narrower than two tiles, no one-tile pillar, pit or lone block. The newest bowl replaces the relief it
 // lands on (overlapping impacts overprint older ones); only its outer lip rejoins the ground round
-// it. Trees inside the bowl are gone; round it they are knocked down, lying away from the blow (dead
+// it. Beside lower land the rim stands whole on the crater's own ground, as far down as its relief reaches (its depth
+// and its rim); land further below, a cliff's foot under a small crater on its brink, keeps its shape, the bowl open
+// over it. Trees inside the bowl are gone; round it they are knocked down, lying away from the blow (dead
 // trees, their pose the editor's); water and badwater sources and seeps ride the ground, and Sources
 // set to Clear takes those on ground it changed (clear.ts, D474); an aquifer keeps its ground; other
 // objects whose ground changed go. It strikes wherever it is aimed, the start's ground too (the editor

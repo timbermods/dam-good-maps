@@ -17,9 +17,7 @@ import { bottomRunTop, ColumnTerrain, isPlainMask, terrainColumns } from "../../
 const sha = (b: Uint8Array) => createHash("sha256").update(b).digest("hex");
 
 let made: ReturnType<typeof generate> | null = null;
-/** Canyon 96² seed 6 at Verticality 80, made once. (Seed 3 → 6 at generator 0.10.41, D(new-ditch) and D(sea-steps), D148: the gullies move
- *  the land and seed 3 keeps its spring caves but no arch; of seeds 1–16 seeds 6, 9, 13 and 16 keep both and pass the whole test, seed 6 the
- *  first.) (Seed 2 → 3 at generator 0.10.36: spring caves and the arch gone from 2's land (#1205); of seeds 1–16 seeds 3, 4, 9, 11 and 12 keep both, seed 3 the first.) (Seed 2 since generator 0.10.27, D(new-leaks): a course's water leaves only
+/** Canyon 96² seed 9 at Verticality 80, made once. (Seed 9 kept at generator 0.10.46, D(new-ditch) and D(sea-steps) on #1240's land, D148: of seeds 1–16 seeds 3, 9, 12 and 13 keep spring caves and an arch, seed 3 left aside as at 0.10.44, so seed 9 the first; arches kept on 5 of seeds 1–16 (3, 5, 9, 12, 13) against 7 at 0.10.44.) (Seed 4 → 9 at generator 0.10.44, D(gorge-followups), D148: an arch over a gorge is looked for along the heading its gorge runs, diagonals too, and a tributary deep under a wall winds; seed 4 keeps its spring cave but no arch; of seeds 1–16 seeds 3, 9, 10, 13 and 16 keep both, and under a relic on seed 3's first cave spring's first source the spring moves both its sources a cell down its line, leaving none out, so seed 9 is the first that shows a source left out; arches kept on 6 of seeds 1–16 against 3 at 0.10.43. Then, in the same D148 round, a Canyon promise missed with such a tributary wound gives the land's tributaries their own wander back: seed 9 is as it was, seed 4 still has no arch and seed 6 grows one; arches kept on 7 of seeds 1–16.) (Seed 3 → 4 at generator 0.10.43, D(highlands-slot), D148: a gorge winds at a 96²'s scale, and seed 3's canyon keeps its spring caves but no arch; of seeds 1–16 seeds 4, 8 and 16 keep both, seed 4 the first; arches kept on 3 of seeds 1–16 against 8 on dev, and on 9 of seeds 17–32 against 8.) (Seed 2 → 3 at generator 0.10.36: spring caves and the arch gone from 2's land (#1205); of seeds 1–16 seeds 3, 4, 9, 11 and 12 keep both, seed 3 the first.) (Seed 2 since generator 0.10.27, D(new-leaks): a course's water leaves only
  *  by its own way, so the land moved, D148: seed 9 keeps its spring caves but no arch; of seeds 1–16 seeds 2, 8 and 11 keep spring
  *  caves and an arch and pass the whole file, seed 2 the first.) (Seed 9 since generator 0.10.22, the settings keeping their promises, D148:
  *  Verticality away from the theme's own leans the grade, sheerer at 80, and seed 2 keeps its spring caves but no arch; of
@@ -32,14 +30,14 @@ let made: ReturnType<typeof generate> | null = null;
  *  that keeps both, arches kept on 3 of them (5, 6 and 8), 4 in all; seed 6 as it was.) */
 function canyonForms(): ReturnType<typeof generate> {
   if (made) return made;
-  const spec = makeSpec({ seed: 6, theme: "canyon", size: { x: 96, y: 96 } });
+  const spec = makeSpec({ seed: 9, theme: "canyon", size: { x: 96, y: 96 } });
   spec.settings.terrain.verticality = 80;
   made = generate(spec);
   return made;
 }
 
 describe("a generated map's 3D forms (D488)", () => {
-  it("Canyon 96² seed 6 at Verticality 80: spring caves and an arch, stacked water, the project reopens to the same file", () => {
+  it("Canyon 96² seed 9 at Verticality 80: spring caves and an arch, stacked water, the project reopens to the same file", () => {
     const r = canyonForms();
     expect(r.report.passed).toBe(true);
     const kept = r.intentions.filter((x) => x.ok && FORMS.includes(x.id as FormId)).map((x) => x.id);
@@ -148,7 +146,7 @@ describe("a generated map's 3D forms (D488)", () => {
   });
 
   it("at Verticality 0 the same map grows none", () => {
-    const spec = makeSpec({ seed: 6, theme: "canyon", size: { x: 96, y: 96 } });
+    const spec = makeSpec({ seed: 9, theme: "canyon", size: { x: 96, y: 96 } });
     spec.settings.terrain.verticality = 0;
     const r = generate(spec);
     expect(r.intentions.filter((x) => FORMS.includes(x.id as FormId))).toEqual([]);

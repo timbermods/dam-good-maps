@@ -30,7 +30,8 @@ function session() {
   // carve crosses no rise that Depth 2 cannot cut; of seeds 1–13 the whole file passes on 5, 7, 10, 12 and 13)
   // (the test needs a carve from the far spot whose course crosses a rise Depth 2 cannot cut: Highlands 96² seed 5's saved
   // land, D148, where it does, so a land change does not move it; generated live at generator 0.10.30, D(new-ditch), seed
-  // 5's carve crosses no such rise)
+  // 5's carve crosses no such rise; dev's live seed 3 at 0.10.43, D(highlands-slot), stands down for the saved land, which no
+  // land change moves)
   const s = fixtureSession("highlands", W, 5);
   s.setWaterMode("defer");
   return s;
