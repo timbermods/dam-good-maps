@@ -123,7 +123,7 @@ test.describe("the editor's header", () => {
     await expect.poll(() => picks(page)).toBe(4);
     const before = await picks(page);
     await saveButton(page).click();
-    await expect(page.getByRole("status").filter({ hasText: /Saved .*-2\.timber to Maps/ })).toBeVisible({ timeout: 120_000 });
+    await expect(page.getByRole("status").filter({ hasText: /Saved .* \(2\)\.timber to Maps/ })).toBeVisible({ timeout: 120_000 });
     expect(await picks(page)).toBe(before);
     expect(await filesIn(page, "Maps")).toHaveLength(2);
     expect(downloads).toBe(0);

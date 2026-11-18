@@ -5,7 +5,7 @@
 // and is updated to the decision, D148.) A taken name gets a number in Save to Timberborn (platform.test.ts).
 
 import { describe, expect, it } from "vitest";
-import { fileStemOf, MAX_FILE_STEM, mapFileName, mapProjectFileName } from "../../src/core/format/fileName";
+import { fileStemOf, MAX_FILE_STEM, mapFileName, mapProjectFileName, numberedFileName, numberedStem } from "../../src/core/format/fileName";
 import { fileName } from "../../src/core/gen/pack";
 import { makeSpec } from "../../src/core/spec/mapspec";
 
@@ -14,6 +14,47 @@ const stem = (name: string) => {
   if (!r.ok) throw new Error(`refused: ${r.reason}`);
   return r.stem;
 };
+
+describe("a numbered copy reads Name (2), not Name-2 (D443, amended 2026-11-18)", () => {
+  it("is the stem and the number in brackets, from 2 on", () => {
+    expect(numberedStem("Old Loop Lakelands", 2)).toBe("Old Loop Lakelands (2)");
+    expect(numberedStem("Old Loop Lakelands", 3)).toBe("Old Loop Lakelands (3)");
+    expect(numberedStem("Old Loop Lakelands", 12)).toBe("Old Loop Lakelands (12)");
+    expect(numberedFileName("Old Loop Lakelands.timber", 2)).toBe("Old Loop Lakelands (2).timber");
+    expect(numberedFileName("Old Loop Lakelands.damgoodmaps.json", 3)).toBe("Old Loop Lakelands.damgoodmaps (3).json");
+    expect(numberedFileName("v1.2 final.timber", 2)).toBe("v1.2 final (2).timber");
+    expect(numberedFileName("No extension", 2)).toBe("No extension (2)");
+  });
+
+  it("a name that already ends in (2) gets another: Name (2) (2), as the OS's own file manager does", () => {
+    expect(numberedStem("Name (2)", 2)).toBe("Name (2) (2)");
+    expect(numberedFileName("Name (2).timber", 3)).toBe("Name (2) (3).timber");
+  });
+
+  it("cuts the name, never the number, so the stem still fits the limit in characters and bytes", () => {
+    const base = stem("Beaver ".repeat(29) + "Dam");
+    expect([...base].length).toBeLessThanOrEqual(MAX_FILE_STEM);
+    for (const n of [2, 9, 10, 99, 100, 12345]) {
+      const s = numberedStem(base, n);
+      expect(s.endsWith(" (" + n + ")"), String(n)).toBe(true);
+      expect([...s].length, String(n)).toBeLessThanOrEqual(MAX_FILE_STEM);
+      expect(s.includes("  ")).toBe(false);
+    }
+    // a name of exactly the limit loses just enough
+    const full = "a".repeat(MAX_FILE_STEM);
+    expect(numberedStem(full, 2)).toBe("a".repeat(MAX_FILE_STEM - 4) + " (2)");
+    // (the cut never leaves a space or dot before the bracket: "…b. (2)" is not wanted)
+    const spaced = "a".repeat(MAX_FILE_STEM - 5) + " b" + "c";
+    expect(numberedStem(spaced, 2)).toBe("a".repeat(MAX_FILE_STEM - 5) + " (2)");
+    // (and a name in another script fits the byte limit with its number)
+    const wide = stem("谷".repeat(200));
+    const wideTwo = numberedStem(wide, 2);
+    expect(new TextEncoder().encode(wideTwo).length).toBeLessThanOrEqual(200);
+    expect(wideTwo.endsWith(" (2)")).toBe(true);
+    // the project file's name, with its longer extension, is still short of a path's limit
+    expect(numberedFileName(mapProjectFileName(base), 123).length).toBeLessThan(255);
+  });
+});
 
 describe("a map's file name is its name (D443)", () => {
   it("keeps the name as written: case, spaces, accents, brackets, other scripts", () => {
@@ -50,6 +91,53 @@ describe("a map's file name is its name (D443)", () => {
     // (only the whole first part: a name that starts with one is fine)
     expect(stem("Console Valley")).toBe("Console Valley");
     expect(stem("Aux Lakes")).toBe("Aux Lakes");
+  });
+
+  it("trims trailing dots and spaces before it takes off a typed .timber", () => {
+    expect(stem("Lake.timber.")).toBe("Lake");
+    expect(stem("Lake.timber ")).toBe("Lake");
+    expect(stem("Lake.timber. . ")).toBe("Lake");
+    expect(stem("Lake.TIMBER\t.")).toBe("Lake");
+    // (only the one: a name that is "x.timber.timber" keeps its first)
+    expect(stem("x.timber.timber")).toBe("x.timber");
+  });
+
+  it("counts CONIN$ and CONOUT$ among the device names, in any case", () => {
+    expect(stem("CONIN$")).toBe("CONIN$ map");
+    expect(stem("conout$")).toBe("conout$ map");
+    expect(stem("ConIn$.lake")).toBe("ConIn$ map.lake");
+    expect(stem("CONIN$ Valley")).toBe("CONIN$ Valley");
+    expect(stem("CON")).toBe("CON map");
+  });
+
+  it("puts \" map\" after a device name before the length cut, so the result still fits", () => {
+    // ("CON." then 200 more characters: the head is CON, the rest is cut, " map" stays)
+    const s = stem("CON." + "a".repeat(200));
+    expect(s.startsWith("CON map.")).toBe(true);
+    expect([...s].length).toBe(MAX_FILE_STEM);
+    expect(new TextEncoder().encode(s).length).toBeLessThanOrEqual(200);
+    // (a cut that lands on the dot leaves "CON map", never the bare device name)
+    expect(stem("CON." + "a".repeat(200)).split(".")[0]).toBe("CON map");
+  });
+
+  it("a cut that leaves a device name gets its word too, and the result still fits", () => {
+    for (const n of ["nul", "CON", "aux", "lpt1", "CONIN$"]) {
+      const s = stem(n + " ".repeat(200) + "x");
+      expect(s, n).toBe(n + " map");
+      expect([...s].length).toBeLessThanOrEqual(MAX_FILE_STEM);
+    }
+    // (inside the limit nothing is cut, and a name with a word after the spaces is not a device name)
+    expect(stem("nul" + " ".repeat(100) + "x")).toBe("nul" + " ".repeat(100) + "x");
+  });
+
+  it("removes the marks that make a file name display reversed, without leaving a space", () => {
+    expect(stem("Lake\u202Etxt.timber")).toBe("Laketxt");
+    for (const c of ["\u202A", "\u202B", "\u202C", "\u202D", "\u202E", "\u2066", "\u2067", "\u2068", "\u2069", "\u200E", "\u200F"]) {
+      expect(stem("Old" + c + "Lakes"), c.charCodeAt(0).toString(16)).toBe("OldLakes");
+    }
+    // (a name of nothing else is refused; a marked device name is still one)
+    expect(fileStemOf("\u202E\u200F").ok).toBe(false);
+    expect(stem("C\u200EON")).toBe("CON map");
   });
 
   it("refuses a name that leaves nothing, with a one-line reason", () => {

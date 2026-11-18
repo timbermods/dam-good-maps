@@ -427,9 +427,12 @@ export function decodeProject(bytes: Uint8Array): MapDocument {
   const doc = raw as MapDocument;
   // a stored map that is not one (a hand-edited file) is left out: the project opens by rebuilding
   if ("stored" in doc && (!doc.stored || typeof doc.stored !== "object")) delete doc.stored;
-  // a project saved without a stored name opens with the name it has always had (D382)
+  // a project saved without a stored name, or with one that makes no file name (a hand-made file: the app only saves
+  // names `cleanMapName` keeps), opens with the name it has always had (D382); a name the app wrote comes through as it is
   const meta = ((doc as { meta?: Partial<DocMeta> }).meta ??= {} as DocMeta);
-  if (typeof meta.name !== "string" || !meta.name.trim()) meta.name = meta.generatedName ?? (doc.spec ? mapName(doc.spec) : "Imported map");
+  const named = typeof meta.name === "string" ? cleanMapName(meta.name) : null;
+  if (named?.ok) meta.name = named.name;
+  else meta.name = meta.generatedName ?? (doc.spec ? mapName(doc.spec) : "Imported map");
   checkDocument(doc);
   if (notes.length) (doc as MapDocument & RetiredNotes).__retiredNotes = notes;
   return doc;

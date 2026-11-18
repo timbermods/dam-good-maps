@@ -42,7 +42,7 @@ The generator:
 - **Save to Timberborn** puts the map straight into the game's custom maps. The first time, pick
   `Documents\Timberborn\Maps`; after that it is one click (Chrome and Edge). The file takes the
   map's name. A map with the same name is kept, and the new one gets a number:
-  `Old Loop Lakelands-2.timber`. **File → Save as…** saves it under a name you choose.
+  `Old Loop Lakelands (2).timber`. **File → Save as…** saves it under a name you choose.
 - In other browsers it downloads the `.timber`: move it to `Documents\Timberborn\Maps`.
   **File → Download project** keeps the map for editing later.
 
