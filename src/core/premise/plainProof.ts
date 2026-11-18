@@ -7,20 +7,14 @@
 import { generatedDocument } from "../doc/document";
 import { MapSession } from "../doc/session";
 import type { BuildResult } from "../features/build";
-import { startMiddleTile } from "../format/footprints";
 import { tilesToRuns } from "../math/grid";
 import { hypot } from "../math/portable";
 import type { MapSpec } from "../spec/mapspec";
-import { floorTiles, leftToWin, settledBands, WET, type PlainMap } from "./plainMap";
+import { floorTiles, leftToWin, onStartGround, settledBands, WET, type PlainMap } from "./plainMap";
+import { FORK_EDGE } from "./plainWorks";
 import { PLAIN_IDS, plainOf } from "./premises/poisonedPlain";
 
 const I = PLAIN_IDS;
-/** The start's ground the river in must leave dry: its middle tile and `START_KEEP` round it. */
-const START_KEEP = 3;
-/** The Dry Fork's edge as the settled water reaches it: the map's edge within this share of the side of its line's
- *  end (its valley's lower end can be a hollow that spills to the edge beside the line's own way, seed 10 at 256², or
- *  round a corner, seed 8 at 192²). */
-const FORK_EDGE = 0.25;
 
 /** One state of the settled map: the floor's bands by the game's soil and its red water. */
 export interface PlainState {
@@ -106,8 +100,7 @@ export function plainProof(spec: MapSpec, m: PlainMap, file?: (bytes: Uint8Array
   const b1 = ses.built;
   if (file) file(ses.exportTimber().bytes);
   const lips = water.raster.lips[I.redFall] ?? [];
-  const [sx, sy] = startMiddleTile(m.land.frame.start);
-  const onStart = (i: number) => Math.abs((i % W) - sx) <= START_KEEP && Math.abs(Math.floor(i / W) - sy) <= START_KEEP;
+  const onStart = onStartGround(m.land.frame.start, W);
   const p = plainOf(plan)!;
   const fe = p.fork.path[p.fork.path.length - 1];
   const forkEdge = (i: number) => edgeOf(i, W, H) >= 0 && hypot((i % W) + 0.5 - fe[0], Math.floor(i / W) + 0.5 - fe[1]) <= FORK_EDGE * W;

@@ -127,7 +127,14 @@ export function leveeBanks(W: number, H: number, f: LeveeForm): { over: Uint8Arr
  *  `near` of: every start, and from each the longest end that holds (an end that strays does not stop the search: a
  *  later end may hold again). */
 export function longestStraight(pts: readonly Point[], near: number): number {
+  return straightestChord(pts, near).len;
+}
+
+/** `longestStraight`'s chord: its length and the indices of its two ends (-1 where there is none). */
+export function straightestChord(pts: readonly Point[], near: number): { len: number; from: number; to: number } {
   let best = 0;
+  let from = -1;
+  let to = -1;
   for (let i = 0; i < pts.length; i++) {
     const a = pts[i];
     if (!(a[0] === a[0])) continue;
@@ -141,10 +148,10 @@ export function longestStraight(pts: readonly Point[], near: number): number {
         const q = pts[m];
         if (Math.abs((b[0] - a[0]) * (a[1] - q[1]) - (a[0] - q[0]) * (b[1] - a[1])) / len > near) ok = false;
       }
-      if (ok) best = len;
+      if (ok) [best, from, to] = [len, i, j];
     }
   }
-  return best;
+  return { len: best, from, to };
 }
 
 /** The longest straight run of a bank's outer foot on the ground (the `levee.wanders` measure on the land), as the

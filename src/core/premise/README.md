@@ -107,7 +107,9 @@ control on the page yet); and step 9's core: the theme and the premise as two ch
   layout in a local frame turned onto the map by an angle and mirrored (`boxOf`, `toMap`; planning's ruling of
   2026-11-15: the valley is not a corridor): its axis 10° to 35° off the grid with 1 or 2 gentle bends (`VALLEY`,
   `axisHeading`); each wall its own wandering line (round 3: spurs onto the floor and re-entrants back, 0.15 to 0.3 of
-  `P` either way, a spur and its re-entrant 1.5 to 3 `P` long, `WALL`, a wall drawn again while it runs straight), not
+  `P` either way, a spur and its re-entrant 1.5 to 3 `P` long, `WALL`, a wall drawn again while its foot as the ground
+  draws it runs straight, `wallFoot` through the floor's warp `FLOOR_WARP`, `floorWarpSeeds`, and given a spur where no
+  draw wanders enough, `spurWhereStraight`, step 5; `raster/levee.ts` `straightestChord` finds the run), not
   parallel (the floor narrower at the plain's head, its mean over any `P` of its length 0.8 to 1.3 of `P`, `PLAIN`,
   `floorWidths`, `widthMeans`), the backswamp and the red stream on the far wall's foot; the
   plain by the map (`P` the larger of (M + 9) / 0.7 and 0.28 to 0.36 of the side, `plainRange`; its length 0.7 to 0.85
@@ -116,10 +118,10 @@ control on the page yet); and step 9's core: the theme and the premise as two ch
   in the near third, its width by flow; the levees as noise with 2 to 4 low places, not rasterised (`LEVEE`); the
   backswamp 7 to 10 wide (up to 0.06 of the side, `SWAMP`, `swampMost`) and the slough or two (`SLOUGH`: the first
   from the middle third, a second a third of the plain away); the start's terrace at the plain's head a third to a half
-  of the way across (`TERRACE`); the far wall's search window from the badwater distance, searched nearest-first in
+  of the way across, the start on its lip or, on a long terrace, nearer its brook (`TERRACE`, `brook`, step 5); the far wall's search window from the badwater distance, searched nearest-first in
   the runs the vista frame shows, with targets for the gulch, the col and the old valley (`WINDOW`, `GULCH`); the Red
   Spring's stream a fifth, a quarter or a third of the river (`RED_SHARE`) to its join in the river's last 30 % or its
-  own exit (`JOIN`); five regions; the ladder's rungs at their sites. Its numbers in `PlainPlan.plain` (`plainOf`), the
+  own exit (`JOIN`), its bed widened at its bends on the backswamp (`RED_POOLS`, `redHalves`, step 5); five regions; the ladder's rungs at their sites. Its numbers in `PlainPlan.plain` (`plainOf`), the
   day-1 shares by arithmetic on the map's tiles (`plainShares`), the diagram's own pieces (`plainOverlays`) and its
   `plan` invariants (`plain.levels`, `plain.width`, `wall.wanders`, `stream.join`, `start.badwater`, `frame.fall`, `poisoned.ladder`).
   `redClear` keeps a join's red water off the river's but at its end (round 3).
@@ -149,9 +151,11 @@ control on the page yet); and step 9's core: the theme and the premise as two ch
   drawn in the plan (`poisonedPlain.ts` `riverSteps`, `riverStage`, `riffles`). `tools/capture-plain.ts --water`
   draws the sheet. Step 4: a land whose works fail a blocking check by number is drawn again before its settle
   (`plainWorksOf`, the turn's pond held to the col first, `plainWorks.ts` `holdTurn`); the red source's niche
-  stands within `NICHE_NEAR` of the plan's source point (the gulch's head). A map whose floor is under 60 % green with
+  stands within `NICHE_NEAR` of the plan's source point (the gulch's head), on the Red Spring's pool (step 5: a land
+  with no 3 × 3 there is drawn again, `source.niche`). A map whose floor is under 60 % green with
   both works built (`riverInBands`: the weir and the dam raised on the built ground, the core's settle and soil, the
-  proof's green exactly) is drawn again (`riverIn.green`, planning's ruling of 2026-11-17); that settle also gives the
+  proof's green exactly), or whose start's ground those works flood (`START_KEEP`, `onStartGround`, shared with
+  `plainProof.ts`; step 5), is drawn again (`riverIn.green`, `riverInFailure`, planning's ruling of 2026-11-17); that settle also gives the
   ladder what is left to win (`leftToWin`, `Ladder.left`: the dry floor's share, and of it the share a ditch from any
   clean water reaches, `ditchReach`, and the share that needs a pump; shown, never a bar).
 - `curtain.ts`: the shared fall judge (one whole curtain, no pillar, ledge or basin), used by the falls' contract tests
@@ -166,12 +170,13 @@ control on the page yet); and step 9's core: the theme and the premise as two ch
   and always the pond, the turn and the river in (`listPaid`, `LISTED`; the pond widened by `POND.step` until it
   holds its floor). The levees' clears
   are read again on the settled water (`settledClears`: the stage stands the river shallower than the core). Its
-  checks by number (`PLAIN_WORKS_CHECKS`: `works.sites`, `works.paid`, `turn.byNumber`, `riverIn.byNumber`; all but
-  `works.paid` blocking). `plainProof.ts`: the two proofs, the turn and then the river in built as operations on the
+  checks by number (`PLAIN_WORKS_CHECKS`: `works.sites`, `works.paid`, `turn.byNumber`, `riverIn.byNumber`, read on the slough's way from its mouth at the river's
+  level, step 5; `turn.byNumber` refuses red water leaving by an edge off the Dry Fork's, `FORK_EDGE`, step 5; all but `works.paid` blocking). `plainProof.ts`: the two proofs, the turn and then the river in built as operations on the
   settled map's session and the core's water and soil read (`turn.proved`, `riverIn.proved`: `RIVER_IN`, the floor
   60 % green and the start dry, with what is left to win beside it); offline only, so the
   generator never loads the session. `tools/plain-works.ts` runs both over seeds; `tools/capture-plain.ts --works`
-  draws the sheet (as made, after the turn, after the river in).
+  draws the sheet (as made, after the turn, after the river in), `--start` the whole map and the start close, each
+  row captioned with the start's numbers and the generator's version (step 5).
 - `gateWater.ts`: the wall with one gate's stage 1 (§5.1 "As built (water)"): `gateWater` (the shared `waterByNumber`,
   then the leat's bar, the Veil's foot a level under the sill with its outer row the ribbon, the first frame's beds under
   two), `GATE_WATER_CHECKS` (the shared ones, the Still Pool a `Body.backwater`; `gate.dry`, `frame.water`) and `gateSettleModel` (the undrawn ground over every
@@ -270,9 +275,9 @@ a broken plan for every `plan` invariant, the Four Lakes fixture `tests/fixtures
 variety, a broken plan for every `plan` invariant); `premisePlainPlan.test.ts` (quick: the poisoned floodplain kept out of the choices, its eligibility, seeds 1 to 12 a
 size with day 1's bands, variety, its diagram, a broken plan for every `plan` invariant); `premisePlainWater.test.ts`
 (quick: a map at 128² holding on its first attempt, its start, its three sources, its bands and dead stands, the same
-map for the same seed, a broken map for every `settled` invariant) and `premisePlainWater.heavy.test.ts` (seeds 1
+map for the same seed, a broken map for every `settled` invariant, a start moved onto ground the works flood among them) and `premisePlainWater.heavy.test.ts` (seeds 1
 to 12 at each size, each holding every check with the Red Fall one whole curtain as settled, first attempts at least
-`FIRST`: 9 of 12 at 192² and 256²); `premisePlainWorks.test.ts` (quick: a map at
+`FIRST`: 9 of 12 at 192² and 256², each map made once so the floor counts all twelve in any order); `premisePlainWorks.test.ts` (quick: a map at
 128² that lists the pond, the turn and the river in and only rungs that buy their floors, each on its land, the turn
 six tiles or fewer, a broken ladder for every works check) and `premisePlainWorks.heavy.test.ts` (the two proofs on seeds 1 and 2 at each size); `gateBrooks.test.ts` (quick: the brooks' meander: its swing and
 wavelength, no curve touching itself, the straight head, the steps aside on a steep reach, the room, one of six draws
