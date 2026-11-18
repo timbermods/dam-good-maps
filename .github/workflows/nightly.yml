@@ -187,8 +187,15 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
+      # Linux hosts use the shared action (browsers and the system libraries' .deb files cached, see its comments);
+      # Windows and macOS have no system libraries to install.
+      - uses: ./.github/actions/playwright
+        if: runner.os == 'Linux'
+        with:
+          browsers: chromium firefox webkit
       - name: Install Chromium, Firefox and WebKit for Playwright
-        run: npx playwright install --with-deps chromium firefox webkit
+        if: runner.os != 'Linux'
+        run: npx playwright install chromium firefox webkit
       # (a pull request that changes this file runs the short list, to check the workflow)
       - name: The same results in every engine (the full list)
         run: npx tsx tools/determinism/run.ts --out nightly ${{ github.event_name == 'pull_request' && '--smoke' || '' }}
