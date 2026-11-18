@@ -309,11 +309,14 @@ describe("the generator's M7 set pieces keep their rules (ROADMAP M7)", () => {
     // canyon 8 → 12, canyon 16 → 13 and highlands 3 → 9 at 0.10.43 (D(highlands-slot), a gorge winding at a 96²'s scale), D148: the
     // land moved and those three maps take no weir now (half the attempts try one); of Canyon and Highlands 96² seeds 1–20, 14
     // take one (Canyon 1, 4, 7, 10, 12, 13, 15, 17, 19; Highlands 9, 11, 12, 13, 16) against dev's 19, and of seeds 21–40 15 against
-    // 15, every one holding 0.65 or more but Highlands 31's 0.42, as on dev)
-    // canyon 12 → 15 at 0.10.46 (D(new-ditch) and D(sea-steps) on #1236's land), D148: the gullies leave Canyon 12's weir holding
-    // 0.56; of Canyon and Highlands 96² seeds 1–20, 15 take one (Canyon 1, 4, 6, 7, 10, 12, 13, 15, 17, 18; Highlands 9, 11, 12,
-    // 13, 16) against dev's 14, every one holding 0.65 or more but Canyon 12's 0.56
-    for (const [theme, seed] of [["canyon", 7], ["canyon", 10], ["canyon", 15], ["canyon", 13], ["highlands", 9]] as [ThemeId, number][]) {
+    // 15, every one holding 0.65 or more but Highlands 31's 0.42, as on dev;
+    // canyon 12 → 4 at 0.10.44 (D(gorge-followups), a tributary deep under a wall winding at a 96²'s scale), D148: the land moved
+    // and canyon 12 takes no weir now; of Canyon and Highlands 96² seeds 1–20, 15 take one (Canyon 1, 4, 6, 7, 9, 10, 13, 17, 19;
+    // Highlands 2, 9, 11, 13, 16, 18) against 14 at 0.10.43;
+    // the same five at 0.10.46 (D(new-ditch) and D(sea-steps) on #1240's land), D148: of Canyon and Highlands 96² seeds 1–20, 14
+    // take one (Canyon 1, 4, 6, 7, 9, 10, 12, 13, 17; Highlands 2, 9, 11, 13, 16) against 15 at 0.10.44, every one holding 0.65
+    // or more but Canyon 12's 0.56)
+    for (const [theme, seed] of [["canyon", 4], ["canyon", 7], ["canyon", 10], ["canyon", 13], ["highlands", 9]] as [ThemeId, number][]) {
       const r = generate(makeSpec({ seed, size: { x: 96, y: 96 }, theme }));
       const w = r.features.find((g) => g.kind === "mapObject" && g.params.kind === "weir");
       if (!w || w.kind !== "mapObject") continue;

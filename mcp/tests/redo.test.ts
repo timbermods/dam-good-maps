@@ -6,7 +6,6 @@ import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { lakesOf, waterfallsOf } from "../src/describe";
 import { closeAll, generateMap } from "../src/maps";
 import { callTool } from "../src/server";
 
@@ -46,21 +45,11 @@ describe("redo", () => {
   });
 });
 
-/** The first Canyon 96² map from seed 12 on with a waterfall (a drop of 2 levels or more) and a lake holding water. */
-function withFallsAndLake(): ReturnType<typeof generateMap> {
-  for (let seed = 12; seed < 32; seed++) {
-    const m = generateMap({ theme: "canyon", size: 96, seed });
-    if (waterfallsOf(m.session).length && lakesOf(m.session).some((l) => l.wet.length > 0)) return m;
-  }
-  throw new Error("no Canyon 96² map from seed 12 to 31 has a waterfall and a lake");
-}
-
 describe("falls, lakes, the nearest tile and the crater's size", () => {
   it("lists falls and lakes in describe and marks them on the picture", async () => {
-    // (the test needs a map with a waterfall and a lake: the first Canyon 96² seed from 12 whose built map has a drop of 2
-    // levels or more along a river's channel and standing water off it, found by that, so a land change does not move it
-    // (D148: at generator 0.10.30 seed 12's map has no waterfall describe lists))
-    const { handle } = withFallsAndLake();
+    // (seed 1, D148: at generator 0.10.44 the gorge follow-ups wind seed 12's canyon and it keeps no fall; seed 1 has 6
+    // falls and 2 lakes)
+    const { handle } = generateMap({ theme: "canyon", size: 96, seed: 1 });
     const d = JSON.parse(textOf(await callTool("describe", { map: handle, checks: false })));
     const falls = d.features.filter((f: { kind: string }) => f.kind === "waterfall");
     expect(falls.length).toBeGreaterThan(0);

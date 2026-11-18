@@ -111,11 +111,15 @@ import * as ed from "../../src/worker/session";
 // and generator 0.10.42's version alone (#1227, Easy start shaped on the settled water, which a map without Easy start never
 // reaches): with the version set back to 0.10.40 the branch gives `a7d8de7f…` byte for byte, D148
 // and generator 0.10.43's version alone (D(highlands-slot), a gorge winding at a small map's scale, which a 128² map never
-// reaches; #1236 merged after #1227): `424ccea0…` before it, `d452eb0a…` at it, D148
-// and generator 0.10.46's gullies and sea steps (D(new-ditch), D(sea-steps)): `94761289…` before them, not the version alone
-// (with the version set back to 0.10.39 the branch gives `2159e2bd…`): its pits' gullies move its land, the map made on its
-// second attempt, every check passing, D148 (`a81e89f1…` at 0.10.41, `ce7c8565…` at 0.10.43, which the code merged with
-// #1236 still gives at that version; 0.10.46 the version alone over it, D148)
+// reaches; #1236 merged after #1227): `424ccea0…` before it,
+// and dev with its version set to 0.10.43 gives this branch's bytes, D148
+// and generator 0.10.44's version alone (D(gorge-followups): a tributary deep under a wall winds at a small map's scale, which a
+// 128² map never reaches, and a gorge arch found along its gorge's heading, which this map never grows):
+// `d452eb0a…` before it, and dev with its version set to 0.10.44 gives this branch's bytes, D148
+// and generator 0.10.46's gullies and sea steps (D(new-ditch), D(sea-steps)) on #1240's land: `d6709d0d…` before them, not the
+// version alone (with the version set back to 0.10.44 the merged code gives `920ac6af…`): its pits' gullies move its land, the
+// map made on its second attempt, every check passing; the gorge follow-ups do not reach it, so this is the bytes the branch
+// gave before #1240 merged in, D148
 const LIVE_SHA = "0a7daa745fd9555f0491d54518bc764d1f654e3bb608f3f34cb2c65d1446664d";
 const spec = () => makeSpec({ seed: 4242, size: { x: 128, y: 128 }, theme: "riverValley", designedFor: "normal" });
 

@@ -74,9 +74,13 @@ import { decodeSpecFragment, encodeSpecFragment, makeSpec, type MapSpec } from "
 // and generator 0.10.42's version alone (#1227, Easy start shaped on the settled water, which a map without Easy start never
 // reaches): with the version set back to 0.10.40 the branch gives `5e8e12c9…` byte for byte, D148
 // and generator 0.10.43's version alone (D(highlands-slot), a gorge winding at a small map's scale, which a 128² map never
-// reaches; #1236 merged after #1227): `4dd5345e…` before it, `63980a48…` at it, D148
-// and generator 0.10.46's version alone (D(new-ditch), D(sea-steps)): with the version set back to 0.10.39 the branch gives
-// `1eed1d4c…` byte for byte, the gullies and sea steps not reaching this premise's land (`19432b1a…` at 0.10.41), D148
+// reaches; #1236 merged after #1227): `4dd5345e…` before it,
+// and dev with its version set to 0.10.43 gives this branch's bytes, D148
+// and generator 0.10.44's version alone (D(gorge-followups): a tributary deep under a wall winds at a small map's scale, which a
+// 128² map never reaches, and a gorge arch found along its gorge's heading, which this map never grows):
+// `63980a48…` before it, and dev with its version set to 0.10.44 gives this branch's bytes, D148
+// and generator 0.10.46's version alone (D(new-ditch), D(sea-steps)): with the version set back to 0.10.44 the merged code gives
+// `aa6cb441…` byte for byte, the gullies and sea steps not reaching this premise's land, D148
 const SHA = "c55bf4df08145de65c827743bd0e3a0364d2be0dd7a957d37a26c9814ab20e30";
 
 // (a Hard map whose start lake parts as it falls: the single analytic reading stood 0.32 over the run there, PR #1040;
