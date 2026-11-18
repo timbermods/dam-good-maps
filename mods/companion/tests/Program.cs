@@ -234,6 +234,10 @@ namespace DGMCompanion.Tests
             Check(LatestMap.FamilyRoot("Old Loop Lakelands (2)", new[] { "Old Loop Lakelands", "Old Loop Lakelands (2)" }) == "Old Loop Lakelands", "'Name (2)' belongs to 'Name' when 'Name' is there");
             Check(LatestMap.FamilyRoot("Old Loop Lakelands (2)", new[] { "Old Loop Lakelands (2)" }) == "Old Loop Lakelands (2)", "'Name (2)' whose root is absent is its own root");
             Check(LatestMap.FamilyRoot("Lake (1)", new[] { "Lake", "Lake (1)" }) == "Lake (1)", "(1) is not a re-save");
+            // other scripts' digits and a number past an int are not numbered copies, and never throw
+            Check(LatestMap.FamilyRoot("Lake (٢)", new[] { "Lake", "Lake (٢)" }) == "Lake (٢)" && LatestMap.FamilyRoot("Lake-٢", new[] { "Lake", "Lake-٢" }) == "Lake-٢", "non-ASCII digits are not a re-save");
+            Check(LatestMap.FamilyRoot("Lake (99999999999)", new[] { "Lake", "Lake (99999999999)" }) == "Lake (99999999999)" && LatestMap.FamilyRoot("Lake-99999999999", new[] { "Lake", "Lake-99999999999" }) == "Lake-99999999999", "a number too large for an int is not a re-save");
+            Check(!LatestMap.InFamily("Lake (٢)", "Lake") && !LatestMap.InFamily("Lake-٢", "Lake") && !LatestMap.InFamily("Lake (99999999999)", "Lake"), "the family holds neither");
             Check(LatestMap.InFamily("Lake (3)", "Lake") && LatestMap.InFamily("Lake-2", "Lake") && !LatestMap.InFamily("Lake (1)", "Lake") && !LatestMap.InFamily("Lake (2) x", "Lake") && !LatestMap.InFamily("Lake (x)", "Lake") && !LatestMap.InFamily("Lakes (2)", "Lake"), "the family holds 'Name (n)' and 'Name-n' for n of 2 and more, and nothing that only starts alike");
             Check(LatestMap.IsDamGoodMapsFile(two) && !LatestMap.IsDamGoodMapsFile(Path.Combine(folder, "nowhere.timber")), "a Dam Good Maps file is recognised by path");
         }

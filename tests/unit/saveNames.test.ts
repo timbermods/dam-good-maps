@@ -120,6 +120,16 @@ describe("a map's file name is its name (D443)", () => {
     expect(stem("CON." + "a".repeat(200)).split(".")[0]).toBe("CON map");
   });
 
+  it("a cut that leaves a device name gets its word too, and the result still fits", () => {
+    for (const n of ["nul", "CON", "aux", "lpt1", "CONIN$"]) {
+      const s = stem(n + " ".repeat(200) + "x");
+      expect(s, n).toBe(n + " map");
+      expect([...s].length).toBeLessThanOrEqual(MAX_FILE_STEM);
+    }
+    // (inside the limit nothing is cut, and a name with a word after the spaces is not a device name)
+    expect(stem("nul" + " ".repeat(100) + "x")).toBe("nul" + " ".repeat(100) + "x");
+  });
+
   it("removes the marks that make a file name display reversed, without leaving a space", () => {
     expect(stem("Lake\u202Etxt.timber")).toBe("Laketxt");
     for (const c of ["\u202A", "\u202B", "\u202C", "\u202D", "\u202E", "\u2066", "\u2067", "\u2068", "\u2069", "\u200E", "\u200F"]) {

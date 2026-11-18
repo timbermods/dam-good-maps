@@ -125,8 +125,9 @@ namespace DGMCompanion
             return metadata != null && (IsDamGoodMaps(metadata) || IsDamGoodMapsName(System.IO.Path.GetFileName(path)));
         }
 
-        // The number a re-save takes: " (2)" as the app writes it now (D443, 2026-11-18), "-2" as it did before.
-        private static readonly Regex ResaveSuffix = new Regex(@"^(.*)(?:-(\d+)| \((\d+)\))$", RegexOptions.CultureInvariant);
+        // The number a re-save takes: " (2)" as the app writes it now (D443, 2026-11-18), "-2" as it did before. ASCII digits only
+        // (.NET's d matches other scripts' digits too, which int.Parse refuses).
+        private static readonly Regex ResaveSuffix = new Regex(@"^(.*)(?:-([0-9]+)| \(([0-9]+)\))$", RegexOptions.CultureInvariant);
 
         // The app never overwrites a map: saving the same map again gives "name (2).timber", then "(3)" (D162, D443;
         // "name-2" in older saves). The family of a map file is the original name and those numbered names. A played
@@ -135,8 +136,9 @@ namespace DGMCompanion
         public static string FamilyRoot(string stem, ICollection<string> stemsInFolder)
         {
             Match m = ResaveSuffix.Match(stem);
-            string digits = m.Success ? (m.Groups[2].Success ? m.Groups[2].Value : m.Groups[3].Value) : null;
-            if (m.Success && int.Parse(digits, CultureInfo.InvariantCulture) >= 2 && stemsInFolder.Contains(m.Groups[1].Value, StringComparer.OrdinalIgnoreCase))
+            // (a number too large for an int is not a numbered copy either)
+            if (m.Success && int.TryParse(m.Groups[2].Success ? m.Groups[2].Value : m.Groups[3].Value, NumberStyles.None, CultureInfo.InvariantCulture, out int n)
+                && n >= 2 && stemsInFolder.Contains(m.Groups[1].Value, StringComparer.OrdinalIgnoreCase))
             {
                 return m.Groups[1].Value;
             }

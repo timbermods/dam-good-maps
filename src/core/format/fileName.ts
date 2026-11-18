@@ -21,8 +21,8 @@ export type FileStem = { ok: true; stem: string } | { ok: false; reason: string 
  *  display go; `\ / : * ? " < > |` and control characters become a space (with the spaces around them, one space in
  *  all); dots and spaces at either end go (a trailing one is refused by Windows, a leading dot hides the file on macOS
  *  and Linux), and only then a trailing ".timber" typed with the name; a Windows device name (CON, NUL, COM1, CONIN$…)
- *  gets " map" after it; and a stem past 150 characters (or 200 UTF-8 bytes) is cut there, last of all, so the " map"
- *  stays. A name with nothing left is refused. */
+ *  gets " map" after it, before the cut and again after it (a cut can leave one); and a stem past 150 characters (or 200
+ *  UTF-8 bytes) is cut there, so the " map" stays. A name with nothing left is refused. */
 export function fileStemOf(name: string): FileStem {
   let s = name
     .replace(BIDI, "")
@@ -31,10 +31,16 @@ export function fileStemOf(name: string): FileStem {
     .replace(/\.timber$/i, "")
     .replace(/^[\s.]+|[\s.]+$/g, "");
   if (!s) return { ok: false, reason: 'A file can\'t be named with only dots, spaces or \\ / : * ? " < > |: use letters or digits' };
+  // (before the cut, so the " map" fits; and after it, because a cut can leave a device name: "nul", 200 spaces, "x" is
+  // cut and trimmed to "nul", which only has room for the word because what was cut away was most of the name)
+  return { ok: true, stem: spareDevice(cut(spareDevice(s))) };
+}
+
+/** A Windows device name (the part before the first dot) with " map" after it; any other name as it is. */
+function spareDevice(s: string): string {
   const dot = s.indexOf(".");
   const head = dot < 0 ? s : s.slice(0, dot);
-  if (RESERVED.test(head.trimEnd())) s = `${head.trimEnd()} map${dot < 0 ? "" : s.slice(dot)}`;
-  return { ok: true, stem: cut(s) };
+  return RESERVED.test(head.trimEnd()) ? `${head.trimEnd()} map${dot < 0 ? "" : s.slice(dot)}` : s;
 }
 
 /** The stem of the n-th copy of a file (n from 2): "Old Loop Lakelands" is "Old Loop Lakelands (2)", then "(3)" and
