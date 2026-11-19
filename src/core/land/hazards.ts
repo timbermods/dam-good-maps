@@ -1217,18 +1217,27 @@ export function planBadwater(h: Uint8Array, W: number, H: number, wetNow: ArrayL
           q[tail++] = j;
         }
       }
+      // (the four neighbours written out, in `N4`'s order: every round of candidates spreads it once per floor)
+      const keep = o0.keepOff;
       while (head < tail) {
         const c = q[head++];
         const x = c % W;
-        const y = (c - x) / W;
-        for (const [dx, dy] of N4) {
-          const xx = x + dx;
-          const yy = y + dy;
-          if (xx < 0 || yy < 0 || xx >= W || yy >= H) continue;
-          const n = yy * W + xx;
-          if (o0.keepOff[n] || d[n] <= d[c] + 1) continue;
-          d[n] = d[c] + 1;
-          q[tail++] = n;
+        const nd = d[c] + 1;
+        if (x + 1 < W && !keep[c + 1] && d[c + 1] > nd) {
+          d[c + 1] = nd;
+          q[tail++] = c + 1;
+        }
+        if (x > 0 && !keep[c - 1] && d[c - 1] > nd) {
+          d[c - 1] = nd;
+          q[tail++] = c - 1;
+        }
+        if (c + W < N && !keep[c + W] && d[c + W] > nd) {
+          d[c + W] = nd;
+          q[tail++] = c + W;
+        }
+        if (c >= W && !keep[c - W] && d[c - W] > nd) {
+          d[c - W] = nd;
+          q[tail++] = c - W;
         }
       }
       return d;
@@ -1600,7 +1609,8 @@ export function planBadwater(h: Uint8Array, W: number, H: number, wetNow: ArrayL
         if (side.length) plan.outletSide = side;
         // dig it into a copy and prove it holds before touching the map
         const next = hh.slice();
-        for (let j = 0; j < N; j++) if (pit[j]) next[j] = floor;
+        // (the pit lies within 8 tiles of its middle)
+        for (let y = Math.max(0, cy - 8); y <= Math.min(H - 1, cy + 8); y++) for (let x = Math.max(0, cx - 8); x <= Math.min(W - 1, cx + 8); x++) if (pit[y * W + x]) next[y * W + x] = floor;
         const bed = channelTiles({ tiles: outlet, levels, width: 1, to: "", side }, W, H).bed;
         for (const [j, lv] of bed) next[j] = Math.min(next[j], lv);
         // its banks stepped down to the bed a level a tile, a gully's sides (never the pit and its rim,
