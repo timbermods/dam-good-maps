@@ -447,3 +447,31 @@ picked out by texture, Highlands 2 shows mesas and Canyon 1 a gorge. Lake Basin 
 - Canyon 2's nearest badwater is 37.9 tiles (40 asked; base 72), and Canyon 1 has a wide badwater pool at the
   gorge's mouth. Canyon 2 at round 5 is a plainer picture than at round 4.
 - Highlands is less bold than Terraces. Lake Basin and Islands are not yet drawn in rings.
+
+## The PR round (2026-11-19)
+
+Generator 0.10.49 (D(uplands)); numbers in `C:/dgm-showcase/gen/uplands-pr/`.
+
+- **Highlands' promise.** Read the same way as a built map, the bundled highlands' high share is Terraces 0.52, Pressure
+  0.18, Mountain Range 0.45, Helix Mountain 0.29, Oasis 0.65 (their plateaus 9, 0, 0, 1, 3; cliffs .110, .087, .054,
+  .079, .093; only Oasis keeps the promise whole). Above 128² the ask is the lowest rounded down, held to 0.35
+  (`gen/outcomes.ts` `HIGH_RINGED`). Highlands 256² seed 1 now takes 2 attempts (base 5), 15.2 s against base 28; seed 2
+  takes 4 (base 5), 28.2 s against 31.4: the promise holds on every attempt, its first three fail on the start's place
+  ("one place for a start", "no start" twice), which is the start-pick change's. Both maps are other lands than round
+  5's: Highlands 1's reach 16,167 → 15,547 (base 12,631), Highlands 2's 12,453 → 3,439 (base 5,577, under it) with
+  its nearest badwater 29.1 (base 67.7), level room 485; C's bars on Highlands 2 move to one-level share 67.8 % (bar
+  45–65) and land beside a 4+ drop 3.7 % (bar 4–9), Highlands 1's longest 3+ face to 56 tiles (bar 60).
+- **Canyon's badwater.** No change. On Normal the hollows are sited from the plan's start at Normal's Badwater distance
+  (15) plus 11 (`hazards.ts` `planBadwater`, the candidates' aim), never at Easy's 40: the 40 row is Easy start's,
+  read on a Normal map. The base's 72 on Canyon 2 was where its start stood (168, 161, the hollows by the east edge);
+  on the ringed land the start stands at (38, 189) by the west edge, a falls start, and the nearest hollow at (16, 156)
+  is 37.9 tiles off, 17 more than the rule's 21. Canyon 1's wide red pool is the soil one badwater course soaks where
+  it joins the main water at its lower reach (D476, by design) on the gorge's broad floor by the map's edge. Holding
+  Normal's hollows at 40+ above 128² would change the Badwater distance rule, not the land.
+- **Other sizes** (seed 1, base → 0.10.49): every start passes. 512×128 (and 128×256) are not "above 128²" (the
+  narrower side is 128): their maps are 0.10.48's byte for byte. Reach rises on all six ringed maps (192²: Highlands
+  3,342 → 12,479, Canyon 3,545 → 16,207, River Valley 7,818 → 16,787; 384²: 3,431 → 22,751, 13,775 → 106,811, 5,771 →
+  98,398). Highlands 192² takes 12 attempts (base 4): four fail the planned promise, whose attempts' cliff share reads .069–.079
+  on the built land against .082 asked at 192² (high .94–1, plateaus 4–13;
+  Highlands' two-apart benches start at 256², `highlands.ts`), five a river's water leaving its course. Seconds over base by more than 10 %: Canyon 192² 21.0 → 24.1 (+15 %), Canyon 384² 91.2 → 127.1 (+39 %, in
+  2 attempts against 4: 64 s an attempt against 23).
