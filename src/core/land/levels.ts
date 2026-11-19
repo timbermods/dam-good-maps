@@ -58,30 +58,41 @@ export function snapLevels(E: Float64Array, g: Genome, seed: number, W: number, 
   const phase = g.benchPhase * st;
   // (uplands round 2: a land on a plan takes its hypsometry from the plan's tiers, `tieredCurve`, `gatherFaces`, and its
   // tiers roll: a tier is a band of levels the land rolls through, never a tabletop)
-  const tiers = g.plan && g.plan.strength > 0 ? planBands(g.plan, g.base, top) : null;
+  // (uplands round 3: the tiers are laid on the land's regional tilt, not on equal levels across the map: the plane
+  // that fits the field best is taken out before the ranks and put back after, `PLAN_TILT` levels from its low corner
+  // to its high, so each tier rolls down the land's slope through more levels and a level is floor in one place and
+  // bench in another, while a wall stands its full height wherever it runs)
+  const tilt = g.plan && g.plan.strength > 0 ? Math.min(PLAN_TILT[g.plan.kind], (top - g.base) / 3) : 0;
+  const top0 = top - tilt;
+  const tiers = g.plan && g.plan.strength > 0 ? planBands(g.plan, g.base, top0) : null;
   const grade = grader(tiers ? { ...g.grade, calm: Math.min(g.grade.calm, PLAN_CALM), roll: g.grade.roll * PLAN_ROLL } : g.grade, seed, g.variation, W, H);
   const level = new Float64Array(N);
-  const curve = tiers ? tieredCurve(tiers, g.base, top) : null;
+  const curve = tiers ? tieredCurve(tiers, g.base, top0) : null;
+  const plane = curve && tilt > 0 ? planeOf(E, W, H) : null;
+  const rkd = plane ? ranks(plane.rest) : rk;
   for (let y = 0; y < H; y++)
     for (let x = 0; x < W; x++) {
       const i = y * W + x;
       const lin = (E[i] - lo) / span;
       let t: number;
-      if (curve) t = (1 - PLAN_EQ) * lin + PLAN_EQ * curve(rk[i]);
+      if (curve) t = (1 - PLAN_EQ) * (plane ? (plane.rest[i] - plane.lo) / plane.span : lin) + PLAN_EQ * curve(rkd[i]);
       else {
         t = (1 - g.hyps.eq) * lin + g.hyps.eq * rk[i];
         // the lean: t / (t + lean (1 − t)) on [0, 1], continued straight beyond it
         if (t > 0 && t < 1) t = t / (t + g.hyps.lean * (1 - t));
       }
-      let L = g.base + t * (top - g.base) + g.terrace.jitter * warpedFbm(js, x, y, 14, 2, 7);
-      // near the top the land bends toward it instead of being cut flat there
-      if (L > top - 1) {
-        const over = L - (top - 1);
-        L = top - 1 + over / (over + 1) + 0.49 * smoothstep(over / 2);
-      }
-      level[i] = L;
+      level[i] = g.base + t * (top0 - g.base) + g.terrace.jitter * warpedFbm(js, x, y, 14, 2, 7);
     }
   if (tiers) gatherFaces(level, W, H, tiers.bands);
+  for (let i = 0; i < N; i++) {
+    let L = level[i] + (plane ? tilt * plane.at[i] : 0);
+    // near the top the land bends toward it instead of being cut flat there
+    if (L > top - 1) {
+      const over = L - (top - 1);
+      L = top - 1 + over / (over + 1) + 0.49 * smoothstep(over / 2);
+    }
+    level[i] = L;
+  }
   for (let y = 0; y < H; y++)
     for (let x = 0; x < W; x++) {
       const i = y * W + x;
@@ -124,11 +135,196 @@ export function snapLevels(E: Float64Array, g: Genome, seed: number, W: number, 
     mergeSmallRegions(out, W, H, 4);
     cleanPitsAndSpikes(out, W, H, null);
   }
+  // (uplands round 3: a planned land's walls have ways through, a graded notch about every 40 tiles of wall)
+  if (tiers && notchWalls(out, W, H, hash32(seed, "ways", g.variation))) {
+    mergeSmallRegions(out, W, H, 4);
+    cleanPitsAndSpikes(out, W, H, null);
+  }
   return out;
+}
+
+/** Along a wall, a way through about every `NOTCH_EVERY` tiles (32–48 apart). */
+const NOTCH_EVERY = 40;
+/** A notch's half width, in tiles, and the tiles it takes per level it climbs. */
+const NOTCH_HALF = 2.5;
+const NOTCH_RUN = 2;
+
+/** Ways through the walls (uplands round 3): a wall is a run of tiles standing 2 or more levels over a 4-neighbour,
+ *  and along each one 40 tiles or longer a notch is cut into the higher ground about every `NOTCH_EVERY` tiles,
+ *  graded from the wall's foot in one-level steps `NOTCH_RUN` tiles long, so a colony walks up it. Ground is only
+ *  taken away. The notch runs up the land's own slope (its normal, from the levels smoothed over 7 tiles) and bends
+ *  with a slow noise, so no two are alike and none runs straight. Returns whether any ground was cut. */
+export function notchWalls(out: Uint8Array, W: number, H: number, seed: number): boolean {
+  const N = W * H;
+  const wall = new Uint8Array(N);
+  const foot = new Int32Array(N).fill(-1);
+  for (let y = 1; y < H - 1; y++)
+    for (let x = 1; x < W - 1; x++) {
+      const i = y * W + x;
+      for (const [dx, dy] of N4) {
+        const j = (y + dy) * W + x + dx;
+        if (out[i] - out[j] >= 2 && (foot[i] < 0 || out[j] < out[foot[i]])) foot[i] = j;
+      }
+      if (foot[i] >= 0) wall[i] = 1;
+    }
+  // the levels smoothed, for each notch's direction up the land
+  const sm = new Float64Array(N);
+  {
+    const R = 3;
+    const tmp = new Float64Array(N);
+    for (let y = 0; y < H; y++)
+      for (let x = 0; x < W; x++) {
+        let s = 0;
+        let n = 0;
+        for (let k = Math.max(0, x - R); k <= Math.min(W - 1, x + R); k++, n++) s += out[y * W + k];
+        tmp[y * W + x] = s / n;
+      }
+    for (let y = 0; y < H; y++)
+      for (let x = 0; x < W; x++) {
+        let s = 0;
+        let n = 0;
+        for (let k = Math.max(0, y - R); k <= Math.min(H - 1, y + R); k++, n++) s += tmp[k * W + x];
+        sm[y * W + x] = s / n;
+      }
+  }
+  const seen = new Uint8Array(N);
+  const dist = new Int32Array(N).fill(-1);
+  const centres: number[] = [];
+  const bfs = (from: number, comp: number[] | null): number => {
+    const q = [from];
+    dist[from] = 0;
+    let far = from;
+    for (let k = 0; k < q.length; k++) {
+      const i = q[k];
+      if (comp) comp.push(i);
+      if (dist[i] > dist[far]) far = i;
+      const x = i % W;
+      const y = (i - x) / W;
+      for (const [dx, dy] of N8) {
+        const nx = x + dx;
+        const ny = y + dy;
+        if (nx < 0 || ny < 0 || nx >= W || ny >= H) continue;
+        const j = ny * W + nx;
+        if (wall[j] && dist[j] < 0) {
+          dist[j] = dist[i] + 1;
+          q.push(j);
+        }
+      }
+    }
+    return far;
+  };
+  for (let s0 = 0; s0 < N; s0++) {
+    if (!wall[s0] || seen[s0]) continue;
+    const comp: number[] = [];
+    const end = bfs(s0, comp);
+    for (const i of comp) {
+      seen[i] = 1;
+      dist[i] = -1;
+    }
+    // along the wall from one end: a notch at each mark, the marks 32–48 apart
+    const order: number[] = [];
+    bfs(end, order);
+    const len = dist[order[order.length - 1]];
+    if (len >= 40) {
+      const r = stream(seed, "notch", end);
+      let mark = 20 + 15 * r.float();
+      const byDist = new Map<number, number>();
+      for (const i of order) if (!byDist.has(dist[i]) || out[i] - out[foot[i]] > out[byDist.get(dist[i])!] - out[foot[byDist.get(dist[i])!]]) byDist.set(dist[i], i);
+      while (mark <= len - 10) {
+        const at = byDist.get(Math.round(mark));
+        if (at !== undefined) centres.push(at);
+        mark += NOTCH_EVERY * (0.8 + 0.4 * r.float());
+      }
+    }
+    for (const i of order) dist[i] = -1;
+  }
+  let cut = false;
+  for (const c of centres) {
+    const lowLv = out[foot[c]];
+    const x0 = c % W;
+    const y0 = (c - x0) / W;
+    const fx = foot[c] % W;
+    const fy = (foot[c] - fx) / W;
+    // up the land: the smoothed levels' slope, else away from the foot
+    let gx = (sm[y0 * W + Math.min(W - 1, x0 + 1)] - sm[y0 * W + Math.max(0, x0 - 1)]) / 2;
+    let gy = (sm[Math.min(H - 1, y0 + 1) * W + x0] - sm[Math.max(0, y0 - 1) * W + x0]) / 2;
+    let gl = portable.sqrt(gx * gx + gy * gy);
+    if (gl < 1e-6) {
+      gx = x0 - fx;
+      gy = y0 - fy;
+      gl = 1;
+    }
+    gx /= gl;
+    gy /= gl;
+    const bend = (seed ^ c) >>> 0;
+    // from the foot up: each tile of the notch's floor a level higher every NOTCH_RUN tiles, until it meets the ground
+    for (let k = 0; k <= 40; k++) {
+      const want = lowLv + Math.floor(k / NOTCH_RUN);
+      const off = 4 * fbm(bend, k, 0, 24, 2);
+      const px = fx + gx * k - gy * off;
+      const py = fy + gy * k + gx * off;
+      let reached = true;
+      for (let a = -Math.ceil(NOTCH_HALF); a <= Math.ceil(NOTCH_HALF); a++) {
+        const half = NOTCH_HALF + (k < 3 ? 1 : 0);
+        if (Math.abs(a) > half) continue;
+        const x = Math.round(px - gy * a);
+        const y = Math.round(py + gx * a);
+        if (x < 1 || y < 1 || x >= W - 1 || y >= H - 1) continue;
+        const i = y * W + x;
+        if (out[i] > want) {
+          out[i] = want;
+          cut = true;
+          reached = false;
+        }
+      }
+      if (reached && k > 2) break;
+    }
+  }
+  return cut;
 }
 
 /** How much of a planned land's hypsometry is the tiered curve (the rest the field's own linear spread). */
 const PLAN_EQ = 0.85;
+/** The levels a planned land's tiers fall along its regional tilt, from the plane's low corner to its high (a massif's
+ *  fewer, so its walls keep their height in the 12 levels: at 3 they stood 3 high; a gorge's none: tilted, its rim
+ *  stood 8 over its bed along 38 % of the trunk on Canyon seed 1, untilted 78 %, and its levels spread no wider). */
+const PLAN_TILT = { massif: 2, valley: 3, gorge: 0 } as const;
+
+/** The plane that fits a field best (least squares over the grid, whose x and y are orthogonal about the middle), the
+ *  field less it, and the plane's place at each tile on [0, 1] from its lowest corner to its highest. */
+function planeOf(E: Float64Array, W: number, H: number): { rest: Float64Array; lo: number; span: number; at: Float64Array } {
+  const N = W * H;
+  const cx = (W - 1) / 2;
+  const cy = (H - 1) / 2;
+  let sx = 0;
+  let sy = 0;
+  let xx = 0;
+  let yy = 0;
+  for (let y = 0; y < H; y++)
+    for (let x = 0; x < W; x++) {
+      const e = E[y * W + x];
+      sx += (x - cx) * e;
+      sy += (y - cy) * e;
+      xx += (x - cx) * (x - cx);
+      yy += (y - cy) * (y - cy);
+    }
+  const bx = sx / xx;
+  const by = sy / yy;
+  const rest = new Float64Array(N);
+  const at = new Float64Array(N);
+  const pLo = -Math.abs(bx) * cx - Math.abs(by) * cy;
+  const pSpan = Math.max(1e-9, -2 * pLo);
+  for (let y = 0; y < H; y++)
+    for (let x = 0; x < W; x++) {
+      const i = y * W + x;
+      const p = bx * (x - cx) + by * (y - cy);
+      rest[i] = E[i] - p;
+      at[i] = (p - pLo) / pSpan;
+    }
+  const sorted = Float64Array.from(rest).sort();
+  const lo = pctSorted(sorted, 0.02);
+  return { rest, lo, span: Math.max(1e-6, pctSorted(sorted, 0.98) - lo), at };
+}
 /** How much gentler a planned land's tiers roll on its tableland (the grade's `calm`, at most). */
 const PLAN_CALM = 0.25;
 /** How much more a planned land rolls than its theme's grade draws: its tiers' bands are narrow, and the rolling is

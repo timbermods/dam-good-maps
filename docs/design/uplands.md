@@ -190,3 +190,49 @@ Built on round 1 (generator still 0.10.48, nothing re-pinned); numbers and sheet
   relief 8.3 → 9.8. The cliff share falls (Canyon 9.7 → 5.9 %, Highlands 10.2 → 8.1 %): gathering the drop into
   fewer, taller walls leaves fewer tiles beside a 2+ step. The design's "+.06 cliff share" reads the plan backwards and
   needs a measure of the walls (their length and drop) instead.
+
+## Round 2 verdict and round 3 (planning, 2026-11-19)
+
+**Verdict.** Round 2 is the first land with a form and is kept: River Valley reads as a walled valley from the low frame,
+and Canyon seed 1 has a gorge with two walls. It does not pass: Highlands shows nothing rising (seed 1 a broad green
+floor, seed 2 a grey flat), Canyon seed 2's gorge is drowned, the uplands before every wall are still a mottle, and the
+walls have few ways through. Stopping at the trade was right.
+
+**Rulings.** Canyon and River Valley take variant B; the variants are per theme. A lake in a gorge is a fault of the
+water: a gorge drains, its trunk's bed grading down to where it leaves the map. The level bar is read literally: no
+level holds more than 18 % of the land, the three commonest under 45 % (the connected-area figure is a second number).
+Verticality's measure is chosen in the PR round; report the share of land beside a drop of 4 or more, and the regional
+relief, beside the cliff share.
+
+**Round 3, in order.** (1) Canyon: the gorge drains, both seeds a two-walled gorge 8+ rim to bed for most of the trunk,
+with side canyons. (2) Highlands: the massif stands above a floor on 50–65 % of the land, two stacked tiers, walls
+facing the floor; the floor stays mostly dry (the green share rises no more than a few points over the base's). Going
+above 16 at default Verticality is allowed only if nothing forbids it (checked first). (3) Ways through: every long
+wall notched by side valleys or ramps of one-level steps about every 40–70 tiles; reach from the start not under the
+base's on any of the six, and no wall over 80 tiles without a way. (4) Tiers roll: the level bar, and under half the
+land dead flat on all six. Reported, not fixed: straight runs, the trunk's share near a map edge, the start's tier.
+
+## Round 3 findings
+
+Generator still 0.10.48, nothing re-pinned; numbers and sheets in `C:/dgm-showcase/gen/uplands3/`.
+
+- **The gorge drains** (`hydro.ts`): under a gorge plan the trunk's course takes no hollow as a lake and no valley or
+  chain lake is deepened in it, so its bed grades down to where it leaves the map. Canyon 2's drowned gorge is gone.
+- **Tiers on the land's tilt** (`levels.ts` `planeOf`): the plane that best fits the field is taken out before the
+  ranks and put back after (2 levels on a massif, 3 on a valley), so a tier rolls down the slope through more levels
+  and a wall keeps its height. With this, Highlands' commonest level holds 15–16 % of the dry land (round 2: 25–32 %).
+  A gorge takes none: tilted, its rim stood 8 over its bed along less of the trunk and its levels spread no wider.
+- **Ways through** (`levels.ts` `notchWalls`): along every wall of 2+ levels 40 tiles or longer, a notch is cut into
+  the higher ground every 32–48 tiles, graded in one-level steps 2 tiles long, up the land's own slope and bent by a
+  slow noise. No wall over 80 tiles is left without a way on the six (the base had two). Highlands 1's land is 95 %
+  one walkable area (base 45 %). `plan.ts` also widens the plan's step at spaced points along each wall (`WAY_EVERY`).
+- **A dry floor on Highlands** (`genome.ts`): the floor the rivers clear is half as wide under a massif, as under a
+  valley. The green share of Highlands' dry land is 4–5 % (base 15 %, round 2 up to 22 %).
+- **What falls short.** Highlands' massif still does not read from the low frame: two walls of about 4 and a top 7–8
+  over the floor, across 256 tiles, under the tiers' roll. D132 forbids land above 16 below Verticality 70, so the top
+  stays at 16. Canyon's gorge is 8 deep along only 26–31 % of the trunk (median 4–5): in 12 levels a deeper gorge
+  narrows the tableland's band and its levels pile up. River Valley misses the level bar (its cleared floor at the
+  base level, its uplands in levels 12–14). Reach falls on Highlands 1 and both River Valleys: the trunk splits the
+  valley into banks, and the walls lengthen the walk. Highlands 1's wood falls to 236 on its dry floor.
+- **Verticality** (land-only, 8 seeds): from 10 to 90 the land beside a 4+ drop moves only 1.65 → 1.83 % (Canyon) and
+  1.88 → 2.10 % (Highlands); the relief moves 8.7 → 10.2 and 8.1 → 9.6. The cliff share falls (9.6 → 6.6, 11.3 → 9.8).

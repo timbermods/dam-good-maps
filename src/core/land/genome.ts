@@ -925,7 +925,8 @@ export function drawGenome(theme: ThemeId, seed: number, W: number, H: number, a
     g.tiltKind = "linear";
     // (River Valley's broad floor is the plan's: the floor the river clears beside its channel half as wide, so the
     // valley floor keeps its rolling; cleared as wide as before, 57–62% of the land stood dead flat)
-    if (plan.kind === "valley") g.hydro.floor *= 1 - 0.5 * Math.min(1, plan.strength);
+    // (a massif's floor too, uplands round 3: cleared as wide, a fifth of Highlands' land lay on its base level)
+    if (plan.kind !== "gorge") g.hydro.floor *= 1 - 0.5 * Math.min(1, plan.strength);
   }
   // extra lakes: basins beyond the parts, so water spans the workshop's range (at its own scale by the root of the area:
   // a 48² map drew a 128²'s five basins of 12 to 32 tiles, and its land was hollows)

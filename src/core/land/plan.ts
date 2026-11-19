@@ -51,7 +51,7 @@ export interface Plan {
 /** The themes with a plan, and their tiers' shares (floor, bench, top). */
 const SHARES: Partial<Record<ThemeId, [number, number, number]>> = {
   highlands: [0.56, 0.22, 0.22],
-  canyon: [0.2, 0, 0.8],
+  canyon: [0.25, 0, 0.75],
   riverValley: [0.42, 0, 0.58],
 };
 const KIND: Partial<Record<ThemeId, PlanKind>> = { highlands: "massif", canyon: "gorge", riverValley: "valley" };
@@ -106,6 +106,11 @@ export function planField(p: Plan, ls: number, flowDir: number, W: number, H: nu
   const s = hash32(ls, "plan");
   const R = new Float64Array(N);
   const R2 = p.kind === "massif" ? new Float64Array(N) : null;
+  // (where along its wall each tile lies, and on which side: a massif's walls by the angle round its middle and its
+  // top's, a valley's or a gorge's along the slope, each side its own; the ways through are spaced along it)
+  const al = new Float64Array(N);
+  const al2 = R2 ? new Float64Array(N) : null;
+  const side = new Uint8Array(N);
   const warp = 0.12 * S;
   for (let y = 0; y < H; y++)
     for (let x = 0; x < W; x++) {
@@ -123,16 +128,20 @@ export function planField(p: Plan, ls: number, flowDir: number, W: number, H: nu
         const da = (a - p.along) * p.aspect;
         const dc = (c - p.across) / p.aspect;
         r = -portable.sqrt(da * da + dc * dc) + rough;
+        al[y * W + x] = portable.atan2(dc, da) + Math.PI;
         // the top: its own middle and aspect, and bays of its own
         const ta = (a - p.along - p.top[0]) * p.top[2];
         const tc = (c - p.across - p.top[1]) / p.top[2];
         R2![y * W + x] = -portable.sqrt(ta * ta + tc * tc) + 0.12 * warpedFbm(s + 7, x, y, 0.2 * S, 3, 0.08 * S);
+        al2![y * W + x] = portable.atan2(tc, ta) + Math.PI;
       } else {
         // the line meanders over the side in bends of two sizes, and the floor widens and narrows along it
         // (read along the slope only, so the floor runs unbroken from edge to edge and never loops)
         const at = a * half;
         const line = p.across + (p.kind === "gorge" ? 0.2 : 0.28) * warpedFbm(s + 4, at, 0, 0.7 * S, 2, 0) + 0.08 * warpedFbm(s + 8, at, 0, 0.25 * S, 2, 0);
         r = Math.abs(c - line) / (1 + 0.35 * warpedFbm(s + 9, at, 0, 0.4 * S, 2, 0)) + rough;
+        al[y * W + x] = at + half;
+        side[y * W + x] = c > line ? 1 : 0;
       }
       R[y * W + x] = r;
     }
@@ -188,8 +197,23 @@ export function planField(p: Plan, ls: number, flowDir: number, W: number, H: nu
   };
   finger(R, qf, p.fingers);
   if (R2) finger(R2, qt, 0.6 * p.fingers);
-  // the step's width in tiles: a tile and a half on a wall, a dozen at a ramp (a slow noise along the face)
+  // (a massif's angles to tiles along its walls: the wall's own radius, in tiles)
+  if (R2) {
+    const rad = Math.max(0.1, -qf) * half;
+    const rad2 = Math.max(0.05, -qt / Math.max(0.5, p.top[2])) * half;
+    for (let i = 0; i < N; i++) {
+      al[i] *= rad;
+      al2![i] *= rad2;
+    }
+  }
+  // the step's width in tiles: a tile and a half on a wall, a dozen at a ramp (a slow noise along the face, and a
+  // way through every `WAY_EVERY` tiles of wall or so, wherever the wall runs: uplands round 3)
   const rs = s + 6;
+  const wayAt = (along: number, sd: number, k0: number): number => {
+    const k = Math.floor(along / WAY_EVERY);
+    const at = (k + 0.2 + 0.6 * ((hash32(s, "way", k0, sd, k) >>> 0) / 4294967296)) * WAY_EVERY;
+    return 1 - smoothstep((Math.abs(along - at) - WAY_HALF) / 4 + 0.5);
+  };
   const T = new Float64Array(N);
   const stepOf = (F: Float64Array, i: number, x: number, y: number, q: number, ramp: number): number => {
     const gx = (F[y * W + Math.min(W - 1, x + 1)] - F[y * W + Math.max(0, x - 1)]) / 2;
@@ -202,8 +226,8 @@ export function planField(p: Plan, ls: number, flowDir: number, W: number, H: nu
       const i = y * W + x;
       const n = (warpedFbm(rs, x, y, 0.15 * S, 2, 0.08 * S) + 1) / 2;
       const ramp = smoothstep((n - (1 - p.ramps)) / 0.06 + 0.5);
-      const outer = stepOf(R, i, x, y, qf, ramp);
-      T[i] = R2 ? Math.max(0.5 * outer, stepOf(R2, i, x, y, qt, ramp)) : outer;
+      const outer = stepOf(R, i, x, y, qf, Math.max(ramp, wayAt(al[i], side[i], 0)));
+      T[i] = R2 ? Math.max(0.5 * outer, stepOf(R2, i, x, y, qt, Math.max(ramp, wayAt(al2![i], 0, 1)))) : outer;
     }
   return T;
 }
@@ -216,7 +240,8 @@ export function planBands(p: Plan, base: number, top: number): { bands: [number,
   const bench = p.shares[1] > 0;
   const gaps = bench ? 2 : 1;
   const nb = gaps + 1;
-  const wall = Math.min(R - 1 * nb, WALL[gaps - 1] * gaps * p.strength);
+  // (a massif's tiers keep half a level each at least, so its two walls stand 4 or more in the 12 levels: uplands round 3)
+  const wall = Math.min(R - (p.kind === "massif" ? 0.5 : 1) * nb, WALL[gaps - 1] * gaps * p.strength);
   const shares = bench ? [...p.shares] : [p.shares[0], p.shares[2]];
   // (each band's levels by its share of the land and a quarter more, so the broad floor rolls through more of them)
   const B = R - Math.max(0, wall);
@@ -231,6 +256,11 @@ export function planBands(p: Plan, base: number, top: number): { bands: [number,
   }
   return { bands, shares, face: 0.03 };
 }
+
+/** A way through each wall about every so many tiles along it (jittered from 0.4 to 1.6 of it apart), and its half
+ *  width there, in tiles (uplands round 3: no wall runs 80 tiles without one). */
+const WAY_EVERY = 50;
+const WAY_HALF = 6;
 
 /** The levels a wall takes per gap at strength 1: one gap (floor to top), two (floor to bench to top). */
 const WALL = [6, 4.5] as const;
