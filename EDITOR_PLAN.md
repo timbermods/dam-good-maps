@@ -1007,7 +1007,9 @@ on one shared forces core, `src/core/forces/` (D203, D206, D220; see its README)
   floor between steep walls stepping down by bars, a tarn in its cirque, hanging side valleys with springs and falls
   (Meltwater), scree, a moraine and an outwash plain, the river leaving by the old outlet ("Carve gives you water;
   Glaciate gives you land"). A **click Flows** (down the valleys; on flat ground a seeded way to lower ground or an
-  edge); a **drag draws its path** (D321, item 41; `where.path`). **Power is how deep the ice carves, Size how wide**
+  edge; on or beside the map's edge, where its valley leaves the map at once, the glacier comes down to the edge there
+  along that seeded way and runs off it, its trough open there: headed inland, its cirque was held to two tiles by
+  the edge and its floor stood at the valley's bottom with no way out, a handful of tiles changed, D356); a **drag draws its path** (D321, item 41; `where.path`). **Power is how deep the ice carves, Size how wide**
   (D368 (3)): Power 100 is round 4's glacier in full; below it the plan lifts each station's floor toward a level
   under the valley's bottom (`liftFloors`, `glacierCut`: 1 level at Power 0, 6 at 50; channels and pools two more), so
   at every Power the valley is a U and its water lies in a channel or a tarn, never a sheet
@@ -1462,7 +1464,9 @@ on one shared forces core, `src/core/forces/` (D203, D206, D220; see its README)
 - **The working area is Select's open selection** (D254, D259); there is no second way of marking an area. While a
   selection is open, the brushes, the forces and a brush's Clear work only inside it; everything outside is locked,
   exactly as it is, and dimmed. **A feathered edge**: a tile changes at most as many levels as it is steps inside
-  the area, so edited land meets locked land a level a tile, never a cliff. To the forces, locked land is
+  the area, so edited land meets locked land a level a tile, never a cliff; the build's integrity pass leaves the tiles
+  a stroke in an area changed as it left them, as a precise stroke's, so filling a one-tile pit never moves one past
+  its feather (D342: the stroke's result is what the build keeps; `brushKeepsOwn`). To the forces, locked land is
   unbreakable rock: Carve's river turns away from it, lava pools against it, a crater's rim stops at it; a force
   refuses to start outside the area ("Outside the working area: clear it to work there"); a brush's Clear takes only the
   sources wholly inside. Water is never locked. Ctrl+drag with a brush out makes the selection, and on release the

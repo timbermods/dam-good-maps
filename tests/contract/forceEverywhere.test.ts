@@ -4,7 +4,7 @@
 // nightly's (forceEverywhere.heavy.test.ts); tools/force-everywhere.ts sweeps 128² and 256² and reports.
 
 import { describe, expect, it } from "vitest";
-import { describe as line, sweep, unexpected, VISIBLE_TILES } from "./forceEverywhere";
+import { describe as line, openMap, rng, sweep, unexpected, useAt, VISIBLE_TILES } from "./forceEverywhere";
 
 describe("every force has a visible effect wherever it is used (D356)", () => {
   it(`Carve, Craterize, Erupt, Glaciate and Quake (Slide and Lift): at least ${VISIBLE_TILES} tiles change, on every kind of ground, at low and high Power`, async () => {
@@ -19,5 +19,18 @@ describe("every force has a visible effect wherever it is used (D356)", () => {
     const o = await sweep("highlands", 96, 9, 2, undefined, [10, 90]);
     expect(o.length).toBeGreaterThanOrEqual(6 * 2 * 7);
     expect(unexpected(o).map(line)).toEqual([]);
+  }, 300_000);
+
+  // (a Glaciate clicked on the map's edge, where its valley leaves the map at once, comes down to the edge and runs off it,
+  // its trough open there: headed inland, its cirque held to two tiles by the edge and its floor at the valley's bottom
+  // with no way out, it changed 6 and 7 tiles here; dev's own land did the same, D356)
+  it(`Glaciate on the map's edge: at least ${VISIBLE_TILES} tiles change, River Valley 128² seed 5 at (127, 8)`, async () => {
+    const b = await openMap("riverValley", 128, 5);
+    const next = rng(5);
+    for (const power of [10, 90]) {
+      const r = useAt("glaciate", power, { x: 127, y: 8, ground: "edge" }, b.W, b.H, next);
+      expect(r.refused, `Power ${power}`).toBeNull();
+      expect(r.changed, `Power ${power}`).toBeGreaterThanOrEqual(VISIBLE_TILES);
+    }
   }, 300_000);
 });

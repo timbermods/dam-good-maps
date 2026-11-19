@@ -6,7 +6,7 @@
 // and the integrity pass (build step 7) runs again round the stroke. Pure TypeScript: the page
 // runs it on the main thread, the tests in Node.
 
-import { BrushStroke, brushHard, byDabRule, tiltedPieces, WEATHERING, type BrushParams, type Rect } from "./brush";
+import { BrushStroke, brushKeepsOwn, byDabRule, tiltedPieces, WEATHERING, type BrushParams, type Rect } from "./brush";
 import type { Runs } from "../../math/grid";
 import type { StartFeature } from "../schema";
 import { integrityAt, keepShownGround, padTile } from "./terrain";
@@ -145,8 +145,8 @@ export class StrokePreview {
     // up a cave's or an overhang's rock too, D280 (3))
     const hold = heldOf(state);
     for (const [i, lo, hi] of hold ?? []) if (i >= 0 && i < this.pre.length) this.pre[i] = Math.min(Math.max(this.pre[i], lo), hi);
-    // (a target's stroke too, D322: exact, as a precise one was)
-    this.precise = brushHard(settings);
+    // (a target's stroke too, D322: exact, as a precise one was; and one in a working area, D254)
+    this.precise = brushKeepsOwn(settings);
     this.protect = this.precise || settings.sources === "keep" || state.rockHold?.length ? state.protect.slice() : state.protect;
     // (the integrity pass leaves the ground holding up the rock, as the build leaves the held tiles in the stroke's reach)
     for (const [i] of state.rockHold ?? []) if (i >= 0 && i < this.protect.length) this.protect[i] = 1;
