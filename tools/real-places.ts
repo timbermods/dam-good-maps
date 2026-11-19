@@ -27,7 +27,8 @@
 // - index.json: every place for the gallery page, with the sha256 of its .timber and the faults
 //   its own map has (`faults`, from the generate profile's checks). A place whose start fails the floors
 //   (its plants on dry soil cannot move without costing the start its fast wood: no moist ground within
-//   its walk), one whose start has no water within its walk once every mend is tried (#1218), or one named in
+//   its walk), one whose start has no water within its walk once every mend is tried (#1218), one whose start meets
+//   neither arm of D302 (its water no pool and none lasting a Normal drought, `withheldByD302`), or one named in
 //   WITHHELD_UNTIL until a fault of its land is mended, ships no data, card or index entry; every run prints it by
 //   name with its reason and counts it withheld.
 // Each .timber is built with src/core/places (build, settle, validate, write) and must pass the
@@ -84,6 +85,8 @@ import { relaxEdges } from "../src/core/land/levels";
 import { EDITOR_LEVEL } from "../src/core/spec/mapspec";
 import { edgeLip } from "../src/core/water/edgeLip";
 import { aboveStart, placeSprings, startPool } from "../src/core/places/spring";
+import { droughtStorageByDay } from "../src/core/sim/drought";
+import { DROUGHT } from "../src/core/gen/calibrated";
 import { placeRuins } from "../src/core/places/ruins";
 import { placeStartSpots, startTiles } from "../src/core/places/start";
 import { thumbnailRgba } from "../src/core/render/shade";
@@ -556,7 +559,6 @@ const TODAY_KEPT: Record<string, string> = {
   "waimakariri-river": "film 363 at 217,230: its bed costs start.farmland and start.forester",
   "na-pali-coast": "film 519 at 46,1: its bed gives water.outflow and costs real water; film 2199 at 2,62 over the real sea: its basin gives water.outflow and a source in another's flow",
   gullfoss: "film 435 at 112,25: its bed costs start.food and real water",
-  "taklimakan-kunlun-fan": "film 1506 at 239,75: its bed costs start.farmland and start.forester; films 420 and 439: their beds leave the water unsettled",
   "milford-sound": "film 359 at 191,121: its bed grows the water over real dry land",
   "mount-fuji": "film 138 at 28,22: its bed leaves the water unsettled and costs start.food",
   "victoria-falls": "film 1353 at 35,86: its basin gives water.outflow and costs real water",
@@ -1065,6 +1067,8 @@ interface Outcome {
   measure?: Measure;
   /** Whether its start's water within its walk is a pool (`startPool`); false too for a place withheld for no water. */
   pool?: boolean;
+  /** Whether its start meets D302 (`meetsD302`): its water is a pool, or a pool lasts a Normal drought. */
+  d302?: boolean;
   /** The generate profile's checks its build fails (an offered place's). */
   fails?: string[];
 }
@@ -1075,6 +1079,34 @@ type Measure = ReturnType<typeof realParts>;
  *  pool (#1218) built again under the pool rule (`poolRule`), that build kept where its start has a pool, nothing fails
  *  that the first passed, it gains no fault and holds the water over real water. */
 function runPlace(item: LibraryItem): Outcome | null {
+  return withheldByD302(runPlaceBoth(item));
+}
+
+/** The reason a place whose start meets neither arm of D302 is not offered, printed by every run. */
+const D302_REASON = "its start meets neither arm of D302: its water within its walk is a thin sheet, no pool a running source feeds, and no pool lasts a Normal drought";
+
+/** D302 at build (planning's ruling of 2026-11-18): a start's water is fed by a running source or lasts the drought. A
+ *  place whose start has no pool within its walk (`startPool`: a thin sheet is not water a source feeds the start) and
+ *  none after a Normal drought (`droughtStorageByDay`) is not offered: no data, card or index entry, named with the
+ *  reason and its build's line. Its build is the fresh one: a withheld place keeps no file, so none is `TODAY_KEPT`. */
+function withheldByD302(o: Outcome | null): Outcome | null {
+  if (!o || !o.entries.length || o.d302 !== false) return o;
+  const e = o.entries[0];
+  const lines = [`WITHHELD ${e.size}² ${e.name}: ${D302_REASON}`, ...o.lines.map((l, k) => (k ? l : `   (its build: ${l.trim()})`))];
+  // (a place withheld ships nothing, so a check its build fails is printed with that build, not counted a failure)
+  return { ...o, withheld: [...o.withheld, e.name], entries: [], files: [], pool: false, failed: false, lines };
+}
+
+/** Whether a start meets D302 (`withheldByD302`): its water within its walk is a pool, or a pool lasts a Normal drought. */
+function meetsD302(p: PlaceData, b: ReturnType<typeof buildPlace>): boolean {
+  const opts = { thin: FILM_DEPTH, thinShare: FILM_THIN_SHARE };
+  if (startPool(p, b.heights, b.settle.depth, b.settle.contamination, opts)) return true;
+  const after = droughtStorageByDay(b.model, b.settle.depth, DROUGHT.normal.days);
+  return startPool(p, b.heights, after, b.settle.contamination, { ...opts, thinShare: 2 }) !== null;
+}
+
+/** One place built as before and, where its start then has no pool (#1218), built again under the pool rule. */
+function runPlaceBoth(item: LibraryItem): Outcome | null {
   poolRule = false;
   const a = runPlaceOnce(item);
   if (!a || a.pool !== false || a.failed || relayRuins) return a;
@@ -1640,8 +1672,9 @@ function finishPlace(item: LibraryItem, place: PlaceData, columns: number, t: nu
   if (unknown.length) for (const c of [...blocking, ...strict.report.checks.filter(counts)]) if (unknown.includes(c.id)) say(`   ${place.name}: ${c.id}: ${c.message}${c.where?.tiles ? ` at ${JSON.stringify(c.where.tiles.slice(0, 4))}` : ""}`);
   if (unknown.length || !loads) out.failed = true;
   // (whether its start's water is a pool, #1218: the index's `start.water` stays the check's own, a start with no water
-  // within its walk, until no offered place's start is without a pool, `PLACES_START_WITHOUT_POOL`: no place gains a fault)
+  // within its walk, so no place gains a fault; a start with no pool and none lasting the drought is withheld, D302)
   out.pool = startPool(place, built.heights, built.settle.depth, built.settle.contamination, { thin: FILM_DEPTH, thinShare: FILM_THIN_SHARE }) !== null;
+  out.d302 = out.pool || meetsD302(place, built);
   const faults = PLACE_FAULT_CHECKS.filter((id) => strictFails.includes(id));
   out.fails = [...strictFails];
   say(
@@ -1883,9 +1916,15 @@ if (only) {
     if (k < 0) throw new Error(`--only --write: ${e.id} is not in ${OUT}/index.json (a new place needs the full run)`);
     was.places[k] = e;
   }
-  for (const id of withheld) if (was.places.some((p) => p.name === id)) throw new Error(`--only --write: ${id} would be withheld (the full run withholds it)`);
+  // a place named that is withheld now leaves the index, its data and its card, as the full run leaves them out
+  for (const name of withheld) {
+    const k = was.places.findIndex((p) => p.name === name);
+    if (k < 0) continue;
+    for (const f of [was.places[k].data, was.places[k].image]) rmSync(join(OUT, f), { force: true });
+    was.places.splice(k, 1);
+  }
   for (const [k, b] of files) if (k !== "index.json") writeFileSync(join(OUT, k), b);
-  writeFileSync(join(OUT, "index.json"), JSON.stringify(was, null, 1) + "\n");
+  writeFileSync(join(OUT, "index.json"), indexBytes(was.places));
   console.log(`--only --write: ${entries.length} place(s) written to ${OUT}`);
   process.exit(0);
 }

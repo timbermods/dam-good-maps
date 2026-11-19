@@ -22,7 +22,9 @@ test("Ground keeps the river where it is; Water reshapes only its bed; each brus
   test.setTimeout(240_000);
   const errors: string[] = [];
   page.on("pageerror", (e) => errors.push(String(e)));
-  await openEditor(page, "s=35&z=96&d=n&t=riverValley");
+  // (seed 36 since generator 0.10.48, D148: seed 35's river has no deep tile with a bank two levels higher three tiles
+  // north of it, the spot this test needs)
+  await openEditor(page, "s=36&z=96&d=n&t=riverValley");
   await topDown(page);
   await setWaterSpeed(page, "instant");
   await still(page);
