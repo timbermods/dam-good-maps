@@ -77,7 +77,10 @@
 //   tile once the stroke is applied. A stroke saved with `keep` runs keeps them, as it always did.
 // - The working area (D254, D259): a stroke with an `area` changes only the tiles inside it, and a
 //   tile at most as many levels as it is steps inside it (4-neighbour, from the nearest tile
-//   outside), so the edit meets the locked land at one level a tile: a feathered edge.
+//   outside), so the edit meets the locked land at one level a tile: a feathered edge. The build's
+//   integrity pass leaves the tiles such a stroke changed, as a precise stroke's (`brushKeepsOwn`): filling a
+//   one-tile pit there could move a tile past its steps inside (a raise lifted a tile at the area's edge two levels
+//   with one step of feather), and the stroke's result is what the build keeps (D342).
 // - Levels stay within 0 and the editor's one ceiling, D172's tall maximum (D244; 16 before it).
 //   A map whose land goes above 16 is a tall map.
 // - Brushes shape each column's top run (D280 (3), `layer: "top"`). On a map with caves or
@@ -347,6 +350,12 @@ function radius4(size: number): number {
  *  area's (every tile of its rectangle, Free or not: the build's integrity pass leaves its tiles too). */
 export function brushHard(p: Pick<BrushParams, "precise" | "target"> & { shape?: BrushParams["shape"] }): boolean {
   return p.precise === true || p.target !== undefined || p.shape === "area";
+}
+
+/** Whether the build's integrity pass leaves the tiles a stroke changed as it left them: a hard stroke's
+ *  (`brushHard`), and one in a working area's (its feathered edge holds only if nothing moves its tiles after it). */
+export function brushKeepsOwn(p: Pick<BrushParams, "precise" | "target" | "area"> & { shape?: BrushParams["shape"] }): boolean {
+  return brushHard(p) || p.area !== undefined;
 }
 
 /** Falloff by squared distance (in sixteenths of a tile²): 256 at the middle, 0 at the edge,

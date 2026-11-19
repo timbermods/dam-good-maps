@@ -1464,7 +1464,9 @@ on one shared forces core, `src/core/forces/` (D203, D206, D220; see its README)
 - **The working area is Select's open selection** (D254, D259); there is no second way of marking an area. While a
   selection is open, the brushes, the forces and a brush's Clear work only inside it; everything outside is locked,
   exactly as it is, and dimmed. **A feathered edge**: a tile changes at most as many levels as it is steps inside
-  the area, so edited land meets locked land a level a tile, never a cliff. To the forces, locked land is
+  the area, so edited land meets locked land a level a tile, never a cliff; the build's integrity pass leaves the tiles
+  a stroke in an area changed as it left them, as a precise stroke's, so filling a one-tile pit never moves one past
+  its feather (D342: the stroke's result is what the build keeps; `brushKeepsOwn`). To the forces, locked land is
   unbreakable rock: Carve's river turns away from it, lava pools against it, a crater's rim stops at it; a force
   refuses to start outside the area ("Outside the working area: clear it to work there"); a brush's Clear takes only the
   sources wholly inside. Water is never locked. Ctrl+drag with a brush out makes the selection, and on release the
