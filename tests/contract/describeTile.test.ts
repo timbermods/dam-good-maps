@@ -92,7 +92,9 @@ describe("describeTile: what is on a tile, in plain data (D347, B11)", () => {
     const [sx, sy] = startTiles[Math.floor(startTiles.length / 2)];
     expect(ed.describeTileAt(sx, sy)!.objects.map((o) => o.text)).toContain("Start");
     if (slope >= 0) expect(ed.describeTileAt(e.x[slope], e.y[slope])!.objects.map((o) => o.text)).toContain("Slope");
-    const bare = ed.describeTileAt(1, 1)!;
+    // (a tile with nothing on it: (1, 1) until generator 0.10.48, whose ruin field covers that corner since D(terrace-edges)' warp
+    // making no cliff moved the land, D148; the north-west corner has no object)
+    const bare = ed.describeTileAt(1, W - 2)!;
     expect(bare.objects).toEqual([]);
     expect(tileWords(bare)).toMatch(/^Height \d+/);
     expect(ed.describeTileAt(-1, 3)).toBeNull();

@@ -3,7 +3,7 @@
 // rest at the theme's preset, and measures the target the setting maps to (PLAN §5) the way the
 // official maps were measured (src/core/analysis/metrics.ts).
 //
-// CI runs 4 seeds at 96² per value, nightly (vitest's "heavy" project, vitest.config.ts), and 8
+// CI runs 4 seeds at 96² per value, nightly (vitest's "heavy" project, vitest.config.ts), and 8 to 24
 // for the experiments whose maps vary most from seed to seed (`minSeeds`, M9a);
 // `npx tsx tools/settings-batch.ts --seeds 1-20` runs the same experiments on more seeds and prints
 // the table in docs/progress.md. DGM_SETTINGS_SEEDS sets the seeds here (for example "1-12").
@@ -41,8 +41,12 @@ describe("each setting moves its measured target (ROADMAP M6)", () => {
   // itself is the weakness: the settler counts only natural stored water near a start, not dam sites,
   // so Plenty can't tell starts apart)
   // (Verticality, Drought reserve and Waterfalls pass since generator 0.10.16's ground with grade, so they are plain
-  // tests again: on these seeds Verticality moves 0.041 (at least 0.03), Waterfalls 3.0 (2.5) and Drought reserve 209
-  // (200), its Plenty mean still lifted most by one map, 1,095)
+  // tests again: on these seeds Waterfalls moves 3.0 (at least 2.5) and Drought reserve 209 (200), its Plenty mean
+  // still lifted most by one map, 1,095)
+  // (Verticality and Designed for run 24 seeds since generator 0.10.48, thresholds unchanged (D341): over 24 seeds
+  // Verticality moves .033 (at least .03, standard error .009) and Designed for 16.8 (10, standard error 4.4), and
+  // shorter windows passed or failed by the draw, on dev too. Verticality's thin margin is the land's fault, to be
+  // closed by the uplands work)
   const HELD = new Set(["Lakes and basins"]);
   it.each(EXPERIMENTS.filter((e) => !HELD.has(e.setting)).map((e) => [name(e), e] as const))("%s", check);
   it.fails.each(EXPERIMENTS.filter((e) => HELD.has(e.setting)).map((e) => [name(e), e] as const))("%s (expected failure, settings round 2)", check);

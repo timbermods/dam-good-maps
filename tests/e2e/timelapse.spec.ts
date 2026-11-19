@@ -15,7 +15,9 @@ async function edit(page: Page): Promise<void> {
     const e = window.dgmEditor!;
     const rows = (y0: number, y1: number, x0: number, x1: number) => Array.from({ length: y1 - y0 + 1 }, (_, k) => [y0 + k, x0, x1]);
     await e.edit({ op: "sculpt", params: { mode: "flatten", cells: rows(12, 18, 12, 20), level: 14 } } as never, "Raise a hill");
-    await e.edit({ op: "placeEntity", params: { id: crypto.randomUUID(), template: "SmallRelic", x: 30, y: 30, orientation: "Cw0" } } as never, "Place a relic");
+    // (the relic on 26, 27 since generator 0.10.48, D148: an oak of the map's woods stands on 30, 30 now, and the
+    // placement is refused)
+    await e.edit({ op: "placeEntity", params: { id: crypto.randomUUID(), template: "SmallRelic", x: 26, y: 27, orientation: "Cw0" } } as never, "Place a relic");
     await e.edit({ op: "sculpt", params: { mode: "lower", cells: rows(40, 44, 36, 44), amount: 2 } } as never, "Dig");
     await e.idle();
   });

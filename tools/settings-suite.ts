@@ -75,7 +75,10 @@ export const EXPERIMENTS: Experiment[] = [
   },
   {
     // M9a (D132): the land grows taller and sheerer as it rises (to its crazy vertical top)
-    minSeeds: 8,
+    // (24 seeds since generator 0.10.48, D341: over 24 seeds it moves .033 against .03, standard error
+    // .009, so an 8-seed mean passed or failed by the draw, on dev too. The thin margin is the land's
+    // fault, to be closed by the uplands work, which raises this delta once the range moves it .06+)
+    minSeeds: 24,
     setting: "Verticality",
     target: "share of tiles beside a drop of 2+ levels (cliffs)",
     theme: "any",
@@ -421,6 +424,9 @@ export const EXPERIMENTS: Experiment[] = [
     // (M9a: the stored water near the start this measured, Easy 86 × the reserve and Hard 1,174 ×
     // it at 3 deep, became information the generator prefers, #67 and D209, and D111 took away the
     // dam sites that were sized to it; Designed for still sets the start rules, D85)
+    // (24 seeds since generator 0.10.48, D341: over 24 seeds Easy → Hard moves 16.8 tiles, standard
+    // error 4.4, but on 4 seeds one start's nearest spring, 28 → 57 tiles, could carry the mean)
+    minSeeds: 24,
     setting: "Designed for",
     target: "least distance from the start to badwater or contaminated soil (the start rule: Easy 30, Normal 15, Hard 8)",
     theme: "riverValley",
