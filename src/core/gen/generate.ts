@@ -842,7 +842,7 @@ function attemptRound(specIn: MapSpec, optsIn: GenerateOptions, t0: number, roun
       // (D518: the field's contours softened and bent, so the levels' edges follow the land's warped contours)
       const E = contourField(orientField(F.E, W, H, o), W, H, seed, drawn);
       // (uplands round 6: Highlands above 128² sinks a valley in its middle, the water's field with the levels, `bold.ts`)
-      if (standsUp(g.theme, W, H)) lowerValley(E, standValley(seed, g.variation, g.benchPhase, g.flowDir, W, H), g.flowDir, W, H);
+      if (standsUp(g.theme, W, H)) lowerValley(E, standValley(seed, g.variation, g.benchPhase, g.flowDir, W, H, g.hydro.lakeBudget * W * H), g.flowDir, W, H);
       land = { g, E, h0: snapLevels(E, g, seed, W, H), settles: 0 };
       // (round 6: Islands' sea's lip at the map's edge, a tile or two, D151's edge rule kept)
       if (g.seaLayout && g.theme === "islands") holdSeaLip(land.h0, W, H);

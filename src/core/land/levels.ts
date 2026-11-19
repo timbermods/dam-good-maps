@@ -77,7 +77,7 @@ export function snapLevels(E: Float64Array, g: Genome, seed: number, W: number, 
   const top0 = top - tilt - ringRoom;
   // (uplands round 6: Highlands above 128² stands up, `bold.ts` `STAND`: a valley sunk in its middle, a gentle floor
   // `STAND.floor.relief` levels deep from `STAND.floor.over` over the base, and mesas standing on it)
-  const stand = ringed && standsUp(g.theme, W, H) ? standValley(seed, g.variation, g.benchPhase, g.flowDir, W, H) : null;
+  const stand = ringed && standsUp(g.theme, W, H) ? standValley(seed, g.variation, g.benchPhase, g.flowDir, W, H, g.hydro.lakeBudget * W * H) : null;
   const floorTop = stand ? g.base + STAND.floor.over + STAND.floor.relief : top0;
   const tiers = g.plan && g.plan.strength > 0 ? planBands(g.plan, g.base, top0) : null;
   const grade = grader(tiers ? { ...g.grade, calm: Math.min(g.grade.calm, PLAN_CALM), roll: g.grade.roll * (ringed && g.plan?.kind === "gorge" ? RINGS.gorgeRoll : RINGS.planRoll) } : g.grade, seed, g.variation, W, H, f);
@@ -136,6 +136,7 @@ export function snapLevels(E: Float64Array, g: Genome, seed: number, W: number, 
     }
   const mesas = stand ? standMesas(level, E, W, H, seed, g.variation, stand, g.base, maxLv, hi) : null;
   if (mesas) g.dryTops = mesas.tops;
+  if (stand) g.rockSill = stand.sill;
   const keepRims = mesas ? mesas.skip : null;
   if (ringed && tiers && g.plan?.kind === "gorge") boldGorge(level, W, H, seed, g.variation, tiers.bands[0][1], tiers.bands[1][0]);
   // (D(terrace-edges): every level's edge read through a warp, so no edge the field, the grade or the tableland's

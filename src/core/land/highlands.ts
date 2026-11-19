@@ -58,6 +58,14 @@ export function shapeHighlands(g: Genome, W: number, H: number): void {
   if (stand) g.grade.drift = Math.min(g.grade.drift, STAND.floor.drift);
   // (and its main water enters by the upstream edge, so it runs through the valley in its middle)
   if (stand && !g.hydro.exactInflows && !g.hydro.noInflows) g.hydro.inflows = Math.max(1, g.hydro.inflows);
+  // (round 6b: the valley's lake is its bowl's, held by its sill, `bold.ts`; no trough is dug for another, which ate
+  // the bench beside it)
+  if (stand) g.troughs = 0;
+  // (and its rivers come down to the lake's level: cut at most two levels under the ground, the main river no deeper
+  // than the others. Entrenched four to seven, as before, the main river reached the bowl under its lake's level, its
+  // water backed up the course over its head at the edge, and the land was refused, `courses.ts` `drownedHeads`)
+  if (stand) g.hydro.incise = Math.min(g.hydro.incise, STAND.lake.incise);
+  if (stand) g.hanging = 0;
   g.terrace.share = Math.max(g.terrace.share, stand ? 1 : 0.8 * s);
   g.hyps.lean = Math.min(g.hyps.lean, 1 - 0.35 * s);
   // (the lowest bench no lower than 4: a base drawn under it left the valley floor at 3, on the beds'

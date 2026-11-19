@@ -545,3 +545,87 @@ seeds 1, 2; Any seeds 1–4; Highlands 128² seeds 1, 2, 7, 96² seed 1, 64² se
 relief (a bar the reference does not meet); the land beside a 4+ drop under 6 % on five seeds (6.1 on seed 5); the
 one-level share over 55 % on seed 1; the longest face 83 tiles on seed 4; plateaus over 9 on four seeds; the fine
 relief of seeds 1, 3 and 5 (4.1, 3.8, 3.7 %).
+
+### Round 6b: a lake in the bowl, a bench beside it (2026-11-19)
+
+Still generator 0.10.51 (unreleased), on pickStart (89d6887e). The starts before and after:
+`C:/dgm-showcase/hl6b/sheet-starts.jpg`. Highlands above 128² only; every other theme, and
+Highlands at 128² and under, is 0.10.50's byte for byte (below).
+
+**What was built.**
+- **The bench and the lake** (`bold.ts` `STAND.lake`, `standValley`). The bowl's floor is a level bench two levels over
+  the base. A lobed hollow two levels deeper lies along the water's line: its middle is 0.7 of the radius up the line
+  from the downstream rim, and it is read at 0.6 scale down the line, so it is longer along the line than across it.
+  It takes 35 % of the bowl, and never more than 60 % of the plan's lake budget. The water's plan finds the hollow on
+  its river's way and fills it to the sill, the stretch of the bowl's rim the channel crosses at the bench's level
+  for 4 tiles before it falls to the downstream edge. Nothing here lays water. The bench lies beside the lake on both
+  sides, and the river reaches the lake at the bowl's upstream end, not across the bench. Upstream, the channel falls
+  to the bench from 2 levels over it (`valley.rise`). `lowerValley` sinks the field to the water's line, so the
+  river keeps to the middle.
+- **The sill holds** (`hydro.ts` `profileOf`, `Genome.rockSill`). On such a land, a river leaving a lake holds the
+  lake's outlet bed while it crosses the sill's rock (the valley's tiles from 0.45 of the radius up the line from the
+  rim to 6 past it). Inside the lake its bed is the outlet bed. Without this, the main river's cut (incision and
+  hanging drops, up to 6 levels) drained the lake to its bed. Other lands have no `rockSill` and are unchanged.
+- **No second lake, no drowned head** (`highlands.ts`, stand lands only). No troughs: a "valley lake" dug a second
+  hollow into the bench. No hanging cut, and incision at most 1.4: the entrenched main river put its tributaries'
+  mouths two levels under the lake, which failed as "a river's head under a lake".
+- **The pick is untouched.** `settler.ts` and `generate.ts` pass only the lake budget to `standValley`.
+
+**The start** (seeds 1–6 at 256², seed 1 at 192² and 384², Normal and Easy, base 89d6887e → 6b. Each map was
+generated one at a time, base and head in turn; CPU is `process.cpuUsage` for the whole generation).
+
+| map | attempts | room | reach | Easy rows missed (base → 6b) | calm | water / drought | CPU s |
+|---|---|---|---|---|---|---|---|
+| 256² s1 | 2 → 2 | 543 | 26,826 | 3 → 3 (water, drought, metal) | 0 | 6.2 / – | 20.6 → 27.3 |
+| 256² s2 | 4 → 1 | 541 | 35,826 | 5 → 3 (water, drought, metal) | 0 | 7.2 / – | 34.5 → 25.2 |
+| 256² s3 | 7 → 2 | 549 | 9,567 | 6 → 4 (water, drought, food, metal) | 0 | 7 / – | 48.7 → 27.7 |
+| 256² s4 | 6 → 1 | 475 | 28,795 | 5 → 3 (water, drought, metal) | 0 | 6.7 / – | 73.3 → 26.7 |
+| 256² s5 | 4 → 1 | 476 | 7,458 | 3 → 1 (metal) | 0 | 4 / 4 | 39.5 → 25.3 |
+| 256² s6 | 4 → 2 | 439 | 6,658 | 6 → 4 (water, drought, food, metal) | 0 | 6.7 / – | 26.5 → 25.2 |
+| Easy 256² s1 | 18 → 2 | 453 | 30,489 | 3 → 2 (food, metal) | 0 | 3 / 4.2 | 64.3 → 25.8 |
+| Easy 256² s2 | 4 → 1 | 405 | 26,004 | 2 → 3 (drought, food, metal) | 0 | 3.4 / 11.2 | 33 → 23 |
+| Easy 256² s3 | 8 → 2 | 438 | 9,542 | 4 → 2 (food, metal) | 0 | 3 / 3 | 52 → 28 |
+| Easy 256² s4 | 10 → 1 | 489 | 21,602 | 5 → 2 (food, metal) | 0 | 2.8 / 7.7 | 108.4 → 26.4 |
+| Easy 256² s5 | 6 → 1 | 468 | 7,489 | 4 → 2 (food, metal) | 0 | 3 / 3 | 43.3 → 24.2 |
+| Easy 256² s6 | 5 → 2 | 445 | 7,249 | 7 → 3 (drought, food, metal) | 0 | 3.4 / 27.2 | 27.3 → 24.8 |
+| 192² s1 | 12 → 7 | 526 | 3,650 | 5 → 3 (water, drought, metal) | 0 | 6.8 / – | 30.8 → 26.9 |
+| 384² s1 | 2 → 3 | 528 | 37,846 | 5 → 4 (water, drought, food, metal) | 0 | 6.8 / – | 45.5 → 63.9 |
+| Easy 192² s1 | 12 → 7 | 431 | 3,646 | 2 → 2 (food, metal) | 0 | 2.8 / 2.8 | 31 → 25.6 |
+| Easy 384² s1 | 14 → 4 | 455 | 28,479 | 5 → 2 (food, metal) | 0 | 2.8 / 2.8 | 110.7 → 69.7 |
+
+Every start passes. Every start stands on the valley's bench (level 6), with no rim wall (3+ levels over it) within
+9.8 tiles. The nearest walls are 10–30 tiles off on 13 maps, and 36, 39 and 51 tiles off on Normal 256² s1, Easy 256²
+s1 and Normal 384². Summed: attempts 118 → 39, CPU 789 → 496 s (−37 %), Easy rows missed 70 → 42. Room is 405 or
+more on all 16. Calm is 0 on all 16 (it failed on four of round 6's maps). No draw is for a leak: base drew 16 lands
+again for "a river's water leaves its course", 6b none. Fine relief is 2.1–3.4 % on 256² Normal s1–s6 [≤ 3.9].
+Regional relief is 7.08–8.22 [≥ 8.5].
+
+**Short of the bars.**
+- Regional relief 7.1–8.2 on all six seeds (round 6: 7.0–9.2; base: 6.5–8.2). The bench and the channel above it
+  stand two levels over the base, where round 6's valley floor stood at the base. The land's top is 16, so the
+  valley's blocks set the 10th percentile. A lower bench (sill 1, lake 1 deep, rise 1) moved the starts out of the
+  valley on 4 of 16 maps and still read 5.4–8.6.
+- Easy 256² s2 misses one more row than base: the drought row, a pump 11.2 tiles' walk away after the drought
+  (bar 10). Its start is 3.4 tiles from a tributary that dries; the lake is farther.
+- 192² (Normal and Easy): 7 attempts (base 12) and reach 3,650 (base 12,424). At 192² the lake along the line
+  leaves two benches, each walled by the floor four levels up, so less land is walked to. The planned water story
+  also reads only 14–30 % of the land near water on the lands it screens (asked 35 %).
+- CPU over base by more than 15 % on Normal 256² s1 (+33 %, 2 attempts each) and Normal 384² (+40 %, 3 attempts
+  against 2). Each attempt on a land that stands up costs more than one of base's.
+- On Normal, the water row (≤ 6 tiles' walk) misses on 7 of 8 maps, at 6.2–7.2. The drought row reads only bodies
+  within that walk, so it misses with it. The pick aims Normal's start 6.75 tiles from its water (`settler.ts`
+  `walkWant`, from Normal's water rule of 20). That aim is the pick's own, so it was left alone. Base's starts passed
+  the row on s1 and s5, at 5.2–5.4.
+
+**Tried and dropped.** A round lake against the downstream rim (`lake.at` 0.45, no stretch): the river crossed the
+bench to reach it in a one-level channel. The starts sat between that river and the rim: room 361 on 192², 399 on Easy
+256² s3, and one more row than base on Normal 256² s1 and s5. A softer lake shore (2.5 tiles): the start stood off
+the lake on 192². Troughs on (a second lake ate the bench); incision and hanging drops left as the theme has them
+("a river's head under a lake" on 14 draws); a sill mask only on the channel (the river left the lake sideways and
+cut it). A lake 0.25 of the bowl, and stretches of 0.45 and 0.75–0.8: 192² stayed at 7 attempts, or its start lost
+room.
+
+**The hash proof.** Project JSON and `.timber` (read back, the version neutralised) sha256 identical, base 89d6887e
+and 6b, each side run alone, on round 6's 52 maps: Canyon, River Valley, Lake Basin, Islands, Delta × 136/192/256 ×
+seeds 1, 2; Any × 136/192/256 × seeds 1–4; Highlands 128² seeds 1, 2, 7, 96² seed 1, 64² seed 2; Canyon 128² seed 2,
+River Valley 128² seed 5, Islands 128² seed 3, Lake Basin 96² seed 1, Delta 64² seed 2.

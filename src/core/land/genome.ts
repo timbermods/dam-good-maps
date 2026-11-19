@@ -326,6 +326,9 @@ export interface Genome {
   lakeSpringMin?: number;
   /** Tiles where no spring is drawn (uplands round 6: Highlands' mesa tops, `bold.ts` `standMesas`, kept dry). */
   dryTops?: Uint8Array;
+  /** Tiles of rock a lake's river crosses at its outlet's bed, cutting down only past them (uplands round 6b:
+   *  Highlands' valley's sill, `bold.ts` `standValley`). */
+  rockSill?: Uint8Array;
   /** How far the water's way wanders from the steepest descent (levels), and the size of its
    *  wanders in tiles. */
   wander: number;
