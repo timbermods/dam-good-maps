@@ -441,7 +441,10 @@ Maps are grown, not drawn (D108, D208, D209). `generate` (`src/core/gen/generate
 3. **Land.** It grows on a height field from uplift, caprock, erosion and weathering, snapped to the game's levels
    (`land/field.ts`, `levels.ts`). Rivers, lakes, falls and badwater are found in its drainage (`land/hydro.ts`,
    `hazards.ts`, `drainage.ts`); no river is drawn. Intentions are steered, never stamped: a check on the finished map
-   confirms one, and a failed one is dropped, never forced (D138).
+   confirms one, and a failed one is dropped, never forced (D138). Above 128² (the narrower side over 128; not Lake
+   Basin or Islands) the landforms stand at the map's scale and the levels are drawn in rings: long curved level lines
+   round hills, mesas and terraces 30–80 tiles across, Highlands' mesas and Canyon's gorge walled 4–6 levels, every
+   long wall notched by ways through (D(uplands), `land/rings.ts`, `bold.ts`, `plan.ts`, docs/design/uplands.md).
 4. **Features read back** out of the field (`gen/readback.ts`, §19.2): the map's plan, for the analysis and Claude's
    steering, which the editor keeps. The detected features in §7.10 (`derived`) are measurements for labels and names.
 5. **Start and slopes:** the start is picked (`gen/settler.ts`, §5.6) and the slopes derived (§7.5).

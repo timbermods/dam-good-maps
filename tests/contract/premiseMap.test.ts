@@ -85,7 +85,9 @@ import { decodeSpecFragment, encodeSpecFragment, makeSpec, type MapSpec } from "
 // to 0.10.46 the merge gives `c55bf4df…` byte for byte, D148
 // and generator 0.10.48's version alone (the merge of D(terrace-edges) with D(ruled-water)): with the version set back to
 // 0.10.47 the merge gives `62e2f45d…` byte for byte, D148
-const SHA = "0743284bd4860b4bbd20ecf4eed09020891b407caf211c436223d74f3db7b849";
+// and generator 0.10.49's version alone (D(uplands), which moves no map at 128²): with the version set back to 0.10.48 the
+// branch gives `0743284b…` byte for byte, D148
+const SHA = "238e0be0d3cdee4684feb87c799467b8b71e4f7de7dd2a011766122319df67d5";
 
 // (a Hard map whose start lake parts as it falls: the single analytic reading stood 0.32 over the run there, PR #1040;
 // seed 5 for 7 since D518 with dev's ways out by a ramp's line (#1061), D148: seed 7's Hard lake stair holds no plan now
