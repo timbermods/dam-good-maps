@@ -9,7 +9,7 @@ The Python reference implementation and test oracle: it reads and writes `.timbe
 
 **Start from**
 - `tbmap.py`: read and write the native 1.1 `.timber` format (`FORMAT.md`).
-- `validate.py` and `playability.py`: every check on a map; `watersim.py`: water, moisture, contamination; `analysis.py`, `storage.py`, `calibrated.py`: measures and targets.
+- `validate.py` and `playability.py`: every check on a map; `watersim.py`: water, moisture, contamination (each simulation step computes only the tiles at or beside water, which gives the same water as computing every tile); `analysis.py`, `storage.py`, `calibrated.py`: measures and targets.
 - `generate.py`, `terrain.py`, `vegetation.py`, `ruins.py`, `preview.py`, `batch.py`: the original generator and its tools.
 
 **Tests** (run from the repository root)
