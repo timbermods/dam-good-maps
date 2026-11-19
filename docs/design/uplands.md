@@ -113,3 +113,80 @@ knolls and islands keep their tile sizes), and Highlands from 256² stands its b
 (`highlands.ts`). Lake Basin and Islands draw almost none of those forms, so their land is as it was: their promised
 forms (the amphitheatre, the island's peak) need their own shaping (`lakeBasin.ts`, the sea layouts), round 2's. The
 numbers and the sheets are in `C:/dgm-showcase/gen/uplands1/`.
+
+## Round 1 verdict and round 2 (planning, 2026-11-19)
+
+**Verdict.** Round 1 found the cause and is kept: the genome's forms stand at the map's scale above 128². The sheet
+does not pass. From the low frame every map is still a block with a level top; the walls that came are short and
+scattered, and no frame can be named with its label covered. The finding says why, and it sets round 2: **the large
+form is never made.** Scaling small forms up does not make one. The land needs a plan at its own scale, and a
+hypsometry that leaves room for broad tops and floors.
+
+**Round 2 builds three things, for Highlands, Canyon and River Valley** (Lake Basin, Islands and Delta are round 3,
+with their own shaping; a Delta bluff line may come with this if it falls out for free).
+
+1. **The plan of the land.** Before the parts, the uplift gets a structure at the map's own scale: two or three tiers
+   (a floor, sometimes a bench, a top) laid out by a slow field whose wavelength is the map's side, warped, and tied
+   to the regional slope so the water still runs off it. It is a field like the others, not a drawn outline: where it
+   crosses a threshold the land steps from one tier to the next, so the step wanders as the field does. The tiers take
+   most of the height there is: the floor within about 3 levels of the base, the top tier in the top 3–4 levels, 6 or
+   more levels between them. The theme sets the layout:
+   - **Highlands:** a massif off the middle on 35–50 % of the land, in two stacked tablelands; valleys cut into it.
+   - **Canyon:** tableland on 70 % or more, the trunk's gorge and its side canyons cut through it rim to bed.
+   - **River Valley:** a floor along the trunk on 35–45 %, upland on both sides.
+2. **A hypsometry by theme.** The equalization blends toward a tiered curve, not toward equal area per level: most of
+   the land in the tiers, little between them. What lies between is the faces.
+3. **Faces with ways through.** The step between tiers is taken in walls of 4–6 levels that run long, broken where
+   side valleys and ramps of one-level steps come down, so a colony can walk up without a staircase of its own
+   everywhere. A wall no path crosses for its whole length is a fault.
+
+**What a tier is not.** Not a tabletop: a tier is a band of 3–4 levels that rolls in one-level steps and holds knolls,
+hollows and the genome's forms. "No two or three levels holding most of the map" (MAPCRAFT §5) still stands, and so does
+"nothing ruled": no tier edge runs straight, none is a disc, none is banded.
+
+**Verticality sets the plan's strength:** at 10, low walls (2–3) and wide ramps; at the theme's default, the figures
+above; at 90, walls of 6–8 and the top above 16 as today. That is what gives the setting something a player can see.
+
+**Bars for round 2's sheet** (the six maps: Highlands, Canyon, River Valley × seeds 1, 2, at 256²):
+- From the low frame, the top tier stands above the floor across at least a third of the frame; the theme can be said
+  with the label covered.
+- Longest face at least 0.6 of the side, dropping 4 or more; regional relief at least 8 (base median 6.6); under half
+  the land dead flat; no level holding more than 12 % of the map.
+- Starts first: no start fails; on each of the six, reach from the start is not under the base's, and level room, wood
+  and the nearest badwater are not under the Easy targets where the base met them. A fall is named with its cause.
+- Seconds per map not more than 10 % over the base.
+
+## Round 2 findings
+
+Built on round 1 (generator still 0.10.48, nothing re-pinned); numbers and sheets in `C:/dgm-showcase/gen/uplands2/`.
+
+- **The plan** (`src/core/land/plan.ts`, drawn in `genome.ts`, laid in `field.ts` `layPlan`): a slow warped field at
+  the map's side, on its own random stream, cut into tiers by quantile so each tier gets its theme's share (Highlands
+  floor .56, bench .22, top .22, the top its own off-centre field so the bench is no ring; Canyon floor .2 along the
+  trunk, tableland .8; River Valley floor .42 along the trunk, uplands .58). The trunk's line meanders along the slope
+  (1-D noise, not a 2-D contour, which made loops and straight edges); side valleys are ridged-noise fingers kept only
+  where they reach the lower tier. It is added on top of the uplift's tilt, which it keeps, so the water still runs
+  off it; the genome's forms stay on every tier, damped to a fifth on the floor so a gorge's bed is not raised.
+  Planned lands take a linear tilt, and erosion's outlet is the far edge only (a radial tilt and side outlets let the
+  trunk leave the gorge across the tableland). River Valley's own genome floor is half as wide under a plan.
+- **The hypsometry** (`levels.ts`): rank equalization blends 85 % toward a tiered curve (`tieredCurve`) whose bands
+  are the tiers; the gap between bands is the wall, 6 levels for one gap, 4.5 each for two, times the plan's
+  strength. `gatherFaces` pushes steep tiles in a gap toward the nearer band, so the drop gathers into walls. Under a
+  plan the terrace step is 1, the grade's calm at most .25 and its roll doubled: the tiers roll in one-level steps.
+  Canyon's base is 4 under a plan (6 at 256² before), for the gorge's depth.
+- **Strength** grows from 0 at 128² to full at 256², and with Verticality (0.35 at 10, 1 at the theme's default,
+  1.35 at 90). At 128² and under, and for Lake Basin, Islands and Delta, nothing moves (their maps are byte-identical).
+- **What it gives** (six maps): regional relief 10.5–11 on Highlands and River Valley, 8.8 on Canyon 1 (base 6–8.6);
+  dead flat 43–47 % on Highlands and Canyon (base 46–58 %). River Valley's back wall reads across the low frame, and
+  Canyon 1's gorge holds the trunk between walls. No start fails.
+- **What falls short.** The longest dry face reaches 0.6 of the side only on River Valley (256, 169); Highlands 72 and
+  125, Canyon 143 and 48. Before the water the faces are longer (Canyon 161–254): the trunk and tributaries at the wall
+  foot break them, and Canyon 2's gorge fills with a lake, which also takes its relief (6.15). River Valley stays
+  51–54 % dead flat (its floor is the flat). Highlands' massif does not break the low frame's skyline: two 5-level
+  steps over 100+ tiles read as a rise, not a wall, from that camera. Three Easy-target falls: Highlands 2's wood
+  (246), Canyon 1's badwater (31.6, a source in a side canyon), River Valley 2's reach (start on the upland above the
+  wall).
+- **Verticality now moves the land** (land-only, 8 seeds): Canyon's longest face 98/5 levels at 10 → 222/7 at 90,
+  relief 8.3 → 9.8. The cliff share falls (Canyon 9.7 → 5.9 %, Highlands 10.2 → 8.1 %): gathering the drop into
+  fewer, taller walls leaves fewer tiles beside a 2+ step. The design's "+.06 cliff share" reads the plan backwards and
+  needs a measure of the walls (their length and drop) instead.

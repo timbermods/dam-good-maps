@@ -30,6 +30,7 @@ import { wanderEdges } from "./wander";
 import { edgeSpill } from "./drainage";
 import { landRegions } from "../analysis/regions";
 import { integrityLevel } from "../features/raster/terrain";
+import { planBands } from "./plan";
 
 /** The rank of every value in [0, 1] (ties broken by index, so it is exact and stable). */
 function ranks(v: Float64Array): Float64Array {
@@ -52,25 +53,40 @@ export function snapLevels(E: Float64Array, g: Genome, seed: number, W: number, 
   const top = g.top;
   const maxLv = Math.floor(top + 0.5);
   const out = new Uint8Array(N);
-  const st = g.terrace.step;
+  // (a land on a plan has no benches: its tiers' faces are its walls, and benches cut a tier's band into tabletops)
+  const st = g.plan && g.plan.strength > 0 ? 1 : g.terrace.step;
   const phase = g.benchPhase * st;
-  const grade = grader(g.grade, seed, g.variation, W, H);
+  // (uplands round 2: a land on a plan takes its hypsometry from the plan's tiers, `tieredCurve`, `gatherFaces`, and its
+  // tiers roll: a tier is a band of levels the land rolls through, never a tabletop)
+  const tiers = g.plan && g.plan.strength > 0 ? planBands(g.plan, g.base, top) : null;
+  const grade = grader(tiers ? { ...g.grade, calm: Math.min(g.grade.calm, PLAN_CALM), roll: g.grade.roll * PLAN_ROLL } : g.grade, seed, g.variation, W, H);
   const level = new Float64Array(N);
+  const curve = tiers ? tieredCurve(tiers, g.base, top) : null;
   for (let y = 0; y < H; y++)
     for (let x = 0; x < W; x++) {
       const i = y * W + x;
       const lin = (E[i] - lo) / span;
-      let t = (1 - g.hyps.eq) * lin + g.hyps.eq * rk[i];
-      // the lean: t / (t + lean (1 − t)) on [0, 1], continued straight beyond it
-      if (t > 0 && t < 1) t = t / (t + g.hyps.lean * (1 - t));
+      let t: number;
+      if (curve) t = (1 - PLAN_EQ) * lin + PLAN_EQ * curve(rk[i]);
+      else {
+        t = (1 - g.hyps.eq) * lin + g.hyps.eq * rk[i];
+        // the lean: t / (t + lean (1 − t)) on [0, 1], continued straight beyond it
+        if (t > 0 && t < 1) t = t / (t + g.hyps.lean * (1 - t));
+      }
       let L = g.base + t * (top - g.base) + g.terrace.jitter * warpedFbm(js, x, y, 14, 2, 7);
       // near the top the land bends toward it instead of being cut flat there
       if (L > top - 1) {
         const over = L - (top - 1);
         L = top - 1 + over / (over + 1) + 0.49 * smoothstep(over / 2);
       }
+      level[i] = L;
+    }
+  if (tiers) gatherFaces(level, W, H, tiers.bands);
+  for (let y = 0; y < H; y++)
+    for (let x = 0; x < W; x++) {
+      const i = y * W + x;
       const benched = st > 1 && g.terrace.share > 0 && smoothstep((warpedFbm(ts, x, y, g.terrace.cell, 2, g.terrace.cell / 2) + 1) / 2 - (1 - g.terrace.share) + 0.5) > 0.5;
-      level[i] = grade(L, x, y, benched ? st : 1, phase);
+      level[i] = grade(level[i], x, y, benched ? st : 1, phase);
     }
   // (D(terrace-edges): every level's edge read through a fine warp, so no edge the field, the grade or the tableland's
   // outline leaves smooth over a dozen tiles runs ruler-straight; the levels' edges, not the field the water is planned on)
@@ -109,6 +125,69 @@ export function snapLevels(E: Float64Array, g: Genome, seed: number, W: number, 
     cleanPitsAndSpikes(out, W, H, null);
   }
   return out;
+}
+
+/** How much of a planned land's hypsometry is the tiered curve (the rest the field's own linear spread). */
+const PLAN_EQ = 0.85;
+/** How much gentler a planned land's tiers roll on its tableland (the grade's `calm`, at most). */
+const PLAN_CALM = 0.25;
+/** How much more a planned land rolls than its theme's grade draws: its tiers' bands are narrow, and the rolling is
+ *  what spreads a tier through its 3–4 levels (at the theme's own, more than half the land stood dead flat). */
+const PLAN_ROLL = 2;
+
+/** The tiered curve (uplands round 2): the rank of a tile's field among the land's to its share of the way from the
+ *  base to the top, so that the plan's tiers take their bands (the floor's share of the land from the base up its
+ *  band, the bench's and the top's theirs), each face between two bands the `face` share of the land about the tiers'
+ *  meeting rank. Equal area per level within a band, so a tier rolls through its levels; little land between them. */
+export function tieredCurve(t: { bands: [number, number][]; shares: number[]; face: number }, base: number, top: number): (r: number) => number {
+  const R = Math.max(1e-6, top - base);
+  const xs: number[] = [0];
+  const ys: number[] = [0];
+  let at = 0;
+  for (let k = 0; k < t.bands.length; k++) {
+    const last = k === t.bands.length - 1;
+    const r0 = k === 0 ? 0 : at + t.face / 2;
+    at += t.shares[k];
+    const r1 = last ? 1 : at - t.face / 2;
+    if (k > 0) {
+      xs.push(r0);
+      ys.push((t.bands[k][0] - base) / R);
+    }
+    xs.push(r1);
+    ys.push((t.bands[k][1] - base) / R);
+  }
+  return (r) => {
+    let k = 1;
+    while (k < xs.length - 1 && r > xs[k]) k++;
+    const a = xs[k - 1];
+    const b = xs[k];
+    return b > a ? ys[k - 1] + ((ys[k] - ys[k - 1]) * clamp((r - a) / (b - a), 0, 1)) : ys[k];
+  };
+}
+
+/** The faces between a planned land's tiers gathered into walls (uplands round 2): a level between two bands, where
+ *  the land climbs through the gap steeply (more than a level a tile), goes to the nearer band, so the step is one
+ *  wall of the gap's levels; where it climbs gently (a ramp, a side valley's floor) it keeps its one-level steps. */
+export function gatherFaces(level: Float64Array, W: number, H: number, bands: readonly [number, number][]): void {
+  const was = level.slice();
+  for (let k = 0; k + 1 < bands.length; k++) {
+    const lo = bands[k][1];
+    const hi = bands[k + 1][0];
+    if (hi - lo < 1) continue;
+    for (let y = 0; y < H; y++)
+      for (let x = 0; x < W; x++) {
+        const i = y * W + x;
+        const L = was[i];
+        if (!(L > lo && L < hi)) continue;
+        const gx = (was[y * W + Math.min(W - 1, x + 1)] - was[y * W + Math.max(0, x - 1)]) / 2;
+        const gy = (was[Math.min(H - 1, y + 1) * W + x] - was[Math.max(0, y - 1) * W + x]) / 2;
+        const slope = Math.max(Math.abs(gx), Math.abs(gy));
+        const c = smoothstep((slope - 0.9) / 0.5);
+        if (c <= 0) continue;
+        const to = L - lo < hi - L ? lo : hi;
+        level[i] = L + c * (to - L);
+      }
+  }
 }
 
 /** The contour field (D518): the land's field softened over a tile each way, so no level line has a one-tile jag, and

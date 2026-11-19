@@ -28,6 +28,7 @@ import { alongLongAxis, mapShape } from "./shape";
 import { clamp, smoothstep } from "../math/clamp";
 import { sinDet, TWO_PI } from "../math/detmath";
 import { fbm } from "../math/noise";
+import { drawPlan, type Plan } from "./plan";
 
 export type PartKind = "ridge" | "trough" | "basin" | "caldera" | "mesa" | "mesaField" | "escarpment" | "cone" | "plateau" | "knolls" | "spiral" | "isle";
 
@@ -353,6 +354,8 @@ export interface Genome {
   variation: number;
   /** The orientation the map's land was turned into (M9b, D275 (2); land/orient.ts). */
   orientation?: number;
+  /** The plan of the land (uplands round 2, `plan.ts`): its tiers at the map's own scale; absent for none. */
+  plan?: Plan;
   /** The woods (D164): the grove species weights the resources planner draws. */
   woods: { kind: "oak" | "mixed" | "birch"; pine: number; birch: number; oak: number; succulent: number };
 }
@@ -913,6 +916,17 @@ export function drawGenome(theme: ThemeId, seed: number, W: number, H: number, a
   for (let k = 0; k < n; k++) g.parts.push(randomPart(rng, pickPart(rng, p.parts, vy), W, H, vy, tallK));
   // (uplands round 1: above 128² the landforms stand at the map's scale, a 128²'s composition grown with the map)
   atMapScale(g.parts, W, H);
+  // (uplands round 2: above 128² Highlands, Canyon and River Valley lay their land on a plan at the map's own scale, its
+  // valley, gorge or massif along the regional slope: a slope toward a bowl left Canyon 256² seed 1's trunk no way
+  // along its gorge, and it left by a side, cutting its own across the tableland)
+  const plan = drawPlan(theme, vt, seed, W, H, attempt, variation);
+  if (plan) {
+    g.plan = plan;
+    g.tiltKind = "linear";
+    // (River Valley's broad floor is the plan's: the floor the river clears beside its channel half as wide, so the
+    // valley floor keeps its rolling; cleared as wide as before, 57–62% of the land stood dead flat)
+    if (plan.kind === "valley") g.hydro.floor *= 1 - 0.5 * Math.min(1, plan.strength);
+  }
   // extra lakes: basins beyond the parts, so water spans the workshop's range (at its own scale by the root of the area:
   // a 48² map drew a 128²'s five basins of 12 to 32 tiles, and its land was hollows)
   const lakes = Math.max(0, Math.round(d(p.lakes) * (o.ownScale && Math.min(W, H) < OWN_SCALE_SIDE ? portable.sqrt(areaK) : Math.max(1, portable.sqrt(areaK)))));
