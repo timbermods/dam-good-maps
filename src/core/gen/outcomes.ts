@@ -29,6 +29,13 @@ export function promiseSides(W: number, H: number): { across: number; course: nu
 
 /** Highlands' high share asked above 128², where the land is drawn in rings (uplands, the PR round). */
 const HIGH_RINGED = 0.35;
+/** Highlands' cliff share (at 128², falling as the square root of the side) and plateau count asked above 128², where
+ *  it stands up (uplands round 6): its walls gathered into a few mesas and the valley's rim, its floor in broad
+ *  two-level benches, the land beside a 2+ drop read .044–.063 at 256² on the planned lands of seeds 1 and 5 (13 lands)
+ *  and .048–.066 on the built maps of seeds 1–6, against the 0.1 asked (.0707 at 256²), so every land missed it and
+ *  each map spent its three screens on it; its plateaus 5–19. Asked: the lowest, rounded down. */
+const CLIFFS_STAND = 0.06;
+const PLATEAUS_STAND = 4;
 
 /** Each theme's promise (D273 (2)) as a line on its signature's measures, and in words: `text` the
  *  promise, `words` what a version that keeps it has, only where the check measures one thing (a canyon's length;
@@ -46,7 +53,7 @@ export const PROMISES: Record<Exclude<ThemeId, "any">, { text: string; words: st
   // Above 128², where the land is drawn in rings (docs/design/uplands.md), the high share asked is the game's own
   // highlands': read the same way, Terraces 0.52, Pressure 0.18, Mountain Range 0.45, Helix Mountain 0.29, Oasis 0.65;
   // the lowest, held to 0.35)
-  highlands: { text: "high, rugged ground with plateaus and valleys among it", words: null, noun: "Heights", holds: (s, W, H) => s.high >= (Math.min(W, H) > 128 ? HIGH_RINGED : 0.6) && s.plateaus >= 3 && s.cliffs >= 0.1 * portable.sqrt(128 / promiseSides(W, H).area) },
+  highlands: { text: "high, rugged ground with plateaus and valleys among it", words: null, noun: "Heights", holds: (s, W, H) => { const stand = Math.min(W, H) > 128; return s.high >= (stand ? HIGH_RINGED : 0.6) && s.plateaus >= (stand ? PLATEAUS_STAND : 3) && s.cliffs >= (stand ? CLIFFS_STAND : 0.1) * portable.sqrt(128 / promiseSides(W, H).area); } },
   // (a big lake: a twelfth of the map or more. At 4% a wide river reach passed with no lake to see,
   // 0.8.3's 128² seed 15 at 4.8%; Lake Basin's lakes stand at 10% of the map and more, 96² to 256²)
   lakeBasin: { text: "big lakes that dominate the water", words: null, noun: "Lakelands", holds: (s) => s.lakeShare >= 0.55 && s.bigLake >= 0.08 },

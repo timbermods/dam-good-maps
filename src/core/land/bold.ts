@@ -5,10 +5,13 @@
 // the graded levels before the edge warp and the snap (`levels.ts` `snapLevels`), never noise, so its line runs as
 // smooth as the rings round it; the warp then bends it as it bends them.
 //
-// - Highlands, mesas (`boldMesas`): two to four tablelands 40–70 tiles across, each standing 4–6 levels over the ring
-//   terraces round its rim, its top level enough to build on (a level lower in patches), one or two graded ways up
-//   (a tongue of one-level treads, `run` tiles a level). The field the water is planned on stands high under each, so
-//   no river is planned across one. Their rims are kept from the walls' notches (`notchWalls`): their ways are their own.
+// - Highlands stands up (round 6, `STAND`): few forms with tall walls on a floor, as the game's Terraces. A valley sunk
+//   in the map's middle (`standValley`: a lobed bowl and the channel the water takes through it, its floor two or more
+//   levels under the floor round it, the field the water is planned on sunk with it, `lowerValley`), a gentle floor in
+//   rings (`levels.ts`), and on it five to nine mesas a 256² (`standMesas`), 35–80 tiles across, each a wall of 4–6
+//   levels over most of its rim and broken, stepped ground over the rest, where the slopes find a way up. The field the
+//   water is planned on stands high under each, so no river is planned across one. Their rims are kept from the
+//   walls' notches (`notchWalls`): their ways are their own.
 // - Canyon, the gorge (`boldGorge`): where the gorge's wall is steep, a bench is cut into the tableland's edge
 //   `rise` levels over the floor, its width wandering along the gorge (none in places, where the wall stands whole),
 //   so the gorge's side is two faces, the lower the taller; and one or two hollows off the gorge, a lobed bowl cut into
@@ -21,23 +24,39 @@ import { fbm } from "../math/noise";
 import { clamp, smoothstep } from "../math/clamp";
 import { hash32 } from "../math/hash";
 import { sinDet, TWO_PI } from "../math/detmath";
-import { formDist, type RingForm } from "./rings";
+import { formDist, pseudoAngle, type RingForm } from "./rings";
+import { DIRS8 } from "./num";
 
-/** The bold family's numbers. `mesa`: how many a 256² map draws (fewest, most), their radius (tiles, at 256²), the
- *  height of their wall (levels), the calm ground kept between two (tiles past their radii), their wall's width and
- *  their ways' run per level and half width (tiles), the draws tried. `bench`: its rise over the gorge's floor (levels),
- *  its width (tiles) and how far that wanders, over what cell, and how steep (levels a tile) the gorge's wall must be
- *  for one. `hollow`: how many (fewest, most), their radius (tiles), their floor over the gorge's (levels). */
+/** The bold family's numbers. `bench`: its rise over the gorge's floor (levels), its width (tiles) and how far that
+ *  wanders, over what cell, and how steep (levels a tile) the gorge's wall must be for one. `hollow`: how many (fewest,
+ *  most), their radius (tiles), their floor over the gorge's (levels). */
 export const BOLD = {
-  mesa: { fewest: 2, most: 4, rMin: 21, rMax: 34, hMin: 4, hMax: 6, gap: 14, wall: 1.2, run: 2.2, wayHalf: 3, tries: 80 },
   bench: { rise: 4, width: 9, vary: 8, cell: 64, steep: 0.6 },
   hollow: { fewest: 1, most: 2, rMin: 13, rMax: 20, over: 2, tries: 60 },
 } as const;
 
+/** Highlands stands up (uplands round 6): a few mesas with walls on a gentle floor, the valley sunk in the middle.
+ *  `valley`: the bowl's radius (a share of the map's narrower side, least and most), how far its middle strays from the
+ *  map's (a share of the side), how wide its rim's fall is (tiles, least and most); the channel through it from the
+ *  upstream edge to the downstream one, its half width (a share of the side, least and most), how far it wanders
+ *  (a share of the side) over what cell (a share of the side), how wide its sides' fall (tiles); the valley's floor
+ *  over the base (levels) where it leaves the map downstream and how much higher where it enters. `floor`: the floor's
+ *  lowest level over the base and its relief (levels), its grade's roll (times the theme's). `mesa`: how many a 256²
+ *  map draws (fewest, most), their radius at 256² (tiles), their wall (levels over the ground at their rim), the calm
+ *  ground kept between two and between one and the valley (tiles past their radii), the wall's width (tiles), how
+ *  far one stretches along its axis at the most, the share of its rim that is broken and stepped (least and most), the
+ *  tiles a level there (least and most) and how far its broken edge eats into the top (tiles), the share of mesas with
+ *  an inner ring, the draws tried. */
+export const STAND = {
+  valley: { rMin: 0.14, rMax: 0.18, stray: 0.06, softMin: 1.2, softMax: 3.5, halfMin: 0.026, halfMax: 0.038, wander: 0.11, cell: 0.3, side: 1.5, over: 0, rise: 1 },
+  floor: { over: 4, relief: 4, roll: 0, riser: 0, drift: 0, away: 0.5, far: 0.5 },
+  mesa: { fewest: 5, most: 9, rMin: 17.5, rMax: 40, hMin: 4, hMax: 6, gap: 8, edge: 0.6, wall: 1.2, stretch: 0.35, brokenMin: 0.12, brokenMax: 0.25, runMin: 1.8, runMax: 4.5, inset: 7, inner: 0.5, tries: 200 },
+} as const;
+
 /** A form's outline for `formDist`: a mesa's or a hollow's, its lobes gentler than the ringed forms'. */
-function outline(s: number, x: number, y: number, r: number): RingForm {
+function outline(s: number, x: number, y: number, r: number, lobes = 1): RingForm {
   const o = stream(s, "outline");
-  return { x, y, r, h: 0, kind: "mesa", s, k1: 2 + Math.floor(2 * o.float()), p1: o.float(), a1: 0.08 + 0.1 * o.float(), k2: 4 + Math.floor(3 * o.float()), p2: o.float(), a2: 0.03 + 0.05 * o.float(), ox: 0, oy: 0 };
+  return { x, y, r, h: 0, kind: "mesa", s, k1: 2 + Math.floor(2 * o.float()), p1: o.float(), a1: (0.08 + 0.1 * o.float()) * lobes, k2: 4 + Math.floor(3 * o.float()), p2: o.float(), a2: (0.03 + 0.05 * o.float()) * lobes, ox: 0, oy: 0 };
 }
 
 function median(v: number[]): number {
@@ -45,73 +64,212 @@ function median(v: number[]): number {
   return s.length ? s[s.length >> 1] : 0;
 }
 
-/** Highlands' mesas on the graded levels `level` (before the warp and the snap), between `base` and `top`; the field
- *  `E` the water is planned on raised to `eHigh` under each. Returns the tiles about their rims (for `notchWalls` to
- *  leave), or null where none stands. */
-export function boldMesas(level: Float64Array, E: Float64Array, W: number, H: number, seed: number, variation: number, base: number, top: number, eHigh: number): Uint8Array | null {
+/** Whether a map's land stands up (round 6): Highlands above 128² (its narrower side), where the land is ringed. */
+export function standsUp(theme: string, W: number, H: number): boolean {
+  return theme === "highlands" && Math.min(W, H) > 128;
+}
+
+/** Highlands' valley (round 6): `m` how much of each tile is the valley (0 to 1), `floor` the valley's floor there
+ *  (levels over the base), `share` the share of the map at least half valley, and the bowl's middle and radius. */
+export interface StandValley {
+  m: Float64Array;
+  floor: Float64Array;
+  /** How far each tile stands from the valley, 0 at its rim to 1 at `STAND.floor.far` of the side and beyond, eased. */
+  away: Float64Array;
+  share: number;
+  cx: number;
+  cy: number;
+  r: number;
+}
+
+/** The valley a land that stands up sinks in its middle: a lobed bowl near the map's middle, and a channel through it
+ *  along the water's way (`flowDir`, the land's oriented one) from the upstream edge to the downstream one, wandering.
+ *  The bowl's rim falls over one to four tiles as a slow noise has it, so it is a wall in places and a slope in
+ *  others; the channel's sides fall gently. Drawn from the genome (its bench phase), so each land draws its own, the
+ *  same for the field the water is planned on (`lowerValley`) and for the levels (`levels.ts` `snapLevels`). */
+export function standValley(seed: number, variation: number, phase: number, flowDir: number, W: number, H: number): StandValley {
+  const V = STAND.valley;
+  const N = W * H;
   const side = Math.min(W, H);
-  if (side <= 128) return null;
-  const M = BOLD.mesa;
+  const s = hash32(seed, "stand-valley", variation, Math.floor(phase * 1073741824));
+  const rng = stream(s, "bowl");
+  const r = (V.rMin + (V.rMax - V.rMin) * rng.float()) * side;
+  const cx = (W - 1) / 2 + (2 * rng.float() - 1) * V.stray * side;
+  const cy = (H - 1) / 2 + (2 * rng.float() - 1) * V.stray * side;
+  const bowl = outline(hash32(s, "bowl-outline"), cx, cy, r, 1.4);
+  const [ax, ay] = DIRS8[flowDir];
+  const half = (V.halfMin + (V.halfMax - V.halfMin) * rng.float()) * side;
+  const m = new Float64Array(N);
+  const floor = new Float64Array(N);
+  let n = 0;
+  for (let y = 0; y < H; y++)
+    for (let x = 0; x < W; x++) {
+      const i = y * W + x;
+      const tin = (1 - formDist(bowl, x, y, cx, cy, r)) * r;
+      const soft = V.softMin + (V.softMax - V.softMin) * (fbm(s + 3, x, y, 0.25 * side, 2) + 1) / 2;
+      const mb = smoothstep(tin / soft + 0.5);
+      const along = (x - cx) * ax + (y - cy) * ay;
+      const lat = -(x - cx) * ay + (y - cy) * ax;
+      const off = V.wander * side * fbm(s + 5, along, 0, V.cell * side, 2);
+      const hw = half * (1 + 0.5 * fbm(s + 7, along, 0, 0.5 * V.cell * side, 2));
+      const mc = smoothstep((hw - Math.abs(lat - off)) / V.side + 0.5);
+      const v = Math.max(mb, mc);
+      m[i] = v;
+      if (v >= 0.5) n++;
+      // (the floor falls toward the downstream edge, never rising, so no hollow holds a lake in it)
+      const t = clamp(along / (0.45 * side), -1, 1);
+      floor[i] = V.over + (V.rise * (1 - t)) / 2;
+    }
+  // how far each tile is from the valley (a chamfer distance, 1 and 1.4 a step), eased to 1 at `far` of the side
+  const dist = new Float64Array(N).fill(1e9);
+  for (let i = 0; i < N; i++) if (m[i] >= 0.5) dist[i] = 0;
+  for (let pass = 0; pass < 2; pass++)
+    for (let k = 0; k < N; k++) {
+      const i = pass ? N - 1 - k : k;
+      const x = i % W;
+      const y = (i - x) / W;
+      const sy = pass ? 1 : -1;
+      for (const [dx, dy, c] of [[-1, 0, 1], [0, sy, 1], [-1, sy, 1.4], [1, sy, 1.4], [1, 0, 1]] as const) {
+        if ((pass === 0 && dx === 1 && dy === 0) || (pass === 1 && dx === -1 && dy === 0)) continue;
+        const xx = x + dx;
+        const yy = y + dy;
+        if (xx < 0 || yy < 0 || xx >= W || yy >= H) continue;
+        const v = dist[yy * W + xx] + c;
+        if (v < dist[i]) dist[i] = v;
+      }
+    }
+  const away = new Float64Array(N);
+  for (let i = 0; i < N; i++) away[i] = smoothstep(dist[i] / (STAND.floor.far * side));
+  return { m, floor, away, share: n / N, cx, cy, r };
+}
+
+/** The field the water is planned on, sunk in the valley below all the land round it and falling along the channel
+ *  toward the downstream edge, so the rivers the land plans run through the valley's middle. */
+export function lowerValley(E: Float64Array, v: StandValley, flowDir: number, W: number, H: number): void {
+  const sorted = Float64Array.from(E).sort();
+  const lo = sorted[Math.floor(0.02 * (sorted.length - 1))];
+  const span = Math.max(1e-6, sorted[Math.floor(0.98 * (sorted.length - 1))] - lo);
+  const [ax, ay] = DIRS8[flowDir];
+  const side = Math.min(W, H);
+  for (let y = 0; y < H; y++)
+    for (let x = 0; x < W; x++) {
+      const i = y * W + x;
+      const k = v.m[i];
+      if (k <= 0) continue;
+      const t = clamp(((x - v.cx) * ax + (y - v.cy) * ay) / (0.45 * side), -1, 1);
+      const target = lo - 0.05 * span - (0.12 * span * (1 + t)) / 2;
+      if (target < E[i]) E[i] += k * (target - E[i]);
+    }
+}
+
+/** Highlands' mesas on a land that stands up (round 6), on the graded levels `level` (before the warp and the snap),
+ *  under `top`: five to nine a 256² (by area), 35–80 tiles across, lobed and stretched, clear of each other and of the
+ *  valley. Each stands 4–6 levels over the ground round its rim, a wall over most of its rim; over one or two arcs of it
+ *  (an eighth to a quarter of the rim, the first toward the valley) its side is broken and stepped, a level every few
+ *  tiles, irregular, and its edge eaten in, so the slopes find a way up (never a ramp laid). Its top is level, half of
+ *  them with one inner ring a level or two higher over less than half of it. The field `E` the water is planned on is
+ *  raised to `eHigh` under each, so no river is planned across one, and no spring is drawn on a top (`tops`, the
+ *  genome's `dryTops`): the tops stay dry, for a dam or a channel to water. Returns the tiles about their rims (`skip`,
+ *  for `notchWalls` to leave) and the tops, or null where none stands. */
+export function standMesas(level: Float64Array, E: Float64Array, W: number, H: number, seed: number, variation: number, valley: StandValley, base: number, top: number, eHigh: number): { skip: Uint8Array; tops: Uint8Array } | null {
+  const side = Math.min(W, H);
+  const M = STAND.mesa;
   const sizeK = Math.min(1, side / 256);
   const area = (W * H) / (256 * 256);
-  const rng = stream(seed, "bold-mesas", variation);
+  const rng = stream(seed, "stand-mesas", variation, Math.floor(valley.cx * 64), Math.floor(valley.cy * 64));
   const want = Math.max(1, Math.round((M.fewest + rng.int(0, M.most - M.fewest + 1)) * area));
   const at = (x: number, y: number) => level[Math.round(clamp(y, 0, H - 1)) * W + Math.round(clamp(x, 0, W - 1))];
-  const mesas: { f: RingForm; T: number; ways: [number, number][] }[] = [];
+  const vat = (x: number, y: number) => valley.m[Math.round(clamp(y, 0, H - 1)) * W + Math.round(clamp(x, 0, W - 1))];
+  type Mesa = { f: RingForm; e: number; ca: number; sa: number; T: number; foot: number; arcs: [number, number][]; inner: RingForm | null; rise: number };
+  const mesas: Mesa[] = [];
   for (let k = 0; k < want; k++) {
-    // of the draws that fit, the one whose wall stands 4–7 over most of the ground round its rim
-    let best: { x: number; y: number; r: number; T: number; t: number; wayTurn: number; share: number } | null = null;
+    // of the draws that fit, the one whose wall stands 4–7 over most of the ground round its rim (the first the largest)
+    let best: { x: number; y: number; r: number; e: number; turn: number; T: number; foot: number; t: number; share: number } | null = null;
     for (let t = 0; t < M.tries; t++) {
-      const r = (M.rMin + (M.rMax - M.rMin) * rng.float()) * sizeK;
-      const margin = r + 10 * sizeK;
+      const u = rng.float();
+      const r = (M.rMin + (M.rMax - M.rMin) * (k === 0 ? 0.7 + 0.3 * u : u)) * sizeK;
+      const e = 1 + M.stretch * rng.float();
+      const turn = rng.float();
+      const reach = r * e;
+      // (a mesa may stand partly off the map's edge, as the game's own do)
+      const margin = M.edge * reach;
       const x = margin + (W - 1 - 2 * margin) * rng.float();
       const y = margin + (H - 1 - 2 * margin) * rng.float();
-      const h = M.hMin + Math.floor((M.hMax - M.hMin + 1) * rng.float());
-      const wayTurn = rng.float();
+      // (walls of 5 and 6 the commoner)
+      const h = M.hMin + Math.floor((M.hMax - M.hMin + 1) * portable.sqrt(rng.float()));
+      if (W - 1 - 2 * margin <= 0 || H - 1 - 2 * margin <= 0) continue;
       if (mesas.some((q) => {
-        const need = q.f.r + r + M.gap * sizeK;
+        const need = q.f.r * q.e + reach + M.gap * sizeK;
         return (q.f.x - x) * (q.f.x - x) + (q.f.y - y) * (q.f.y - y) < need * need;
       })) continue;
+      // clear of the valley, its walls standing at the valley's rim where they meet it
+      let wet = false;
+      for (let v = -reach; v <= reach && !wet; v += 3)
+        for (let w = -reach; w <= reach; w += 3)
+          if (w * w + v * v <= reach * reach && vat(x + w, y + v) > 0.05) {
+            wet = true;
+            break;
+          }
+      if (wet) continue;
       // the ground round its rim and under it, read on a coarse grid
       const rim: number[] = [];
       for (let a = 0; a < 24; a++) {
         const th = (TWO_PI * a) / 24;
-        rim.push(at(x + 1.08 * r * sinDet(th + TWO_PI / 4), y + 1.08 * r * sinDet(th)));
+        const ux = sinDet(th + TWO_PI / 4);
+        const uy = sinDet(th);
+        rim.push(at(x + 1.1 * r * (ux * (1 + (e - 1) * Math.abs(ux))), y + 1.1 * r * (uy * (1 + (e - 1) * Math.abs(uy)))));
       }
       let inMin = Infinity;
       let inMax = -Infinity;
       for (let v = -r; v <= r; v += 4)
-        for (let u = -r; u <= r; u += 4) {
-          if (u * u + v * v > 0.8 * r * r) continue;
-          const L = at(x + u, y + v);
+        for (let w = -r; w <= r; w += 4) {
+          if (w * w + v * v > 0.8 * r * r) continue;
+          const L = at(x + w, y + v);
           if (L < inMin) inMin = L;
           if (L > inMax) inMax = L;
         }
       const sorted = rim.slice().sort((a, b) => a - b);
-      const T = Math.min(Math.round(sorted[18]) + h, top - 1);
-      // (the ground under it below its top, and no valley floor under it, where the rivers run)
-      if (inMax > T - 0.5 || inMin < base + 2) continue;
+      const T = Math.min(Math.round(sorted[18]) + h, top);
+      if (inMax > T - 2.5 || inMin < base + 2) continue;
       let share = 0;
       for (const L of rim) if (T - L >= M.hMin - 0.5 && T - L <= M.hMax + 1.5) share++;
       share /= rim.length;
-      if (share >= 0.6 && (!best || share > best.share)) best = { x, y, r, T, t, wayTurn, share };
+      if (share >= 0.6 && (!best || share > best.share + 0.05 || (k === 0 && share >= best.share - 0.05 && r > best.r))) best = { x, y, r, e, turn, T, foot: T - h, t, share };
     }
     if (!best) continue;
-    const { x, y, r, T, t, wayTurn } = best;
-    const f = outline(hash32(seed, "bold-mesa", variation, k, t), x, y, r);
-    // one way up, two round a long rim, about opposite
-    const ways: [number, number][] = [];
-    const n = TWO_PI * r > 150 ? 2 : 1;
-    for (let w = 0; w < n; w++) {
-      const th = TWO_PI * (wayTurn + w * (0.4 + 0.2 * rng.float()));
-      ways.push([sinDet(th + TWO_PI / 4), sinDet(th)]);
+    const { x, y, r, e, turn, T, foot, t } = best;
+    const f = outline(hash32(seed, "stand-mesa", variation, k, t), x, y, r, 1.5);
+    const o = stream(f.s, "mesa-parts");
+    // the broken arcs: one or two, an eighth to a quarter of the rim, the first toward the valley
+    const share = M.brokenMin + (M.brokenMax - M.brokenMin) * o.float();
+    const two = o.float() < 0.5;
+    const c0 = pseudoAngle(valley.cx - x, valley.cy - y) + 0.16 * (o.float() - 0.5);
+    const arcs: [number, number][] = two ? [[c0, share * 0.6 / 2], [c0 + 0.35 + 0.3 * o.float(), share * 0.4 / 2]] : [[c0, share / 2]];
+    let inner: RingForm | null = null;
+    let rise = 0;
+    if (o.float() < M.inner) {
+      const ir = (0.4 + 0.2 * o.float()) * r;
+      inner = outline(hash32(f.s, "inner"), x + (o.float() - 0.5) * 0.4 * r, y + (o.float() - 0.5) * 0.4 * r, ir, 1.5);
+      rise = Math.min(1 + Math.floor(2 * o.float()), top - T);
+      if (rise <= 0) inner = null;
     }
-    mesas.push({ f, T, ways });
+    mesas.push({ f, e, ca: sinDet(TWO_PI * turn + TWO_PI / 4), sa: sinDet(TWO_PI * turn), T, foot, arcs, inner, rise });
   }
   if (!mesas.length) return null;
   const skip = new Uint8Array(W * H);
-  for (const { f, T, ways } of mesas) {
-    const R = 1.5 * f.r + 2 + M.run * (M.hMax + 2);
+  const tops = new Uint8Array(W * H);
+  const arcOf = (arcs: [number, number][], t: number) => {
+    let a = 0;
+    for (const [c, hw] of arcs) {
+      let d = Math.abs(t - (c - Math.floor(c)));
+      if (d > 0.5) d = 1 - d;
+      a = Math.max(a, smoothstep((hw - d) / 0.03 + 0.5));
+    }
+    return a;
+  };
+  for (const q of mesas) {
+    const { f, e, ca, sa, T, foot, arcs, inner, rise } = q;
+    const R = (1.5 * f.r + 2) * e + M.runMax * (M.hMax + 2) + M.inset;
     const x0 = Math.max(0, Math.floor(f.x - R));
     const x1 = Math.min(W - 1, Math.ceil(f.x + R));
     const y0 = Math.max(0, Math.floor(f.y - R));
@@ -120,27 +278,37 @@ export function boldMesas(level: Float64Array, E: Float64Array, W: number, H: nu
       for (let x = x0; x <= x1; x++) {
         const i = y * W + x;
         const L = level[i];
-        const d = formDist(f, x, y, f.x, f.y, f.r);
+        // (stretched along its axis: the tile read back into the round outline)
+        const du = (x - f.x) * ca + (y - f.y) * sa;
+        const dv = -(x - f.x) * sa + (y - f.y) * ca;
+        const xs = f.x + (du / e) * ca - dv * sa;
+        const ys = f.y + (du / e) * sa + dv * ca;
+        const d = formDist(f, xs, ys, f.x, f.y, f.r);
         const tin = (1 - d) * f.r;
-        // the top, a level lower in patches; the wall a steep band at the rim
-        const top0 = T - smoothstep((-0.3 - fbm(f.s + 7, x, y, 22, 2)) / 0.2);
+        if (d > 0.7 && d < 1.5) skip[i] = 1;
+        if (tin > 2) tops[i] = 1;
+        let top0 = T;
+        if (inner) top0 += rise * smoothstep((1 - formDist(inner, x, y, inner.x, inner.y, inner.r)) * inner.r + 0.5);
+        // the wall: a steep band at the rim
         const w = smoothstep((tin + M.wall / 2) / M.wall);
-        let v = L + w * (top0 - L);
-        // the ways up: a tongue of one-level treads down from the rim
-        for (const [cx, cy] of ways) {
-          const along = cx * (x - f.x) + cy * (y - f.y);
-          if (along <= 0 || tin > 0) continue;
-          const lat = Math.abs(-cy * (x - f.x) + cx * (y - f.y));
-          const wr = 1 - smoothstep((lat - M.wayHalf) / 1.5 + 0.5);
-          const ramp = T - -tin / M.run;
-          if (wr > 0 && ramp > L) v = Math.max(v, L + wr * (ramp - L));
+        const vWall = L + w * (top0 - L);
+        // the broken side: the edge eaten in, then a level every few tiles, irregular
+        const a = arcOf(arcs, pseudoAngle(x - f.x, y - f.y));
+        let v = vWall;
+        if (a > 0) {
+          const inset = M.inset * (fbm(f.s + 11, x, y, 9, 2) + 1) / 2;
+          const run = M.runMin + (M.runMax - M.runMin) * (fbm(f.s + 13, x, y, 7, 2) + 1) / 2;
+          const out = Math.max(0, inset - tin);
+          // (down to the mesa's foot, the floor it stands on, and no lower: where the ground falls away past it, to
+          // the valley, the floor's own fall is the way on)
+          const vStep = T - out / run + 0.6 * fbm(f.s + 17, x, y, 6, 2) * smoothstep(out / 2);
+          v = (1 - a) * vWall + a * (vStep >= foot - 0.5 ? clamp(vStep, L, top0) : L);
         }
         if (v > L) level[i] = v;
-        if (w > 0.3 && E[i] < eHigh) E[i] = eHigh;
-        if (d > 0.7 && d < 1.35) skip[i] = 1;
+        if (tin > -1 && E[i] < eHigh) E[i] = eHigh;
       }
   }
-  return skip;
+  return { skip, tops };
 }
 
 /** Each top tile's nearest tile on the gorge's top side beside its floor (`src`) and the distance to it, over the top

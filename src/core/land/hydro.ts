@@ -938,7 +938,7 @@ function planHydroSingle(E: Float64Array, h: Uint8Array, g: Genome, seed: number
     for (let y = 12; y < H - 12; y++)
       for (let x = 12; x < W - 12; x++) {
         const i = y * W + x;
-        if (downLen[i] < 0.35 * side || owner[i] >= 0) continue;
+        if (downLen[i] < 0.35 * side || owner[i] >= 0 || g.dryTops?.[i]) continue;
         if (joinable && (!joinable.reach[i] || joinable.len[i] < minTributary)) continue;
         cands.push([E[i] + 0.01 * downLen[i] + 3 * rng.float(), i]);
       }
@@ -983,7 +983,7 @@ function planHydroSingle(E: Float64Array, h: Uint8Array, g: Genome, seed: number
       for (let y = 12; y < H - 12; y++)
         for (let x = 12; x < W - 12; x++) {
           const i = y * W + x;
-          if (dist[i] <= reach || downLen[i] < longWay || owner[i] >= 0) continue;
+          if (dist[i] <= reach || downLen[i] < longWay || owner[i] >= 0 || g.dryTops?.[i]) continue;
           if (heads.some((hd) => Math.abs((hd.cell % W) - x) + Math.abs(Math.floor(hd.cell / W) - y) < 26)) continue;
           if (joinable.reach[i] && joinable.len[i] >= minTributary) far.push([dist[i] + 0.01 * downLen[i], i]);
           else apart.push([dist[i] + 0.01 * downLen[i], i]);

@@ -475,3 +475,73 @@ Generator 0.10.49 (D(uplands)); numbers in `C:/dgm-showcase/gen/uplands-pr/`.
   on the built land against .082 asked at 192² (high .94–1, plateaus 4–13;
   Highlands' two-apart benches start at 256², `highlands.ts`), five a river's water leaving its course. Seconds over base by more than 10 %: Canyon 192² 21.0 → 24.1 (+15 %), Canyon 384² 91.2 → 127.1 (+39 %, in
   2 attempts against 4: 64 s an attempt against 23).
+
+## Round 6: Highlands stands up (2026-11-19)
+
+Generator 0.10.51, on pickStart (0.10.50, D(pick-start)); D(uplands) amended. Numbers and sheets in
+`C:/dgm-showcase/gen/uplands6/`. Highlands above 128² only (`bold.ts` `standsUp`): every other theme, and Highlands at
+128² and under, is 0.10.50's byte for byte.
+
+**What was built** (`land/bold.ts` `STAND`, `standValley`, `lowerValley`, `standMesas`; `levels.ts` `snapLevels`;
+`highlands.ts`; `hydro.ts`).
+- **The valley.** A lobed bowl near the map's middle (radius 14–18 % of the side, its middle within 6 % of the map's),
+  and a channel through it along the water's way from the upstream edge to the downstream one, wandering (11 % of the
+  side over a cell of 30 %) and varying in width. Its floor is the base, a level higher where the water enters, never
+  rising downstream, so it holds no lake. The bowl's rim falls over one to four tiles as a slow noise has it: a wall in
+  places, a slope in others. The field the water is planned on is sunk with it (`lowerValley`), and the main water
+  enters by the upstream edge (`inflows` at least 1), so the river runs through the valley and the start, picked on
+  the water, stands in it.
+- **The floor.** Four levels over the base, four levels deep, rising away from the valley (half its rank, half its
+  distance from the valley eased over half the side), in two-level benches with no roll, no riser and no drift (the
+  roll added after the bench broke the benches into one-level steps). The ring forms on it are few (1.25 a 128²), hills
+  and stepped hills, no mesas among them (`rings.ts`), and stand under 3 levels of room.
+- **The mesas.** Five to nine a 256² (by area), 35–80 tiles across, lobed and stretched up to a third along a turned
+  axis, the first the largest; clear of the valley and 8 tiles from each other, partly off the map's edge where they
+  fall there. Each stands 4–6 levels (5 and 6 the commoner) over the 75th percentile of the ground round its rim, kept
+  only where at least 60 % of its rim stands 3.5–7.5 levels under its top and its own ground stays 2.5 levels under it.
+  One or two arcs of the rim (an eighth to a quarter of it, the first toward the valley) are broken: the edge eaten in
+  up to 7 tiles, then a level every 1.8–4.5 tiles, irregular, down to the mesa's foot and no further, so the slopes find
+  their way up there (no ramp is laid). Half have one inner ring 1–2 levels higher over 40–60 % of the radius. The rims
+  are kept from `notchWalls`; the field the water is planned on stands high under each, and no spring or reach spring
+  is drawn on a top (`Genome.dryTops`): the tops are dry ground for a dam, a pump or a channel to water.
+- **Elsewhere.** Highlands above 128² has its grade's roll, riser and drift at 0 and its terrace share 1, so its
+  floor's steps stand two levels where they gather (`highlands.ts`). Its promise asks four plateaus and a cliff share of
+  0.06 at 128² (falling as the square root of the side), not three and 0.1 (`gen/outcomes.ts`, below).
+
+**Measures** (256², Normal, seeds 1–6, base 0.10.50 → 0.10.51; bars in brackets; all in
+`C:/dgm-showcase/gen/uplands6/numbers.md`). Regional relief 6.5–8.2 → 7.0–9.2 [≥ 12]; relief p5–p95 10 → 11–12 [≥ 10];
+land beside a 4+ drop 3.5–5.1 → 2.7–6.1 % [6–9]; one-level share of steps 56.9–67.8 → 50.0–57.6 % [44–55]; longest 3+
+face 63–198 → 83–209 tiles at a median drop of 5–7 [≥ 85, ≥ 5]; plateaus 2–6 → 5–14 [4–9]; fine relief 2.7–5.8 →
+2.4–4.1 % [≤ 3.5]; land in patches under 40 tiles 6.4–10.3 → 3.0–4.3 % [≤ 7.5]. Two bars were read from the wrong
+columns: Terraces' and Oasis' "regional relief 18.2 / 18" is their land beside a 2+ drop (their regional relief is 9.12
+and 9.29; of the bundled 256² maps only Spillage passes 12, at 12.08; a land from base 4 to top 16 that keeps a valley
+floor cannot), and Terraces' "fine relief 2.72" is its land in patches under 10 tiles (its fine relief is 3.91).
+
+**The start** (seeds 1–6 at 256², seed 1 at 192² and 384², Normal and Easy: 16 maps, base → head). Every start
+passes; attempts 118 → 52 (most 18 → 11); CPU 839.7 → 559.1 s; level room 400 or more on 6 → 13; reach least 5,302;
+Easy rows missed 70 → 59. Short of the bars: the start stands in the valley in the middle third on 8 of 16 (Normal 256² seeds 1
+and 2, 192², 384²; Easy 256² seeds 1, 2, 4, 384²); on Normal seeds 3–6 the pick takes a place on the floor beside a lake, whose water lasts a drought
+where the valley's river does not. More Easy rows missed than base on five maps (256² seeds 1 and 5, Easy 256² seeds
+1 and 2, Easy 192²: calm where the start stands within 8 tiles of the valley's rim, water and drought by the river);
+room under 400 on Easy 256² seeds 1 and 2 and Easy 192²; Easy 256² seed 3 takes 11 attempts; CPU over base by more than
+15 % on three maps (256² seed 1 +76 % in 4 attempts against 2, seed 6 +66 %, Easy seed 6 +54 %). Tried and dropped: a
+softer bowl rim (two to six tiles: the calm row held on Easy 1 and 2, the one-level share rose to 58–60 %); a pull of
+the start's preference into the valley (`generate.ts`, as D357's along a long map: 3 of 16 starts in the middle);
+a level bowl floor; a hollow in the bowl's field for a lake (the water's plan fills it). Holding the start in the valley
+needs water there that lasts a drought: a lake the valley's river runs through, which is the hydrology's to plan.
+
+**The promise** (`gen/outcomes.ts`). Above 128²: high share 0.35 (kept), plateaus 3 → 4, cliffs 0.1 → 0.06 × √(128 /
+side) (.0707 → .0424 at 256²). Standing up gathers the drops into a few tall walls and leaves the floor in broad
+benches, so less land stands beside a 2+ drop: .044–.063 on the planned lands of seeds 1 and 5 (13 lands) and
+.040–.066 on the built maps, against .0707; every land missed it and each map spent its screens on it. The game's own
+read .087–.110. The ask is the lowest seen, rounded down; four plateaus asks that the mesas stand (5–17 on the built
+maps). At 128² and under nothing changes.
+
+**Every other theme, and Highlands at 128² and under, is 0.10.50's byte for byte**: project and `.timber` (read back,
+the version neutralised) identical on 52 maps (Canyon, River Valley, Lake Basin, Islands, Delta at 136², 192², 256²,
+seeds 1, 2; Any seeds 1–4; Highlands 128² seeds 1, 2, 7, 96² seed 1, 64² seed 2; and the small sizes of earlier proofs).
+
+**What it leaves.** The start in the valley on every seed (a lake in the bowl); the Easy rows on five maps; regional
+relief (a bar the reference does not meet); the land beside a 4+ drop under 6 % on five seeds (6.1 on seed 5); the
+one-level share over 55 % on seed 1; the longest face 83 tiles on seed 4; plateaus over 9 on four seeds; the fine
+relief of seeds 1, 3 and 5 (4.1, 3.8, 3.7 %).

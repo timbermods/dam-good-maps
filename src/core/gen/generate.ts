@@ -56,6 +56,7 @@ import { makeField } from "../land/field";
 import { shapeLakeBasin } from "../land/lakeBasin";
 import { shapeCanyon } from "../land/canyon";
 import { shapeHighlands } from "../land/highlands";
+import { lowerValley, standsUp, standValley } from "../land/bold";
 import { BED_FLOOR, drawGenome, leanGenome, ownScaleFor, UPLANDS_BASE_PATH, type Genome } from "../land/genome";
 import { joinReach, mainWater, planBadwater, standingTheme, type Hazards } from "../land/hazards";
 import { besideCourses, blockedCourses, courseCells, inflowEdges, closeBackEdges, closeSideEdges, drownedHeads, sealedMouths } from "../land/courses";
@@ -840,6 +841,8 @@ function attemptRound(specIn: MapSpec, optsIn: GenerateOptions, t0: number, roun
       g.flowDir = orientDir(g.flowDir, o);
       // (D518: the field's contours softened and bent, so the levels' edges follow the land's warped contours)
       const E = contourField(orientField(F.E, W, H, o), W, H, seed, drawn);
+      // (uplands round 6: Highlands above 128² sinks a valley in its middle, the water's field with the levels, `bold.ts`)
+      if (standsUp(g.theme, W, H)) lowerValley(E, standValley(seed, g.variation, g.benchPhase, g.flowDir, W, H), g.flowDir, W, H);
       land = { g, E, h0: snapLevels(E, g, seed, W, H), settles: 0 };
       // (round 6: Islands' sea's lip at the map's edge, a tile or two, D151's edge rule kept)
       if (g.seaLayout && g.theme === "islands") holdSeaLip(land.h0, W, H);

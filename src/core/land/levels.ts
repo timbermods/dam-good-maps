@@ -32,7 +32,7 @@ import { landRegions } from "../analysis/regions";
 import { integrityLevel } from "../features/raster/terrain";
 import { planBands } from "./plan";
 import { addRingForms, drawRingForms, ringFormRoom } from "./rings";
-import { boldGorge, boldMesas } from "./bold";
+import { boldGorge, standMesas, standsUp, standValley, STAND } from "./bold";
 
 /** The rank of every value in [0, 1] (ties broken by index, so it is exact and stable). */
 function ranks(v: Float64Array): Float64Array {
@@ -75,6 +75,10 @@ export function snapLevels(E: Float64Array, g: Genome, seed: number, W: number, 
   // room)
   const ringRoom = ringed ? ringFormRoom(g.theme) : 0;
   const top0 = top - tilt - ringRoom;
+  // (uplands round 6: Highlands above 128² stands up, `bold.ts` `STAND`: a valley sunk in its middle, a gentle floor
+  // `STAND.floor.relief` levels deep from `STAND.floor.over` over the base, and mesas standing on it)
+  const stand = ringed && standsUp(g.theme, W, H) ? standValley(seed, g.variation, g.benchPhase, g.flowDir, W, H) : null;
+  const floorTop = stand ? g.base + STAND.floor.over + STAND.floor.relief : top0;
   const tiers = g.plan && g.plan.strength > 0 ? planBands(g.plan, g.base, top0) : null;
   const grade = grader(tiers ? { ...g.grade, calm: Math.min(g.grade.calm, PLAN_CALM), roll: g.grade.roll * (ringed && g.plan?.kind === "gorge" ? RINGS.gorgeRoll : RINGS.planRoll) } : g.grade, seed, g.variation, W, H, f);
   const level = new Float64Array(N);
@@ -87,7 +91,15 @@ export function snapLevels(E: Float64Array, g: Genome, seed: number, W: number, 
       const lin = (E[i] - lo) / span;
       let t: number;
       if (curve) t = (1 - PLAN_EQ) * (plane ? (plane.rest[i] - plane.lo) / plane.span : lin) + PLAN_EQ * curve(rkd[i]);
-      else {
+      else if (stand) {
+        // (the floor: the land's rank among the land outside the valley, leaning as the theme leans)
+        t = clamp((rk[i] - stand.share) / Math.max(1e-6, 1 - stand.share), 0, 1);
+        if (t > 0 && t < 1) t = t / (t + g.hyps.lean * (1 - t));
+        // (rising away from the valley, so the valley lies in a bowl at the map's scale)
+        t = STAND.floor.away * stand.away[i] + (1 - STAND.floor.away) * t;
+        level[i] = g.base + STAND.floor.over + t * STAND.floor.relief + g.terrace.jitter * warpedFbm(js, x, y, 14 * f, 2, 7 * f);
+        continue;
+      } else {
         t = (1 - g.hyps.eq) * lin + g.hyps.eq * rk[i];
         // the lean: t / (t + lean (1 − t)) on [0, 1], continued straight beyond it
         if (t > 0 && t < 1) t = t / (t + g.hyps.lean * (1 - t));
@@ -97,7 +109,7 @@ export function snapLevels(E: Float64Array, g: Genome, seed: number, W: number, 
   if (ringed) level.set(smoothed(level, W, H, Math.round(RINGS.smooth * (f - 1)), RINGS.passes));
   if (tiers) gatherFaces(level, W, H, tiers.bands);
   // (uplands round 4: the land's ringed forms, on the smoothed levels, `rings.ts`)
-  if (ringed) addRingForms(level, drawRingForms(g.theme, level, W, H, seed, g.variation, top0 + ringRoom, tiers ? tiers.bands[0][1] : null), W, H);
+  if (ringed) addRingForms(level, drawRingForms(g.theme, level, W, H, seed, g.variation, stand ? floorTop + ringRoom : top0 + ringRoom, tiers ? tiers.bands[0][1] : null), W, H);
   for (let i = 0; i < N; i++) {
     let L = level[i] + (plane ? tilt * plane.at[i] : 0);
     // near the top the land bends toward it instead of being cut flat there
@@ -116,7 +128,15 @@ export function snapLevels(E: Float64Array, g: Genome, seed: number, W: number, 
   // (uplands round 5, the bold family, `bold.ts`: above 128² Highlands' mesas, their walls a steep band of their
   // profile, and the field the water is planned on raised under them; Canyon's gorge two faces with a bench between,
   // and its hollows)
-  const keepRims = ringed && g.theme === "highlands" ? boldMesas(level, E, W, H, seed, g.variation, g.base, top, hi) : null;
+  // (round 6: the valley sunk under the graded floor, then the mesas, `bold.ts`)
+  if (stand)
+    for (let i = 0; i < N; i++) {
+      const v = g.base + stand.floor[i];
+      if (stand.m[i] > 0 && v < level[i]) level[i] += stand.m[i] * (v - level[i]);
+    }
+  const mesas = stand ? standMesas(level, E, W, H, seed, g.variation, stand, g.base, maxLv, hi) : null;
+  if (mesas) g.dryTops = mesas.tops;
+  const keepRims = mesas ? mesas.skip : null;
   if (ringed && tiers && g.plan?.kind === "gorge") boldGorge(level, W, H, seed, g.variation, tiers.bands[0][1], tiers.bands[1][0]);
   // (D(terrace-edges): every level's edge read through a warp, so no edge the field, the grade or the tableland's
   // outline leaves smooth over a dozen tiles runs ruler-straight; the levels' edges, not the field the water is planned

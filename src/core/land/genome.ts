@@ -324,6 +324,8 @@ export interface Genome {
    *  above the theme's own; 4 and 100 when absent). */
   lakeSpringMax?: number;
   lakeSpringMin?: number;
+  /** Tiles where no spring is drawn (uplands round 6: Highlands' mesa tops, `bold.ts` `standMesas`, kept dry). */
+  dryTops?: Uint8Array;
   /** How far the water's way wanders from the steepest descent (levels), and the size of its
    *  wanders in tiles. */
   wander: number;
