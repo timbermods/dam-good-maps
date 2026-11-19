@@ -917,7 +917,7 @@ export function drawGenome(theme: ThemeId, seed: number, W: number, H: number, a
   // (uplands round 1: above 128² the landforms stand at the map's scale, a 128²'s composition grown with the map)
   atMapScale(g.parts, W, H);
   // (uplands round 2: above 128² Highlands, Canyon and River Valley lay their land on a plan at the map's own scale, its
-  // valley, gorge or massif along the regional slope: a slope toward a bowl left Canyon 256² seed 1's trunk no way
+  // valley or gorge along the regional slope: a slope toward a bowl left Canyon 256² seed 1's trunk no way
   // along its gorge, and it left by a side, cutting its own across the tableland)
   const plan = drawPlan(theme, vt, seed, W, H, attempt, variation);
   if (plan) {
@@ -925,7 +925,6 @@ export function drawGenome(theme: ThemeId, seed: number, W: number, H: number, a
     g.tiltKind = "linear";
     // (River Valley's broad floor is the plan's: the floor the river clears beside its channel half as wide, so the
     // valley floor keeps its rolling; cleared as wide as before, 57–62% of the land stood dead flat)
-    // (a massif's floor too, uplands round 3: cleared as wide, a fifth of Highlands' land lay on its base level)
     if (plan.kind !== "gorge") g.hydro.floor *= 1 - 0.5 * Math.min(1, plan.strength);
   }
   // extra lakes: basins beyond the parts, so water spans the workshop's range (at its own scale by the root of the area:

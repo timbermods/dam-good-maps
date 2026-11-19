@@ -24,13 +24,14 @@ import { levelRegions, MinHeap, N4, N8 } from "../math/grid";
 import { stream, type Rng } from "../math/rng";
 import { pctSorted } from "./num";
 import { clamp, smoothstep } from "../math/clamp";
-import { BED_FLOOR, RISES, VT_HIGH, type Genome, type Grade } from "./genome";
+import { BED_FLOOR, RISES, VT_HIGH, formScale, type Genome, type Grade } from "./genome";
 import { windRoute } from "./wind";
 import { wanderEdges } from "./wander";
 import { edgeSpill } from "./drainage";
 import { landRegions } from "../analysis/regions";
 import { integrityLevel } from "../features/raster/terrain";
 import { planBands } from "./plan";
+import { addRingForms, drawRingForms, ringFormRoom } from "./rings";
 
 /** The rank of every value in [0, 1] (ties broken by index, so it is exact and stable). */
 function ranks(v: Float64Array): Float64Array {
@@ -58,14 +59,22 @@ export function snapLevels(E: Float64Array, g: Genome, seed: number, W: number, 
   const phase = g.benchPhase * st;
   // (uplands round 2: a land on a plan takes its hypsometry from the plan's tiers, `tieredCurve`, `gatherFaces`, and its
   // tiers roll: a tier is a band of levels the land rolls through, never a tabletop)
+  // (uplands round 4: above 128² the land is drawn in rings, `RINGS`: nothing finer than about 8 tiles goes into the
+  // snap but where a face is meant, so each level's line runs long and curved round the land's forms. A plan exists
+  // only there, `planStrength`)
+  const f = formScale(W, H);
+  const ringed = f > 1;
   // (uplands round 3: the tiers are laid on the land's regional tilt, not on equal levels across the map: the plane
-  // that fits the field best is taken out before the ranks and put back after, `PLAN_TILT` levels from its low corner
-  // to its high, so each tier rolls down the land's slope through more levels and a level is floor in one place and
-  // bench in another, while a wall stands its full height wherever it runs)
-  const tilt = g.plan && g.plan.strength > 0 ? Math.min(PLAN_TILT[g.plan.kind], (top - g.base) / 3) : 0;
-  const top0 = top - tilt;
+  // that fits the field best is taken out before the ranks and put back after, `RINGS.tilt` levels from its low corner
+  // to its high, so each tier rolls down the land's slope through more levels, while a wall stands its full height
+  // wherever it runs)
+  const tilt = g.plan && g.plan.strength > 0 ? Math.min(RINGS.tilt[g.plan.kind], (top - g.base) / 3) : 0;
+  // (uplands round 4: the land's ringed forms stand in the top `ringRoom` levels, so the land under them leaves them
+  // room)
+  const ringRoom = ringed ? ringFormRoom(g.theme) : 0;
+  const top0 = top - tilt - ringRoom;
   const tiers = g.plan && g.plan.strength > 0 ? planBands(g.plan, g.base, top0) : null;
-  const grade = grader(tiers ? { ...g.grade, calm: Math.min(g.grade.calm, PLAN_CALM), roll: g.grade.roll * PLAN_ROLL } : g.grade, seed, g.variation, W, H);
+  const grade = grader(tiers ? { ...g.grade, calm: Math.min(g.grade.calm, PLAN_CALM), roll: g.grade.roll * RINGS.planRoll } : g.grade, seed, g.variation, W, H, f);
   const level = new Float64Array(N);
   const curve = tiers ? tieredCurve(tiers, g.base, top0) : null;
   const plane = curve && tilt > 0 ? planeOf(E, W, H) : null;
@@ -81,9 +90,12 @@ export function snapLevels(E: Float64Array, g: Genome, seed: number, W: number, 
         // the lean: t / (t + lean (1 − t)) on [0, 1], continued straight beyond it
         if (t > 0 && t < 1) t = t / (t + g.hyps.lean * (1 - t));
       }
-      level[i] = g.base + t * (top0 - g.base) + g.terrace.jitter * warpedFbm(js, x, y, 14, 2, 7);
+      level[i] = g.base + t * (top0 - g.base) + g.terrace.jitter * warpedFbm(js, x, y, 14 * f, 2, 7 * f);
     }
+  if (ringed) level.set(smoothed(level, W, H, Math.round(RINGS.smooth * (f - 1)), RINGS.passes));
   if (tiers) gatherFaces(level, W, H, tiers.bands);
+  // (uplands round 4: the land's ringed forms, on the smoothed levels, `rings.ts`)
+  if (ringed) addRingForms(level, drawRingForms(g.theme, level, W, H, seed, g.variation, top0 + ringRoom, tiers ? tiers.bands[0][1] : null), W, H);
   for (let i = 0; i < N; i++) {
     let L = level[i] + (plane ? tilt * plane.at[i] : 0);
     // near the top the land bends toward it instead of being cut flat there
@@ -99,19 +111,22 @@ export function snapLevels(E: Float64Array, g: Genome, seed: number, W: number, 
       const benched = st > 1 && g.terrace.share > 0 && smoothstep((warpedFbm(ts, x, y, g.terrace.cell, 2, g.terrace.cell / 2) + 1) / 2 - (1 - g.terrace.share) + 0.5) > 0.5;
       level[i] = grade(level[i], x, y, benched ? st : 1, phase);
     }
-  // (D(terrace-edges): every level's edge read through a fine warp, so no edge the field, the grade or the tableland's
-  // outline leaves smooth over a dozen tiles runs ruler-straight; the levels' edges, not the field the water is planned on)
+  // (D(terrace-edges): every level's edge read through a warp, so no edge the field, the grade or the tableland's
+  // outline leaves smooth over a dozen tiles runs ruler-straight; the levels' edges, not the field the water is planned
+  // on. Above 128² a slow one, `RINGS`, that bends the lines without jagging them: uplands round 4)
   const ws = hash32(seed, "edge-warp", g.variation);
   // (each tile's source in the unwarped levels, so the cliffs the warp makes can be told from the land's own)
   const src = new Int32Array(N);
   const side = Math.min(W, H);
-  const reach = side <= EDGE_WARP.full ? EDGE_WARP.reach * (side / EDGE_WARP.full) : Math.min(EDGE_WARP.most, EDGE_WARP.reach * portable.sqrt(side / EDGE_WARP.full));
+  const reach = ringed ? RINGS.warpReach : EDGE_WARP.reach * (side / EDGE_WARP.full);
+  const wcell = ringed ? RINGS.warpCell : EDGE_WARP.cell;
+  const woct = ringed ? 1 : EDGE_WARP.octaves;
   for (let y = 0; y < H; y++)
     for (let x = 0; x < W; x++) {
       const d = Math.min(x, y, W - 1 - x, H - 1 - y);
-      const k = d >= EDGE_WARP.cell ? reach : (reach * d) / EDGE_WARP.cell;
-      const px = clamp(x + k * warpedFbm(ws, x, y, EDGE_WARP.cell, EDGE_WARP.octaves, 0), 0, W - 1);
-      const py = clamp(y + k * warpedFbm((ws ^ 0x5bd1e995) >>> 0, x, y, EDGE_WARP.cell, EDGE_WARP.octaves, 0), 0, H - 1);
+      const k = d >= wcell ? reach : (reach * d) / wcell;
+      const px = clamp(x + k * warpedFbm(ws, x, y, wcell, woct, 0), 0, W - 1);
+      const py = clamp(y + k * warpedFbm((ws ^ 0x5bd1e995) >>> 0, x, y, wcell, woct, 0), 0, H - 1);
       const x0 = Math.min(W - 2, Math.floor(px));
       const y0 = Math.min(H - 2, Math.floor(py));
       const fx = px - x0;
@@ -135,8 +150,9 @@ export function snapLevels(E: Float64Array, g: Genome, seed: number, W: number, 
     mergeSmallRegions(out, W, H, 4);
     cleanPitsAndSpikes(out, W, H, null);
   }
-  // (uplands round 3: a planned land's walls have ways through, a graded notch about every 40 tiles of wall)
-  if (tiers && notchWalls(out, W, H, hash32(seed, "ways", g.variation))) {
+  // (uplands round 3: a planned land's walls have ways through, a graded notch about every 40 tiles of wall; round 4:
+  // every land above 128², whose ring terraces stand behind walls too)
+  if ((tiers || ringed) && notchWalls(out, W, H, hash32(seed, "ways", g.variation))) {
     mergeSmallRegions(out, W, H, 4);
     cleanPitsAndSpikes(out, W, H, null);
   }
@@ -285,10 +301,6 @@ export function notchWalls(out: Uint8Array, W: number, H: number, seed: number):
 
 /** How much of a planned land's hypsometry is the tiered curve (the rest the field's own linear spread). */
 const PLAN_EQ = 0.85;
-/** The levels a planned land's tiers fall along its regional tilt, from the plane's low corner to its high (a massif's
- *  fewer, so its walls keep their height in the 12 levels: at 3 they stood 3 high; a gorge's none: tilted, its rim
- *  stood 8 over its bed along 38 % of the trunk on Canyon seed 1, untilted 78 %, and its levels spread no wider). */
-const PLAN_TILT = { massif: 2, valley: 3, gorge: 0 } as const;
 
 /** The plane that fits a field best (least squares over the grid, whose x and y are orthogonal about the middle), the
  *  field less it, and the plane's place at each tile on [0, 1] from its lowest corner to its highest. */
@@ -327,9 +339,6 @@ function planeOf(E: Float64Array, W: number, H: number): { rest: Float64Array; l
 }
 /** How much gentler a planned land's tiers roll on its tableland (the grade's `calm`, at most). */
 const PLAN_CALM = 0.25;
-/** How much more a planned land rolls than its theme's grade draws: its tiers' bands are narrow, and the rolling is
- *  what spreads a tier through its 3–4 levels (at the theme's own, more than half the land stood dead flat). */
-const PLAN_ROLL = 2;
 
 /** The tiered curve (uplands round 2): the rank of a tile's field among the land's to its share of the way from the
  *  base to the top, so that the plan's tiers take their bands (the floor's share of the land from the base up its
@@ -364,7 +373,7 @@ export function tieredCurve(t: { bands: [number, number][]; shares: number[]; fa
 /** The faces between a planned land's tiers gathered into walls (uplands round 2): a level between two bands, where
  *  the land climbs through the gap steeply (more than a level a tile), goes to the nearer band, so the step is one
  *  wall of the gap's levels; where it climbs gently (a ramp, a side valley's floor) it keeps its one-level steps. */
-export function gatherFaces(level: Float64Array, W: number, H: number, bands: readonly [number, number][]): void {
+export function gatherFaces(level: Float64Array, W: number, H: number, bands: readonly [number, number][], at: { from: number; over: number } = RINGS.gather): void {
   const was = level.slice();
   for (let k = 0; k + 1 < bands.length; k++) {
     const lo = bands[k][1];
@@ -378,7 +387,7 @@ export function gatherFaces(level: Float64Array, W: number, H: number, bands: re
         const gx = (was[y * W + Math.min(W - 1, x + 1)] - was[y * W + Math.max(0, x - 1)]) / 2;
         const gy = (was[Math.min(H - 1, y + 1) * W + x] - was[Math.max(0, y - 1) * W + x]) / 2;
         const slope = Math.max(Math.abs(gx), Math.abs(gy));
-        const c = smoothstep((slope - 0.9) / 0.5);
+        const c = smoothstep((slope - at.from) / at.over);
         if (c <= 0) continue;
         const to = L - lo < hi - L ? lo : hi;
         level[i] = L + c * (to - L);
@@ -463,12 +472,26 @@ export function easeWarpCliffs(out: Uint8Array, level: Float64Array, src: Int32A
   return raised;
 }
 
-/** The levels' edge warp (D(terrace-edges)): its reach and its cell, tiles, and its noise's octaves. The reach is `reach`
- *  at `full` (128²): scaled by the map's narrower side over `full` below it (small maps keep their flats whole), by the
- *  square root of that ratio above it (a 256²'s longer smooth outlines take 8.5 tiles), never over `most` (the warp folds
- *  the levels more as its reach grows: at 512² a reach of 12 doubled the one- to three-tile level islands it leaves), and
- *  tapers to nothing over a cell at the map's border. The cell stays 6 tiles at every size. */
-export const EDGE_WARP = { reach: 6, cell: 6, octaves: 2, full: 128, most: 8.5 } as const;
+/** The levels' edge warp (D(terrace-edges)) at 128² and under: its reach and its cell, tiles, and its noise's octaves.
+ *  The reach is `reach` at `full` (128²), scaled by the map's narrower side over `full` below it (small maps keep their
+ *  flats whole), and tapers to nothing over a cell at the map's border. Above 128² the warp is `RINGS`' (uplands round
+ *  4: there the fine warp, its reach grown to 8.5 tiles, put a third of the land's fine relief into the levels). */
+export const EDGE_WARP = { reach: 6, cell: 6, octaves: 2, full: 128 } as const;
+
+/** Uplands round 4, the land drawn in rings (docs/design/uplands.md): above 128² the levels' field is smoothed
+ *  `smooth` × (`formScale` − 1) tiles each way, `passes` times, before its faces are gathered, so no level's line jags
+ *  under about 8 tiles; a planned land's walls are gathered where the smoothed land climbs its gap `gather.from` levels
+ *  a tile or more (wholly from `gather.over` more), its tiers tilted `tilt` levels along the slope and rolled `planRoll`
+ *  times its theme's grade; the grade's rolling and rises stand at the map's scale (their cells × `formScale`); and the
+ *  edge warp bends the lines over `warpCell` tiles by `warpReach`, one octave, instead of jittering them. */
+export const RINGS = { smooth: 2, passes: 2, planRoll: 3, gather: { from: 0.3, over: 0.3 }, tilt: { valley: 3, gorge: 0 }, warpCell: 18, warpReach: 4 } as const;
+
+/** A field smoothed by a box `r` tiles each way, `passes` times (`softened`); itself when `r` is 0. */
+export function smoothed(f: Float64Array, W: number, H: number, r: number, passes: number): Float64Array {
+  let a = f;
+  if (r > 0) for (let k = 0; k < passes; k++) a = softened(a, W, H, r);
+  return a;
+}
 
 /** The contour field's numbers (D518): its softening, tiles each way, and its warp's reach and cell, tiles. */
 export const CONTOUR = { soften: 1, warp: 5, cell: 20 } as const;
@@ -512,7 +535,8 @@ export function softened(f: ArrayLike<number>, W: number, H: number, r: number):
  *  tiles). The returned function takes a level `L` at a tile and the benches it stands on (`st` levels apart
  *  from `phase`; `st` 1 for none) and gives the graded level, unrounded. The same seed and variation give the
  *  same land, at every size (D518; a premise's relief over 128² too since D(plates-turned)). */
-export function grader(gr: Grade, seed: number, variation: number, W: number, H: number): (L: number, x: number, y: number, st: number, phase: number) => number {
+export function grader(gr: Grade, seed: number, variation: number, W: number, H: number, scale = 1): (L: number, x: number, y: number, st: number, phase: number) => number {
+
   const gs = hash32(seed, "grade", variation);
   // (the benches' levels drift over a third of the map; the land's character, tableland or rolling ground,
   // changes over a quarter of it, the share above `table` tableland)
@@ -525,10 +549,10 @@ export function grader(gr: Grade, seed: number, variation: number, W: number, H:
     // the rolling ground: swells and hollows of a level or two between the features (gentler on the
     // tableland's tops, which keep broad level ground); the turned noise's two octaves weighed as the lattice's first
     // two were (1 and 1/2 over 1.75), so the swells stand no higher and the flats between them keep their size
-    if (gr.roll > 0) L += gr.roll * (1 - gr.calm * mesa) * (1.5 / 1.75) * warpedFbm(gs + 3, x, y, gr.rollCell, 2, 0.5 * gr.rollCell);
+    if (gr.roll > 0) L += gr.roll * (1 - gr.calm * mesa) * (1.5 / 1.75) * warpedFbm(gs + 3, x, y, gr.rollCell * scale, 2, 0.5 * gr.rollCell * scale);
     // the rises: hills over the land round them, a level a ring, gentler on the tableland's tops (D518)
     if (gr.roll > 0 && gr.rise > 0) {
-      const n = warpedFbm(gs + 5, x, y, RISES.cell, 2, RISES.cell / 2);
+      const n = warpedFbm(gs + 5, x, y, RISES.cell * scale, 2, (RISES.cell * scale) / 2);
       if (n > RISES.from) L += (gr.roll * gr.rise * (1 - 0.5 * gr.calm * mesa) * (n - RISES.from)) / RISES.span;
     }
     return L;

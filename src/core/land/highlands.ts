@@ -38,13 +38,16 @@ export function shapeHighlands(g: Genome, W: number, H: number): void {
   const s = 1 - k;
   if (s <= 0) return;
   const side = Math.min(W, H);
-  // (uplands round 1: from 256² up, where the landforms stand at the map's scale (`atMapScale`), benches five apart and
-  // tops that roll: the massif's tablelands stacked, each wall five levels, docs/design/uplands.md. At three apart the
-  // drop spread over the map as a mottle of three-level nicks; with the tops as level as the tableland's own (calm 1) the
-  // broad tableland stood dead flat, 70% of the land)
-  const massif = formScale(W, H) >= 2;
-  if (s >= 0.5) g.terrace.step = Math.max(g.terrace.step, massif ? 5 : side > 128 ? 3 : 4);
-  if (massif) g.grade.calm = Math.min(g.grade.calm, 0.5);
+  // (uplands round 4: from 256² up, where the landforms stand at the map's scale (`atMapScale`), Highlands is stacked
+  // ring terraces: benches two apart, so its rings and its ringed forms' (`rings.ts`) stand behind two-level walls, as
+  // half the steps of the game's Terraces, Nomads and Oasis do (its promise's plateaus and cliffs: with one-level rings
+  // 88–90% of its steps were one level and no map kept the promise). Five apart quantized the forms into five-level
+  // cliffs and left 72% of the land dead flat. Its tops roll, half again its grade's: as level as the tableland's own
+  // (calm 1), the broad tableland stood dead flat, 70% of the land, docs/design/uplands.md)
+  const ringed = formScale(W, H) >= 2;
+  if (s >= 0.5) g.terrace.step = ringed ? 2 : Math.max(g.terrace.step, side > 128 ? 3 : 4);
+  if (ringed) g.grade.calm = Math.min(g.grade.calm, 0.5);
+  if (ringed) g.grade.roll *= 1.5;
   g.terrace.share = Math.max(g.terrace.share, 0.8 * s);
   g.hyps.lean = Math.min(g.hyps.lean, 1 - 0.35 * s);
   // (the lowest bench no lower than 4: a base drawn under it left the valley floor at 3, on the beds'

@@ -236,3 +236,84 @@ Generator still 0.10.48, nothing re-pinned; numbers and sheets in `C:/dgm-showca
   valley into banks, and the walls lengthen the walk. Highlands 1's wood falls to 236 on its dry floor.
 - **Verticality** (land-only, 8 seeds): from 10 to 90 the land beside a 4+ drop moves only 1.65 → 1.83 % (Canyon) and
   1.88 → 2.10 % (Highlands); the relief moves 8.7 → 10.2 and 8.1 → 9.6. The cliff share falls (9.6 → 6.6, 11.3 → 9.8).
+
+## Round 3 verdict, the reference, and round 4 (planning, 2026-11-19)
+
+**Round 3 did not improve on round 2,** and three rounds of trading one bar against another showed the bars themselves
+were in doubt. So planning took ground truth: the game's 19 bundled maps, drawn by our renderer from our own review
+cameras and measured with our measures (kept on the build machine only; never in the repository).
+
+**What the reference shows.**
+- Two of this design's bars were wrong. From the whole-map camera most bundled 256² maps are level-topped slabs too:
+  **a skyline is not what makes a map read.** And their dead-flat share is ours (52 %), as are their one-level steps
+  and their 2+ cliff share: **"under half dead flat" pushed the land toward more mottle.** Both bars are withdrawn.
+- What separates them is how the steps are drawn. **Their land is long, smooth, nested contour rings round forms 30–80
+  tiles across that can each be named:** a knoll in four rings, a terraced bowl, a ring mesa, a spiral mountain, with
+  calm flats between. Ours holds the same amount of step in short jagged pieces.
+- In numbers, the measure that separates is **fine relief** (the share of the land's height variance that lives under
+  a 5×5 and a 9×9 box): bundled medians 2.5 % and 5.3 %, ours 5.1 % and 9.2 % at the base, 3.3 % and 6.1 % after round
+  3. Round 3 also raised the step edge per 100 land tiles from 27 to 36 (bundled 28) and doubled the land in patches
+  under 40 tiles. Corner counts separate nothing.
+- They use the whole height: the lowest level is 0 (ours 3.5), relief p5–p95 12 (ours 10), regional relief 9.3 (ours
+  7.3), the commonest level 15.5 % of land (ours 19.3). They are mostly dry, green only by the water.
+
+**Round 4: the land is drawn in rings.**
+1. **Nothing fine goes into the snap.** The field that is snapped to levels carries no height under about 8 tiles
+   except where a face is meant: the noise's fine octaves, the grade's roll at its present cell, and any warp that
+   jitters a level's edge are cut, coarsened or smoothed until the level lines run long and curved. Specks go.
+2. **Forms make the rings.** The genome's knolls, cones, bowls, calderas, mesas, benches and spirals stand 30–80 tiles
+   across with a smooth profile 3–6 levels tall, so the snap draws each as 3–6 nested rings; each stands clear of the
+   next with calm ground between. Round 1's scaling above 128² already puts them at that size: keep it.
+3. **The floor comes down.** The land uses the levels under the present base where the water's beds allow it.
+4. **Kept from rounds 2 and 3:** River Valley's valley sides, Canyon's gorge that drains, a way through every long
+   wall. **Dropped:** the massif as Highlands' promise (Highlands is stacked ring terraces and big ringed hills, as the
+   reference's Terraces, Pressure and Mountain Range are), the tiered hypsometry wherever it fragments the levels, the
+   dead-flat and skyline bars.
+
+**Bars for round 4's sheet** (the same six maps, medians unless said):
+- Fine relief at most 3.0 % (5×5) and 6.0 % (9×9); step edge 24–30 per 100 land tiles; land in patches under 40 tiles
+  at most 10 %.
+- Regional relief at least 8.5; the commonest level at most 17 % of the land; dead flat between 45 and 60 %.
+- Starts first, as before: no start fails, reach not under the base's on any of the six, a fall named with its cause.
+  Seconds not more than 10 % over the base.
+- The eye: on one sheet beside the reference's frames, ours are not picked out as the generated ones by their
+  texture, and each of ours has at least three forms a player could name.
+
+### Round 4 findings (2026-11-19)
+
+**Where the fine height came from.** Measured stage by stage on Highlands 256² seed 1 (fine relief 5×5 / 9×9 %): the
+contour field was clean (0.53 / 1.20) and the snap's hypsometry kept it so (0.98 / 2.19). The grade's roll at its
+128²-sized cell (5.8 levels over 20 tiles) brought it to 1.83 / 3.69, and the edge warp, grown to 8.5 tiles over a
+6-tile cell, to 2.98 / 5.70 with the step edge from 33 to 48 per 100 land tiles and the land in patches under 40 tiles
+from 8 % to 20 %: the warp was a third of the land's fine relief and most of its specks. The water's stage added the
+rest (4.87 / 8.37 built).
+
+**What round 4 does, above 128² only** (128² and under are byte for byte round 3's):
+- `levels.ts` `RINGS`: the levels' field is smoothed at the map's scale before its faces are gathered; the grade's
+  roll and rises stand at the map's scale (their cells × `formScale`); a planned land's walls are gathered on the
+  smoothed land, its tiers tilted 3 levels (a valley's) and rolled 3 times its theme's grade; the edge warp is a slow
+  one (4 tiles over an 18-tile cell, one octave) that bends the lines without jagging them; every land's long walls
+  get their ways through (`notchWalls`), not only a planned land's.
+- `rings.ts` (new): the named forms, hills, ring mesas, stepped hills and terraced hills 30–80 tiles across and 3.5–6
+  levels tall, 4–5 a 128² on these three themes (1–2 on Lake Basin and Any), clear of each other, standing in the top levels the land leaves them.
+- Highlands: benches two apart, so its ring terraces stand behind two-level walls (with one-level rings 88–90 % of its
+  steps were one level, against about half on the game's Terraces, Nomads and Oasis, and its promise's cliffs and
+  plateaus never held); its tops roll half again as much.
+- Removed from rounds 2–3: the massif (Highlands' plan, its bench and top, `PLAN_TILT.massif`), `PLAN_TILT`,
+  `PLAN_ROLL`, the fine gather (`GATHER`), the edge warp's square-root growth above 128² (`EDGE_WARP.most`).
+
+**The six (256², Normal, defaults; medians, base → round 4; bundled 256² medians):** fine relief 5.05 → 2.74 %
+(2.11) and 9.23 → 4.94 % (4.26); step edge 27.0 → 24.2 (27.0); land in patches under 40 tiles 9.8 → 6.8 % (8.2);
+regional relief 7.26 → 7.98 (9.2), short of 8.5; commonest level 19.3 → 16.6 % (14.0); dead flat 52.2 → 56.7 %
+(52.4). Straight runs stay under the bundled maps' (longest 17, theirs 15–27). Every start passes; reach falls under
+the base's on Highlands 1 (12,631 → 8,071), Highlands 2 (5,577 → 3,157) and River Valley 2 (18,093 → 4,571): the
+ringed land's flats are terraces of 1,000–2,000 tiles where the base's starts stood on flats of 3,000–5,500, joined
+by slopes only near the start (§7.5), and River Valley 2's start stands on a valley side's tier, not the floor.
+Highlands still takes six attempts: its promise misses (seed 1 a plateau short, seed 2 the "high" share, as the
+base's did; the bundled Terraces, Pressure and Mountain Range miss it too). The six generate 9 % faster than the base.
+
+**What it leaves.** Regional relief: the land is still spread over too few levels at the map's scale (the floor
+cannot come down: the land stands a level over the beds' floor, item 47, at 4). Reach on three of the six. Lake
+Basin, Islands, Delta and Any above 128² move too (the smoothing, the slow warp, the map-scale grade, and forms on
+Lake Basin and Any): on seed 1 Islands' and Delta's fine relief fall (9.8 → 5.3 %, 5.0 → 3.2 %), Lake Basin's rises
+(6.0 → 7.4 %).
