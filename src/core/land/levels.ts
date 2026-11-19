@@ -24,7 +24,7 @@ import { levelRegions, MinHeap, N4, N8 } from "../math/grid";
 import { stream, type Rng } from "../math/rng";
 import { pctSorted } from "./num";
 import { clamp, smoothstep } from "../math/clamp";
-import { BED_FLOOR, RISES, VT_HIGH, formScale, type Genome, type Grade } from "./genome";
+import { BED_FLOOR, RISES, VT_HIGH, UPLANDS_BASE_PATH, formScale, type Genome, type Grade } from "./genome";
 import { windRoute } from "./wind";
 import { wanderEdges } from "./wander";
 import { edgeSpill } from "./drainage";
@@ -62,7 +62,8 @@ export function snapLevels(E: Float64Array, g: Genome, seed: number, W: number, 
   // (uplands round 4: above 128² the land is drawn in rings, `RINGS`: nothing finer than about 8 tiles goes into the
   // snap but where a face is meant, so each level's line runs long and curved round the land's forms. A plan exists
   // only there, `planStrength`)
-  const f = formScale(W, H);
+  // (uplands round 5: Lake Basin and Islands keep the land of 0.10.48, `UPLANDS_BASE_PATH`)
+  const f = UPLANDS_BASE_PATH.has(g.theme) ? 1 : formScale(W, H);
   const ringed = f > 1;
   // (uplands round 3: the tiers are laid on the land's regional tilt, not on equal levels across the map: the plane
   // that fits the field best is taken out before the ranks and put back after, `RINGS.tilt` levels from its low corner
@@ -118,7 +119,7 @@ export function snapLevels(E: Float64Array, g: Genome, seed: number, W: number, 
   // (each tile's source in the unwarped levels, so the cliffs the warp makes can be told from the land's own)
   const src = new Int32Array(N);
   const side = Math.min(W, H);
-  const reach = ringed ? RINGS.warpReach : EDGE_WARP.reach * (side / EDGE_WARP.full);
+  const reach = ringed ? RINGS.warpReach : side <= EDGE_WARP.full ? EDGE_WARP.reach * (side / EDGE_WARP.full) : Math.min(EDGE_WARP.most, EDGE_WARP.reach * portable.sqrt(side / EDGE_WARP.full));
   const wcell = ringed ? RINGS.warpCell : EDGE_WARP.cell;
   const woct = ringed ? 1 : EDGE_WARP.octaves;
   for (let y = 0; y < H; y++)
@@ -475,8 +476,10 @@ export function easeWarpCliffs(out: Uint8Array, level: Float64Array, src: Int32A
 /** The levels' edge warp (D(terrace-edges)) at 128² and under: its reach and its cell, tiles, and its noise's octaves.
  *  The reach is `reach` at `full` (128²), scaled by the map's narrower side over `full` below it (small maps keep their
  *  flats whole), and tapers to nothing over a cell at the map's border. Above 128² the warp is `RINGS`' (uplands round
- *  4: there the fine warp, its reach grown to 8.5 tiles, put a third of the land's fine relief into the levels). */
-export const EDGE_WARP = { reach: 6, cell: 6, octaves: 2, full: 128 } as const;
+ *  4: there the fine warp, its reach grown to 8.5 tiles, put a third of the land's fine relief into the levels). On the
+ *  land that stays 0.10.48's above 128² (`genome.ts` `UPLANDS_BASE_PATH`, round 5) the reach is 0.10.48's: grown by the
+ *  square root of the side's ratio, never over `most`. */
+export const EDGE_WARP = { reach: 6, cell: 6, octaves: 2, full: 128, most: 8.5 } as const;
 
 /** Uplands round 4, the land drawn in rings (docs/design/uplands.md): above 128² the levels' field is smoothed
  *  `smooth` × (`formScale` − 1) tiles each way, `passes` times, before its faces are gathered, so no level's line jags

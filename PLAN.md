@@ -482,7 +482,8 @@ Beavers cannot cross a 1-level step; stairs cost 70 science, and 2+ level cliffs
 3. Beyond 40 tiles, add one slope per region of 400+ tiles toward its lowest neighbour (the next lowest when no slope
    fits there), nearest the start first.
    Above 128² (uplands round 5, `slopes.ts` `RING_SLOPES`), where the land is drawn in rings of many terraces one
-   level apart: the 40 tiles grow with the map's narrower side over 128 (80 at 256²); a tree edge gets one slope per
+   level apart (the generator marks it, the field's `ringSlopes`, kept in the project; not on Lake Basin, Islands or a
+   premise's land): the 40 tiles grow with the map's narrower side over 128 (80 at 256²); a tree edge gets one slope per
    70 pairs of its boundary (up to 4), spread along it; a tree edge the 12-tile spacing would leave without one gets
    its nearest pair at least 6 tiles from the others; and before step 3, every 400+ region beside the joined ground is
    joined to it, outward from the start. Every slope still stands on a one-level step.

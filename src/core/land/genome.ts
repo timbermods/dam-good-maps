@@ -654,6 +654,12 @@ export function randomPart(rng: Rng, kind: PartKind, W: number, H: number, vy: n
  *  gorge), knolls and an island's parts keep their sizes in tiles. */
 const MAP_SCALE_KINDS = new Set<PartKind>(["ridge", "mesa", "plateau", "escarpment", "cone", "caldera", "mesaField", "spiral"]);
 
+/** The themes whose land above 128² stays as generator 0.10.48 drew it (uplands round 5, B): Lake Basin and Islands draw
+ *  few of the forms the uplands rounds grew, and on them the rounds' map-scale forms, smoothing and slow warp left the
+ *  land rougher in the small (Lake Basin seed 1's fine relief 6.4 -> 7.4 %, its runs of 12+ 3 -> 5) or straighter
+ *  (Islands seed 2's runs of 12+ 3 -> 10), and their starts no better. Their promised forms need their own shaping. */
+export const UPLANDS_BASE_PATH: ReadonlySet<ThemeId> = new Set<ThemeId>(["lakeBasin", "islands"]);
+
 /** How much larger than a 128²'s a map's landforms stand (uplands round 1): its narrower side over 128, never under 1. */
 export function formScale(W: number, H: number): number {
   return Math.max(1, Math.min(W, H) / 128);
@@ -915,7 +921,7 @@ export function drawGenome(theme: ThemeId, seed: number, W: number, H: number, a
   }
   for (let k = 0; k < n; k++) g.parts.push(randomPart(rng, pickPart(rng, p.parts, vy), W, H, vy, tallK));
   // (uplands round 1: above 128² the landforms stand at the map's scale, a 128²'s composition grown with the map)
-  atMapScale(g.parts, W, H);
+  if (!UPLANDS_BASE_PATH.has(theme)) atMapScale(g.parts, W, H);
   // (uplands round 2: above 128² Highlands, Canyon and River Valley lay their land on a plan at the map's own scale, its
   // valley or gorge along the regional slope: a slope toward a bowl left Canyon 256² seed 1's trunk no way
   // along its gorge, and it left by a side, cutting its own across the tableland)

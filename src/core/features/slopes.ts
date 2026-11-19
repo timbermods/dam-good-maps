@@ -16,7 +16,8 @@
 //      edges (its steps are "joined by slopes", PLAN §19.2) and, on an edited import, the ground the
 //      edits changed.
 // 4.   Beyond that, every region of 400+ tiles gets one slope toward its lowest neighbour.
-// Above 128² (uplands round 5, `RING_SLOPES`) the land is drawn in rings of many terraces one level apart: the core
+// Above 128² (uplands round 5, `RING_SLOPES`, `SlopeRules.ringed`: the generator's ringed land, not Lake Basin's,
+// Islands' or a premise's) the land is drawn in rings of many terraces one level apart: the core
 // grows with the map, a long step of the tree gets a slope per 70 tiles spread along it, a step the spacing rule
 // leaves bare still gets one, and every 400+ region beside the joined ground is joined to it before rule 4.
 // Slopes that already stand (a set piece's own stairs, an import's own slopes) join their regions
@@ -53,6 +54,9 @@ export interface SlopeRules {
   /** A brush's walkable ground (D204's ramped rim, a walkable smooth): its steps are joined by
    *  slopes wherever it is, not only where the start's ground reaches it. */
   walkTargets?: Uint8Array | null;
+  /** Ringed land above 128² (uplands round 5): the ringed land's rules (`RING_SLOPES`); the generator sets it
+   *  for the themes drawn in rings, never for Lake Basin, Islands or a premise's land. */
+  ringed?: boolean;
 }
 
 /** Nothing stands within this Chebyshev distance of the start's centre, slopes included (PLAN §7.7);
@@ -225,7 +229,7 @@ export function placeSlopes(h: Uint8Array, W: number, H: number, start: { x: num
   const toWater = rules.water && rules.water.some((v) => v === 1) ? stepsFrom(rules.water, W, H) : null;
   // above 128², the ringed land's rules (`RING_SLOPES`)
   const scale = Math.min(W, H) / 128;
-  const ringed = scale > 1;
+  const ringed = !!rules.ringed && scale > 1;
   const core = ringed ? Math.round(rules.core * scale) : rules.core;
   const tryPlace = (cand: [number, number, number][], extra: boolean, towardWater = false): number => {
     if (ringed) return tryPlaceRing(cand, towardWater);
