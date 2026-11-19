@@ -55,6 +55,8 @@ pub struct Stack {
     wet: Vec<usize>,
     prev_wet: Vec<usize>,
     active: Vec<usize>,
+    /// The wet columns `active` was built from: while they stay the same, so does it.
+    active_wet: Vec<usize>,
     source_cols: Vec<usize>,
     seep_on: Vec<bool>,
     /// Per edge, worked out once from the geometry: 1 when the flow rules let water take it
@@ -233,6 +235,7 @@ impl Stack {
             wet: Vec::new(),
             prev_wet: Vec::new(),
             active: Vec::new(),
+            active_wet: vec![usize::MAX],
             source_cols,
             seep_on,
             edge_rule: Vec::new(),
@@ -725,7 +728,10 @@ impl Stack {
                 self.f[self.start[c] as usize..self.start[c + 1] as usize].fill(0.0);
             }
         }
-        self.build_active();
+        if self.wet != self.active_wet {
+            self.build_active();
+            self.active_wet.clone_from(&self.wet);
+        }
         for &c in &self.wet {
             self.wet_ever[c] = 1;
         }
