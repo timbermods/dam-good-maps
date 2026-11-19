@@ -317,3 +317,69 @@ cannot come down: the land stands a level over the beds' floor, item 47, at 4). 
 Basin, Islands, Delta and Any above 128² move too (the smoothing, the slow warp, the map-scale grade, and forms on
 Lake Basin and Any): on seed 1 Islands' and Delta's fine relief fall (9.8 → 5.3 %, 5.0 → 3.2 %), Lake Basin's rises
 (6.0 → 7.4 %).
+
+## Round 4 verdict and round 5 (planning, 2026-11-19)
+
+**Verdict.** Round 4 is the first round that changes the land's class, and it is kept whole. On the shuffled
+sheet of six of ours and six bundled maps I could no longer pick ours by texture: I took Canyon 2 for a bundled
+map and could not place Pressure or Plains. The mottle is gone, the steps run long, six of the seven bars pass.
+Three things still fall short.
+
+1. **Starts.** Reach fell on three of the six (Highlands 1 12,631 → 8,071, Highlands 2 5,577 → 3,157, River
+   Valley 2 18,093 → 4,571). Reach is the walk over level ground and the generator's own slopes, so a land of
+   many 1,000 to 2,000 tile terraces needs more slopes than a land of few large flats, and the slope rules
+   (`src/core/features/slopes.ts`, `SLOPE_RULES`, called from `src/core/gen/settler.ts`) were sized for the old
+   land. Level room is under 400 on five of six (as base).
+2. **Every map of ours is now the gentle kind.** The bundled maps come in two families, and the pictures and
+   the numbers agree on which is which:
+
+   | family | maps | one-level share of steps | land beside a 4+ drop | longest 3+ face (drop) |
+   |---|---|---|---|---|
+   | bold | Terraces, Oasis, Hollows, Canyon, Pressure | 44–62 % | 4.3–9.2 % | 61–103 tiles (5; Hollows 9), Canyon 128² 29 (5) |
+   | gentle | Plains, Lakes, Meander, Helix Mountain, Mountain Range | 72–86 % | 0.7–2.7 % | 18–50 tiles (4–5) |
+
+   What the bold family has and round 4 has not is **bunching**: in places the rings close up into a wall 4 to 6
+   levels tall within one to three tiles, round a form with a name (Terraces' mesas, Hollows' ringed hollows with
+   green floors, Canyon's gorge whose sides are two tall faces with a bench between), and between the walls the
+   ground is as calm as on the gentle maps. Round 4's rings are evenly spaced and one level tall everywhere, so
+   Highlands 2 and Canyon 1 read as plains. River Valley is rightly gentle; Highlands and Canyon are not.
+   The bold bundled maps also carry more fine relief (Terraces 3.9, Pressure 3.9, Hollows 6.7 %), because a tall
+   wall counts as fine height: the 3.0 % bar was right for the gentle family only.
+3. **Lake Basin got rougher** (fine relief 6.0 → 7.4 %, runs of 12+ from 2 to 5, reach 13,232 → 9,340), and
+   Islands and Delta moved without being judged.
+
+**Round 5, in this order, each part its own commit so that a part that fails can be left out.**
+
+**A. The start's ways out.** Do not touch the start's pick (another session is changing it). Take ground truth
+first: run the same reach measure on the ten bundled 256² maps from their own starting location and write down
+reach as tiles and as a share of land, beside ours at base and at round 4. Then make the slopes fit a ringed
+land above 128² (the terraces round the start joined to their neighbours, the count and spacing scaled to the
+length of ring, never a slope on a wall of 2+). Bar: reach on each of the six at or over base, and, if the
+bundled maps give more than base does, at least the bundled median's share of land; no start fails; seconds as
+before.
+
+**B. Lake Basin, Islands, Delta.** None of the three may be worse than base 0.10.48 at 256² seeds 1 and 2 on
+fine relief, runs of 12+, reach or the start's rows. Find why Lake Basin's fine relief rose; fix it, or leave
+that theme on its base path above 128² and say so.
+
+**C. The bold family for Highlands and Canyon.** Target pictures: `Terraces-low.jpg`, `Hollows-low.jpg`,
+`Canyon-low.jpg`, `Oasis-low.jpg` in `C:/dgm-showcase/ref/official/`. What is built: the rings **bunch**.
+- Highlands: two to four mesas or plateaus 40 to 80 tiles across, each with a wall 4 to 6 levels tall round
+  most of its rim and one or two graded ways up, standing on the ring terraces round 4 made; the tops level
+  enough to build on.
+- Canyon: the gorge 6 or more deep where it is deepest, its sides two tall faces (3 and 3, or 4 and 2) with a
+  bench between wide enough to build on; one or two hollows (a ring wall 3 to 5 tall round a floor that takes
+  water or green) off the gorge.
+- River Valley stays as it is.
+- Walls come from the smooth field (a steep band in a form's profile before the snap), never from noise, so
+  the wall's line is as smooth as the rings; the ways through every long wall stay.
+
+Bars for Highlands and Canyon (each of the four maps): one-level share of steps 45–65 %; land beside a 4+
+drop 4–9 %; a longest 3+ face of 60 tiles or more at a median drop of 4 or more, round a form; fine relief
+5×5 at most 4.5 % and 9×9 at most 8.5 %; land in patches under 40 tiles at most 12 %; step edge 21–30 per 100
+land. For all six: regional relief median 8.5 or more; commonest level at most 17 % at the median; dead flat
+45–61 %; reach as in A; Highlands' own promise (high share, plateaus, cliffs) met in at most three attempts on
+both seeds. River Valley's two maps keep round 4's bars.
+
+**The eye.** The same shuffled sheet, with Highlands and Canyon beside the bold bundled maps: each of the four
+has a wall I can see from the low camera and a form I can name, and none is picked out by texture.
