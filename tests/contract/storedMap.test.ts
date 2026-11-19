@@ -9,7 +9,6 @@ import { describe, expect, it } from "vitest";
 import { decodeProject, encodeProject, type MapDocument } from "../../src/core/doc/document";
 import { MapSession } from "../../src/core/doc/session";
 import { fromBase64, toBase64 } from "../../src/core/format/base64";
-import { footprintTiles } from "../../src/core/format/footprints";
 import { tilesToRuns } from "../../src/core/math/grid";
 import * as ed from "../../src/worker/session";
 import { guid, map, session, sha, timber } from "./gateHelpers";
@@ -30,17 +29,12 @@ function edited(): { s: MapSession; exports: string[] } {
   // the export's checks refuse; the first such spot from the map's corner, since generator 0.10.7, D502, D148; west of
   // the lowered box's column, x 40, since generator 0.10.11, the D410 round, D148: the map's west half has none west of 36;
   // anywhere clear of the lowered box since generator 0.10.16's ground with grade, D148: its graded land has none west
-  // of 40, the first now at 40,4, well north of the lowered box; an object's whole footprint kept 3 tiles off, not only
-  // its corner, since generator 0.10.48, D(pick-start), D148: the first spot, 38,4, stood a tile from the east edge of a
-  // mine site whose corner is at 34,4)
+  // of 40, the first now at 40,4, well north of the lowered box)
   let at: [number, number] | null = null;
-  const within = (tx: number, ty: number, x: number, y: number) => tx >= x - 3 && tx <= x + 9 && ty >= y - 3 && ty <= y + 8;
   for (let y = 4; y + 5 < W - 4 && !at; y += 2)
     for (let x = 4; x + 6 < W - 4 && !at; x += 2) {
       if (x <= 46 && x + 5 >= 40 && y <= 45 && y + 4 >= 40) continue; // (not on the lowered box)
-      const near = s.built.entities.some(
-        (e) => within(e.x, e.y, x, y) || footprintTiles(e.template, { template: e.template, x: e.x, y: e.y, z: 0, orientation: e.orientation ?? "Cw0", flipped: false }).some(([tx, ty]) => within(tx, ty, x, y)),
-      );
+      const near = s.built.entities.some((e) => e.x >= x - 3 && e.x <= x + 9 && e.y >= y - 3 && e.y <= y + 8);
       let wet = false;
       for (let yy = y; yy < y + 5 && !wet; yy++) for (let xx = x; xx < x + 6 && !wet; xx++) if (s.built.water[yy * W + xx] > 0) wet = true;
       if (!near && !wet) at = [x, y];

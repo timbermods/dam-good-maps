@@ -120,9 +120,7 @@ describe("the water-changed signal for the hover readout (D347, D387 (1))", () =
     // 9 tiles clear of the water now; of seeds 5–12, seeds 5, 7, 8, 9, 11 and 12 pass and seed 10 has a thorn on its spot, seed 5 the first)
     // seed 5 → 6 at generator 0.10.47, D(terrace-edges), D148: seed 5's new land has no dry spot 9 tiles clear of the water; of
     // seeds 5–12, seed 8's drought Day 0 reads the water 0.1 shallower than the settled water at the spot, and seeds 6, 7 and 9–12 pass, seed 6 the first)
-    // seed 6 → 7 at generator 0.10.48, D(pick-start), D148: the start is picked for its bench and wood too, and on seed 6's map the
-    // water after the undo reads 0.1 shallower than the settled water at the spot, as seed 8's did; seed 7, the next, passes)
-    await runGenerate(makeSpec({ seed: 7, theme: "riverValley", size: { x: W, y: W } }));
+    await runGenerate(makeSpec({ seed: 6, theme: "riverValley", size: { x: W, y: W } }));
     ed.setAutoWater(false);
     const m = new Mirror();
     m.open(ed.refine().view);

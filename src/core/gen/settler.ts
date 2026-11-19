@@ -467,7 +467,7 @@ export function pickStart(
     const y1 = Math.min(H - 1, y + r);
     return t[(y1 + 1) * (W + 1) + x1 + 1] - t[y0 * (W + 1) + x1 + 1] - t[(y1 + 1) * (W + 1) + x0] + t[y0 * (W + 1) + x0];
   };
-    // what a place is worth to a settlement (D(pick-start)): its bench and the moist ground its wood will grow on
+  // what a place is worth to a settlement (D(pick-start)): its bench and the moist ground its wood will grow on
   const worthWant = startTargets(waterRule, opts.benchMin ? { bench: opts.benchMin } : {});
   const worthAt = (i: number, moist: number): number => startWorth(benchAt(benches, i), moist, worthWant, benchWant < 100);
   const worthRef = START_WEIGHTS.bench + START_WEIGHTS.wood;

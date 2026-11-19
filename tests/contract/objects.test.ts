@@ -113,7 +113,9 @@ describe("generated maps: every new object passes the placement emulation (ROADM
   // and it leaves the thorn belt out; of Islands seeds 1–14, 1, 3–5, 8, 10, 12 and 14 place it and every other kind)
   // (Islands seed 8 → 9 at 0.10.48, D(terrace-edges)' warp making no cliff, D148: Islands 8's land moved and it leaves the
   // thorn belt out; of Islands seeds 1–14, 2, 4, 5, 9 and 12–14 place it and every other kind)
-  const everyObject = (theme: ThemeId, seed = theme === "islands" ? 9 : theme === "canyon" ? 1 : theme === "highlands" ? 4 : theme === "delta" ? 2 : 3, thorns = true) => {
+  // (Islands seed 9 → 4 at 0.10.49, D(pick-start), D148: the start is picked for its bench and wood too, so Islands 9's map moved
+  // and its map leaves the thorn belt out; of Islands seeds 1–16, 4, 5 and 12–15 place it and every other kind)
+  const everyObject = (theme: ThemeId, seed = theme === "islands" ? 4 : theme === "canyon" ? 1 : theme === "highlands" ? 4 : theme === "delta" ? 2 : 3, thorns = true) => {
     const spec = makeSpec({ seed, size: { x: 96, y: 96 }, theme });
     spec.settings.hazards.thornBelts = "some";
     spec.settings.hazards.unstableCores = "on";
@@ -267,8 +269,11 @@ describe("the generator's M7 set pieces keep their rules (ROADMAP M7)", () => {
     // keeps every rule;
     // canyon 1 → 2 and river valley 1 → 7 at 0.10.48 (D(terrace-edges)' warp making no cliff), D148: the land moved and neither
     // holds a rise now; of Canyon seeds 1–20, 2, 6, 7, 9, 11 and 14, and of River Valley seeds 1–20, 4, 7, 17 and 18 hold one
-    // that keeps every rule)
-    for (const [theme, seed] of [["canyon", 2], ["canyon", 11], ["riverValley", 4], ["riverValley", 7]] as [ThemeId, number][]) {
+    // that keeps every rule;
+    // river valley 7 → 17 at 0.10.49 (D(pick-start), the start picked for its bench and wood too), D148: River Valley 7's start
+    // moved and its map holds no rise now; of Canyon seeds 1–20, 2, 6, 7, 9, 11 and 14, and of River Valley seeds 1–20, 4 and
+    // 17–20 hold one that keeps every rule)
+    for (const [theme, seed] of [["canyon", 2], ["canyon", 11], ["riverValley", 4], ["riverValley", 17]] as [ThemeId, number][]) {
       const r = generate(makeSpec({ seed, size: { x: 128, y: 128 }, theme }));
       const f = r.features.find((g) => g.kind === "setPiece" && g.params.kind === "obstaclePayoff");
       if (!f || f.kind !== "setPiece") continue;

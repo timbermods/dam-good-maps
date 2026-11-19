@@ -68,8 +68,6 @@ const LIST: Entry[] = [
   ["highlands", 96, 21, "v0.10.29"],
   // generator 0.10.29's land (written from dev at 66475440), where draftWaterQuiet's Lake Basin seed 1 lake still fills at the cap
   ["lakeBasin", 96, 1, "v0.10.29"],
-  // generator 0.10.47's land (written from 5111aadd), where forcePower's Craterize seed 5 is gentle; D(pick-start) moved its start and land
-  ["riverValley", 128, 5, "v0.10.47"],
   // forcePlaybackTransport: every force starts on ground no 3D form holds up
   ["highlands", 48, 4242, "noforms"],
 ];

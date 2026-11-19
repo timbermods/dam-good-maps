@@ -51,6 +51,8 @@ describe("the shown land's bounds (#236)", () => {
     // at 136²), D148: seed 14 passes on its 26th attempt with no round ended by the bound; of seeds 1–48 only 28 (twice), 30 and
     // 45 end a round, each passing the whole test; seed 28 → 30 at 0.10.48, D(terrace-edges)' warp making no cliff, D148: seed 28
     // passes on its 36th attempt with no round ended by the bound; of seeds 28–47 only 30 and 45 end
+    // one, each passing the whole test; seed 30 → 45 at 0.10.49, D(pick-start), the start picked for its bench and wood too, D148:
+    // seed 30 passes on its 7th attempt with no round ended by the bound; of seeds 28–100 only 45, 50, 76, 86 (twice) and 90 end
     // one, each passing the whole test;
     // seed 1 → 14 at 0.10.47, D(terrace-edges), D148: seed 1 passes on its first attempt now,
     // with no round ended by the bound; of seeds 1–16 only 14, 15 and 16 end a round, each passing the whole test;
@@ -72,7 +74,7 @@ describe("the shown land's bounds (#236)", () => {
     // ends; seed 4 for generator 0.10.7, whose first shown land's start was within 60 tiles of its badwater on every
     // attempt, until D504's springs toward the far land changed its land: its shown land now fails once and passes, D148; of
     // seeds 1–8, 1 and 5 end a round; seed 15 for 1 since generator 0.10.20's contour edges, D518, D148: seed 1's attempts now fail as drawn lands, never three alike on a shown one, so no round ends by the bound, and of seeds 1–60 only 15, 19, 26, 30, 32, 43, 51, 54 and 57 end one)
-    const { steps, passed } = traced(spec("highlands", 136, 30, 60));
+    const { steps, passed } = traced(spec("highlands", 136, 45, 60));
     expect(passed).toBe(true);
     const at = JSON.stringify(steps);
     let ended = 0;

@@ -124,8 +124,10 @@ import * as ed from "../../src/worker/session";
 // of this map): with the version set back to 0.10.46 the merge gives `0a7daa74…` byte for byte, D148
 // and generator 0.10.48, the merge of D(terrace-edges) with D(ruled-water): the warp moves this map's land (`65319d88…` on the
 // branch at 0.10.47, `8d38367a…` on dev at 0.10.47), the map made on its first attempt, every check passing, D148;
-// and D(terrace-edges)' warp making no cliff (`8bfdb897…` before it), the map made on its first attempt and passing, D148
-const LIVE_SHA = "524a9cec81c994b9fa1ba4096d39b4cf29c845a734df414a2b85437bb74ed6a3";
+// and D(terrace-edges)' warp making no cliff (`8bfdb897…` before it), the map made on its first attempt and passing, D148;
+// and generator 0.10.49's version alone (D(pick-start), the start picked for its bench and wood too, keeps this map's start):
+// with the version set back to 0.10.48 the branch gives `524a9cec…` byte for byte, D148
+const LIVE_SHA = "1557cad0b1e4c0850fa793c93e28640e95e51e7f8de1c9856cd70d9c418d166e";
 const spec = () => makeSpec({ seed: 4242, size: { x: 128, y: 128 }, theme: "riverValley", designedFor: "normal" });
 
 describe("mine sites and ruins, models of our own", () => {
