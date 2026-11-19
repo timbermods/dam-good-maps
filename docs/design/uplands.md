@@ -383,3 +383,45 @@ both seeds. River Valley's two maps keep round 4's bars.
 
 **The eye.** The same shuffled sheet, with Highlands and Canyon beside the bold bundled maps: each of the four
 has a wall I can see from the low camera and a form I can name, and none is picked out by texture.
+
+### Round 5 findings (2026-11-19)
+
+Three commits, each droppable on its own: A the start's ways out, B Lake Basin and Islands, C the bold family. Every
+map at 128² and under is byte for byte round 4's (six themes compared); the six generate 6.5 % faster than base.
+
+**A. The start's ways out** (`features/slopes.ts` `RING_SLOPES`, PLAN §7.5). The bundled 256² maps' starts walk to
+little: 639–5,657 dry tiles from their own start, a median of 1,202 (2.95 % of land), so the bar is base's. Above 128²
+on ringed land the slopes' core grows with the map (80 tiles at 256²), a long step of the tree gets a slope per 70
+tiles of it (up to 4), a step the spacing rule left bare gets its nearest pair, and every 400+ region beside the joined
+ground is joined before rule 4. Reach (base → round 4 → round 5): Highlands 1 12,631 → 8,071 → 16,167; Highlands 2
+5,577 → 3,157 → 12,453; Canyon 1 6,261 → 10,922 → 17,402; Canyon 2 5,439 → 15,327 → 15,902; River Valley 1
+13,822 → 20,573 → 30,716; River Valley 2 18,093 → 4,571 → 35,716. Every start passes. The rules are the generator's
+ringed land's only (`SlopeRules.ringed`, the field's `ringSlopes`, kept in the project): a premise's land and the two
+themes B leaves keep theirs.
+
+**B. Lake Basin, Islands, Delta.** Lake Basin's fine relief rose with round 1's map-scale forms and round 4's ringed
+path (the smoothing, the slow warp, its ring forms), which its few forms do not need: its land is mostly the lakes'
+basins. Islands' straight runs rose the same way. Both stay on 0.10.48's path above 128² (`genome.ts`
+`UPLANDS_BASE_PATH`: no map-scale forms, the levels at a 128²'s scale, 0.10.48's edge warp, its slopes), and their
+256² maps are byte for byte 0.10.48's. Delta stays on the ringed path, better than base on every measure: fine relief
+seed 1 6.8 → 3.2 %, seed 2 3.5 → 1.2 %, runs of 12+ 2 → 1 and 1 → 0, reach 3,159 → 39,066 and 11,256 → 49,866, its
+start's missed rows a subset of base's.
+
+**C. The bold family** (`land/bold.ts`). Highlands: two to four mesas 42–68 tiles across, their walls a steep band of a
+smooth profile 4–6 levels over the rings round their rim, one or two ways up of one-level treads, tops level in
+patches, the field the water is planned on raised under them, their rims left by `notchWalls`; the land leaves its
+forms 4 levels (`ROOM`), and mesas are 35 % of its ring forms. Canyon: a bench cut into the gorge's wall 4 levels over
+the floor where the wall is steep, wandering in width (none in places), one or two hollows off the gorge, the gorge's
+grade rolled 1.5 times its theme's (3 left 75–81 % of its steps one level), and mesas 50 % of its ring forms.
+Highlands passes every per-map bar on both seeds (one-level share 64.8 and 64.6 %, beside a 4+ drop 5.5 and 4.4 %,
+longest face 98 tiles at 5 and 71 at 6, fine relief 4.4/7.7 and 3.0/5.4 %). Canyon passes all but one: its longest 3+
+face is 61 and 69 tiles at a median drop of 3, not 4 (the longest faces are the tableland's 3-level walls, longer than
+the gorge's benched sides; buttes held to 4+ levels moved Canyon's steps back over 65 % one level and did not move the
+face). Across the six: regional relief's median 7.98 → 8.20 (bar 8.5), the commonest level's 16.6 → 18.1 % (bar 17:
+Canyon's tableland, 18.4 and 18.9 %), dead flat 59.0 % (in 45–61). Highlands' promise takes 9 and 5 attempts (bar 3):
+it fails on the planned land's "high" share (0.29–0.52 against 0.6), not on its plateaus or cliffs: the planned lakes
+stand on the terraces and lift the water's median level; on the built land the same attempts read 0.92–0.97. Three
+mesas or more (a trial) took the start of Highlands 2 onto a mesa top (reach 2,884) and was dropped.
+
+**What it leaves.** Highlands' planned promise (where its lakes stand, or reading "high" over the rivers' level and
+not every lake's); Canyon's face drop and commonest level; regional relief at the map's scale.
