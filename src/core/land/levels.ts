@@ -75,6 +75,8 @@ export function snapLevels(E: Float64Array, g: Genome, seed: number, W: number, 
   // (D(terrace-edges): every level's edge read through a fine warp, so no edge the field, the grade or the tableland's
   // outline leaves smooth over a dozen tiles runs ruler-straight; the levels' edges, not the field the water is planned on)
   const ws = hash32(seed, "edge-warp", g.variation);
+  // (each tile's source in the unwarped levels, so the cliffs the warp makes can be told from the land's own)
+  const src = new Int32Array(N);
   const side = Math.min(W, H);
   const reach = side <= EDGE_WARP.full ? EDGE_WARP.reach * (side / EDGE_WARP.full) : Math.min(EDGE_WARP.most, EDGE_WARP.reach * portable.sqrt(side / EDGE_WARP.full));
   for (let y = 0; y < H; y++)
@@ -88,6 +90,7 @@ export function snapLevels(E: Float64Array, g: Genome, seed: number, W: number, 
       const fx = px - x0;
       const fy = py - y0;
       const j = y0 * W + x0;
+      src[y * W + x] = Math.round(py) * W + Math.round(px);
       const L = (level[j] * (1 - fx) + level[j + 1] * fx) * (1 - fy) + (level[j + W] * (1 - fx) + level[j + W + 1] * fx) * fy;
       // (the land stands a level above the beds' floor, item 47)
       out[y * W + x] = clamp(Math.round(L), BED_FLOOR + 1, maxLv);
@@ -100,6 +103,11 @@ export function snapLevels(E: Float64Array, g: Genome, seed: number, W: number, 
   // regions under 4 tiles merge (a 2×2 stack survives, as the build's integrity pass keeps it)
   mergeSmallRegions(out, W, H, 4);
   cleanPitsAndSpikes(out, W, H, null);
+  // (D(terrace-edges): the warp bends the edges and makes no cliff; the regions its easing leaves under 4 tiles merge too)
+  if (easeWarpCliffs(out, level, src, W, H, BED_FLOOR + 1, maxLv)) {
+    mergeSmallRegions(out, W, H, 4);
+    cleanPitsAndSpikes(out, W, H, null);
+  }
   return out;
 }
 
@@ -126,6 +134,58 @@ export function contourField(E: Float64Array, W: number, H: number, seed: number
       out[y * W + x] = (S[i] * (1 - fx) + S[i + 1] * fx) * (1 - fy) + (S[i + W] * (1 - fx) + S[i + W + 1] * fx) * fy;
     }
   return out;
+}
+
+/** The edge warp bends the levels' edges and makes no cliff (D(terrace-edges)). Where it crowds the levels (or folds,
+ *  and the small regions it leaves merge), a step can drop two levels or more where the unwarped levels only stepped;
+ *  each such step is eased, its lower tile raised to a level under its neighbour, until none is left. A tile whose
+ *  source (`src`, in the unwarped levels `level`, before rounding) lies within a tile of a step the unwarped levels
+ *  already drop two levels or more keeps its level: the warp moves the land's own cliffs, as Verticality made them.
+ *  Returns whether a tile was raised. */
+export function easeWarpCliffs(out: Uint8Array, level: Float64Array, src: Int32Array, W: number, H: number, lo: number, hi: number): boolean {
+  const N = W * H;
+  const u = new Uint8Array(N);
+  for (let i = 0; i < N; i++) u[i] = clamp(Math.round(level[i]), lo, hi);
+  const cliff = new Uint8Array(N);
+  for (let y = 0; y < H; y++)
+    for (let x = 0; x < W; x++) {
+      const i = y * W + x;
+      if (x + 1 < W && Math.abs(u[i] - u[i + 1]) >= 2) cliff[i] = cliff[i + 1] = 1;
+      if (y + 1 < H && Math.abs(u[i] - u[i + W]) >= 2) cliff[i] = cliff[i + W] = 1;
+    }
+  // (a tile either side of the unwarped cliffs)
+  const near = new Uint8Array(N);
+  for (let y = 0; y < H; y++)
+    for (let x = 0; x < W; x++) {
+      if (!cliff[y * W + x]) continue;
+      for (let dy = -1; dy <= 1; dy++)
+        for (let dx = -1; dx <= 1; dx++) {
+          const xx = x + dx;
+          const yy = y + dy;
+          if (xx >= 0 && yy >= 0 && xx < W && yy < H) near[yy * W + xx] = 1;
+        }
+    }
+  // (sweeps each way in turn: a raise lifts a tile only to a level under a neighbour, so they end)
+  let raised = false;
+  for (let changed = true, pass = 0; changed; pass++) {
+    changed = false;
+    const fwd = pass % 2 === 0;
+    for (let k = 0; k < N; k++) {
+      const i = fwd ? k : N - 1 - k;
+      if (near[src[i]]) continue;
+      const x = i % W;
+      let m = out[i];
+      if (x > 0 && out[i - 1] - 1 > m) m = out[i - 1] - 1;
+      if (x + 1 < W && out[i + 1] - 1 > m) m = out[i + 1] - 1;
+      if (i >= W && out[i - W] - 1 > m) m = out[i - W] - 1;
+      if (i + W < N && out[i + W] - 1 > m) m = out[i + W] - 1;
+      if (m !== out[i]) {
+        out[i] = m;
+        changed = raised = true;
+      }
+    }
+  }
+  return raised;
 }
 
 /** The levels' edge warp (D(terrace-edges)): its reach and its cell, tiles, and its noise's octaves. The reach is `reach`

@@ -23,8 +23,10 @@ describe("the Python validator on an imported map with a cave", () => {
     // seed 2 → 6 at 0.10.40, small maps at their own scale (#1193, D(small-own-scale), D148): a 64² map stands 9 levels, not 13, and of
     // seeds 1–6 only seed 6 has a three-level hillside clear of objects, two;
     // seed 6 → 1 at 0.10.46, D(new-ditch) and D(sea-steps) on #1225's land, D148: the gullies leave seed 6 no hillside clear of objects;
-    // of seeds 1–12, 1, 3, 4 and 12 have one and pass, seed 1 the first)
-    const r = generate(makeSpec({ seed: 1, theme: "riverValley", size: { x: 64, y: 64 } }));
+    // of seeds 1–12, 1, 3, 4 and 12 have one and pass, seed 1 the first;
+    // seed 1 → 2 at 0.10.48, D(terrace-edges)' warp making no cliff, D148: seed 1 has no hillside clear of objects now; of seeds 1–6
+    // only seed 2 has one)
+    const r = generate(makeSpec({ seed: 2, theme: "riverValley", size: { x: 64, y: 64 } }));
     const s = MapSession.fromGenerated(r, r.file);
     const { x, y, z } = hillside(s);
     expect(s.apply(dig(x, y, z, "-x")).errors).toEqual([]);
