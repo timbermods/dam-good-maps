@@ -20,7 +20,7 @@
 
 import * as portable from "../math/portable";
 import { stream } from "../math/rng";
-import { fbm } from "../math/noise";
+import { fbm, warpedFbm } from "../math/noise";
 import { clamp, smoothstep } from "../math/clamp";
 import { hash32 } from "../math/hash";
 import { sinDet, TWO_PI } from "../math/detmath";
@@ -50,12 +50,19 @@ export const BOLD = {
  *  (levels), the lake's share of the bowl and of the plan's lake budget at the most, its middle up the water's line from
  *  the bowl's rim and how far up the line the sill's rock reaches (shares of the radius), the scale it is read at down
  *  the line, its shore's fall (tiles), the channel's run at the bench's level past the rim (tiles), and the main
- *  river's incision on such a land at the most. */
+ *  river's incision on such a land at the most; round 6b step 2: how far down the line the lake is read (`stretch`),
+ *  its outline's lobes and the noise its shore is read with (`bays`, over `baysCell` of the radius). `springs`
+ *  (step 2): the springs such a land draws at the most. `bench` (step 2): the rings the floor steps down to the bowl
+ *  and the channel past the sill in, each `min`–`max` tiles broad over a noise of `cell` tiles, wobbling `wobble`
+ *  tiles, `rings` of them, `step` levels each. `mesa.plinth` (step 2): the levels of the one bench a mesa stands on
+ *  where its wall keeps `plinthWall` levels over it, `plinthMin`–`plinthMax` tiles broad. */
 export const STAND = {
+  springs: 3,
   valley: { rMin: 0.14, rMax: 0.18, stray: 0.06, softMin: 1.2, softMax: 3.5, halfMin: 0.026, halfMax: 0.038, wander: 0.11, cell: 0.3, side: 1.5, over: 0, rise: 2 },
-  lake: { sill: 2, deep: 2, share: 0.35, budget: 0.6, at: 0.7, stretch: 0.6, sillAt: 0.45, soft: 1, sillRun: 4, incise: 1.4 },
+  lake: { sill: 2, deep: 2, share: 0.35, budget: 0.6, at: 0.7, sillAt: 0.45, soft: 1, sillRun: 4, incise: 1.4, stretch: 0.5, lobes: 2.6, bays: 0.12, baysCell: 0.35 },
+  bench: { min: 5, max: 13, cell: 40, wobble: 3, rings: 3, step: 2 },
   floor: { over: 4, relief: 4, roll: 0, riser: 0, drift: 0, away: 0.5, far: 0.5 },
-  mesa: { fewest: 5, most: 9, rMin: 17.5, rMax: 40, hMin: 4, hMax: 6, gap: 8, edge: 0.6, wall: 1.2, stretch: 0.35, brokenMin: 0.12, brokenMax: 0.25, runMin: 1.8, runMax: 4.5, inset: 7, inner: 0.5, tries: 200 },
+  mesa: { fewest: 4, most: 6, rMin: 24, rMax: 46, hMin: 4, hMax: 6, gap: 8, edge: 0.6, wall: 1.2, stretch: 0.35, brokenMin: 0.12, brokenMax: 0.25, runMin: 1.8, runMax: 4.5, inset: 7, inner: 0.8, tries: 200, plinth: 2, plinthWall: 5, plinthMin: 4, plinthMax: 9 },
 } as const;
 
 /** A form's outline for `formDist`: a mesa's or a hollow's, its lobes gentler than the ringed forms'. */
@@ -87,6 +94,9 @@ export interface StandValley {
   r: number;
   /** How far each tile stands from the water's line, the channel's middle (tiles). */
   line: Float64Array;
+  /** The bowl's tiles, 1, and the channel's past the sill, 2 (round 6b step 2: the benches step down to them,
+   *  `benchValley`). */
+  bowl: Uint8Array;
   /** The lake's sill (round 6b): the valley's tiles where the channel leaves the bowl, its rock (`Genome.rockSill`). */
   sill: Uint8Array;
 }
@@ -166,22 +176,8 @@ export function standValley(seed: number, variation: number, phase: number, flow
     }
   // the lake: a lobed hollow on the water's line against the bowl's downstream rim, as much of the bowl as asked
   const aL = aOut - K.at * r;
-  const lx = lineX(aL);
-  const ly = lineY(aL);
-  const lakeF = outline(hash32(s, "lake-outline"), lx, ly, r, 1.5);
   const want = Math.min(K.share * inBowl, K.budget * lakeMost);
-  const ds: number[] = [];
-  const dl = new Float64Array(N).fill(Infinity);
-  for (let i = 0; i < N; i++)
-    if (mb[i] >= 0.5) {
-      // (read along the water's line, stretched down it: the lake lies on the line, the bench beside it)
-      const u = (alongOf[i] - aL) * K.stretch;
-      const v = latOf[i];
-      dl[i] = formDist(lakeF, lx + u * ax - v * ay, ly + u * ay + v * ax, lx, ly, r);
-      ds.push(dl[i]);
-    }
-  ds.sort((a, b) => a - b);
-  const q = ds.length && want >= 1 ? ds[Math.min(ds.length - 1, Math.floor(want))] : -Infinity;
+  const sd = lakeShore(s, W, H, r, aL, lineX(aL), lineY(aL), mb, alongOf, latOf, want, ax, ay);
   for (let i = 0; i < N; i++) {
     if (m[i] <= 0) continue;
     const a = alongOf[i];
@@ -189,7 +185,7 @@ export function standValley(seed: number, variation: number, phase: number, flow
     // falling to the downstream edge
     const vChan = a < aIn ? K.sill + V.rise * clamp((aIn - a) / (0.45 * side), 0, 1) : a <= aOut + K.sillRun ? K.sill : K.sill - (K.sill - V.over) * clamp((a - aOut - K.sillRun) / Math.max(8, aEnd - aOut - K.sillRun), 0, 1);
     // the bowl: the bench, and the lake's hollow under it
-    const lk = Number.isFinite(dl[i]) ? smoothstep(((q - dl[i]) * r) / K.soft + 0.5) : 0;
+    const lk = smoothstep(sd[i] / K.soft + 0.5);
     const vBowl = K.sill - K.deep * lk;
     // (round the bowl's rim, off the channel, the ground stands at the bench's level at least: no way round the sill)
     const wb = smoothstep((mb[i] - 0.5) / 0.2 + 0.5);
@@ -217,7 +213,97 @@ export function standValley(seed: number, variation: number, phase: number, flow
     }
   const away = new Float64Array(N);
   for (let i = 0; i < N; i++) away[i] = smoothstep(dist[i] / (STAND.floor.far * side));
-  return { m, floor, away, share: n / N, cx, cy, r, line, sill };
+  const inBowlT = new Uint8Array(N);
+  for (let i = 0; i < N; i++) inBowlT[i] = mb[i] >= 0.5 && mb[i] >= mcs[i] ? 1 : 2 * (mb[i] < 0.5 && alongOf[i] > aOut + K.sillRun + 2 ? 1 : 0);
+  return { m, floor, away, share: n / N, cx, cy, r, line, sill, bowl: inBowlT };
+}
+
+/** The lake's shore in the bowl (round 6b step 2): found, not laid. The bowl's tiles nearest a lobed outline round the
+ *  lake's middle on the water's line (`aL` tiles along it, at `lx`, `ly`), read `STAND.lake.stretch` as far down the
+ *  line as across it, so the lake lies along the line with the bench beside it, the `want` nearest are the lake. The
+ *  outline's lobes are deep (`lobes`) and the distance is read with a slow warped noise (`bays`), so the shore wanders
+ *  into a bay or two and round a spit, and no two lakes share an outline (step 1's lake, of gentle lobes, read as a
+ *  laid round basin). Returns each tile's signed distance to the shore (tiles, positive in the lake). */
+function lakeShore(s: number, W: number, H: number, r: number, aL: number, lx: number, ly: number, mb: Float64Array, alongOf: Float64Array, latOf: Float64Array, want: number, ax: number, ay: number): Float64Array {
+  const K = STAND.lake;
+  const N = W * H;
+  const lakeF = outline(hash32(s, "lake-outline"), lx, ly, r, K.lobes);
+  const bs = hash32(s, "lake-bays");
+  const ds: number[] = [];
+  const dl = new Float64Array(N).fill(Infinity);
+  for (let i = 0; i < N; i++)
+    if (mb[i] >= 0.5) {
+      const x = i % W;
+      const y = (i - x) / W;
+      const u = (alongOf[i] - aL) * K.stretch;
+      const v = latOf[i];
+      dl[i] = formDist(lakeF, lx + u * ax - v * ay, ly + u * ay + v * ax, lx, ly, r) + K.bays * warpedFbm(bs, x, y, K.baysCell * r, 3, 0.2 * r);
+      ds.push(dl[i]);
+    }
+  ds.sort((a, b) => a - b);
+  const q = ds.length && want >= 1 ? ds[Math.min(ds.length - 1, Math.floor(want))] : -Infinity;
+  const sd = new Float64Array(N);
+  for (let i = 0; i < N; i++) sd[i] = Number.isFinite(dl[i]) ? (q - dl[i]) * r : -1e9;
+  return sd;
+}
+
+/** A chamfer distance (1 and 1.4 a step) to the nearest tile of `src`, and that tile, both ways over the map. */
+function nearestOf(src: Uint8Array, W: number, H: number): { dist: Float64Array; from: Int32Array } {
+  const N = W * H;
+  const dist = new Float64Array(N).fill(1e9);
+  const from = new Int32Array(N).fill(-1);
+  for (let i = 0; i < N; i++)
+    if (src[i]) {
+      dist[i] = 0;
+      from[i] = i;
+    }
+  for (let pass = 0; pass < 2; pass++)
+    for (let k = 0; k < N; k++) {
+      const i = pass ? N - 1 - k : k;
+      const x = i % W;
+      const y = (i - x) / W;
+      const sy = pass ? 1 : -1;
+      const sx = pass ? 1 : -1;
+      for (const [dx, dy, c] of [[sx, 0, 1], [0, sy, 1], [-1, sy, 1.4], [1, sy, 1.4]] as const) {
+        const xx = x + dx;
+        const yy = y + dy;
+        if (xx < 0 || yy < 0 || xx >= W || yy >= H) continue;
+        const j = yy * W + xx;
+        if (dist[j] + c < dist[i]) {
+          dist[i] = dist[j] + c;
+          from[i] = from[j];
+        }
+      }
+    }
+  return { dist, from };
+}
+
+/** The benches round the valley (round 6b step 2): the floor steps down to the valley one level at a time, in rings
+ *  that follow its rim, each `STAND.bench.min`–`max` tiles broad as a slow noise has it, the first a level over the
+ *  valley's floor beside it, so the bowl lies in nested terraces as the game's Terraces do, not behind one wall. The
+ *  graded levels `level` (after the valley is sunk in them) are only lowered, never under a level over the valley's
+ *  floor, so no way round the lake's sill opens. */
+export function benchValley(level: Float64Array, v: StandValley, base: number, W: number, H: number, seed: number): void {
+  const B = STAND.bench;
+  const N = W * H;
+  const inV = new Uint8Array(N);
+  for (let i = 0; i < N; i++) inV[i] = v.m[i] >= 0.5 ? 1 : 0;
+  // (round the bowl: the tiles whose nearest valley is the bowl's, not the channel's)
+  const { dist, from } = nearestOf(inV, W, H);
+  const s = hash32(seed, "stand-benches");
+  for (let y = 0; y < H; y++)
+    for (let x = 0; x < W; x++) {
+      const i = y * W + x;
+      if (inV[i] || from[i] < 0 || !v.bowl[from[i]]) continue;
+      // (past the sill the channel falls to the edge: its sides step down to it as the bowl's do, so it leaves the map
+      // in a terraced valley, not a chute)
+      const run = B.min + (B.max - B.min) * (warpedFbm(s, x, y, B.cell, 2, 0.5 * B.cell) + 1) / 2;
+      const d = dist[i] + B.wobble * fbm(s + 1, x, y, 0.5 * B.cell, 2);
+      const ring = Math.floor(Math.max(0, d) / run);
+      if (ring >= B.rings) continue;
+      const cap = base + v.floor[from[i]] + B.step * (ring + 1);
+      if (level[i] > cap) level[i] = cap;
+    }
 }
 
 /** The field the water is planned on, sunk in the valley below all the land round it, falling along the channel
@@ -263,7 +349,7 @@ export function standMesas(level: Float64Array, E: Float64Array, W: number, H: n
   const mesas: Mesa[] = [];
   for (let k = 0; k < want; k++) {
     // of the draws that fit, the one whose wall stands 4–7 over most of the ground round its rim (the first the largest)
-    let best: { x: number; y: number; r: number; e: number; turn: number; T: number; foot: number; t: number; share: number } | null = null;
+    let best: { x: number; y: number; r: number; e: number; turn: number; T: number; foot: number; t: number; share: number; plinth: number; p75: number } | null = null;
     for (let t = 0; t < M.tries; t++) {
       const u = rng.float();
       const r = (M.rMin + (M.rMax - M.rMin) * (k === 0 ? 0.7 + 0.3 * u : u)) * sizeK;
@@ -308,15 +394,19 @@ export function standMesas(level: Float64Array, E: Float64Array, W: number, H: n
           if (L > inMax) inMax = L;
         }
       const sorted = rim.slice().sort((a, b) => a - b);
-      const T = Math.min(Math.round(sorted[18]) + h, top);
+      // (round 6b step 2: on a plinth of one or two benches where the top leaves room, its wall over the last)
+      const p75 = Math.round(sorted[18]);
+      const T = Math.min(p75 + M.plinth + h, top);
+      const plinth = T - p75 - M.plinthWall >= M.plinth ? M.plinth : 0;
       if (inMax > T - 2.5 || inMin < base + 2) continue;
       let share = 0;
-      for (const L of rim) if (T - L >= M.hMin - 0.5 && T - L <= M.hMax + 1.5) share++;
+      for (const L of rim) if (T - plinth - L >= M.hMin - 0.5 && T - plinth - L <= M.hMax + 1.5) share++;
       share /= rim.length;
-      if (share >= 0.6 && (!best || share > best.share + 0.05 || (k === 0 && share >= best.share - 0.05 && r > best.r))) best = { x, y, r, e, turn, T, foot: T - h, t, share };
+      if (share >= 0.6 && (!best || share > best.share + 0.05 || (k === 0 && share >= best.share - 0.05 && r > best.r))) best = { x, y, r, e, turn, T, foot: T - h, t, share, plinth, p75 };
     }
     if (!best) continue;
-    const { x, y, r, e, turn, T, foot, t } = best;
+    const { x, y, r, e, turn, T, t, plinth } = best;
+    const foot = T - Math.max(M.hMin, T - best.p75 - plinth);
     const f = outline(hash32(seed, "stand-mesa", variation, k, t), x, y, r, 1.5);
     const o = stream(f.s, "mesa-parts");
     // the broken arcs: one or two, an eighth to a quarter of the rim, the first toward the valley
@@ -329,7 +419,7 @@ export function standMesas(level: Float64Array, E: Float64Array, W: number, H: n
     if (o.float() < M.inner) {
       const ir = (0.4 + 0.2 * o.float()) * r;
       inner = outline(hash32(f.s, "inner"), x + (o.float() - 0.5) * 0.4 * r, y + (o.float() - 0.5) * 0.4 * r, ir, 1.5);
-      rise = Math.min(1 + Math.floor(2 * o.float()), top - T);
+      rise = Math.min(2, top - T);
       if (rise <= 0) inner = null;
     }
     mesas.push({ f, e, ca: sinDet(TWO_PI * turn + TWO_PI / 4), sa: sinDet(TWO_PI * turn), T, foot, arcs, inner, rise });
@@ -368,9 +458,17 @@ export function standMesas(level: Float64Array, E: Float64Array, W: number, H: n
         if (tin > 2) tops[i] = 1;
         let top0 = T;
         if (inner) top0 += rise * smoothstep((1 - formDist(inner, x, y, inner.x, inner.y, inner.r)) * inner.r + 0.5);
-        // the wall: a steep band at the rim
+        // the plinth: from the wall's foot down to the floor a level a ring, each ring a few tiles, irregular (round
+        // 6b step 2)
+        let Lp = L;
+        if (foot > L && tin < 0 && valley.m[i] <= 0) {
+          const run = M.plinthMin + (M.plinthMax - M.plinthMin) * (fbm(f.s + 19, x, y, 14, 2) + 1) / 2;
+          const pl = foot - M.plinth * Math.floor(Math.max(0, -tin - M.wall / 2) / run);
+          if (pl > L) Lp = pl;
+        }
+        // the wall: a steep band at the rim, standing on the plinth
         const w = smoothstep((tin + M.wall / 2) / M.wall);
-        const vWall = L + w * (top0 - L);
+        const vWall = Lp + w * (top0 - Lp);
         // the broken side: the edge eaten in, then a level every few tiles, irregular
         const a = arcOf(arcs, pseudoAngle(x - f.x, y - f.y));
         let v = vWall;
@@ -381,7 +479,7 @@ export function standMesas(level: Float64Array, E: Float64Array, W: number, H: n
           // (down to the mesa's foot, the floor it stands on, and no lower: where the ground falls away past it, to
           // the valley, the floor's own fall is the way on)
           const vStep = T - out / run + 0.6 * fbm(f.s + 17, x, y, 6, 2) * smoothstep(out / 2);
-          v = (1 - a) * vWall + a * (vStep >= foot - 0.5 ? clamp(vStep, L, top0) : L);
+          v = (1 - a) * vWall + a * (vStep >= foot - 0.5 ? clamp(vStep, Lp, top0) : Lp);
         }
         if (v > L) level[i] = v;
         if (tin > -1 && E[i] < eHigh) E[i] = eHigh;

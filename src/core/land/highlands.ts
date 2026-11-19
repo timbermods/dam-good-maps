@@ -56,8 +56,9 @@ export function shapeHighlands(g: Genome, W: number, H: number): void {
   // (and its benches' risers walls, not flanks: the floor's steps two levels where they gather)
   if (stand) g.grade.riser = Math.min(g.grade.riser, STAND.floor.riser);
   if (stand) g.grade.drift = Math.min(g.grade.drift, STAND.floor.drift);
-  // (and its main water enters by the upstream edge, so it runs through the valley in its middle)
-  if (stand && !g.hydro.exactInflows && !g.hydro.noInflows) g.hydro.inflows = Math.max(1, g.hydro.inflows);
+  // (and its main water enters by the upstream edge, so it runs through the valley in its middle; round 6b step 2: it
+  // alone, so the green is the valley's)
+  if (stand && !g.hydro.exactInflows && !g.hydro.noInflows) g.hydro.inflows = 1;
   // (round 6b: the valley's lake is its bowl's, held by its sill, `bold.ts`; no trough is dug for another, which ate
   // the bench beside it)
   if (stand) g.troughs = 0;
@@ -66,6 +67,11 @@ export function shapeHighlands(g: Genome, W: number, H: number): void {
   // water backed up the course over its head at the edge, and the land was refused, `courses.ts` `drownedHeads`)
   if (stand) g.hydro.incise = Math.min(g.hydro.incise, STAND.lake.incise);
   if (stand) g.hanging = 0;
+  // (round 6b step 2: green a pocket in dry land, the lake's rim and the river's, as the game's bold maps: few side
+  // branches, `STAND.springs` at the most, and no spring drawn to carry the water's reach over the land (D504's reach
+  // springs, `hydro.ts`): the rest of the floor is the player's to water)
+  if (stand) g.hydro.springs = Math.min(g.hydro.springs, STAND.springs);
+  if (stand) g.hydro.reachSprings = false;
   g.terrace.share = Math.max(g.terrace.share, stand ? 1 : 0.8 * s);
   g.hyps.lean = Math.min(g.hyps.lean, 1 - 0.35 * s);
   // (the lowest bench no lower than 4: a base drawn under it left the valley floor at 3, on the beds'

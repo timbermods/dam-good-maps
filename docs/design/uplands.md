@@ -629,3 +629,41 @@ room.
 and 6b, each side run alone, on round 6's 52 maps: Canyon, River Valley, Lake Basin, Islands, Delta × 136/192/256 ×
 seeds 1, 2; Any × 136/192/256 × seeds 1–4; Highlands 128² seeds 1, 2, 7, 96² seed 1, 64² seed 2; Canyon 128² seed 2,
 River Valley 128² seed 5, Islands 128² seed 3, Lake Basin 96² seed 1, Delta 64² seed 2.
+
+### Round 6b step 2: the look (2026-11-19, committed, not pushed: the start's bars fail)
+
+Still generator 0.10.51, on step 1's a5d893b5; Highlands above 128² only (`standsUp`). Top views and notes in the
+worktree's `.scratch/notes-6b2.md`; numbers in `C:/dgm-showcase/gen/uplands6b/numbers.md`.
+
+**What was built.**
+- **The lake's shore** (`bold.ts` `lakeShore`): the bowl's tiles nearest a deep-lobed outline (`lake.lobes` 2.6) read
+  half as far down the water's line as across it, through a slow warped noise (`lake.bays`), so the shore has bays, a
+  spit or a horseshoe round a point, and no two lakes share an outline. Tried first and dropped: a lake grown from its
+  middle by a priority flood on a tapering, noisy cost (narrow upstream, broad at the sill). It read found (arms,
+  bays, a narrow end) but cut the bench into strips: the start lost room and its drought row on 8 of 16 maps.
+- **Green as a pocket** (`highlands.ts`): one inflow, `STAND.springs` 3 at the most, and no reach springs (D504's,
+  `hydro.ts`) on a land that stands up. Moist share of land 17–36 % → 9–22 % (bundled 1.7–11.7 %, below).
+- **Benches** (`bold.ts` `benchValley`, `STAND.bench`): round the bowl and the channel past the sill, the floor steps
+  down to the valley in up to three rings, 5–13 tiles broad as a noise has it, two levels each (one level a ring put
+  the one-level share at 63–75 %). **Mesas** four to six a 256², radius 24–46 (`STAND.mesa`), each on a plinth two
+  levels high and 4–9 tiles broad where its wall keeps 5 levels over it, and four in five with an inner ring two levels
+  up. The floor's relief stays 4 over 4 (3 over 3 left the upstream channel over the floor and the lake dry).
+
+**The bundled range** (stored soil and water, one script, `.scratch/moist.ts`; water: stored 0.1 deep or more; moist:
+land whose top stores moisture). Terraces 10.7 % moist / 14.1 % water, Oasis 1.7 / 0.6, Pressure 5.1 / 12.7,
+Spillage 11.7 / 9.0 (Hollows 20.1 / 9.5, Canyon 16.6 / 9.6). Step 1's seeds 1–6: 17.0–36.1 / 7.9–12.3.
+
+**Land, 256² seeds 1–6** (this head): regional relief 8.19–8.93 [≥ 8.5: seeds 1–4 short, 8.19–8.47]; p5–p95 10 [≥ 10];
+beside a 4+ drop 2.0–3.0 % [5–9: all short]; one-level share 49.5–59.9 % [44–55: seeds 3, 4, 5 over]; longest 3+
+face 64–104 tiles, drop 4–6 [≥ 85: seeds 1, 5, 6 short]; plateaus 4–8, 13 on seed 6 [4–9]; fine relief 1.7–2.3 %;
+patches under 40 tiles 2.5–3.5 %; moist 9.3–21.9 % [1.7–11.7: seeds 2, 3 inside]; water 7.6–13.3 % [0.6–14.1].
+
+**Short of the bars: why it is not pushed.** The start's rows move with the bowl's shape, and no shape tried keeps
+every map's. With this head, against a5d893b5, on the eleven maps measured: Easy rows missed worse on Normal 256² s1
+(3 → 4) and s5 (1 → 3), Easy s3 and s4 (2 → 4, room 226 and 361); better on Easy s1 and s2 and Normal s6; Normal s4's
+start leaves the valley for the downstream river. With the flooded lake, before: 43 → 48 rows on all 16, food lost
+on most, 384² at 11 attempts (planned promise, straight channels, the water story), 192² and 384² starts off the
+bench. With step 1's own lake and everything else of step 2, the Easy rows held on five of six maps (Easy s1: room
+195). Also short: the land beside a 4+ drop (the plinths eat the walls' height under the top of 16), the one-level
+share on three seeds, the longest face on three, moist share on four; ruled bits (item 4) were not worked: only the
+channel past the sill now leaves in rings, not a chute.

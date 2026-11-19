@@ -32,7 +32,7 @@ import { landRegions } from "../analysis/regions";
 import { integrityLevel } from "../features/raster/terrain";
 import { planBands } from "./plan";
 import { addRingForms, drawRingForms, ringFormRoom } from "./rings";
-import { boldGorge, standMesas, standsUp, standValley, STAND } from "./bold";
+import { benchValley, boldGorge, standMesas, standsUp, standValley, STAND } from "./bold";
 
 /** The rank of every value in [0, 1] (ties broken by index, so it is exact and stable). */
 function ranks(v: Float64Array): Float64Array {
@@ -134,6 +134,8 @@ export function snapLevels(E: Float64Array, g: Genome, seed: number, W: number, 
       const v = g.base + stand.floor[i];
       if (stand.m[i] > 0 && v < level[i]) level[i] += stand.m[i] * (v - level[i]);
     }
+  // (round 6b step 2: the floor stepping down to the valley in rings, `bold.ts` `benchValley`)
+  if (stand) benchValley(level, stand, g.base, W, H, seed);
   const mesas = stand ? standMesas(level, E, W, H, seed, g.variation, stand, g.base, maxLv, hi) : null;
   if (mesas) g.dryTops = mesas.tops;
   if (stand) g.rockSill = stand.sill;
