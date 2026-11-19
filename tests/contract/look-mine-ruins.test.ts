@@ -122,7 +122,10 @@ import * as ed from "../../src/worker/session";
 // gave before #1240 merged in, D148
 // and generator 0.10.47's version alone (the merge of #1162's ruled water, D(ruled-water), with #1195 at 0.10.46, which moves none
 // of this map): with the version set back to 0.10.46 the merge gives `0a7daa74…` byte for byte, D148
-const LIVE_SHA = "8d38367a59b2acd17f40bb61488748bf31e4f9706cd85f763ac8a31ce5a96bbb";
+// and generator 0.10.48, the merge of D(terrace-edges) with D(ruled-water): the warp moves this map's land (`65319d88…` on the
+// branch at 0.10.47, `8d38367a…` on dev at 0.10.47), the map made on its first attempt, every check passing, D148;
+// and D(terrace-edges)' warp making no cliff (`8bfdb897…` before it), the map made on its first attempt and passing, D148
+const LIVE_SHA = "524a9cec81c994b9fa1ba4096d39b4cf29c845a734df414a2b85437bb74ed6a3";
 const spec = () => makeSpec({ seed: 4242, size: { x: 128, y: 128 }, theme: "riverValley", designedFor: "normal" });
 
 describe("mine sites and ruins, models of our own", () => {

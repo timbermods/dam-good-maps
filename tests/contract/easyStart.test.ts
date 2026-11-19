@@ -294,7 +294,9 @@ describe("a generated map with Easy start on", () => {
   // settles once. Where it fails, the place is shaped on the settled water and its land settled once more. Either
   // way the file's water is the canonical settle of the land the file holds, D455. Lake Basin 128², seeds 2 and 1,
   // each made on its first attempt, without the 3D forms, whose own water is settled again: a generator change that
-  // moves them takes other seeds, tools/attempts.ts --easy lists each map's `easyOn`)
+  // moves them takes other seeds, tools/attempts.ts --easy lists each map's `easyOn`. Seed 1 → 9 at 0.10.48, D(terrace-edges)'
+  // warp making no cliff, D148: seed 1's start keeps the plan's shape now; of seeds 1–19, 9–11, 13, 15 and 17 are shaped on
+  // the settled water on their first attempt, 9 the first)
   it("keeps the plan's shape where it holds on the land's one settle, and shapes on the settled water where it does not", () => {
     const made = (seed: number) => {
       const spec = makeSpec({ seed, theme: "lakeBasin" });
@@ -311,7 +313,7 @@ describe("a generated map with Easy start on", () => {
     const kept = made(2);
     expect(kept.info.easy!.on).toBe("plan");
     expect(kept.info.settles).toBe(1);
-    const shaped = made(1);
+    const shaped = made(9);
     const e = shaped.info.easy!;
     expect(e.on).toBe("settled");
     expect(shaped.info.settles).toBe(2);
@@ -330,9 +332,10 @@ describe("a generated map with Easy start on", () => {
   // land a session rebuilds from, is the land its file and water hold. The plan's shapes are taken out of the land
   // before a place is shaped on the settled water; where none is found they are put back. Islands 96², seeds 1 and
   // 2, end so on their one attempt, a plan's shape taken out: their fields stood 648 and 632 tiles off their land.
-  // Highlands 96² seed 2 finds no start either)
+  // Highlands 96² seed 2 finds no start either. Islands seed 1 → 3 at 0.10.47, D(terrace-edges), D148: the moved
+  // land gives seed 1 a start on its one attempt; seed 3 ends at "no start" as seed 2 does)
   it("hands back, from a last attempt that found no start, the land its file and water hold", () => {
-    for (const [theme, seed] of [["islands", 1], ["islands", 2], ["highlands", 2]] as const) {
+    for (const [theme, seed] of [["islands", 3], ["islands", 2], ["highlands", 2]] as const) {
       const spec = makeSpec({ seed, theme, size: { x: 96, y: 96 } });
       spec.settings.start.easyStart = true;
       const r = generate(spec, { maxAttempts: 1, forms: false });
@@ -366,9 +369,14 @@ describe("a generated map with Easy start on", () => {
   });
 
   it("never plants a map whose start missed one of them", () => {
-    // (Highlands 128², seed 2: its fifth attempt's start misses the badtide's day. A generator change that moves
-    // this map takes another seed with such an attempt: tools/attempts.ts --easy lists them)
-    const spec = makeSpec({ seed: 2, theme: "highlands" });
+    // (Highlands 128², seed 60: its fifth attempt's start misses the room's target. A generator change that moves
+    // this map takes another seed with such an attempt: tools/attempts.ts --easy lists them. Seed 2 → 14 at
+    // 0.10.47, D(terrace-edges), D148: seed 2's land moved and none of its attempts misses one now; seed 8's first
+    // miss comes at its 24th attempt, seed 14's at the fifth. Seed 14 → 60 at 0.10.48, D(terrace-edges) merged with
+    // D(ruled-water), D148: of Highlands 128² seeds 1–76 over their first 12 attempts only seed 30 (its ninth, the
+    // badtide's day) and seed 60 (its fifth, the room) miss one. Seed 60 → 19 at 0.10.48, D(terrace-edges)' warp making no cliff,
+    // D148: of Highlands 128² seeds 1–66 over their first 12 attempts only seed 19 (its ninth, the room) misses one)
+    const spec = makeSpec({ seed: 19, theme: "highlands" });
     spec.settings.start.easyStart = true;
     const land = new Set<string>(EASY_LAND);
     const stages: string[] = [];
