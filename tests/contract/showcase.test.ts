@@ -106,6 +106,10 @@ describe("Showcase mode (D488 (2))", () => {
     // first drought's choice, a 9-level mesa 40 tiles south and a 5-tile dam 43 tiles south-west, no drowned village, ranked
     // [2, 0, 1]; now the first sibling's picture holds the most (looks 0.49, against 0.47 and 0.36), so it outranks the second
     // sibling's higher arc, ranked [1, 2, 0] as at 0.10.44)
+    // (generator 0.10.50, D(pick-start), D148: the first sibling's start moved to the room, so its beats were read off its new
+    // map by hand with `arcOf` and `showcaseSearch` at tries: 3; before it its vista was a partial one, its dam 30 tiles north
+    // and its drowned village 68 tiles north-east; the second sibling's dam is a tile nearer (38 tiles west before); the asked
+    // map is as it was; ranked [1, 2, 0] as before, its looks 0.57 against 0.47 and 0.38)
     // the asked map: a dam to build and a drowned village; no landmark, no valley, no vista (the strength 0.41 of a partial one)
     // and a partial first-drought choice (0.4)
     expect(a.vista.met).toBe(false);
@@ -117,16 +121,17 @@ describe("Showcase mode (D488 (2))", () => {
     expect(a.project.say).toMatch(/^A 4-tile dam across a narrows 23 tiles north-east of the start would hold 5,700 water\.$/);
     expect(a.mystery.met).toBe(true);
     expect(a.mystery.say).toMatch(/^A drowned village stands in a lake's shallows 30 tiles east of the start/);
-    // the first sibling: farmland past the gorge, a dam to build and a drowned village; no landmark, no vista (a partial one)
-    // and no first-drought choice
-    expect(b.vista.met).toBe(false);
+    // the first sibling: the vista of 7 levels of relief, farmland past the gorge, a dam to build and a drowned village; no
+    // landmark and no first-drought choice
+    expect(b.vista.met).toBe(true);
+    expect(b.vista.say).toBe("The opening view takes in 7 levels of relief, open water, a 2-level fall and a 6-level butte.");
     expect(b.landmark.met).toBe(false);
     expect(b.valley.met).toBe(true);
     expect(b.valley.say).toBe("The best farmland lies past the gorge, more than the start has.");
     expect(b.drought.met).toBe(false);
-    expect(b.project.say).toMatch(/^A 4-tile dam across a narrows 30 tiles north of the start would hold 4,500 water\.$/);
+    expect(b.project.say).toMatch(/^A 4-tile dam across a narrows 32 tiles north of the start would hold 4,500 water\.$/);
     expect(b.mystery.met).toBe(true);
-    expect(b.mystery.say).toMatch(/^A drowned village stands in a lake's shallows 68 tiles north-east of the start/);
+    expect(b.mystery.say).toMatch(/^A drowned village stands in a lake's shallows 34 tiles north of the start/);
     // the second: the vista of 12 levels of relief, an 8-level mesa in view, a dam to build and a drowned village; no valley and
     // a partial first-drought choice (0.25)
     expect(c.vista.met).toBe(true);
@@ -138,17 +143,17 @@ describe("Showcase mode (D488 (2))", () => {
     expect(c.drought.strength).toBe(0.25);
     expect(c.landmark.met).toBe(true);
     expect(c.landmark.say).toMatch(/^An 8-level mesa stands 49 tiles south-west of the start, in the opening view\.$/);
-    expect(c.project.say).toMatch(/^A 5-tile dam across a narrows 38 tiles west of the start would hold 5,300 water\.$/);
+    expect(c.project.say).toMatch(/^A 5-tile dam across a narrows 37 tiles west of the start would hold 5,300 water\.$/);
     // each is ranked by its arc and its opening picture's looks (SHOWCASE_LOOKS, docs/progress/showcase-looks.md)
     for (const c of seen) expect(c.score).toBeCloseTo(arcScore(c.arc!) + SHOWCASE_LOOKS * c.looks!, 9);
-    // the best three, best first: the first sibling (3 beats: the valley, a project and a mystery) whose picture holds the most
-    // (its looks 0.49, against 0.47 and 0.36), the second sibling (4 beats: the vista, a landmark, a project and a mystery),
+    // the best three, best first: the first sibling (4 beats: the vista, the valley, a project and a mystery) whose picture
+    // holds the most (its looks 0.57, against 0.47 and 0.38), the second sibling (4 beats: the vista, a landmark, a project and a mystery),
     // then the asked map (2 beats: a project and a mystery): the arcs rank [2, 1, 0], the score with the looks [1, 2, 0]
     expect(arcScore(c)).toBeGreaterThan(arcScore(b));
     expect(arcScore(b)).toBeGreaterThan(arcScore(a));
     expect(seen[1].looks!).toBeGreaterThan(seen[2].looks!);
     expect(res.best.map((p) => p.index)).toEqual([1, 2, 0]);
-    expect(res.best[0].note).toMatch(/^3 of 6 beats\. /);
+    expect(res.best[0].note).toMatch(/^4 of 6 beats\. /);
     // a budget spent at once still makes one map, the asked map's own
     const once = await showcaseSearch(spec, { budgetMs: 0 });
     expect(once.tried).toBe(1);

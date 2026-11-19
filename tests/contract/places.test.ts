@@ -2,7 +2,7 @@
 // validators on a sample, the editor's import of a place, and the rule that real places never feed
 // the generator. Every place's own build and validation: places-build-*.test.ts.
 
-import { spawnSync } from "node:child_process";
+import { spawn, spawnSync } from "node:child_process";
 import { existsSync, mkdirSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { join, relative, sep } from "node:path";
 import { gunzipSync, gzipSync, strToU8 } from "fflate";
@@ -215,8 +215,21 @@ function python(): string | null {
 const PY = python();
 if (!PY && process.env.CI) throw new Error("CI needs Python with numpy for the real places oracle");
 
+/** The Python validator on one map, in a process of its own, so the sample's maps run side by side. */
+function pythonOn(path: string): Promise<{ stdout: string; stderr: string; status: number | null; error?: Error }> {
+  return new Promise((resolve) => {
+    const c = spawn(PY!, ["-B", "prototype/validate.py", "--json", path]);
+    let stdout = "";
+    let stderr = "";
+    c.stdout.setEncoding("utf8").on("data", (d: string) => (stdout += d));
+    c.stderr.setEncoding("utf8").on("data", (d: string) => (stderr += d));
+    c.on("error", (error) => resolve({ stdout, stderr, status: null, error }));
+    c.on("close", (status) => resolve({ stdout, stderr, status }));
+  });
+}
+
 describe.skipIf(!PY)("both validators agree on the sample (prototype/validate.py)", () => {
-  it("every check has the same verdict, and every map passes both but for the conversion's known faults, which both flag", () => {
+  it("every check has the same verdict, and every map passes both but for the conversion's known faults, which both flag", async () => {
     const dir = join(".scratch", "places-oracle");
     rmSync(dir, { recursive: true, force: true });
     mkdirSync(dir, { recursive: true });
@@ -228,29 +241,36 @@ describe.skipIf(!PY)("both validators agree on the sample (prototype/validate.py
       writeFileSync(join(dir, `${e.id}.damgoodmaps.json`), gzipSync(strToU8(JSON.stringify({ spec: null, features: [] })), { mtime: 0 }));
       paths.push(p);
     }
-    // (the places are settled under the game's water rules since D311's conversion, D521: the Python's default)
-    const r = spawnSync(PY!, ["-B", "prototype/validate.py", "--json", ...paths], { encoding: "utf8", maxBuffer: 256 << 20 });
-    expect(r.error).toBeUndefined();
+    // (the places are settled under the game's water rules since D311's conversion, D521: the Python's default);
+    // the maps run side by side, while the TypeScript validates each place
+    const running = Promise.all(paths.map(pythonOn));
+    const ours = SAMPLE.map((e) => {
+      const b = built(e.id);
+      return validateMap(readTimber(b.bytes), { profile: "generate", designedFor: "normal", features: [], water: { model: b.validation.model!, settled: b.validation.water! } });
+    });
+    const runs = await running;
     const reports = new Map<string, { passed: boolean; checks: { id: string; ok: boolean; na: boolean; approx?: string; information?: boolean }[] }>();
-    for (const line of (r.stdout ?? "").split(/\r?\n/)) if (line.startsWith("{")) {
-      const j = JSON.parse(line) as { path: string; passed: boolean; checks: { id: string; ok: boolean; na: boolean; approx?: string; information?: boolean }[] };
-      reports.set(relative(".", j.path).split(sep).join("/"), j);
+    for (const r of runs) {
+      expect(r.error).toBeUndefined();
+      for (const line of r.stdout.split(/\r?\n/)) if (line.startsWith("{")) {
+        const j = JSON.parse(line) as { path: string; passed: boolean; checks: { id: string; ok: boolean; na: boolean; approx?: string; information?: boolean }[] };
+        reports.set(relative(".", j.path).split(sep).join("/"), j);
+      }
     }
     const ts = (c: CheckResult) => (c.applicable === false ? "na" : c.approximate ? "approx" : c.ok ? "pass" : "fail");
     const py = (c: { ok: boolean; na: boolean; approx?: string }) => (c.na ? "na" : c.approx ? "approx" : c.ok ? "pass" : "fail");
     for (const [k, e] of SAMPLE.entries()) {
       const rep = reports.get(paths[k].split(sep).join("/"));
-      expect(rep, `${e.id}: no Python report. ${r.stderr ?? ""}`).toBeDefined();
-      const b0 = built(e.id);
-      const v0 = validateMap(readTimber(b0.bytes), { profile: "generate", designedFor: "normal", features: [], water: { model: b0.validation.model!, settled: b0.validation.water! } });
+      expect(rep, `${e.id}: no Python report. ${runs[k].stderr}`).toBeDefined();
+      // (each run exits as validate.py's main() does: 1 when its map fails)
+      expect(runs[k].status, e.id).toBe(rep!.passed ? 0 : 1);
+      const v = ours[k];
       // (item 47's start land and the start's floors are a preference for real places, D331, D515: known where
       // they fall short, D245)
-      const startLand = v0.report.checks.filter((c) => ["start.farmland", "start.level_land", "start.reach", "start.forester", "start.wood_fast"].includes(c.id) && !c.ok && c.applicable !== false).map((c) => c.id);
+      const startLand = v.report.checks.filter((c) => ["start.farmland", "start.level_land", "start.reach", "start.forester", "start.wood_fast"].includes(c.id) && !c.ok && c.applicable !== false).map((c) => c.id);
       const known = [...startLand, ...(PLACES_HAVE_EDGE_WALLS ? ["terrain.edge_wall"] : []), ...(PLACES_SOURCES_IN_FLOW.has(e.id) ? ["water.source_in_flow"] : []), ...(PLACES_WATER_WITHOUT_OUTLET.has(e.id) ? ["water.outflow"] : []), ...(PLACES_WATER_KEEPS_MOVING.has(e.id) ? ["water.settles"] : []), ...(PLACES_LACK_MINE_SITES ? ["resources.mine_site"] : []), ...(PLACES_LACK_BADWATER ? ["resources.badwater_source"] : []), ...(PLACES_SHORT_OF_WOOD.has(e.id) ? ["start.wood"] : []), ...(PLACES_BELOW_THE_FLOOR.has(e.id) ? ["start.wood_floor"] : []), ...(PLACES_START_WITHOUT_FED_WATER.has(e.id) ? ["start.water"] : []), ...(PLACES_SHORT_OF_BERRIES.has(e.id) ? ["start.food"] : []), ...(PLACES_PLANTS_ON_DRY_SOIL.has(e.id) ? ["plants.survive"] : [])];
       expect(rep!.passed, e.id).toBe(known.length === 0);
       expect(rep!.checks.filter((c) => !c.ok && !c.na && !c.approx && !(c as { advisory?: boolean }).advisory).map((c) => c.id).sort(), e.id).toEqual(known.sort());
-      const b = built(e.id);
-      const v = validateMap(readTimber(b.bytes), { profile: "generate", designedFor: "normal", features: [], water: { model: b.validation.model!, settled: b.validation.water! } });
       // (terrain.ruled_land is the one row the Python validator reports without computing it, so it alone is not compared)
       const uncomputed = "terrain.ruled_land";
       expect(rep!.checks.find((c) => c.id === uncomputed)?.information, e.id).toBe(true);
@@ -258,7 +278,7 @@ describe.skipIf(!PY)("both validators agree on the sample (prototype/validate.py
       const p = Object.fromEntries(rep!.checks.filter((c) => c.id !== uncomputed).map((c) => [c.id, py(c)]));
       expect(p, e.id).toEqual(a);
     }
-    expect(r.status).toBe(PLACES_HAVE_EDGE_WALLS || PLACES_LACK_MINE_SITES || PLACES_LACK_BADWATER || SAMPLE.some((e) => PLACES_SOURCES_IN_FLOW.has(e.id) || PLACES_WATER_WITHOUT_OUTLET.has(e.id) || PLACES_WATER_KEEPS_MOVING.has(e.id) || PLACES_SHORT_OF_WOOD.has(e.id) || PLACES_BELOW_THE_FLOOR.has(e.id) || PLACES_START_WITHOUT_FED_WATER.has(e.id) || PLACES_SHORT_OF_BERRIES.has(e.id) || PLACES_PLANTS_ON_DRY_SOIL.has(e.id)) ? 1 : 0);
+    expect(Math.max(...runs.map((r) => r.status!))).toBe(PLACES_HAVE_EDGE_WALLS || PLACES_LACK_MINE_SITES || PLACES_LACK_BADWATER || SAMPLE.some((e) => PLACES_SOURCES_IN_FLOW.has(e.id) || PLACES_WATER_WITHOUT_OUTLET.has(e.id) || PLACES_WATER_KEEPS_MOVING.has(e.id) || PLACES_SHORT_OF_WOOD.has(e.id) || PLACES_BELOW_THE_FLOOR.has(e.id) || PLACES_START_WITHOUT_FED_WATER.has(e.id) || PLACES_SHORT_OF_BERRIES.has(e.id) || PLACES_PLANTS_ON_DRY_SOIL.has(e.id)) ? 1 : 0);
   });
 });
 

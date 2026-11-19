@@ -6,8 +6,12 @@
 // moist land within 20 tiles' walk for food and wood. Among the places that qualify, the genome's
 // preferences (a lake shore, a river bank, a confluence, below a fall, a high bench, a spring's
 // stream), the intentions' preferences, the drought-aware preference (#59: water that stays
-// pumpable through the first Normal drought, preferred on Normal and Hard, required on Easy) and the
-// seed choose among the best few, kept 20 tiles apart, so starts differ as much as the land does.
+// pumpable through the first Normal drought, preferred on Normal and Hard, required on Easy) and what
+// the place is worth to a settlement (the level room it has, as Easy start's room row reads it, and the
+// moist ground its wood will grow on, `startWorth`) rank the places. Room comes first (D(pick-start)):
+// the places with Easy's room that keep every Easy row today's ranking's place keeps, else those with
+// at least that place's room; the seed chooses among the best few of them, kept 20 tiles apart, whose
+// worth stands within `VALUE_MARGIN` of the worthiest, so starts differ as much as the land does.
 // The chosen place is turned for the game's opening camera (D493, analysis/opening.ts): among the
 // orientations whose door is on level ground, the one whose opening frame best holds a landmark (else
 // falls, open water, relief), the door nearest the water breaking ties.
@@ -25,8 +29,9 @@ import type { Hydro } from "../land/hydro";
 import { distanceFrom, levelRegions, MinHeap, N4, N8 } from "../math/grid";
 import type { Rng } from "../math/rng";
 import { WET } from "../validate/playability";
+import { easyTargets } from "../analysis/easyStart";
 import * as portable from "../math/portable";
-import { benchAt, benchRegions } from "./startValue";
+import { benchAt, benchRegions, START_WEIGHTS, startParts, startTargets, VALUE_MARGIN, WOOD_WANT } from "./startValue";
 
 // (the bench is read in gen/startValue.ts, the start's measure, which the land stage reads too)
 export { benchAt, benchRegions };
@@ -57,6 +62,10 @@ export const BANK_FOOT = 800;
 /** How much more of the opening frame a start among the good few must show of the map to be taken over the one drawn
  *  (D506: a start near a corner frames mostly void; `landInFrame`). */
 export const FRAME_GAIN = 0.05;
+
+/** How much longer a start chosen for its room may walk to its water than the place the pick would choose by its
+ *  score alone (D(pick-start)), in tiles. */
+export const WALK_SPARE = 2;
 
 /** The least walk from a start's middle tile to a shore: its 5×5 stays dry (`start.dry`), so the
  *  nearest shore stands 3 tiles out. */
@@ -136,6 +145,13 @@ export interface SettlerOptions {
    *  `band` (its pond is dug between, land/easyStart.ts), at least `room` tiles 2 levels under to 3 over the start's
    *  within 12 tiles (its clearing), the more the better, and water a pond can be joined to (`pond`). */
   easy?: { band: readonly [number, number]; room: number; pond: (x: number, y: number, level: number) => boolean } | null;
+  /** Room first (D(pick-start), the default): the places with Easy start's room that keep the Easy rows the place
+   *  its score alone ranks first keeps. False on the water the hydrology planned, whose guess the badwater hollows are
+   *  planned away from: that place, as the pick before ranked it, so the start picked for its room on the settled water
+   *  keeps the rows the start the generator would have given keeps (the planned water's walks are an estimate). */
+  roomFirst?: boolean;
+  /** The badwater sources' hollows (their middles), for the Easy badwater row a start chosen for its room keeps. */
+  badwater?: readonly (readonly [number, number])[] | null;
 }
 
 /** Shore tiles: dry ground beside clean water 0.3+ deep whose surface a pump on that ground
@@ -293,6 +309,54 @@ export function footAt(foot: SettlerOptions["foot"], i: number): number {
   if (!foot) return 0;
   const k = foot.lab[i];
   return k >= 0 && k < foot.size.length ? foot.size[k] : 0;
+}
+
+/** What a place is worth to a settlement when the start is picked (D(pick-start)): `startValue`'s bench and wood
+ *  parts, each a ratio to its target on a log scale, uncapped (`startParts`), the bench read as the start's own
+ *  level room (`roomAt`, Easy start's room row, against its ask) and the wood as the moist dry ground a level either
+ *  side of the start's within 14 tiles, where its wood will grow (`woodAt`'s window). A Small Start area (`small`)
+ *  asks for a small bench: its room counts up to the ask only. */
+export function startWorth(room: number, moist: number, want: ReturnType<typeof startTargets>, small = false): number {
+  const p = startParts({ bench: small ? Math.min(room, want.bench) : room, foot: 0, wood: moist, ways: 0, water: want.water }, want);
+  return p.bench + p.wood;
+}
+
+/** The level room a start at (x, y) on level `L` has, as Easy start's room row reads it (`analysis/easyStart.ts`
+ *  `easyRoom`, `insideShare`): the dry tiles at its level joined to it (4-connected) within `radius` of its middle,
+ *  and the share of the dry ground within `insideRadius` they hold. `wet` is water (and planned channels); `mark`
+ *  and `queue` are scratch, `stamp` a value `mark` does not hold yet. */
+export function roomAt(h: ArrayLike<number>, W: number, H: number, wet: (i: number) => boolean, x: number, y: number, L: number, radius: number, insideRadius: number, mark: Int32Array, stamp: number, queue: Int32Array): { n: number; inside: number } {
+  const r2 = radius * radius;
+  const s = y * W + x;
+  mark[s] = stamp;
+  queue[0] = s;
+  let n = 1;
+  for (let k = 0; k < n; k++) {
+    const c = queue[k];
+    const cx = c % W;
+    const cy = (c - cx) / W;
+    for (const [dx, dy] of N4) {
+      const nx = cx + dx;
+      const ny = cy + dy;
+      if (nx < 0 || ny < 0 || nx >= W || ny >= H || (nx - x) * (nx - x) + (ny - y) * (ny - y) > r2) continue;
+      const j = ny * W + nx;
+      if (mark[j] === stamp || h[j] !== L || wet(j)) continue;
+      mark[j] = stamp;
+      queue[n++] = j;
+    }
+  }
+  let all = 0;
+  let on = 0;
+  const i2 = insideRadius * insideRadius;
+  for (let dy = -insideRadius; dy <= insideRadius; dy++)
+    for (let dx = -insideRadius; dx <= insideRadius; dx++) {
+      const xx = x + dx;
+      const yy = y + dy;
+      if (dx * dx + dy * dy > i2 || xx < 0 || yy < 0 || xx >= W || yy >= H || wet(yy * W + xx)) continue;
+      all++;
+      if (mark[yy * W + xx] === stamp) on++;
+    }
+  return { n, inside: all ? on / all : 0 };
 }
 
 /** Read-only fields for picks on identical terrain/water. Discard before either changes.
@@ -459,7 +523,27 @@ export function pickStart(
     const y1 = Math.min(H - 1, y + r);
     return t[(y1 + 1) * (W + 1) + x1 + 1] - t[y0 * (W + 1) + x1 + 1] - t[(y1 + 1) * (W + 1) + x0] + t[y0 * (W + 1) + x0];
   };
-  const cands: { i: number; score: number; kind: string; walk: number; levelled: boolean; droughtOk?: boolean; intent: number; sameLevel: boolean }[] = [];
+  // what a place is worth to a settlement (D(pick-start)): the level room it has and the moist ground its wood will
+  // grow on, against a place at the targets
+  const worthRef = START_WEIGHTS.bench + START_WEIGHTS.wood;
+  // Easy start's asks for this map (`easyTargets`): its room (and the share of the start's middle it holds), its water
+  // walk and its badwater distance, and the moist ground the wood row's ask is read against (`WOOD_WANT`, by area)
+  const ask = easyTargets(W, H);
+  const roomWorthWant = startTargets(waterRule, { bench: ask.room });
+  const woodGround = Math.round(WOOD_WANT * Math.min(1, (W * H) / (96 * 96)));
+  const roomWet = (j: number): boolean => D[j] > WET || hydro.water[j] === 1 || hydro.water[j] === 2;
+  const roomMark = new Int32Array(N);
+  const roomQueue = new Int32Array((2 * ask.roomRadius + 1) * (2 * ask.roomRadius + 1));
+  let roomStamp = 0;
+  const roomFirst = opts.roomFirst !== false;
+  // (the squared distance to the nearest badwater source's hollow; none planned yet, Infinity)
+  const badNear = (x: number, y: number): number => {
+    let d = Infinity;
+    for (const [bx, by] of opts.badwater ?? []) d = Math.min(d, (bx - x) * (bx - x) + (by - y) * (by - y));
+    return d;
+  };
+  type Cand = { i: number; score: number; scoreRoom: number; kind: string; walk: number; mid: number; levelled: boolean; droughtOk?: boolean; intent: number; sameLevel: boolean; worth: number; room: number; inside: number; moist: number; /** squared */ bad: number; read?: boolean; fit?: boolean };
+  const cands: Cand[] = [];
   // first pass: level ground as it is; second pass (when the first finds nothing): a 5×5 within a
   // level of the center is levelled, as a player would level a spot for the district center
   for (let pass = 0; pass < (opts.level === false ? 1 : 2) && !cands.length; pass++)
@@ -543,6 +627,9 @@ export function pickStart(
             kind = k;
           }
         const intent = opts.prefer ? opts.prefer(x, y, L, w) : 0;
+        // the walk from the middle the Easy water row reads, estimated (on another level, read over the slopes below)
+        let midWalk = Infinity;
+        for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) midWalk = Math.min(midWalk, (sameLevel ? walk : walkAny)[(y + dy) * W + x + dx] + (dx && dy ? S2 : dx || dy ? 1 : 0));
         const dry = droughtOk === undefined ? 1 : droughtOk ? 1.25 : 0.8;
         // the Start area's bench: level ground at the start's own level within 8 tiles
         let bench = 0;
@@ -573,49 +660,106 @@ export function pickStart(
         }
         // the player's settings weigh on the intentions' preference too: they are asked for
         const settingsFit = (0.3 + 0.7 * benchFit * benchFit) * (0.3 + 0.7 * walkFit) * (0.4 + 0.6 * storeFit) * (0.5 + 0.5 * footFit);
-        const score = (pref * (0.5 + 0.5 * room) * (0.6 + 0.4 * Math.min(1, moistNear / 500)) * dry * foodFit + 0.8 * intent) * settingsFit * (easy ? Math.min(1, flat / 600) : 1) + 0.25 * rng.float();
-        cands.push({ i, score, kind, walk: w, levelled: uneven, droughtOk, intent, sameLevel });
+        // (what it is worth to a settlement, against a place at the targets: D(pick-start); with room first it scales the
+        // whole score, the seed's draw too, so between places worth the same the draw weighs as before and only worth
+        // tilts it)
+        const space = roomFirst ? roomAt(h, W, H, roomWet, x, y, L, ask.roomRadius, ask.insideRadius, roomMark, ++roomStamp, roomQueue) : { n: 0, inside: 0 };
+        const worth = startWorth(space.n, moistNear, roomWorthWant, benchWant < 100);
+        const base = (pref * (0.5 + 0.5 * room) * (0.6 + 0.4 * Math.min(1, moistNear / 500)) * dry * foodFit + 0.8 * intent) * settingsFit * (easy ? Math.min(1, flat / 600) : 1) + 0.25 * rng.float();
+        cands.push({ i, score: base, scoreRoom: base * ((1 + worth) / (1 + worthRef)), kind, walk: w, mid: midWalk, levelled: uneven, droughtOk, intent, sameLevel, worth, room: space.n, inside: space.inside, moist: moistNear, bad: badNear(x, y) });
       }
     }
   if (!cands.length) return opts.level === false || easy ? null : footed(bankStart(h, W, H, water, hydro, rng, margin, avoid, reach, aimMid));
-  cands.sort((a, b) => b.score - a.score || a.i - b.i);
-  // the best few, far enough apart that the choice matters
-  const top: typeof cands = [];
-  let tested = 0;
-  for (const c of cands) {
-    if (top.length >= 6) break;
+  // a place read over the slopes (its moist land within 20 tiles' walk, its water: on another level its walk, and with room
+  // first, on its own level too, its walk to clean water from the middle as the start's water row walks it); read once
+  const read = (c: Cand): void => {
+    c.read = true;
+    c.fit = true;
     const x = c.i % W;
-    const y = (c.i - x) / W;
-    if (top.some((t) => Math.abs((t.i % W) - x) + Math.abs(Math.floor(t.i / W) - y) < 20)) continue;
-    if (easy && !easy.pond(x, y, h[c.i])) continue;
-    if ((opts.moistWalk && !easy) || !c.sameLevel) {
-      if (tested >= 40) break;
-      tested++;
-      const sw = startWalks(h, W, H, D, c.sameLevel ? null : water.contamination, water.moisture, x, y, waterRule, false, !!opts.ringSlopes);
-      if (opts.moistWalk && !easy && sw.moist < opts.moistWalk.min) continue;
-      if (!c.sameLevel) {
-        if (!(sw.water <= (opts.waterExact && waterRule < 7 ? waterRule : waterAim(waterRule)))) continue;
-        c.walk = sw.water;
+    const sw = startWalks(h, W, H, D, c.sameLevel && !roomFirst ? null : water.contamination, water.moisture, x, (c.i - x) / W, waterRule, false, !!opts.ringSlopes);
+    if (opts.moistWalk && !easy && sw.moist < opts.moistWalk.min) c.fit = false;
+    else if (!c.sameLevel) {
+      if (!(sw.water <= (opts.waterExact && waterRule < 7 ? waterRule : waterAim(waterRule)))) c.fit = false;
+      else c.walk = c.mid = sw.water;
+    } else if (roomFirst) c.mid = sw.water;
+  };
+  // the best few of a list, far enough apart that the choice matters, each read where it needs to be, and with room first
+  // each keeping `keep` as read (a place on the start's level read for its water walk only then: the list the pick before
+  // ranked reads as it did)
+  const topOf = (list: Cand[], key: "score" | "scoreRoom", keep: ((c: Cand) => boolean) | null = null): Cand[] => {
+    list.sort((a, b) => b[key] - a[key] || a.i - b.i);
+    const top: Cand[] = [];
+    let tested = 0;
+    for (const c of list) {
+      if (top.length >= 6) break;
+      const x = c.i % W;
+      const y = (c.i - x) / W;
+      if (top.some((t) => Math.abs((t.i % W) - x) + Math.abs(Math.floor(t.i / W) - y) < 20)) continue;
+      if (easy && !easy.pond(x, y, h[c.i])) continue;
+      // (the places the pick before read count towards its 40, so the place it would choose is the same: a place on the
+      // start's level read only for its water walk, with room first, does not)
+      const counted = (opts.moistWalk && !easy) || !c.sameLevel;
+      if (counted || keep) {
+        if (!c.read) {
+          if (counted && tested >= 40) break;
+          if (counted) tested++;
+          read(c);
+        }
+        if (!c.fit) continue;
       }
+      if (keep && !keep(c)) continue;
+      top.push(c);
     }
-    top.push(c);
-  }
-  if (!top.length) return opts.level === false || easy ? null : footed(bankStart(h, W, H, water, hydro, rng, margin, avoid, reach, aimMid));
-  // one of the best few, among those nearly as good as the best (the settings' preferences hold):
-  // the one nearest where the start was expected, else one at random
-  const good = top.filter((t) => t.score >= 0.7 * top[0].score);
-  // (a best score under zero, a start intention pulling hard against every place: the best alone)
-  if (!good.length) good.push(top[0]);
-  let c = good[rng.int(0, good.length)];
+    return top;
+  };
+  // one of the best few, among those nearly as good as the best (the settings' preferences hold), with room first worth
+  // nearly as much to a settlement as the worthiest of them (D(pick-start): a place with a third of another's room, or
+  // half its moist ground, is never drawn over it): the one nearest where the start was expected, else one at random
+  // (`u`, drawn once, so each list is drawn from with the seed's same draw)
+  // (drawn once a list has a place, as the pick before drew: with none, `bankStart` draws on from where it did)
+  let u = 0;
   const near = opts.near;
-  if (near) {
-    const d2 = (t: (typeof good)[number]) => {
-      const tx = t.i % W;
-      const ty = (t.i - tx) / W;
-      return (tx - near.x) * (tx - near.x) + (ty - near.y) * (ty - near.y);
-    };
-    for (const t of good) if (d2(t) < d2(c) || (d2(t) === d2(c) && t.i < c.i)) c = t;
-  }
+  const d2 = (t: Cand) => {
+    const tx = t.i % W;
+    const ty = (t.i - tx) / W;
+    return near ? (tx - near.x) * (tx - near.x) + (ty - near.y) * (ty - near.y) : 0;
+  };
+  const drawn = (top: Cand[], byRoom: boolean): { c: Cand; good: Cand[] } => {
+    const key = byRoom ? "scoreRoom" : "score";
+    const near0 = top.filter((t) => t[key] >= 0.7 * top[0][key]);
+    // (a best score under zero, a start intention pulling hard against every place: the best alone)
+    if (!near0.length) near0.push(top[0]);
+    const worthiest = Math.max(...near0.map((t) => t.worth));
+    const good = byRoom ? near0.filter((t) => t.worth >= worthiest - VALUE_MARGIN) : near0;
+    let c = good[Math.floor(u * good.length)];
+    if (near) for (const t of good) if (d2(t) < d2(c) || (d2(t) === d2(c) && t.i < c.i)) c = t;
+    return { c, good };
+  };
+  // the place the pick would choose without room first (its score alone, as before D(pick-start)): the Easy rows it
+  // keeps, a place chosen for its room keeps too (planning on #236: room is never bought with another row). Of the rows
+  // the pick can read: the water walk from the middle (read over the slopes for the best few) within Easy's, half a tile
+  // to spare, where that place's is, and never `WALK_SPARE` tiles longer than it (planning: the clean water walk's
+  // median must not grow); the badwater sources' hollows (`badwater`) no nearer than Easy's distance (5 tiles to spare;
+  // on the planned water none is dug yet); and the wood's ground as much as that place's, or `woodGround`
+  const top0 = topOf(cands.slice(), "score");
+  if (!top0.length) return opts.level === false || easy ? null : footed(bankStart(h, W, H, water, hydro, rng, margin, avoid, reach, aimMid));
+  u = rng.float();
+  const c0 = drawn(top0, false).c;
+  if (roomFirst && !c0.read) read(c0);
+  const walkMost = Math.min(c0.mid + WALK_SPARE, c0.mid <= ask.water ? Math.max(c0.mid, ask.water - 0.5) : Infinity);
+  const badLeast = c0.bad >= ask.badwaterSource * ask.badwaterSource ? Math.min(c0.bad, (ask.badwaterSource + 5) * (ask.badwaterSource + 5)) : 0;
+  const woodLeast = Math.min(c0.moist, woodGround);
+  const keeps = (t: Cand) => t.mid <= walkMost && t.bad >= badLeast && t.moist >= woodLeast;
+  // room first: the places with Easy's room (the start well inside it) that keep those rows; where none has, those that
+  // keep them with at least the room of the place the pick before would choose (that place among them)
+  let top = roomFirst ? topOf(cands.filter((t) => keeps(t) && t.room >= ask.room && t.inside >= ask.insideShare), "scoreRoom", keeps) : [];
+  if (!top.length && roomFirst) top = topOf(cands.filter((t) => keeps(t) && t.room >= c0.room), "scoreRoom", keeps);
+  // (without room first, or past the 40 places read over the slopes, the first list's best few)
+  const first = !top.length;
+  if (first) top = top0;
+  const pick = drawn(top, !first);
+  const good = pick.good;
+  let c = pick.c;
   // turned for the game's opening camera (D493)
   const turned = (t: (typeof good)[number]): Orientation => {
     const tx = t.i % W;

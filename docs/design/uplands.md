@@ -475,3 +475,24 @@ Generator 0.10.49 (D(uplands)); numbers in `C:/dgm-showcase/gen/uplands-pr/`.
   on the built land against .082 asked at 192² (high .94–1, plateaus 4–13;
   Highlands' two-apart benches start at 256², `highlands.ts`), five a river's water leaving its course. Seconds over base by more than 10 %: Canyon 192² 21.0 → 24.1 (+15 %), Canyon 384² 91.2 → 127.1 (+39 %, in
   2 attempts against 4: 64 s an attempt against 23).
+
+## Slopes on ringed land: placement time (2026-11-19)
+
+A CPU profile of one Canyon 384² seed 1 map at 0.10.49 (117 s): placing slopes is about 1 s of it, the start's walks
+over them (`startWalks`) another 1 s. The reading that ringed slopes were the cost was wrong. The map takes two
+attempts. The first fails ("no place for badwater") after 30 s, 20 of them in six searches for a badwater site
+(`planBadwater`), every one failing. The second takes 84 s: the water's settle 51 s and the water's runs 19 s (the Rust
+water in WebAssembly), the badwater search 6 s, the start's pick 4 s. At 0.10.48 the same map took four attempts,
+three of them failing cheaply at the land stage, and its shown attempt spent the same on the water (49 and 18 s).
+Measured in turn on this machine, one map at a time, by CPU time: 0.10.48 127.0 and 129.8 s, 0.10.49 124.6 and
+132.1 s. The map is no slower; "64 s an attempt against 23" divided one map's time by two attempts against four.
+
+What changed (no map moves: 41 maps' project and file hashes the same before and after, the six themes at 136, 192
+and 256 seeds 1 and 2, Canyon and Highlands 384 seed 1, three maps at 128² and under): the slopes placed are kept by
+square of 12 tiles, so the spacing rule reads only those near a candidate (it read every slope placed for every
+candidate); the badwater search's spread from the water and the edge is written out four neighbours by hand, and a
+pit is dug into its copy of the ground over the pit's 17×17 square, not the whole map. CPU seconds before → after,
+measured in turn: Canyon 384² 133.5, 121.2, 127.5 → 117.0, 123.6, 116.0 (wall 95.9–239.8 → 93.2–103.1 s);
+Canyon 192² 45.1, 47.1, 44.7 → 44.4, 45.7, 46.4; Highlands 384² 66.0 → 64.7. Canyon 384² stays near 50 s an attempt,
+not 30: its shown attempt's water alone is about 70 s, and the first attempt's failing badwater searches 20 s. Either
+is its own work: the Rust water's settle, or a badwater search that finds no site sooner.

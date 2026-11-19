@@ -91,6 +91,7 @@ Read this index, then [how-we-work.md](how-we-work.md), then only the topic file
 
 ## [The generator](generator.md)
 
+- D(pick-start): The start is picked for the level room it has, never at the cost of an Easy row: the places with Easy's room that keep the rows the pick before would keep, else those with at least its room, worth weighing the draw
 - D(uplands): Above 128² the land is drawn in rings: landforms at the map's scale, a plan of the land, nothing fine in the snap, slopes for a ringed land, bold walls for Highlands and Canyon; Lake Basin and Islands stay on 0.10.48's land
 - D(terrace-edges): No level's edge runs ruler-straight over a dozen tiles: the graded levels are read through a fine warp before rounding, the water's field left as it is
 - D(ruled-water): No course runs beside another: it joins the one it would run beside; Delta's arms step diagonally

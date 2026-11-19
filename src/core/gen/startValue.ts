@@ -1,8 +1,11 @@
 // What a place for the start is worth (#1193; planning's ruling on #236, comment 6949595157): one measure, for the
 // land stage's seat on the planned water before the settle (#1227). The settler's picker (`gen/settler.ts`
-// `pickStart`) keeps its own choice: ranking its places by this measure, read again on each one's build, raised the
-// bench but not the walkable land or the wood a start ends with (gen/start-value, #236 comment 6957728337), and did
-// not ship. The bench's regions (`benchRegions`, `benchAt`) live here and the settler reads them.
+// `pickStart`) keeps its own ranking (ranking its places by this whole measure, read again on each one's build, raised
+// the bench but not the walkable land or the wood a start ends with: gen/start-value, #236 comment 6957728337) and
+// weighs its places by this measure's bench and wood parts, the bench read as the start's own level room (Easy start's
+// room row, `settler.ts` `roomAt`, `startWorth`, D(pick-start)): a place's score is scaled by them, and the seed draws
+// only among the best few worth within `VALUE_MARGIN` of the worthiest.
+// The bench's regions (`benchRegions`, `benchAt`) live here and the settler reads them.
 //
 // The terms are what a player feels in a colony's first hours, each read as a ratio to its target on a log scale and
 // never capped: 3,000 tiles of bench are worth more than 1,000, and a tile counts for less the more there are.
