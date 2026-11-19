@@ -8096,7 +8096,7 @@ fn glacier_route(m: &Map, s: &GlacierSettings, intent: &Intent, v: &GlacierValle
         let dx = (end.x - start.x) / d;
         let dy = (end.y - start.y) / d;
         let n = len.ceil() as usize;
-        return (0..=n)
+        let route: Vec<Point> = (0..=n)
             .map(|k| {
                 let t = k as f64 / n as f64;
                 let bend = sin(t * std::f64::consts::PI)
@@ -8108,6 +8108,28 @@ fn glacier_route(m: &Map, s: &GlacierSettings, intent: &Intent, v: &GlacierValle
                 }
             })
             .collect();
+        // (a click on or beside the map's edge, where the valley's way down leaves the map at once: the glacier comes
+        // down to the edge there and runs off it, its route the same line the other way, run on straight to the edge.
+        // Headed inland from the edge, its cirque was held to two tiles by the edge and its snout ended inland on
+        // ground no lower than the edge's, so with no way out its floor stood at the valley's bottom and it changed a
+        // handful of tiles at every Power: River Valley 128² seed 5 at (127, 8). Run off the edge, the trough is open
+        // there, as wide as it is anywhere (`glacier_runs_off`), and its floor drains off the map)
+        let gaps = edge_gaps(m.w, m.h, start);
+        let k = (0..4).min_by(|&a, &b| gaps[a].partial_cmp(&gaps[b]).unwrap()).unwrap();
+        if gaps[k] < 3.5 && glacier_runs_off(m.w, m.h, &route).is_none() {
+            let mut out: Vec<Point> = route.into_iter().rev().collect();
+            let across = [(-1.0, 0.0), (0.0, -1.0), (1.0, 0.0), (0.0, 1.0)][k];
+            let mut d = 1.0;
+            while gaps[k] - d > 0.0 {
+                out.push(Point {
+                    x: start.x + across.0 * d,
+                    y: start.y + across.1 * d,
+                });
+                d += 1.0;
+            }
+            return out;
+        }
+        return route;
     }
     if !intent.via.is_empty() {
         let mut stops = vec![start];
