@@ -327,9 +327,10 @@ const CARRY_SHEET = 0.2;
 /** The least it stands over its floor to be read as over it (as the measures count water). */
 const CARRY_OVER = 0.05;
 /** The fewest tiles of sheet in a backed reach's band past its bank for its channel to be cut (D530): a cut moves the
- *  start's ground and wood, so it is made only for a sheet worth taking: on 256² seeds 1-6, River Valley 4's reach held
- *  1,141 and River Valley 5's 107, whose cut took its sheet 1.6% to 1.7% of the map and moved its start. */
-const CARRY_SHEET_MIN = 300;
+ *  start's ground and wood, so it is made only for a sheet worth taking: on 256² seeds 1-6, the reaches cut held 1,141
+ *  (River Valley 4) to 2,583 tiles, and River Valley 5's 107, whose cut took its sheet 1.6% to 1.7% of the map and
+ *  moved its start; River Valley 192² seed 5's 372 bought 0.2% of the map for 45 logs at its start. */
+const CARRY_SHEET_MIN = 600;
 
 /** A planned course read on the shaped land (D530): each station's routed flow, the reaches of water backed up from one
  *  control on it (`carryNeed`), and the controls whose band past the bank is a broad flat (`flats`). */
