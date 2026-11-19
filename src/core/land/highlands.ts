@@ -13,7 +13,7 @@
 // side, so at 96² up to four heads share 16% less water than at 128²: on half the maps no river
 // reaches the hydrology's cutting flow (1.2), none is incised, the water stands at its benches'
 // level and the land is not high over it. Full at 96², tapering to nothing at 128².
-import type { Genome } from "./genome";
+import { formScale, type Genome } from "./genome";
 import { mapShape } from "./shape";
 import * as portable from "../math/portable";
 
@@ -38,7 +38,13 @@ export function shapeHighlands(g: Genome, W: number, H: number): void {
   const s = 1 - k;
   if (s <= 0) return;
   const side = Math.min(W, H);
-  if (s >= 0.5) g.terrace.step = Math.max(g.terrace.step, side > 128 ? 3 : 4);
+  // (uplands round 1: from 256² up, where the landforms stand at the map's scale (`atMapScale`), benches five apart and
+  // tops that roll: the massif's tablelands stacked, each wall five levels, docs/design/uplands.md. At three apart the
+  // drop spread over the map as a mottle of three-level nicks; with the tops as level as the tableland's own (calm 1) the
+  // broad tableland stood dead flat, 70% of the land)
+  const massif = formScale(W, H) >= 2;
+  if (s >= 0.5) g.terrace.step = Math.max(g.terrace.step, massif ? 5 : side > 128 ? 3 : 4);
+  if (massif) g.grade.calm = Math.min(g.grade.calm, 0.5);
   g.terrace.share = Math.max(g.terrace.share, 0.8 * s);
   g.hyps.lean = Math.min(g.hyps.lean, 1 - 0.35 * s);
   // (the lowest bench no lower than 4: a base drawn under it left the valley floor at 3, on the beds'
