@@ -76,22 +76,6 @@ export interface Hydro {
   joinedRivers?: string[];
   /** The tributaries wound as gorges for running deep under a wall (`deepStretch`), not for their planned cut. */
   deepWound?: number;
-  /** The courses whose planned water would stand over their bank somewhere (D530): read again on the routed flow and
-   *  cut wider where it does, over a broad flat, by `carryChannels`. */
-  carry?: CarryReach[];
-}
-
-/** A course's reach as planned, for `carryChannels` (D530): its path, its bed and lakes by station, its channel's
- *  half-width by station and the half-width of the floor cleared beside it. */
-export interface CarryReach {
-  id: string;
-  path: Point[];
-  L: number;
-  n: number;
-  prof: number[];
-  lakeAt: number[];
-  halfs: number[];
-  floorHalf: number;
 }
 
 export interface HydroOptions {
@@ -258,208 +242,6 @@ interface Stamp {
   s: Float64Array;
   /** Tiles the stamp reached. */
   tiles: number[];
-}
-
-/** The most of a level a river's water stands over its bed before its channel is cut wider (D530). */
-const CARRY_MOST = 0.85;
-/** The most a channel is widened to carry its water (D530), times its width. */
-const CARRY_WIDEST = 1.8;
-/** The share of the ground in a band past a reach's bank at most a level over its bed that makes it a broad flat
- *  (D530): there water over the bank spreads as a sheet; where the banks rise it stands in its valley. */
-const CARRY_FLAT = 0.6;
-/** How far past a channel's bank the ground is read for a broad flat (D530), in tiles. */
-const CARRY_BAND = 12;
-/** The fewest tiles of that band a reach is read on (D530): a short reach between two lips is no plain. */
-const CARRY_FLAT_MIN = 200;
-
-/** How much wider each station of a course needs its channel to carry its water inside a bank a level over its bed
- *  (D530, D26): its standing water by station, from its end upstream, its head over each lip or its end (0.3·q/w) and
- *  its rise along a flat reach (0.0015·q/w a tile), through any lake on it; each reach of water backed up from one
- *  control (`ctrl`, its station) widened alike, as much as its deepest station needs, at most `CARRY_WIDEST`. The
- *  course a lake's water reaches back up is the lake's and is not read. Null when no station needs it. */
-function carryNeed(prof: ArrayLike<number>, lakeAt: ArrayLike<number>, L: number, n: number, widthAt: (j: number) => number, flowAt: (j: number) => number): { k: Float64Array; ctrl: Int32Array } | null {
-  const ds = L / n;
-  const k = new Float64Array(n + 1).fill(1);
-  const ctrl = new Int32Array(n + 1);
-  let any = false;
-  // (a widened reach backs less water up the reach above it: a few passes settle the factors)
-  for (let pass = 0; pass < 3; pass++) {
-    const depth = new Float64Array(n + 1);
-    let sf = -Infinity;
-    let c = n;
-    // (the level a lake on the course holds its water at, its outlet's bed, while the course above it lies under it)
-    let held = -Infinity;
-    for (let j = n; j >= 0; j--) {
-      const q = flowAt(j);
-      const w = Math.max(1, widthAt(j) * k[j]);
-      if (lakeAt[j] && j < n) {
-        // (a lake on the course stands at the water backed up to its outlet, the reach below's: the reach above
-        // runs into it at that level, all one reach of water)
-        if (!lakeAt[j + 1]) held = prof[j + 1];
-        ctrl[j] = c;
-        continue;
-      }
-      const head = prof[j] + (0.3 * q) / w;
-      const backed = sf + ((0.0015 * q) / w) * ds;
-      if (j === n || head >= backed) {
-        sf = head;
-        c = j;
-      } else sf = backed;
-      ctrl[j] = c;
-      if (prof[j] < held) continue;
-      held = -Infinity;
-      depth[j] = sf - prof[j];
-    }
-    const need = new Map<number, number>();
-    for (let j = 0; j <= n; j++) if (depth[j] > CARRY_MOST) need.set(ctrl[j], Math.max(need.get(ctrl[j]) ?? 1, depth[j] / CARRY_MOST));
-    if (!need.size) break;
-    any = true;
-    for (let j = 0; j <= n; j++) {
-      const f = need.get(ctrl[j]);
-      if (f !== undefined) k[j] = Math.min(CARRY_WIDEST, k[j] * f);
-    }
-  }
-  return any ? { k, ctrl } : null;
-}
-
-/** The most a river's settled water stands over its floor, a level over its bed, to be a sheet (D530). */
-const CARRY_SHEET = 0.2;
-/** The least it stands over its floor to be read as over it (as the measures count water). */
-const CARRY_OVER = 0.05;
-/** The fewest tiles of sheet in a backed reach's band past its bank for its channel to be cut (D530): a cut moves the
- *  start's ground and wood, so it is made only for a sheet worth taking: on 256² seeds 1-6, the reaches cut held 1,141
- *  (River Valley 4) to 2,583 tiles, and River Valley 5's 107, whose cut took its sheet 1.6% to 1.7% of the map and
- *  moved its start; River Valley 192² seed 5's 372 bought 0.2% of the map for 45 logs at its start. */
-const CARRY_SHEET_MIN = 600;
-
-/** A planned course read on the shaped land (D530): each station's routed flow, the reaches of water backed up from one
- *  control on it (`carryNeed`), and the controls whose band past the bank is a broad flat (`flats`). */
-interface CarryRead {
-  st: Stamp;
-  at: (i: number) => number;
-  need: { k: Float64Array; ctrl: Int32Array };
-  flats: Set<number>;
-}
-
-function carryRead(h: Uint8Array, water: Uint8Array, W: number, H: number, r: CarryReach, q: ArrayLike<number>): CarryRead | null {
-  const { L, n } = r;
-  let wide = 0;
-  for (const v of r.halfs) wide = Math.max(wide, v);
-  const st = stamp(r.path, W, H, Math.ceil(wide * CARRY_WIDEST + CARRY_BAND + 1));
-  const at = (i: number) => Math.min(n, Math.max(0, Math.round((st.s[i] / L) * n)));
-  // the flow each station carries: the most the water routes through its channel
-  const flow = new Float64Array(n + 1);
-  for (const i of st.tiles) if (st.d[i] < r.halfs[at(i)] && q[i] > flow[at(i)]) flow[at(i)] = q[i];
-  const need = carryNeed(r.prof, r.lakeAt, L, n, (j) => 2 * r.halfs[j], (j) => flow[j]);
-  if (!need) return null;
-  // a reach widens only over a broad flat: the ground in a band past its bank, at most a level over its bed, on most of
-  // the reach (River Valley 256² seed 4: all of it; where the banks rise, Highlands 256² seed 2 and Delta 256² seed 1,
-  // a quarter and a third)
-  const low = new Map<number, number>();
-  const all = new Map<number, number>();
-  for (const i of st.tiles) {
-    const j = at(i);
-    if (!(need.k[j] > 1) || r.lakeAt[j] || water[i] === 2) continue;
-    if (st.d[i] < r.halfs[j] || st.d[i] > r.halfs[j] + CARRY_BAND) continue;
-    const c = need.ctrl[j];
-    all.set(c, (all.get(c) ?? 0) + 1);
-    if (h[i] <= r.prof[j] + 1) low.set(c, (low.get(c) ?? 0) + 1);
-  }
-  const flats = new Set<number>();
-  for (const [c, a] of all) if (a >= CARRY_FLAT_MIN && (low.get(c) ?? 0) >= CARRY_FLAT * a) flats.add(c);
-  return flats.size ? { st, at, need, flats } : null;
-}
-
-/** The courses of `reaches` whose routed water would stand over its bank beside a broad flat (D530): those
- *  `carryChannels` may cut, read before their water is settled, so a land with none costs no settle. */
-export function carryFlats(h: Uint8Array, water: Uint8Array, W: number, H: number, reaches: readonly CarryReach[], q: ArrayLike<number>): CarryReach[] {
-  return reaches.filter((r) => carryRead(h, water, W, H, r, q) !== null);
-}
-
-/** D530, a river's channel carries its water: on the finished land stage, each planned course whose water would stand
- *  over its bank (`Hydro.carry`) is read again on the flow it routes (`q`, the pre-fill's walk of every source's water,
- *  `sim/prefill.ts` `flowThrough`: water a course loses by an edge or to an arm is not in it) and on its water as it
- *  settles on that land, uncut (`level`, its surface, NaN where dry). A reach of water backed up from one control
- *  (`carryNeed` on that flow), beside a broad flat (`CARRY_FLAT`: the ground in a band past its bank a level over its
- *  bed, as River Valley 256² seed 4's plain), is cut wider when its settled water lies over its floor, a level over its
- *  bed, as a sheet (over `CARRY_OVER`, at most `CARRY_SHEET`) on more of its stations than it stands deeper there (where
- *  it stands deeper over its floor, a cut that lowers it leaves the floor a sheet: Delta 256² seed 6's inflow stood 0.44
- *  over its floor, and a cut left 0.16), and the band holds `CARRY_SHEET_MIN` tiles of sheet or more. Its channel is cut
- *  wider into its own floor as much as the routed water needs to stand at 0.85 of a level, at most `CARRY_WIDEST`: the
- *  floor's tiles inside the wider channel come down to the bed, eased along the course (the most over about two widths
- *  each way, then their mean), so the cut is one smooth widening; the floor's outer edge and every bank stay where they
- *  are, and ground is only taken away (D111). Where the water stands in its channel, or where the banks rise, nothing
- *  is cut. Changes `h` and `water` (channel tiles 1); returns the tiles cut. */
-export function carryChannels(h: Uint8Array, water: Uint8Array, W: number, H: number, reaches: readonly CarryReach[], q: ArrayLike<number>, level: ArrayLike<number>): number {
-  let cut = 0;
-  for (const r of reaches) {
-    const read = carryRead(h, water, W, H, r, q);
-    if (!read) continue;
-    const { st, at, need, flats } = read;
-    const { L, n } = r;
-    // the settled water's surface over the bed at each station, the highest in its channel
-    const over = new Float64Array(n + 1).fill(-Infinity);
-    for (const i of st.tiles) {
-      const j = at(i);
-      if (st.d[i] < r.halfs[j] && level[i] - r.prof[j] > over[j]) over[j] = level[i] - r.prof[j];
-    }
-    // each backed reach's stations whose water lies over the floor as a sheet, those where it stands deeper, and the
-    // tiles of sheet in its band past the bank
-    const sheet = new Map<number, number>();
-    const deep = new Map<number, number>();
-    for (let j = 0; j <= n; j++) {
-      if (!(need.k[j] > 1) || r.lakeAt[j] || !(over[j] > 1 + CARRY_OVER)) continue;
-      const m = over[j] <= 1 + CARRY_SHEET ? sheet : deep;
-      m.set(need.ctrl[j], (m.get(need.ctrl[j]) ?? 0) + 1);
-    }
-    const thin = new Map<number, number>();
-    for (const i of st.tiles) {
-      const j = at(i);
-      if (!(need.k[j] > 1) || r.lakeAt[j] || water[i] === 2) continue;
-      if (st.d[i] < r.halfs[j] || st.d[i] > r.halfs[j] + CARRY_BAND) continue;
-      const d = level[i] - h[i];
-      if (d > CARRY_OVER && d <= CARRY_SHEET) thin.set(need.ctrl[j], (thin.get(need.ctrl[j]) ?? 0) + 1);
-    }
-    const k = new Float64Array(n + 1).fill(1);
-    let any = false;
-    for (let j = 0; j <= n; j++) {
-      const c = need.ctrl[j];
-      if (need.k[j] > 1 && flats.has(c) && (sheet.get(c) ?? 0) > (deep.get(c) ?? 0) && (thin.get(c) ?? 0) >= CARRY_SHEET_MIN) {
-        k[j] = need.k[j];
-        any = true;
-      }
-    }
-    if (!any) continue;
-    // (eased: the most over about two widths each way, then their mean, never under the factor a station needs)
-    const R = Math.max(4, Math.round((4 * r.halfs[n]) / (L / n)));
-    const dil = new Float64Array(n + 1);
-    for (let j = 0; j <= n; j++) {
-      let m = 1;
-      for (let t = Math.max(0, j - R); t <= Math.min(n, j + R); t++) if (k[t] > m) m = k[t];
-      dil[j] = m;
-    }
-    const sm = new Float64Array(n + 1);
-    for (let j = 0; j <= n; j++) {
-      let a = 0;
-      for (let t = j - R; t <= j + R; t++) a += dil[Math.max(0, Math.min(n, t))];
-      sm[j] = a / (2 * R + 1);
-    }
-    for (const i of st.tiles) {
-      const j = at(i);
-      if (r.lakeAt[j] || water[i] === 2 || sm[j] <= 1) continue;
-      const x = i % W;
-      const y = (i - x) / W;
-      // (never at the map's edge: the edge rows keep their ground, D151, D314)
-      if (Math.min(x, y, W - 1 - x, H - 1 - y) < 2) continue;
-      const b = r.prof[j];
-      if (st.d[i] < r.halfs[j] * sm[j] && h[i] === b + 1) {
-        h[i] = b;
-        water[i] = 1;
-        cut++;
-      }
-    }
-  }
-  return cut;
 }
 
 /** Exact distance from each tile near a polyline to it, and the arc position of the nearest point
@@ -1802,8 +1584,6 @@ function planHydroSingle(E: Float64Array, h: Uint8Array, g: Genome, seed: number
   };
 
   const exits = new Map<string, { path: Point[]; prof: Float64Array; L: number; n: number; width: number; half: (s: number, L: number) => number }>();
-  // (D530: the courses whose planned water would stand over their bank, read again once the land is shaped)
-  const carry: CarryReach[] = [];
   // (each river's pools that held, by station: planned standing water a level under the reach below)
   const poolsOf = new Map<string, Set<number>>();
   // (M9b) how high the water at each inflow's mouth may stand before it runs back out by the same
@@ -1955,22 +1735,6 @@ function planHydroSingle(E: Float64Array, h: Uint8Array, g: Genome, seed: number
     // Waterfalls off: every drop spread along the course, a level a tile at most (the river cuts a
     // steady grade into the land above a cliff instead of falling over it); lakes keep their levels
     if (g.falls === 0) for (let j = n; j >= 1; j--) if (!lakeAt[j] && !lakeAt[j - 1] && prof[j - 1] > prof[j] + 1) prof[j - 1] = prof[j] + 1;
-    // (D530, D373 (1), D26: a channel carries its water inside a bank a level over its bed. A big river's channel is
-    // no wider than `MAX_WIDTH` and on the beds' floor can't be cut deeper: a long flat reach of it stood over its
-    // bank and spread over the plain beside as a thin sheet, River Valley 256² seed 4's main river, 14.4 water/s
-    // through ten tiles. Where its planned water would stand over its bank, the course is read again on the water's
-    // own route once the land is shaped, and cut wider there over a broad flat, `carryChannels`; a river into the
-    // sea stands at the sea's level, which no width changes)
-    if (natural && !(tr.toSea && !exitEdge)) {
-      const halfs: number[] = [];
-      for (let j = 0; j <= n; j++) halfs.push(half((j * L) / n, L));
-      const qAt = (j: number) => {
-        let q = hd.flow;
-        for (const jn of joined) if (jn.s <= (j * L) / n) q += jn.q;
-        return q;
-      };
-      if (carryNeed(prof, lakeAt, L, n, (j) => 2 * halfs[j], qAt)) carry.push({ id: rid, path, L, n, prof: Array.from(prof), lakeAt: Array.from(lakeAt), halfs, floorHalf });
-    }
     // pools: below a drop the water scours its bed a level deeper for a few tiles, where the reach
     // below is long enough to keep a lip (pools and riffles: standing water deep enough to pump)
     const bedOf = prof.slice();
@@ -2639,7 +2403,7 @@ function planHydroSingle(E: Float64Array, h: Uint8Array, g: Genome, seed: number
     };
     for (const r of rivers) lowerFrom(r, 0, Infinity, 0);
   }
-  return { rivers, water, lakes, falls, arms, flowTotal, joined: joined + refused, joinedRivers: [...heads.keys()].filter((k) => touched.has(k) || k >= lostAt).map((k) => featureId(seed, "river", roleOf(k))).filter((id) => rivers.some((r) => r.id === id)), ...(deepWound ? { deepWound } : {}), ...(carry.length ? { carry } : {}) };
+  return { rivers, water, lakes, falls, arms, flowTotal, joined: joined + refused, joinedRivers: [...heads.keys()].filter((k) => touched.has(k) || k >= lostAt).map((k) => featureId(seed, "river", roleOf(k))).filter((id) => rivers.some((r) => r.id === id)), ...(deepWound ? { deepWound } : {}) };
 }
 
 /** River Valley tries two courses around a drawn cliff and retains the stronger split.

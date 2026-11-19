@@ -30,7 +30,7 @@ import { STRAIGHT_LIMITS, straightness, tooStraight } from "../analysis/straight
 import { damWalls } from "../analysis/ridge";
 import { risenBasin, wearOutlet } from "../water/outletWear";
 import { TICKS_PER_DAY, WaterSim, type SettleWatch } from "../sim/water";
-import { DRAIN_DAYS, canonicalSettle, flowThrough, prefill, spillLevels, watchedSettle } from "../sim/prefill";
+import { DRAIN_DAYS, prefill, spillLevels, watchedSettle } from "../sim/prefill";
 import { holdSeaLip, islandToExpandTo, seaLevel, standIslandsClear } from "../land/islands";
 import { unit } from "../land/num";
 import { entityJson, type EntitySpec } from "../format/entities";
@@ -64,7 +64,7 @@ import { edgeLip, LIP_REACH } from "../water/edgeLip";
 import { springCandidates } from "../water/springSites";
 import { orientationOf, orientDir, orientField, orientXY, type Orientation as LandOrientation } from "../land/orient";
 import { mapShape, startAlong } from "../land/shape";
-import { carryChannels, carryFlats, planHydro, type Hydro } from "../land/hydro";
+import { planHydro, type Hydro } from "../land/hydro";
 import { ACTIVE, checkIntention, INTENTION_TEXT, type IntentionId } from "../land/intentions";
 import type { FormPlan, FormsWanted } from "../land/forms3d";
 import { carveOutlets, widenOutlets, unreachedLakes, cleanPitsAndSpikes, contourField, fillDryHollows, footComponents, mergeSmallRegions, naturalRamps, relaxEdges, snapLevels } from "../land/levels";
@@ -2011,26 +2011,6 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
   // the natural lakes read back from the field (they describe it, never shape it)
   const lakes = bundle ? bundle.lakes : lakeFeatures(hy, W, H, seed);
   for (const f of lakes) contains.add(f.id);
-  // (D530: a course whose planned water would stand over its bank is read again on the shaped land, on the flow it
-  // routes and, where that water would back up beside a broad flat, on its water as it settles, and its channel is cut
-  // wider into its floor where that water lies over the floor as a sheet, `carryChannels`; part of the land, before it
-  // is shown: a settle's cost, on the lands with such a flat alone)
-  if (!from && hy.carry?.length) {
-    const bw = build([...hy.rivers, ...lakes], "water");
-    const model = waterModel(W, H, bw.heights, mapObjects({ entities: bw.entities.map(entityJson) }));
-    const routed = flowThrough(model).q;
-    const flats = carryFlats(h, hy.water, W, H, hy.carry, routed);
-    if (flats.length) {
-      const settled = canonicalSettle(model).depth;
-      const level = new Float64Array(N).fill(NaN);
-      for (let i = 0; i < N; i++) if (settled[i] > 0) level[i] = bw.heights[i] + settled[i];
-      if (carryChannels(h, hy.water, W, H, flats, routed, level) > 0) {
-        for (let i = 0; i < N; i++) if (hy.water[i] === 1) keep[i] = 1;
-        hLand.set(h);
-      }
-    }
-  }
-  if (hy.carry) delete hy.carry;
   // the pre-built weir (D72), on half the maps where a river's channel takes one; the start and the
   // badwater keep off its pool
   const weir = bundle ? bundle.weir : planWeir(h, W, H, hy, seed, attempt);
