@@ -267,8 +267,11 @@ describe("the generator's M7 set pieces keep their rules (ROADMAP M7)", () => {
     // keeps every rule;
     // canyon 1 → 2 and river valley 1 → 7 at 0.10.48 (D(terrace-edges)' warp making no cliff), D148: the land moved and neither
     // holds a rise now; of Canyon seeds 1–20, 2, 6, 7, 9, 11 and 14, and of River Valley seeds 1–20, 4, 7, 17 and 18 hold one
-    // that keeps every rule)
-    for (const [theme, seed] of [["canyon", 2], ["canyon", 11], ["riverValley", 4], ["riverValley", 7]] as [ThemeId, number][]) {
+    // that keeps every rule;
+    // river valley 7 → 12 at 0.10.50 (D(pick-start), the start picked for its level room), D148: River Valley 7's start moved
+    // and its map holds no rise now; of Canyon seeds 1–20, 2, 6, 7, 9, 11 and 14, and of River Valley seeds 1–20, 4, 12 and 17
+    // hold one that keeps every rule)
+    for (const [theme, seed] of [["canyon", 2], ["canyon", 11], ["riverValley", 4], ["riverValley", 12]] as [ThemeId, number][]) {
       const r = generate(makeSpec({ seed, size: { x: 128, y: 128 }, theme }));
       const f = r.features.find((g) => g.kind === "setPiece" && g.params.kind === "obstaclePayoff");
       if (!f || f.kind !== "setPiece") continue;

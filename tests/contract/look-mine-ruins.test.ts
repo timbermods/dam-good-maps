@@ -127,7 +127,9 @@ import * as ed from "../../src/worker/session";
 // and D(terrace-edges)' warp making no cliff (`8bfdb897…` before it), the map made on its first attempt and passing, D148;
 // and generator 0.10.49's version alone (D(uplands), which moves no map at 128²): with the version set back to 0.10.48 the
 // branch gives `524a9cec…` byte for byte, D148
-const LIVE_SHA = "1557cad0b1e4c0850fa793c93e28640e95e51e7f8de1c9856cd70d9c418d166e";
+// and generator 0.10.50's version alone (D(pick-start), which keeps this map's start): with the version set back to 0.10.49
+// the branch gives `1557cad0…` byte for byte, D148
+const LIVE_SHA = "5247e4c8a3ca6359c343211632385463990a3cf0f9bce76f2d046bd7e3ec8c2d";
 const spec = () => makeSpec({ seed: 4242, size: { x: 128, y: 128 }, theme: "riverValley", designedFor: "normal" });
 
 describe("mine sites and ruins, models of our own", () => {
