@@ -53,6 +53,9 @@ import { holdTurn, listPaid, PLAIN_WORKS_BLOCKING, plainLadder, plainWorksFailur
 import { DEAD_SHARE, DRY_LEAST, PLAIN_IDS, plainLevel, plainOf, poisonedPlain, toLocal, turnOf, walk } from "./premises/poisonedPlain";
 import { curtains } from "./curtain";
 import { premiseStyle } from "./style";
+import { premiseWashes } from "./washes";
+import type { Wash } from "../land/washes";
+import { rulesFor } from "../validate/playability";
 import type { PremisePlan, Point } from "./types";
 import type { StageWater } from "./water";
 
@@ -620,6 +623,8 @@ export interface PlainMap {
   /** The works checks by number it fails (`plainWorks.ts`; `works.paid` is said, the rest are blocking). */
   works: { id: string; reason: string }[];
   map: PremiseMap;
+  /** The old channels cut into the dry floor and the land round it (`plainWorksOf`: D517's dry washes). */
+  washes: Wash[];
   settled: PlainSettled;
   settledFails: { id: string; reason: string }[];
   /** The start's numbers (`gateMap.ts` `startNumbers`: D515's floors and the shared gate's start checks). */
@@ -652,9 +657,48 @@ export function plainSettled(land: PlainLand, map: PremiseMap, deadTrees: number
   };
 }
 
-/** A land's ground as the map is built on it (the red source's niche dug) and its ladder on that ground, with the
- *  works checks it fails (`plainWorks.ts`). */
-export function plainWorksOf(land: PlainLand): { heights: Uint8Array; niche: [number, number] | null; ladder: Ladder; works: { id: string; reason: string }[] } {
+/** The plain's old channels (the dry washes kept to the plain, `land/washes.ts` `WashInput.within`): a main one at
+ *  least `least` tiles long on a 128² map, `per128` of them (both by side elsewhere), `lip` tiles off the sloughs, the
+ *  backswamp and the levees, and `levee` + `lip` off the river's water (the first rung's levee stands up to `levee` past it). The plain's own flow runs from
+ *  the levee's back across it to the backswamp, 25 to 45 tiles at 128² (50 to 135 at 256²): the shared pass's 60 (28 at
+ *  least) found none there. */
+export const OLD_CHANNELS = { least: 16, per128: [2, 3] as const, lip: 2, levee: 3 };
+
+/** The tiles within `d` (Chebyshev) of a set tile of `m`. */
+function dilate(m: Uint8Array, W: number, H: number, d: number): Uint8Array {
+  const row = new Uint8Array(W * H);
+  for (let y = 0; y < H; y++) {
+    let last = -Infinity;
+    for (let x = 0; x < W; x++) {
+      if (m[y * W + x]) last = x;
+      if (x - last <= d) row[y * W + x] = 1;
+    }
+    last = Infinity;
+    for (let x = W - 1; x >= 0; x--) {
+      if (m[y * W + x]) last = x;
+      if (last - x <= d) row[y * W + x] = 1;
+    }
+  }
+  const out = new Uint8Array(W * H);
+  for (let x = 0; x < W; x++) {
+    let last = -Infinity;
+    for (let y = 0; y < H; y++) {
+      if (row[y * W + x]) last = y;
+      if (y - last <= d) out[y * W + x] = 1;
+    }
+    last = Infinity;
+    for (let y = H - 1; y >= 0; y--) {
+      if (row[y * W + x]) last = y;
+      if (last - y <= d) out[y * W + x] = 1;
+    }
+  }
+  return out;
+}
+
+/** A land's ground as the map is built on it (the red source's niche dug, the old channels cut) and its ladder on that
+ *  ground, with the works checks it fails (`plainWorks.ts`); the start keeps a bench of `bench` level tiles. `channels`
+ *  false leaves the old channels uncut (the test that they leave the levees as they were). */
+export function plainWorksOf(land: PlainLand, bench: number, channels = true): { heights: Uint8Array; niche: [number, number] | null; washes: Wash[]; ramps: [number, number][]; ladder: Ladder; works: { id: string; reason: string }[] } {
   const heights = land.heights.slice();
   const niche = redNiche(land.plan, land.water);
   if (niche) digNiche(heights, land.plan.W, niche);
@@ -664,17 +708,51 @@ export function plainWorksOf(land: PlainLand): { heights: Uint8Array; niche: [nu
     const t = turnSite(land, heights, niche);
     if (!t || !holdTurn(land, heights, t)) break;
   }
+  // (the old channels on the plain: the dry washes every map has, D517's shared pass (`washes.ts`), kept to the plain
+  // (the relief's floor 1, between the levee and the backswamp), found in its own low lines and ending short of the
+  // water by a lip, where a canal wants to go; cut once the start is put, before the ladder reads the land. They keep
+  // `OLD_CHANNELS.lip` tiles off the sloughs and the backswamp too, whose water the river in brings: a channel opening
+  // into a slough took its water off the floor, step 6: 256² seed 4 under `riverIn.green`'s 60 %)
+  const cut: PremiseLand = { water: land.water, heights, niches: niche ? { badwater: niche } : {}, laid: { plugs: {}, banks: {} }, notes: [] };
+  const { W, H } = land.plan;
+  const N = W * H;
+  const fl = land.relief.floor;
+  const L = OLD_CHANNELS.lip;
+  const r = land.water.raster;
+  const river = land.plan.links.findIndex((l) => l.id === I.river) + 1;
+  // (the ground a channel keeps off, each with its margin: the sloughs and the backswamp; the levees, the river's banks
+  // over the land (`relief.bank`) and the plain's edge on a riser over the backswamp or a slough, where the swamp levee
+  // is raised (`plainWorks.ts` `swampLeveeSite`); the river's water, past whose edge the first rung's levee is raised
+  // up to `OLD_CHANNELS.levee` tiles (`lowLeveeSite`). A channel on a levee's flank would lower what the player pays to
+  // break or raise, and no check reads it. The other works, the turn's site, the weir and the pond, and the red source's
+  // niche are off the plain or kept off by every wash's own keep-off, `premise/washes.ts`)
+  const water = new Uint8Array(N);
+  const levee = new Uint8Array(N);
+  const low = new Uint8Array(N);
+  for (let i = 0; i < N; i++) {
+    if (fl[i] === 2 || fl[i] === 4) low[i] = 1;
+    if (river && r.channel[i] === river) water[i] = 1;
+    if (land.relief.bank[i] > 0) levee[i] = 1;
+    else if (fl[i] === 1) {
+      const x = i % W;
+      for (const j of [x > 0 ? i - 1 : -1, x + 1 < W ? i + 1 : -1, i - W, i + W]) if (j >= 0 && j < N && (fl[j] === 2 || fl[j] === 4) && heights[j] < heights[i]) levee[i] = 1;
+    }
+  }
+  const near = [dilate(low, W, H, L), dilate(levee, W, H, L), dilate(water, W, H, OLD_CHANNELS.levee + L)];
+  const tiles = new Uint8Array(N);
+  for (let i = 0; i < N; i++) if (fl[i] === 1 && !near.some((m) => m[i])) tiles[i] = 1;
+  const washes = channels ? premiseWashes(land.plan, cut, land.frame.start, land.attempt, bench, { tiles, least: OLD_CHANNELS.least, per128: OLD_CHANNELS.per128 }) : [];
   const ladder = plainLadder(land, heights, niche);
-  return { heights, niche, ladder, works: plainWorksFailures({ land, heights, ladder, niche }) };
+  return { heights, niche, washes, ramps: cut.ramps ?? [], ladder, works: plainWorksFailures({ land, heights, ladder, niche }) };
 }
 
 /** One land's map: its sources, the settle, its life and dead band, the build again and its checks, then the settled
  *  measures. */
-export function plainMapOf(spec: MapSpec, land: PlainLand & { held: boolean }, theme: StyleTheme = "riverValley", ground: ReturnType<typeof plainWorksOf> = plainWorksOf(land)): Omit<PlainMap, "failed" | "held"> {
+export function plainMapOf(spec: MapSpec, land: PlainLand & { held: boolean }, theme: StyleTheme = "riverValley", ground: ReturnType<typeof plainWorksOf> = plainWorksOf(land, rulesFor(spec).levelLand)): Omit<PlainMap, "failed" | "held"> {
   const { plan, water } = land;
   const t0 = performance.now();
-  const { heights, niche, ladder } = ground;
-  const pl: PremiseLand = { water, heights, niches: niche ? { badwater: niche } : {}, laid: { plugs: {}, banks: {} }, notes: [], standsOffStart: START_WOOD_CLEAR };
+  const { heights, niche, ladder, washes, ramps } = ground;
+  const pl: PremiseLand = { water, heights, niches: niche ? { badwater: niche } : {}, laid: { plugs: {}, banks: {} }, notes: [], standsOffStart: START_WOOD_CLEAR, ...(washes.length ? { washes } : {}), ...(ramps.length ? { ramps } : {}) };
   const s: MapSpec = { ...JSON.parse(JSON.stringify(spec)), accepted: { attempt: land.attempt, candidate: 0 } };
   const style = premiseStyle(theme, spec, land.attempt);
   const base = premiseBase(s, plan, pl, land.frame.start, ladder, style);
@@ -697,7 +775,7 @@ export function plainMapOf(spec: MapSpec, land: PlainLand & { held: boolean }, t
   const t3 = performance.now();
   const ms = { land: land.ms.total, settle: Math.round(t1 - t0), life: map.ms.life, checks: map.ms.checks, settled: Math.round(t3 - t2), total: 0 };
   ms.total = ms.land + Math.round(t3 - t0);
-  return { land, ladder, works: worksFails, map, settled, settledFails, start: startNumbers(map), attempt: land.attempt, ms };
+  return { land, ladder, works: worksFails, map, washes, settled, settledFails, start: startNumbers(map), attempt: land.attempt, ms };
 }
 
 /** The poisoned floodplain's map for a spec in a theme's style (River Valley by default): the first attempt whose land
@@ -720,7 +798,7 @@ export function plainMap(spec: MapSpec, theme: StyleTheme = "riverValley"): Plai
       continue;
     }
     // (the works by number, before the settle: a land whose turn or river in does not work is drawn again)
-    const ground = plainWorksOf(land);
+    const ground = plainWorksOf(land, rulesFor(spec).levelLand);
     if (!ground.niche) {
       failed.push(`source.niche: the red source finds no 3 × 3 on the Red Spring's pool within ${NICHE_NEAR} tiles of its point`);
       continue;

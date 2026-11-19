@@ -270,6 +270,12 @@ export const RED_SHARE = { low: 1 / 5, normal: 1 / 4, high: 1 / 3 } as const;
 export const RED_BED = { carry: 1.8, depth: 0.6, least: 3 } as const;
 /** The red stream's half-width for its flow (`RED_BED`). */
 export const redHalf = (flow: number): number => Math.max(RED_BED.least, Math.ceil(flow / (RED_BED.carry * RED_BED.depth))) / 2;
+/** The red stream's course across the backswamp (step 6, planning's look at step 5: at 256² seed 2 its meander read
+ *  as a drawn wave): meandered by the river's own maker (`gateBrooks.ts` `meander`), its stream's width and its bends
+ *  varying along it as the river's do (`TRUNK_VARY`), about an axis that drifts across the backswamp by noise of cell
+ *  `cell` tiles, up to `most` of the backswamp's width off its drawn share and within `keep` of it (the room its bends
+ *  swing in moves with it, so no reach's lobes are capped alike). */
+export const RED_DRIFT = { most: 0.6, cell: 36, keep: [0.2, 0.8] as const } as const;
 /** The red stream's pools (step 5, planning: the red stream read as a one-tile thread in the whole-map frame at 192²
  *  and 256²): a stream on a backswamp's flat scours its bends, so its bed widens there by up to `widen` tiles either
  *  side, by how sharply it turns over `window` of its points either way (`turn` degrees and more: the whole widening),
@@ -1233,7 +1239,8 @@ function layout(spec: MapSpec, attempt: number, t: number): Laid {
   // ---- the red stream: from the Red Fall's pool along the backswamp, then into the river or out by its own exit
   const footC: Point = [uM, vMouth - POOL_R.foot - 0.5];
   const along = rng.range(0.4, 0.6);
-  const swampV = (u: number) => vB(u) + (vF(u) - vB(u)) * along;
+  const alongSeed = hash32(spec.seed, N, N, "premise.water", "plain", "red.along");
+  const swampV = (u: number) => vB(u) + (vF(u) - vB(u)) * Math.max(RED_DRIFT.keep[0], Math.min(RED_DRIFT.keep[1], along + RED_DRIFT.most * fbm(alongSeed, u, 0, RED_DRIFT.cell, 2)));
   let joinS = 0;
   let joinP: Point = [0, 0];
   let approach: Point = [0, 0];
@@ -1328,7 +1335,8 @@ function layout(spec: MapSpec, attempt: number, t: number): Laid {
   }
   const swampLen = pathLength(redCourse.slice(0, endJoin ? -1 : undefined));
   const inSwamp = (p: Point) => p[1] >= vB(p[0]) + 1 && p[1] <= vF(p[0]) - 1;
-  const redM = meander(redCourse, 2, draw, { levels: 0, from: 0 }, (p, a, toEnd) => (a <= swampLen ? inSwamp(p) && (endJoin || toEnd < 10 || onMap(T, p, 1)) : true), 2, false);
+  // (the river's maker at the stream's own width, its bends varying: `RED_DRIFT`)
+  const redM = meander(redCourse, 2 * redHalf(redFlow), draw, { levels: 0, from: 0 }, (p, a, toEnd) => (a <= swampLen ? inSwamp(p) && (endJoin || toEnd < 10 || onMap(T, p, 1)) : true), 2, true);
   let redL: Point[];
   if (endJoin) {
     redL = sampled(redM, 3).path.map(rp);

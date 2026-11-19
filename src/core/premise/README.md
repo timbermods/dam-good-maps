@@ -56,7 +56,8 @@ control on the page yet); and step 9's core: the theme and the premise as two ch
   walk finds the rules' level land and farmland.
 - `washes.ts` `premiseWashes`: the dry washes and old bed (D517, `land/washes.ts`) cut into the ground after stage 3,
   off what stage 1 decided, the works and the niches; their fords join `PremiseLand.ramps`, the beds `PremiseLand.washes`
-  (the dead stands' dry beds, `premiseLife`).
+  (the dead stands' dry beds, `premiseLife`). Its `within` keeps the lines to a set of tiles with their own least
+  length and count: the poisoned floodplain's old channels on its dry floor (`plainMap.ts` `OLD_CHANNELS`).
 - `premises/lakeStair.ts`: the lake stair (§4): `lakeStairEligible`, the layout (the valley, the lakes on it, the
   start, its frame and the landmark placed together, the bypass on a course of its own over the land
   (`bypassCourses`: two legs over the seed's rises and hollows, turning far from the start, kept off the edge), the tarns and basins, the works, the ridges, the

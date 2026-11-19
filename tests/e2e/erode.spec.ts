@@ -144,7 +144,9 @@ test("the first Glaciate and the first Erode on a page compile no program in the
 });
 
 test("a click wears the land there, kept as one step; one Ctrl+Z restores the map exactly", async ({ page }) => {
-  await openEditor(page, "s=4242&z=96&d=n&t=highlands");
+  // (Highlands seed 1 since generator 0.10.48, D148: on seed 4242's highest ground Erode rightly refuses, nothing there
+  // wearing away without leaving ground to fall)
+  await openEditor(page, "s=1&z=96&d=n&t=highlands");
   await topDown(page);
   await page.keyboard.press("Shift+Digit8");
   const row = page.getByRole("group", { name: "Erode options" });

@@ -31,17 +31,37 @@ concurrency:
   cancel-in-progress: false
 
 env:
-  # the schedule checks dev; a run by hand or on a pull request checks its own ref
-  CHECK_REF: ${{ github.event_name == 'schedule' && 'dev' || '' }}
+  # the schedule checks dev; a run by hand or on a pull request checks its own commit. The sha job turns it into one sha
+  CHECK_REF: ${{ github.event_name == 'schedule' && 'dev' || github.sha }}
 
 jobs:
+  # Every job checks out the one commit this job resolves. A branch name moves: on 2026-11-18 a merge into dev landed
+  # while the jobs were starting, macOS built other code than the other hosts, and `hosts` refused the comparison. Every
+  # trigger (the schedule, by hand, a pull request) goes through this job, so there is one path.
+  sha:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    outputs:
+      sha: ${{ steps.sha.outputs.sha }}
+    steps:
+      - name: The commit every job checks
+        id: sha
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          sha=$(gh api "repos/$GH_REPO/commits/$CHECK_REF" --jq .sha)
+          echo "$CHECK_REF is $sha"
+          echo "sha=$sha" >> "$GITHUB_OUTPUT"
+
   heavy-tests:
+    needs: sha
     runs-on: ubuntu-24.04
     timeout-minutes: 90
     steps:
       - uses: actions/checkout@v7
         with:
-          ref: ${{ env.CHECK_REF }}
+          ref: ${{ needs.sha.outputs.sha }}
       - uses: actions/setup-node@v7
         with:
           node-version: 22
@@ -61,6 +81,7 @@ jobs:
   # (planning). Red means the list moved: regenerate it (npm run intentions) in a pull request that says which intention
   # moved and why.
   intentions:
+    needs: sha
     runs-on: ubuntu-24.04
     timeout-minutes: 60
     strategy:
@@ -70,7 +91,7 @@ jobs:
     steps:
       - uses: actions/checkout@v7
         with:
-          ref: ${{ env.CHECK_REF }}
+          ref: ${{ needs.sha.outputs.sha }}
       - uses: actions/setup-node@v7
         with:
           node-version: 22
@@ -90,6 +111,7 @@ jobs:
   # holds (Waimakariri River, 16 to 29 min by the runner) or a fifth of the rest, so each takes about 13 to 30 min.
   # Raising the shard count is the fix if the rest outgrows them; the slowest place sets the floor. Never a longer limit.
   places:
+    needs: sha
     name: places (${{ matrix.shard }}/5)
     runs-on: ubuntu-24.04
     timeout-minutes: 90
@@ -100,7 +122,7 @@ jobs:
     steps:
       - uses: actions/checkout@v7
         with:
-          ref: ${{ env.CHECK_REF }}
+          ref: ${{ needs.sha.outputs.sha }}
       - uses: actions/setup-node@v7
         with:
           node-version: 22
@@ -111,12 +133,13 @@ jobs:
           npm run places -- --check --shard ${{ matrix.shard }}/5 || { echo "::error::The Real places data is stale: run npm run places and commit"; exit 1; }
 
   oracle:
+    needs: sha
     runs-on: ubuntu-24.04
     timeout-minutes: 90
     steps:
       - uses: actions/checkout@v7
         with:
-          ref: ${{ env.CHECK_REF }}
+          ref: ${{ needs.sha.outputs.sha }}
       - uses: actions/setup-node@v7
         with:
           node-version: 22
@@ -134,12 +157,13 @@ jobs:
         run: npx tsx tools/first-visit-maps.ts
 
   batches:
+    needs: sha
     runs-on: ubuntu-24.04
     timeout-minutes: 90
     steps:
       - uses: actions/checkout@v7
         with:
-          ref: ${{ env.CHECK_REF }}
+          ref: ${{ needs.sha.outputs.sha }}
       - uses: actions/setup-node@v7
         with:
           node-version: 22
@@ -172,6 +196,7 @@ jobs:
   # offering is dropped from the matrix (and said in docs/STATUS.md), never replaced by a self-hosted
   # machine. Every host must agree with itself across engines, then with the others (hosts, below).
   determinism:
+    needs: sha
     strategy:
       fail-fast: false
       matrix:
@@ -181,7 +206,7 @@ jobs:
     steps:
       - uses: actions/checkout@v7
         with:
-          ref: ${{ env.CHECK_REF }}
+          ref: ${{ needs.sha.outputs.sha }}
       - uses: actions/setup-node@v7
         with:
           node-version: 22
@@ -207,13 +232,13 @@ jobs:
           retention-days: 7
 
   hosts:
-    needs: determinism
+    needs: [sha, determinism]
     runs-on: ubuntu-24.04
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@v7
         with:
-          ref: ${{ env.CHECK_REF }}
+          ref: ${{ needs.sha.outputs.sha }}
       - uses: actions/setup-node@v7
         with:
           node-version: 22
@@ -227,7 +252,7 @@ jobs:
         run: npx tsx tools/determinism/compare.ts .scratch/hosts/determinism-*
 
   issue:
-    needs: [heavy-tests, intentions, places, oracle, batches, determinism, hosts]
+    needs: [sha, heavy-tests, intentions, places, oracle, batches, determinism, hosts]
     if: failure() && github.event_name != 'pull_request'
     runs-on: ubuntu-24.04
     permissions:
@@ -238,7 +263,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
-          CHECKED: ${{ env.CHECK_REF || github.ref_name }}
+          CHECKED: ${{ github.event_name == 'schedule' && 'dev' || github.ref_name }} at ${{ needs.sha.outputs.sha }}
         run: |
           gh label create nightly --color FBCA04 --description "The nightly checks (nightly.yml)" 2>/dev/null || true
           body="The nightly checks failed on $CHECKED: $RUN_URL"

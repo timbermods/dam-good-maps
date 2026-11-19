@@ -111,7 +111,9 @@ describe("generated maps: every new object passes the placement emulation (ROADM
   // every other kind placed; of Delta seeds 1–6 all but 3 place it, 2 and 4 the nearest)
   // (Islands seed 9 → 8 at 0.10.47, D(terrace-edges), D148: the levels' edges read through a fine warp move Islands 9's land
   // and it leaves the thorn belt out; of Islands seeds 1–14, 1, 3–5, 8, 10, 12 and 14 place it and every other kind)
-  const everyObject = (theme: ThemeId, seed = theme === "islands" ? 8 : theme === "canyon" ? 1 : theme === "highlands" ? 4 : theme === "delta" ? 2 : 3, thorns = true) => {
+  // (Islands seed 8 → 9 at 0.10.48, D(terrace-edges)' warp making no cliff, D148: Islands 8's land moved and it leaves the
+  // thorn belt out; of Islands seeds 1–14, 2, 4, 5, 9 and 12–14 place it and every other kind)
+  const everyObject = (theme: ThemeId, seed = theme === "islands" ? 9 : theme === "canyon" ? 1 : theme === "highlands" ? 4 : theme === "delta" ? 2 : 3, thorns = true) => {
     const spec = makeSpec({ seed, size: { x: 96, y: 96 }, theme });
     spec.settings.hazards.thornBelts = "some";
     spec.settings.hazards.unstableCores = "on";
@@ -259,8 +261,14 @@ describe("the generator's M7 set pieces keep their rules (ROADMAP M7)", () => {
     // seeds 1–20 only 1, 5, 10 and 20 hold one that keeps every rule (19's has no flight of stairs), 1 the first;
     // canyon 4 → 6 and river valley 5 → 4 at 0.10.47 (D(terrace-edges), the levels' edges read through a fine warp), D148: the
     // land moved and neither holds a rise now; of Canyon seeds 1–20, 1, 6, 8, 11, 14 and 15, and of River Valley seeds 1–20, 1, 4,
-    // 7 and 17–20 hold one that keeps every rule)
-    for (const [theme, seed] of [["canyon", 6], ["canyon", 11], ["riverValley", 4], ["riverValley", 1]] as [ThemeId, number][]) {
+    // 7 and 17–20 hold one that keeps every rule;
+    // canyon 6 → 1 at 0.10.48 (D(terrace-edges) merged with D(ruled-water)), D148: the joined courses move canyon 6's map and it
+    // holds no rise now; of Canyon seeds 1–20, 1, 8, 11 and 16, and of River Valley seeds 1–20, 1, 4, 7 and 17–20 hold one that
+    // keeps every rule;
+    // canyon 1 → 2 and river valley 1 → 7 at 0.10.48 (D(terrace-edges)' warp making no cliff), D148: the land moved and neither
+    // holds a rise now; of Canyon seeds 1–20, 2, 6, 7, 9, 11 and 14, and of River Valley seeds 1–20, 4, 7, 17 and 18 hold one
+    // that keeps every rule)
+    for (const [theme, seed] of [["canyon", 2], ["canyon", 11], ["riverValley", 4], ["riverValley", 7]] as [ThemeId, number][]) {
       const r = generate(makeSpec({ seed, size: { x: 128, y: 128 }, theme }));
       const f = r.features.find((g) => g.kind === "setPiece" && g.params.kind === "obstaclePayoff");
       if (!f || f.kind !== "setPiece") continue;
@@ -326,8 +334,14 @@ describe("the generator's M7 set pieces keep their rules (ROADMAP M7)", () => {
     // canyon 7 → 8 and highlands 9 → 3 at 0.10.47 (D(terrace-edges), the levels' edges read through a fine warp), D148: the
     // land moved and those two rivers take no weir now; of Canyon and Highlands 96² seeds 1–20, 17 take one (Canyon 1, 4, 5, 8,
     // 10, 13, 16, 17, 18; Highlands 3, 6, 10, 12, 16, 18, 19, 20) against 14 at 0.10.46, every one holding 0.65 or more but
-    // Highlands 18's 0.59)
-    for (const [theme, seed] of [["canyon", 4], ["canyon", 8], ["canyon", 10], ["canyon", 13], ["highlands", 3]] as [ThemeId, number][]) {
+    // Highlands 18's 0.59;
+    // the same five at 0.10.48 (D(terrace-edges) merged with D(ruled-water), whose own list was canyon 4, 7, 10, 16 and
+    // highlands 11), D148: of Canyon and Highlands 96² seeds 1–20, 18 take one (Canyon 1, 4, 7, 8, 10, 13, 16, 17, 18;
+    // Highlands 3, 6, 9, 10, 12, 16, 18, 19, 20), every one holding 0.65 or more but Highlands 18's 0.59;
+    // canyon 13 → 15 at 0.10.48 (D(terrace-edges)' warp making no cliff), D148: canyon 13's river takes no weir now; of Canyon
+    // and Highlands 96² seeds 1–20, 19 take one (Canyon 1, 4, 6, 7, 8, 10, 15–19; Highlands 3, 6, 9, 10, 12, 16, 19, 20), every
+    // one holding 0.65 or more)
+    for (const [theme, seed] of [["canyon", 4], ["canyon", 8], ["canyon", 10], ["canyon", 15], ["highlands", 3]] as [ThemeId, number][]) {
       const r = generate(makeSpec({ seed, size: { x: 96, y: 96 }, theme }));
       const w = r.features.find((g) => g.kind === "mapObject" && g.params.kind === "weir");
       // (every listed map takes a weir: a map that lost its weir fails here by name, never skipped)

@@ -26,7 +26,7 @@ import * as ed from "../../src/worker/session";
 const W = 96;
 const N = W * W;
 
-/** The map (River Valley seed 3; `caves`: seed 9 at verticality 70, with water under the rock), and its river's tile nearest
+/** The map (River Valley seed 3; `caves`: seed 6 at verticality 70, with water under the rock), and its river's tile nearest
  *  the middle. (The caves map is seed 2 since generator 0.10.24's round forms (the look round: no mesa, cone or knoll is a
  *  circle, and the weathering reaches in a disc), D148: seed 9's map at 70 keeps its stacked water, but its crater draws no
  *  cave water now; of seeds 1–12 at 70 all but 7 and 12 have stacked water, seed 1's map has none once the editor builds it,
@@ -39,8 +39,7 @@ const N = W * W;
 // cave water to draw; of seeds 1 and 3–12 at verticality 70, 1 and 3–7 have no stacked water, the craters of 9–12 draw no cave
 // water, and seed 8 passes; seed 8 → 6 at 0.10.47, D(terrace-edges), D148: seed 8's map at 70 has no stacked water now; of seeds
 // 1–7 and 9–12 at 70, 1, 3, 4 and 5 have none, the craters of 2, 7 and 10–12 draw no cave water, and seeds 6 and 9 pass;
-// seed 6 → 9 at 0.10.48, D(pick-start), D148: the start is picked for its bench and wood too, and seed 6's map at 70 has no stacked
-// water now; seed 9, which passed at 0.10.47 as well, passes)
+// seed 6 → 9 at 0.10.48, D(terrace-edges)' warp making no cliff, D148: seed 6's map at 70 has no stacked water now, seed 9's has)
 async function open(caves = false): Promise<{ river: [number, number]; ground: Uint8Array }> {
   ed.forceCancel();
   const spec = makeSpec({ seed: caves ? 9 : 3, theme: "riverValley", size: { x: W, y: W } });

@@ -873,7 +873,13 @@ export function plainRelief(plan: PremisePlan, w: StageWater, upland: Uint8Array
             // (the gulch's banks hold its stream: off its floor they stand a level over the floor there and over the
             // floor `GULCH_BANK` tiles up it, where the stream's water stands as it comes down a step of the floor:
             // the noise's jag left a bank at the floor above a step, and the red water over it, step 3, round 3)
-            if (sv === gulch && off > 0.5) cut = Math.max(cut, floorAt(sv, Math.min(len, nq.s + GULCH_BANK)) + 1);
+            // (and over the floor of a reach above that lies beside it: where the gulch bends, a tile nearest the reach
+            // below a step lies beside the reach above it, and the stream's water came a tile out over the bend, step 6)
+            if (sv === gulch && off > 0.5) {
+              let up = nq.s;
+              for (let j = Math.ceil(nq.s); j <= len; j++) if (hypot(sv.line[j][0] - u0, sv.line[j][1] - v0) <= (sv.half[j] ?? sv.half[sv.half.length - 1]) + 1.5) up = j;
+              cut = Math.max(cut, floorAt(sv, Math.min(len, up + GULCH_BANK)) + 1);
+            }
             if (cut < z) z = cut;
           }
           if (sv.branch && inBox(sv.box, u0, v0)) {
@@ -930,7 +936,8 @@ export function plainRelief(plan: PremisePlan, w: StageWater, upland: Uint8Array
     for (let grow = TERRACE_LAND.grow; grow <= TERRACE_LAND.growMost && benchOf() < opts.bench; grow += TERRACE_LAND.grow)
       for (let i = 0; i < N; i++) if (floor[i]) floorTile(i, grow);
   }
-  // the sloughs: dry beds a level under the plain
+  // the sloughs: dry beds a level under the plain (each tile's bed kept, `sloughBed`, for the levees after)
+  const sloughBed = new Int16Array(N).fill(-1);
   for (const sl of p.sloughs) {
     // (and never over the plan's bed, which falls or holds from the mouth down: a slough that wanders up the valley past
     // a riser keeps its bed there, step 5: seed 1 at 128², its bed a level over its mouth across the riser above it,
@@ -954,6 +961,7 @@ export function plainRelief(plan: PremisePlan, w: StageWater, upland: Uint8Array
         if (want < h[i]) {
           h[i] = want;
           floor[i] = 4;
+          sloughBed[i] = want;
         }
       }
   }
@@ -1023,6 +1031,15 @@ export function plainRelief(plan: PremisePlan, w: StageWater, upland: Uint8Array
   }
   // stage 1's ground as it is, every other tile at least at its guard
   for (let i = 0; i < N; i++) h[i] = r.fixed[i] ? r.heights[i] : Math.max(h[i], r.heights[i]);
+  // (a slough's bed runs through the levee: where its head runs beside the river within the levee's core, the bank
+  // raised on it is cut back to its bed before the banks' runs are broken (so none runs straight beside it), and the
+  // river in's water runs down it from the mouth; step 6: seed 1 at 128² and 256², the core's crest a level over the bed
+  // for its first ten tiles, refused by `riverIn.byNumber`)
+  for (let i = 0; i < N; i++)
+    if (sloughBed[i] >= 0 && floor[i] === 4 && h[i] > sloughBed[i] && !r.fixed[i]) {
+      h[i] = Math.max(sloughBed[i], r.heights[i]);
+      banks.over[i] = 0;
+    }
   // (no bank's foot runs straight along the grid past `levee.wanders`' measure: it steps out a tile where it would)
   const beside = new Uint8Array(N);
   const keep = new Uint8Array(N);

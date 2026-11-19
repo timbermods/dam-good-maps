@@ -81,10 +81,10 @@ import { decodeSpecFragment, encodeSpecFragment, makeSpec, type MapSpec } from "
 // `63980a48…` before it, and dev with its version set to 0.10.44 gives this branch's bytes, D148
 // and generator 0.10.46's version alone (D(new-ditch), D(sea-steps)): with the version set back to 0.10.44 the merged code gives
 // `aa6cb441…` byte for byte, the gullies and sea steps not reaching this premise's land, D148
-// and generator 0.10.47's version alone (D(terrace-edges), a theme's levels read through a fine warp, which a premise's land
-// never reaches): with the version set back to 0.10.46 the branch gives `c55bf4df…` byte for byte, D148
-// and generator 0.10.48's version alone (D(pick-start), the themes' start picked for its bench and wood too, which a premise's
-// start frame never reads): with the version set back to 0.10.47 the branch gives `62e2f45d…` byte for byte, D148
+// and generator 0.10.47's version alone (the merge of #1162's ruled water, D(ruled-water), with #1195): with the version set back
+// to 0.10.46 the merge gives `c55bf4df…` byte for byte, D148
+// and generator 0.10.48's version alone (the merge of D(terrace-edges) with D(ruled-water)): with the version set back to
+// 0.10.47 the merge gives `62e2f45d…` byte for byte, D148
 const SHA = "0743284bd4860b4bbd20ecf4eed09020891b407caf211c436223d74f3db7b849";
 
 // (a Hard map whose start lake parts as it falls: the single analytic reading stood 0.32 over the run there, PR #1040;
