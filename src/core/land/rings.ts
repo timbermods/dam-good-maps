@@ -21,8 +21,9 @@ import type { ThemeId } from "../spec/mapspec";
 export const RING_FORMS = { rMin: 15, rMax: 40, hMin: 3.5, hMax: 6, gap: 6, tries: 30 } as const;
 const PER_128: Partial<Record<ThemeId, number>> = { highlands: 4, canyon: 5, riverValley: 5, any: 2, lakeBasin: 1 };
 
-/** The levels under the top a theme's land leaves its forms (the land itself spread over the rest). */
-const ROOM: Partial<Record<ThemeId, number>> = { highlands: 2, canyon: 3, riverValley: 2, any: 2, lakeBasin: 1.5 };
+/** The levels under the top a theme's land leaves its forms (the land itself spread over the rest; Highlands 4 since
+ *  round 5, so its forms and the bold family's mesas, `bold.ts`, stand over the ring terraces). */
+const ROOM: Partial<Record<ThemeId, number>> = { highlands: 4, canyon: 3, riverValley: 2, any: 2, lakeBasin: 1.5 };
 export function ringFormRoom(theme: ThemeId): number {
   return ROOM[theme] ?? 0;
 }
@@ -31,8 +32,10 @@ export type RingKind = "hill" | "mesa" | "stepped" | "terraced";
 
 /** How often a theme draws each kind (shares of hill, mesa, stepped, terraced; the rest of 1 terraced): Highlands' are
  *  mostly terraced hills and mesas, whose risers stand two levels (its promise's plateaus and cliffs, and the stacked
- *  ring terraces of the game's Terraces and Pressure); Canyon's tableland carries buttes; elsewhere hills. */
-const KINDS: Partial<Record<ThemeId, readonly [number, number, number]>> = { highlands: [0.15, 0.25, 0.1], canyon: [0.35, 0.3, 0.2], riverValley: [0.45, 0.25, 0.2] };
+ *  ring terraces of the game's Terraces and Pressure); Canyon's tableland carries buttes; elsewhere hills. Round 5 (the bold
+ *  family) moved Highlands and Canyon from hills to mesas: with hills 15 and 35 %, 75–81 % of Canyon's steps were one
+ *  level, against 44–62 % on the game's bold maps. */
+const KINDS: Partial<Record<ThemeId, readonly [number, number, number]>> = { highlands: [0.1, 0.35, 0.15], canyon: [0.1, 0.5, 0.25], riverValley: [0.45, 0.25, 0.2] };
 const KINDS_ANY = [0.4, 0.3, 0.3] as const;
 /** A terraced hill's riser: two levels, over this share of a terrace's run. */
 const RISER = { levels: 2, run: 0.03 } as const;
@@ -55,7 +58,7 @@ export interface RingForm {
   oy: number;
 }
 
-function pseudoAngle(dx: number, dy: number): number {
+export function pseudoAngle(dx: number, dy: number): number {
   const s = Math.abs(dx) + Math.abs(dy);
   if (s === 0) return 0;
   const p = dy / s;
@@ -63,7 +66,7 @@ function pseudoAngle(dx: number, dy: number): number {
 }
 
 /** A tile's distance from a form's middle in its radii, through a slow warp and the outline's two waves (no disc). */
-function formDist(f: RingForm, x: number, y: number, cx: number, cy: number, r: number): number {
+export function formDist(f: RingForm, x: number, y: number, cx: number, cy: number, r: number): number {
   const cell = Math.max(10, r * 1.2);
   const dx = x - cx + 0.22 * r * fbm(f.s + 1, x, y, cell, 2);
   const dy = y - cy + 0.22 * r * fbm(f.s + 2, x, y, cell, 2);

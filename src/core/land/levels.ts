@@ -32,6 +32,7 @@ import { landRegions } from "../analysis/regions";
 import { integrityLevel } from "../features/raster/terrain";
 import { planBands } from "./plan";
 import { addRingForms, drawRingForms, ringFormRoom } from "./rings";
+import { boldGorge, boldMesas } from "./bold";
 
 /** The rank of every value in [0, 1] (ties broken by index, so it is exact and stable). */
 function ranks(v: Float64Array): Float64Array {
@@ -75,7 +76,7 @@ export function snapLevels(E: Float64Array, g: Genome, seed: number, W: number, 
   const ringRoom = ringed ? ringFormRoom(g.theme) : 0;
   const top0 = top - tilt - ringRoom;
   const tiers = g.plan && g.plan.strength > 0 ? planBands(g.plan, g.base, top0) : null;
-  const grade = grader(tiers ? { ...g.grade, calm: Math.min(g.grade.calm, PLAN_CALM), roll: g.grade.roll * RINGS.planRoll } : g.grade, seed, g.variation, W, H, f);
+  const grade = grader(tiers ? { ...g.grade, calm: Math.min(g.grade.calm, PLAN_CALM), roll: g.grade.roll * (ringed && g.plan?.kind === "gorge" ? RINGS.gorgeRoll : RINGS.planRoll) } : g.grade, seed, g.variation, W, H, f);
   const level = new Float64Array(N);
   const curve = tiers ? tieredCurve(tiers, g.base, top0) : null;
   const plane = curve && tilt > 0 ? planeOf(E, W, H) : null;
@@ -112,6 +113,11 @@ export function snapLevels(E: Float64Array, g: Genome, seed: number, W: number, 
       const benched = st > 1 && g.terrace.share > 0 && smoothstep((warpedFbm(ts, x, y, g.terrace.cell, 2, g.terrace.cell / 2) + 1) / 2 - (1 - g.terrace.share) + 0.5) > 0.5;
       level[i] = grade(level[i], x, y, benched ? st : 1, phase);
     }
+  // (uplands round 5, the bold family, `bold.ts`: above 128² Highlands' mesas, their walls a steep band of their
+  // profile, and the field the water is planned on raised under them; Canyon's gorge two faces with a bench between,
+  // and its hollows)
+  const keepRims = ringed && g.theme === "highlands" ? boldMesas(level, E, W, H, seed, g.variation, g.base, top, hi) : null;
+  if (ringed && tiers && g.plan?.kind === "gorge") boldGorge(level, W, H, seed, g.variation, tiers.bands[0][1], tiers.bands[1][0]);
   // (D(terrace-edges): every level's edge read through a warp, so no edge the field, the grade or the tableland's
   // outline leaves smooth over a dozen tiles runs ruler-straight; the levels' edges, not the field the water is planned
   // on. Above 128² a slow one, `RINGS`, that bends the lines without jagging them: uplands round 4)
@@ -153,7 +159,7 @@ export function snapLevels(E: Float64Array, g: Genome, seed: number, W: number, 
   }
   // (uplands round 3: a planned land's walls have ways through, a graded notch about every 40 tiles of wall; round 4:
   // every land above 128², whose ring terraces stand behind walls too)
-  if ((tiers || ringed) && notchWalls(out, W, H, hash32(seed, "ways", g.variation))) {
+  if ((tiers || ringed) && notchWalls(out, W, H, hash32(seed, "ways", g.variation), keepRims)) {
     mergeSmallRegions(out, W, H, 4);
     cleanPitsAndSpikes(out, W, H, null);
   }
@@ -170,14 +176,16 @@ const NOTCH_RUN = 2;
  *  and along each one 40 tiles or longer a notch is cut into the higher ground about every `NOTCH_EVERY` tiles,
  *  graded from the wall's foot in one-level steps `NOTCH_RUN` tiles long, so a colony walks up it. Ground is only
  *  taken away. The notch runs up the land's own slope (its normal, from the levels smoothed over 7 tiles) and bends
- *  with a slow noise, so no two are alike and none runs straight. Returns whether any ground was cut. */
-export function notchWalls(out: Uint8Array, W: number, H: number, seed: number): boolean {
+ *  with a slow noise, so no two are alike and none runs straight. Walls on `keep` (a mesa's rim, which has its own
+ *  ways up: uplands round 5, `bold.ts`) are left as they stand. Returns whether any ground was cut. */
+export function notchWalls(out: Uint8Array, W: number, H: number, seed: number, keep: Uint8Array | null = null): boolean {
   const N = W * H;
   const wall = new Uint8Array(N);
   const foot = new Int32Array(N).fill(-1);
   for (let y = 1; y < H - 1; y++)
     for (let x = 1; x < W - 1; x++) {
       const i = y * W + x;
+      if (keep?.[i]) continue;
       for (const [dx, dy] of N4) {
         const j = (y + dy) * W + x + dx;
         if (out[i] - out[j] >= 2 && (foot[i] < 0 || out[j] < out[foot[i]])) foot[i] = j;
@@ -485,9 +493,10 @@ export const EDGE_WARP = { reach: 6, cell: 6, octaves: 2, full: 128, most: 8.5 }
  *  `smooth` × (`formScale` − 1) tiles each way, `passes` times, before its faces are gathered, so no level's line jags
  *  under about 8 tiles; a planned land's walls are gathered where the smoothed land climbs its gap `gather.from` levels
  *  a tile or more (wholly from `gather.over` more), its tiers tilted `tilt` levels along the slope and rolled `planRoll`
- *  times its theme's grade; the grade's rolling and rises stand at the map's scale (their cells × `formScale`); and the
+ *  times its theme's grade (a gorge's `gorgeRoll`, uplands round 5: rolled three times, its tableland's steps were 75–81 %
+ *  one level); the grade's rolling and rises stand at the map's scale (their cells × `formScale`); and the
  *  edge warp bends the lines over `warpCell` tiles by `warpReach`, one octave, instead of jittering them. */
-export const RINGS = { smooth: 2, passes: 2, planRoll: 3, gather: { from: 0.3, over: 0.3 }, tilt: { valley: 3, gorge: 0 }, warpCell: 18, warpReach: 4 } as const;
+export const RINGS = { smooth: 2, passes: 2, planRoll: 3, gorgeRoll: 1.5, gather: { from: 0.3, over: 0.3 }, tilt: { valley: 3, gorge: 0 }, warpCell: 18, warpReach: 4 } as const;
 
 /** A field smoothed by a box `r` tiles each way, `passes` times (`softened`); itself when `r` is 0. */
 export function smoothed(f: Float64Array, W: number, H: number, r: number, passes: number): Float64Array {
