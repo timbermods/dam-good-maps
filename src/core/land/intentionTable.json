@@ -1,5 +1,5 @@
 {
- "generatorVersion": "0.10.49",
+ "generatorVersion": "0.10.50",
  "side": 128,
  "seeds": [
   1,
@@ -43,8 +43,8 @@
   },
   "falls-shield": {
    "riverValley": 0,
-   "canyon": 6,
-   "highlands": 3,
+   "canyon": 5,
+   "highlands": 4,
    "lakeBasin": 1,
    "delta": 2,
    "islands": 0
@@ -54,8 +54,8 @@
    "canyon": 1,
    "highlands": 3,
    "lakeBasin": 0,
-   "delta": 1,
-   "islands": 0
+   "delta": 2,
+   "islands": 1
   },
   "high-lake": {
    "riverValley": 3,
@@ -68,15 +68,15 @@
   "meeting-waters": {
    "riverValley": 6,
    "canyon": 1,
-   "highlands": 1,
-   "lakeBasin": 3,
+   "highlands": 2,
+   "lakeBasin": 2,
    "delta": 0,
    "islands": 2
   },
   "long-view": {
    "riverValley": 0,
-   "canyon": 7,
-   "highlands": 8,
+   "canyon": 8,
+   "highlands": 7,
    "lakeBasin": 4,
    "delta": 6,
    "islands": 10
@@ -91,7 +91,7 @@
   },
   "crater-rivers": {
    "riverValley": 0,
-   "canyon": 8,
+   "canyon": 7,
    "highlands": 5,
    "lakeBasin": 1,
    "delta": 5,
@@ -118,7 +118,7 @@
    "canyon": 1,
    "highlands": 4,
    "lakeBasin": 2,
-   "delta": 3,
+   "delta": 4,
    "islands": 0
   },
   "split-island": {
@@ -143,7 +143,7 @@
    "highlands": 12,
    "lakeBasin": 0,
    "delta": 3,
-   "islands": 12
+   "islands": 11
   },
   "hanging-valleys": {
    "riverValley": 0,
@@ -172,26 +172,26 @@
   "relic-pinnacle": {
    "riverValley": 3,
    "canyon": 6,
-   "highlands": 7,
-   "lakeBasin": 2,
+   "highlands": 4,
+   "lakeBasin": 1,
    "delta": 3,
-   "islands": 2
+   "islands": 3
   },
   "plug-lake": {
    "riverValley": 4,
-   "canyon": 4,
+   "canyon": 3,
    "highlands": 2,
    "lakeBasin": 3,
-   "delta": 4,
+   "delta": 3,
    "islands": 0
   },
   "district-behind": {
    "riverValley": 0,
    "canyon": 0,
-   "highlands": 0,
+   "highlands": 1,
    "lakeBasin": 4,
    "delta": 0,
-   "islands": 1
+   "islands": 0
   }
  },
  "offered": {
@@ -209,7 +209,8 @@
   ],
   "farmland-past-gorge": [],
   "falls-shield": [
-   "canyon"
+   "canyon",
+   "highlands"
   ],
   "hidden-valley": [
    "riverValley"
@@ -244,7 +245,8 @@
    "lakeBasin"
   ],
   "stepped-lakes": [
-   "highlands"
+   "highlands",
+   "delta"
   ],
   "split-island": [],
   "twin-falls": [],
@@ -267,9 +269,7 @@
    "highlands"
   ],
   "plug-lake": [
-   "riverValley",
-   "canyon",
-   "delta"
+   "riverValley"
   ],
   "district-behind": [
    "lakeBasin"

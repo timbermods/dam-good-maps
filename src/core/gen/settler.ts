@@ -670,10 +670,22 @@ export function pickStart(
       }
     }
   if (!cands.length) return opts.level === false || easy ? null : footed(bankStart(h, W, H, water, hydro, rng, margin, avoid, reach, aimMid));
-  // the best few of a list, far enough apart that the choice matters, each read over the slopes where it needs to be
-  // (its moist land within 20 tiles' walk, its water on another level; with room first every place, its water too, as
-  // the start's water row walks to it), and with room first each keeping `keep` as read; a place read once keeps its
-  // reading
+  // a place read over the slopes (its moist land within 20 tiles' walk, its water: on another level its walk, and with room
+  // first, on its own level too, its walk to clean water from the middle as the start's water row walks it); read once
+  const read = (c: Cand): void => {
+    c.read = true;
+    c.fit = true;
+    const x = c.i % W;
+    const sw = startWalks(h, W, H, D, c.sameLevel && !roomFirst ? null : water.contamination, water.moisture, x, (c.i - x) / W, waterRule, false, !!opts.ringSlopes);
+    if (opts.moistWalk && !easy && sw.moist < opts.moistWalk.min) c.fit = false;
+    else if (!c.sameLevel) {
+      if (!(sw.water <= (opts.waterExact && waterRule < 7 ? waterRule : waterAim(waterRule)))) c.fit = false;
+      else c.walk = c.mid = sw.water;
+    } else if (roomFirst) c.mid = sw.water;
+  };
+  // the best few of a list, far enough apart that the choice matters, each read where it needs to be, and with room first
+  // each keeping `keep` as read (a place on the start's level read for its water walk only then: the list the pick before
+  // ranked reads as it did)
   const topOf = (list: Cand[], key: "score" | "scoreRoom", keep: ((c: Cand) => boolean) | null = null): Cand[] => {
     list.sort((a, b) => b[key] - a[key] || a.i - b.i);
     const top: Cand[] = [];
@@ -687,18 +699,11 @@ export function pickStart(
       // (the places the pick before read count towards its 40, so the place it would choose is the same: a place on the
       // start's level read only for its water walk, with room first, does not)
       const counted = (opts.moistWalk && !easy) || !c.sameLevel;
-      if (counted || roomFirst) {
+      if (counted || keep) {
         if (!c.read) {
           if (counted && tested >= 40) break;
           if (counted) tested++;
-          c.read = true;
-          c.fit = true;
-          const sw = startWalks(h, W, H, D, c.sameLevel && !roomFirst ? null : water.contamination, water.moisture, x, y, waterRule, false, !!opts.ringSlopes);
-          if (opts.moistWalk && !easy && sw.moist < opts.moistWalk.min) c.fit = false;
-          else if (!c.sameLevel) {
-            if (!(sw.water <= (opts.waterExact && waterRule < 7 ? waterRule : waterAim(waterRule)))) c.fit = false;
-            else c.walk = c.mid = sw.water;
-          } else if (roomFirst) c.mid = sw.water;
+          read(c);
         }
         if (!c.fit) continue;
       }
@@ -740,6 +745,7 @@ export function pickStart(
   if (!top0.length) return opts.level === false || easy ? null : footed(bankStart(h, W, H, water, hydro, rng, margin, avoid, reach, aimMid));
   u = rng.float();
   const c0 = drawn(top0, false).c;
+  if (roomFirst && !c0.read) read(c0);
   const walkMost = Math.min(c0.mid + WALK_SPARE, c0.mid <= ask.water ? Math.max(c0.mid, ask.water - 0.5) : Infinity);
   const badLeast = c0.bad >= ask.badwaterSource * ask.badwaterSource ? Math.min(c0.bad, (ask.badwaterSource + 5) * (ask.badwaterSource + 5)) : 0;
   const woodLeast = Math.min(c0.moist, woodGround);

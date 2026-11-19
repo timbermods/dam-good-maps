@@ -25,8 +25,10 @@ describe("the Python validator on an imported map with a cave", () => {
     // seed 6 → 1 at 0.10.46, D(new-ditch) and D(sea-steps) on #1225's land, D148: the gullies leave seed 6 no hillside clear of objects;
     // of seeds 1–12, 1, 3, 4 and 12 have one and pass, seed 1 the first;
     // seed 1 → 2 at 0.10.48, D(terrace-edges)' warp making no cliff, D148: seed 1 has no hillside clear of objects now; of seeds 1–6
-    // only seed 2 has one)
-    const r = generate(makeSpec({ seed: 2, theme: "riverValley", size: { x: 64, y: 64 } }));
+    // only seed 2 has one;
+    // seed 2 → 7 at 0.10.50, D(pick-start), D148: the start moved to the room leaves seed 2 no hillside clear of objects; of
+    // seeds 1–8 only seed 7 has one, seven)
+    const r = generate(makeSpec({ seed: 7, theme: "riverValley", size: { x: 64, y: 64 } }));
     const s = MapSession.fromGenerated(r, r.file);
     const { x, y, z } = hillside(s);
     expect(s.apply(dig(x, y, z, "-x")).errors).toEqual([]);

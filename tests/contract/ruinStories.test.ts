@@ -15,8 +15,10 @@ import { ColumnTerrain, terrainColumns } from "../../src/core/terrain/runs";
  *  and the D518 mends, D148: seed 4 shows a drowned village now and no ruined dam; of River Valley seeds 1-14 a dam is on 2, 5, 7, 8,
  *  11 and 14. River Valley 3 for 2 and Lake Basin 4 for 2 at 0.10.47, D(terrace-edges), D148: seed 2 of each theme shows no
  *  such story on its moved land, River Valley 2 neither a dam nor a village and Lake Basin 2 a dam and no village; of River
- *  Valley seeds 1-14 a dam is on 3, 4, 5, 12, 13 and 14, of Lake Basin seeds 1-12 a village on 4-8 and 10-12.) */
-const DAM: [ThemeId, number] = ["riverValley", 3];
+ *  Valley seeds 1-14 a dam is on 3, 4, 5, 12, 13 and 14, of Lake Basin seeds 1-12 a village on 4-8 and 10-12. River Valley 4 for
+ *  3 at 0.10.50, D(pick-start), D148: seed 3's start moved to the room and its map shows no ruined dam now; of River Valley seeds
+ *  1-14 a dam is on 1, 2, 4, 5, 7, 13 and 14.) */
+const DAM: [ThemeId, number] = ["riverValley", 4];
 const VILLAGE: [ThemeId, number] = ["lakeBasin", 4];
 
 function map([theme, seed]: [ThemeId, number]) {
