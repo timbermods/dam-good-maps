@@ -143,6 +143,9 @@ export interface GeneratedField {
    *  soil was moist and contaminated as generated, which its trees and bushes keep (they stay as
    *  generated). A source the player places afterwards stays and runs. */
   dry?: { moist: Uint8Array; poisoned: Uint8Array };
+  /** Ringed land above 128² (uplands round 5): the derived slopes follow the ringed land's rules
+   *  (features/slopes.ts `RING_SLOPES`). */
+  ringSlopes?: boolean;
 }
 
 /** What a regeneration kept of the previous generation inside locked regions (EDITOR_PLAN §3). */
@@ -1061,8 +1064,8 @@ function run(input: BuildInput, prevResult: BuildResult | null, opts: BuildOptio
       targets.key += `|${walk ? "walk" : "ramp"}:${paramsKey(p)}`;
     }
     const ramps = input.field?.ramps ?? null;
-    rules = { ...SLOPE_RULES, targets: targets.mask, links, water: terrain.channel, ...(ramps?.length ? { ramps } : {}), ...(walkTargets ? { walkTargets } : {}) };
-    slopesKey = `${slopeStart.x},${slopeStart.y}|${targets.key}|${JSON.stringify(links)}|${ramps?.length ? JSON.stringify(ramps) : ""}`;
+    rules = { ...SLOPE_RULES, targets: targets.mask, links, water: terrain.channel, ...(ramps?.length ? { ramps } : {}), ...(walkTargets ? { walkTargets } : {}), ...(input.field?.ringSlopes ? { ringed: true } : {}) };
+    slopesKey = `${slopeStart.x},${slopeStart.y}|${targets.key}|${JSON.stringify(links)}|${ramps?.length ? JSON.stringify(ramps) : ""}${input.field?.ringSlopes ? "|ringed" : ""}`;
   }
   // the player's own forests, berry patches and ruin fields keep their tiles: no derived slope
   // takes one (PLAN §7.0: nothing the generator derives touches the player's placements)

@@ -2608,7 +2608,7 @@ export function generatedField(f: FieldData, W: number, H: number, except: reado
   };
   // (the 3D forms the generation grew, D488: the field's runs)
   const caves = f.runs.length ? ColumnTerrain.fromData(f, W, H) : null;
-  return { heights, contains: new Set(f.contains.filter((id) => !out.has(id))), ...(ramps.length ? { ramps } : {}), ...(f.top !== undefined ? { top: f.top } : {}), ...(f.dry ? { dry: { moist: mask(f.dry.moist), poisoned: mask(f.dry.poisoned) } } : {}), ...(caves ? { caves } : {}) };
+  return { heights, contains: new Set(f.contains.filter((id) => !out.has(id))), ...(ramps.length ? { ramps } : {}), ...(f.top !== undefined ? { top: f.top } : {}), ...(f.dry ? { dry: { moist: mask(f.dry.moist), poisoned: mask(f.dry.poisoned) } } : {}), ...(caves ? { caves } : {}), ...(f.ringSlopes ? { ringSlopes: true } : {}) };
 }
 
 export function keptLayerOf(k: KeptContent, W: number, H: number): LockedLayer {
