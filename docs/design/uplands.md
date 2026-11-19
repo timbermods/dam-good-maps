@@ -425,3 +425,25 @@ mesas or more (a trial) took the start of Highlands 2 onto a mesa top (reach 2,8
 
 **What it leaves.** Highlands' planned promise (where its lakes stand, or reading "high" over the rivers' level and
 not every lake's); Canyon's face drop and commonest level; regional relief at the map's scale.
+
+## Round 5 verdict and the PR round (planning, 2026-11-19)
+
+**Verdict: rounds 1 to 5 go to dev as one change, the bold walls included.** Starts first: all six pass, and
+reach is over base on every one (Highlands 12,631 → 16,167 and 5,577 → 12,453; Canyon 6,261 → 17,402 and
+5,439 → 15,902; River Valley 13,822 → 30,716 and 18,093 → 35,716). On the shuffled sheet none of ours is
+picked out by texture, Highlands 2 shows mesas and Canyon 1 a gorge. Lake Basin and Islands stay on
+0.10.48's land above 128² until their own round; Delta is better on every measure.
+
+**What falls short, named.**
+- Level room at the start is under base on four of six (Canyon 255 → 241 and 388 → 309, River Valley 304 → 207
+  and 391 → 284) and under the 400 asked on all six, as at base. The land now has the terraces (1,000 to 2,000
+  tiles); the start's pick does not yet choose one. That is the start-pick change's first job on this land.
+- Highlands takes 9 and 5 attempts (base 5 and 5); seed 1 takes 51 s against 31. Its promise's "high" share
+  fails on the ringed land, and the bundled Terraces, Pressure and Mountain Range fail it too: the ask is not
+  what the game's own highlands give. The PR round measures them and sets the ask from them.
+- Canyon's longest face has a median drop of 3, not 4: the bar contradicted the design (two faces of 3 with a
+  bench is what was asked). The bar is withdrawn.
+- Regional relief 8.2 (8.5 asked), commonest level 18.1 % (17 asked): near, not met.
+- Canyon 2's nearest badwater is 37.9 tiles (40 asked; base 72), and Canyon 1 has a wide badwater pool at the
+  gorge's mouth. Canyon 2 at round 5 is a plainer picture than at round 4.
+- Highlands is less bold than Terraces. Lake Basin and Islands are not yet drawn in rings.
