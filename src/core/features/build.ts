@@ -1065,7 +1065,7 @@ function run(input: BuildInput, prevResult: BuildResult | null, opts: BuildOptio
     }
     const ramps = input.field?.ramps ?? null;
     rules = { ...SLOPE_RULES, targets: targets.mask, links, water: terrain.channel, ...(ramps?.length ? { ramps } : {}), ...(walkTargets ? { walkTargets } : {}), ...(input.field?.ringSlopes ? { ringed: true } : {}) };
-    slopesKey = `${slopeStart.x},${slopeStart.y}|${targets.key}|${JSON.stringify(links)}|${ramps?.length ? JSON.stringify(ramps) : ""}`;
+    slopesKey = `${slopeStart.x},${slopeStart.y}|${targets.key}|${JSON.stringify(links)}|${ramps?.length ? JSON.stringify(ramps) : ""}${input.field?.ringSlopes ? "|ringed" : ""}`;
   }
   // the player's own forests, berry patches and ruin fields keep their tiles: no derived slope
   // takes one (PLAN §7.0: nothing the generator derives touches the player's placements)
