@@ -56,7 +56,7 @@ import { makeField } from "../land/field";
 import { shapeLakeBasin } from "../land/lakeBasin";
 import { shapeCanyon } from "../land/canyon";
 import { shapeHighlands } from "../land/highlands";
-import { BED_FLOOR, drawGenome, leanGenome, ownScaleFor, type Genome } from "../land/genome";
+import { BED_FLOOR, drawGenome, leanGenome, ownScaleFor, UPLANDS_BASE_PATH, type Genome } from "../land/genome";
 import { joinReach, mainWater, planBadwater, standingTheme, type Hazards } from "../land/hazards";
 import { besideCourses, blockedCourses, courseCells, inflowEdges, closeBackEdges, closeSideEdges, drownedHeads, sealedMouths } from "../land/courses";
 import { mouthTilesOf } from "../features/raster/terrain";
@@ -1896,6 +1896,9 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
   const W = spec.size.x;
   const H = spec.size.y;
   const N = W * H;
+  // ringed land above 128² (uplands round 5): its slopes follow the ringed land's rules (features/slopes.ts
+  // `RING_SLOPES`), as the start is picked, checked and built
+  const ringSlopes = Math.min(W, H) > 128 && !UPLANDS_BASE_PATH.has(g.theme);
   // Easy start (D495): the start calm and generous, guaranteed. Its targets tighten the start rules the map is
   // made and checked by (the spec the result carries keeps the player's), the land is shaped for it before it is
   // shown (land/easyStart.ts), and its rows block a map (validate/checks.ts); a late rescue round asks a little
@@ -1986,7 +1989,7 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
   let caves: ColumnTerrain | null = null;
   const fieldOf = (): GeneratedField => {
     const steps = standingSteps(ramps.steps, h, W, H);
-    return { heights: h.slice(), contains: new Set(contains), ...(steps.length ? { ramps: steps } : {}), ...(g.tall ? { top: Math.ceil(g.top) } : {}), ...(caves ? { caves } : {}) };
+    return { heights: h.slice(), contains: new Set(contains), ...(steps.length ? { ramps: steps } : {}), ...(g.tall ? { top: Math.ceil(g.top) } : {}), ...(caves ? { caves } : {}), ...(ringSlopes ? { ringSlopes } : {}) };
   };
   const build = (features: readonly Feature[], stop: "resources" | "water" | null): BuildResult => {
     const b = buildMap({ W, H, seed, features, field: fieldOf() }, { settleCache: cache, fieldCache, ...(stop === "resources" ? { stopBeforeResources: true } : stop === "water" ? { stopBeforeWater: true } : {}) });
@@ -2166,7 +2169,7 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
     const lengthwise = mapShape(W, H).long;
     const prefer = lengthwise ? (x: number, y: number, L: number, w: number) => intended(x, y, L, w) + SHAPE_PULL * startAlong(spec.theme, x, y, W, H) : intended;
     const rng = stream(seed, "settler2", attempt, salt);
-    return pickStart(h, W, H, { depth: D, contamination: C, moisture: M }, hy, g.settler, rng, stageRule, { prepared, avoid, kept, drought: policy, prefer, foot, minFoot, footWant, moistWalk: { min: moistWant }, room, bench, benchMin, storage, near, level: allowLevel, roomFirst: !onPlan, badwater: badHollows(), ...(ease >= 2 ? { levelReach: Math.min(3, 1 + Math.floor(ease / 2)) } : {}), ...(ease >= 3 ? { margin: Math.max(5, Math.round(Math.min(W, H) * 0.08)) } : {}), ...(ease >= 1 ? { waterExact: true } : {}), ...(stageEasy ? { easy: stageEasy } : {}) });
+    return pickStart(h, W, H, { depth: D, contamination: C, moisture: M }, hy, g.settler, rng, stageRule, { prepared, avoid, kept, drought: policy, prefer, foot, minFoot, footWant, moistWalk: { min: moistWant }, room, bench, benchMin, storage, near, level: allowLevel, roomFirst: !onPlan, badwater: badHollows(), ...(ease >= 2 ? { levelReach: Math.min(3, 1 + Math.floor(ease / 2)) } : {}), ...(ease >= 3 ? { margin: Math.max(5, Math.round(Math.min(W, H) * 0.08)) } : {}), ...(ease >= 1 ? { waterExact: true } : {}), ...(stageEasy ? { easy: stageEasy } : {}), ...(ringSlopes ? { ringSlopes } : {}) });
   };
   const levelStart = (p: StartPick) => {
     if (!p.levelled) return;
@@ -3219,7 +3222,7 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
   // settled water a tile further off fails it, its pump's shore on the settled water, walked from its
   // middle over the slopes the build derives, is within the aim too, or it is passed over before its
   // water is settled)
-  const servedOnB1 = (q: StartPick): boolean => rule >= 7 || startWalks(h, W, H, b1.water, b1.contamination, b1.moisture, q.x, q.y, rule).water <= aim;
+  const servedOnB1 = (q: StartPick): boolean => rule >= 7 || startWalks(h, W, H, b1.water, b1.contamination, b1.moisture, q.x, q.y, rule, false, ringSlopes).water <= aim;
   // (Easy start, D495, D453: the start's clearing and pond on the settled water. The water the land was planned with
   // is an estimate, a level off the water that settles as often as not. So the plan's shapes are tried first as they
   // stand, on the land's own settle (`easyStartOn`): a place whose shape passes every start check is the start, and
@@ -4068,7 +4071,7 @@ export function withoutSources(r: GenerateResult): Pick<GenerateResult, "built" 
   const fd = r.field!;
   const ramps: [number, number][] = [];
   for (let k = 0; k + 1 < (fd.ramps ?? []).length; k += 2) ramps.push([fd.ramps![k], fd.ramps![k + 1]]);
-  const field: GeneratedField = { heights: terrainColumns(fd, N).heights, contains: new Set(fd.contains), ...(ramps.length ? { ramps } : {}), ...(fd.top !== undefined ? { top: fd.top } : {}), dry: { moist, poisoned }, ...(fd.runs.length ? { caves: ColumnTerrain.fromData(fd, W, H) } : {}) };
+  const field: GeneratedField = { heights: terrainColumns(fd, N).heights, contains: new Set(fd.contains), ...(ramps.length ? { ramps } : {}), ...(fd.top !== undefined ? { top: fd.top } : {}), ...(fd.ringSlopes ? { ringSlopes: true } : {}), dry: { moist, poisoned }, ...(fd.runs.length ? { caves: ColumnTerrain.fromData(fd, W, H) } : {}) };
   const built = buildMap({ W, H, seed: r.spec.seed, features: r.features, field });
   const file = toTimberFile(r.spec, built, r.says ? { says: r.says } : {});
   const v = validateMap(file, { profile: "generate", spec: r.spec, features: r.features, water: { model: built.waterModel, settled: built.settle }, dropped: built.dropped ?? 0 });
@@ -4081,6 +4084,7 @@ export function fieldData(f: GeneratedField, W: number): FieldData {
   const out: FieldData = { ...(f.caves ? f.caves.toData() : terrainData(f.heights)), contains: [...f.contains].sort() };
   if (f.ramps?.length) out.ramps = f.ramps.flatMap(([a, b]) => [a, b]);
   if (f.top !== undefined) out.top = f.top;
+  if (f.ringSlopes) out.ringSlopes = true;
   if (f.dry) {
     const tiles = (m: Uint8Array) => {
       const t: number[] = [];

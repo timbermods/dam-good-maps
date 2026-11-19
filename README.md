@@ -24,7 +24,8 @@ The generator:
 - **Idea** builds the map around one problem; **None** leaves it to the theme. **Lake stair**
   makes a chain of lakes that step down the map. The map's card names its landmark and what to
   do first.
-- The land and its rivers grow from uplift, erosion and flowing water. **Terrain → Verticality**
+- The land and its rivers grow from uplift, erosion and flowing water. On maps wider than 128
+  tiles both ways, the hills, mesas and terraces grow with the map. **Terrain → Verticality**
   makes it taller and sheerer. From 70 it can rise above level 16, which the game's map editor
   can't edit.
 - Open **Terrain**, **Water**, **Hazards**, **Resources** or **Difficulty** to change the map. Point at

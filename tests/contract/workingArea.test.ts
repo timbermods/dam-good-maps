@@ -18,11 +18,11 @@ import * as ed from "../../src/worker/session";
 
 const W = 96;
 
-/** A 21 × 21 area far from the start, as runs, and its tiles' steps inside it. */
-function areaAt(s: MapSession): { runs: [number, number, number][]; inside: Uint8Array; x: number; y: number } {
+/** A 21 × 21 area far from the start (or centred at `at`), as runs, and its tiles' steps inside it. */
+function areaAt(s: MapSession, at?: { x: number; y: number }): { runs: [number, number, number][]; inside: Uint8Array; x: number; y: number } {
   const st = s.built.start!;
-  const x = st.x < W / 2 ? 66 : 28;
-  const y = st.y < W / 2 ? 66 : 28;
+  const x = at ? at.x : st.x < W / 2 ? 66 : 28;
+  const y = at ? at.y : st.y < W / 2 ? 66 : 28;
   const tiles: number[] = [];
   for (let yy = y - 10; yy <= y + 10; yy++) for (let xx = x - 10; xx <= x + 10; xx++) tiles.push(yy * W + xx);
   const runs = tilesToRuns(tiles, W);
@@ -32,8 +32,8 @@ function areaAt(s: MapSession): { runs: [number, number, number][]; inside: Uint
 // (seed 3 → 2 at 0.10.47, D(terrace-edges), D148: the 21 × 21 area on seed 3's new land is flat, so Smooth changes nothing
 // in it; of seeds 1–10 the area on 3, 1, 7 and 9 gives Smooth nothing to ease, and seed 2 is the first where every brush
 // changes land, Smooth 14 tiles)
-function session(): MapSession {
-  const r = generate(makeSpec({ seed: 2, theme: "riverValley", size: { x: W, y: W } }));
+function session(seed = 2, theme: "riverValley" | "canyon" = "riverValley"): MapSession {
+  const r = generate(makeSpec({ seed, theme, size: { x: W, y: W } }));
   const s = MapSession.fromGenerated(r, r.file);
   s.setWaterMode("defer");
   return s;
@@ -64,6 +64,32 @@ describe("the working area (D254, D259)", () => {
       expect(s.apply({ op: "brush", params: p }, "user", tool).errors, tool).toEqual([]);
       expect(kept(before, s.built.heights, a.inside), tool).toBeGreaterThan(0);
     }
+  });
+
+  // (the build's integrity pass once filled a one-tile pit the stroke left at the area's edge, or cut a spike there, after
+  // it: on River Valley seed 2 a raise across the edge of the area at (28, 28) lifted (18, 30), a step inside, two levels;
+  // on Canyon seed 3 a lower cut (20, 29), three steps inside, four. A stroke's tiles are its own to the build, D342, as a
+  // precise stroke's are; the page paints the same)
+  it("a stroke's tiles at the area's edge are what the build keeps, and what the page paints", () => {
+    for (const [seed, theme, tools] of [
+      [2, "riverValley", ["raise", "flatten", "smooth"]],
+      [3, "canyon", ["lower"]],
+    ] as const)
+      for (const tool of tools) {
+        const s = session(seed, theme);
+        const a = areaAt(s, { x: 28, y: 28 });
+        const before = s.built.heights.slice();
+        const dabs: number[] = [];
+        for (let k = 0; k < 60; k++) dabs.push(4 * (a.x - 10 + (k % 7) - 3) + 2, 4 * (a.y + (k % 5) - 2) + 2);
+        const p: BrushParams = { tool, size: 6, strength: 10, dabs, area: a.runs, ...(tool === "flatten" ? { level: 14 } : {}) };
+        const shown = s.built.heights.slice();
+        const { dabs: d, ...settings } = p;
+        const preview = new StrokePreview(settings, s.terrainState(), shown, W, W);
+        for (let j = 0; j < d.length; j += 8) preview.add(d.slice(j, j + 8));
+        expect(s.apply({ op: "brush", params: p }, "user", tool).errors, `${theme} ${seed} ${tool}`).toEqual([]);
+        expect(kept(before, s.built.heights, a.inside), `${theme} ${seed} ${tool}`).toBeGreaterThan(0);
+        expect(Array.from(shown), `${theme} ${seed} ${tool}: the page paints the build`).toEqual(Array.from(s.built.heights));
+      }
   });
 
   it("the page paints what the build makes; a rebuild round it equals a full build; the project replays it", () => {

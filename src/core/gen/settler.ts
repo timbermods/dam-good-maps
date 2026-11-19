@@ -101,6 +101,9 @@ export interface SettlerOptions {
   /** A rescue round (D471): a Water without stairs rule under 7 is held to itself, without the
    *  margin. */
   waterExact?: boolean;
+  /** Ringed land above 128² (uplands round 5): the slopes walked are the ringed land's (features/slopes.ts
+   *  `RING_SLOPES`). */
+  ringSlopes?: boolean;
   /** Depth left after the first drought (analytic), for `drought`. */
   kept?: ArrayLike<number> | null;
   drought?: DroughtPolicy;
@@ -214,10 +217,10 @@ export function shoreWalkAny(h: ArrayLike<number>, W: number, H: number, D: Arra
  *  tiles' walk, and (with `C`) the walk to the nearest pump shore (the water rule, D153); with `full`, the dry land it
  *  walks to (`reach`) and the moist ground within 20 tiles' walk (`wood`) over the slopes the build places
  *  (gen/startValue.ts reads them). */
-export function startWalks(h: Uint8Array, W: number, H: number, D: ArrayLike<number>, C: ArrayLike<number> | null, M: ArrayLike<number>, x: number, y: number, rule: number, full = false): { moist: number; water: number; reach: number; wood: number } {
+export function startWalks(h: Uint8Array, W: number, H: number, D: ArrayLike<number>, C: ArrayLike<number> | null, M: ArrayLike<number>, x: number, y: number, rule: number, full = false, ringed = false): { moist: number; water: number; reach: number; wood: number } {
   const occ = new Uint8Array(W * H);
   for (let dy = -2; dy <= 2; dy++) for (let dx = -2; dx <= 2; dx++) occ[(y + dy) * W + x + dx] = 1;
-  const slopes = placeSlopes(h, W, H, { x, y }, occ, { ...SLOPE_RULES, bigRegion: 0 });
+  const slopes = placeSlopes(h, W, H, { x, y }, occ, { ...SLOPE_RULES, bigRegion: 0, ringed });
   const d = walkDistance(h, W, H, null, slopeLinks(slopes, W, H), { x, y }, Math.max(20, rule));
   let n = 0;
   for (let i = 0; i < W * H; i++) if (d[i] <= 20 && M[i] > 0 && !(D[i] > 0.001)) n++;
@@ -226,7 +229,7 @@ export function startWalks(h: Uint8Array, W: number, H: number, D: ArrayLike<num
   let reach = 0;
   let wood = n;
   if (full) {
-    const built = placeSlopes(h, W, H, { x, y }, occ, SLOPE_RULES);
+    const built = placeSlopes(h, W, H, { x, y }, occ, { ...SLOPE_RULES, ringed });
     const f = walkDistance(h, W, H, null, slopeLinks(built, W, H), { x, y }, Infinity);
     wood = 0;
     for (let i = 0; i < W * H; i++) {
@@ -690,7 +693,7 @@ export function pickStart(
           if (counted) tested++;
           c.read = true;
           c.fit = true;
-          const sw = startWalks(h, W, H, D, c.sameLevel && !roomFirst ? null : water.contamination, water.moisture, x, y, waterRule);
+          const sw = startWalks(h, W, H, D, c.sameLevel && !roomFirst ? null : water.contamination, water.moisture, x, y, waterRule, false, !!opts.ringSlopes);
           if (opts.moistWalk && !easy && sw.moist < opts.moistWalk.min) c.fit = false;
           else if (!c.sameLevel) {
             if (!(sw.water <= (opts.waterExact && waterRule < 7 ? waterRule : waterAim(waterRule)))) c.fit = false;

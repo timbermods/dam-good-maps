@@ -127,6 +127,9 @@ export interface FieldData extends TerrainData {
   /** Sources: None (D330): where the soil was moist and contaminated as generated, as tile runs;
    *  the build then places none of the features' sources (features/build.ts `GeneratedField`). */
   dry?: { moist: Runs; poisoned: Runs };
+  /** Ringed land above 128² (uplands round 5): the build's slopes follow the ringed land's rules
+   *  (features/build.ts `GeneratedField`). */
+  ringSlopes?: true;
 }
 
 export interface MapDocument {
