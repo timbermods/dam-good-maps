@@ -426,6 +426,80 @@ function ditchLower(h: Uint8Array, E: Float64Array | null, valleyOf: Float64Arra
   return dist;
 }
 
+/** The fewest steps a ditch's route from each tile can take to an end (`ditchRoute`'s steps: eight ways, never onto
+ *  ground it keeps off, a diagonal only between two open tiles, onto the border only where it may end there), -1
+ *  where it can reach none. The pit is not known here, and it only takes steps away, so a route from a pit's rim is
+ *  at least its rim's fewest steps long, and where its rim reaches no end, the search finds no route. What a gully's
+ *  cap (`DITCH_CAP`) then rules out is never searched (D453): a Canyon 384² land tried about 100 gullies a round
+ *  whose route ran past the cap, each a search over thousands of tiles. */
+function ditchSteps(goal: Uint8Array, avoid: Uint8Array, toEdge: boolean, W: number, H: number): Int32Array {
+  const N = W * H;
+  const steps = new Int32Array(N).fill(-1);
+  const queue = new Int32Array(N);
+  let tail = 0;
+  for (let i = 0; i < N; i++) {
+    const x = i % W;
+    const y = (i - x) / W;
+    if (goal[i] || (toEdge && (x === 0 || y === 0 || x === W - 1 || y === H - 1))) {
+      steps[i] = 0;
+      queue[tail++] = i;
+    }
+  }
+  for (let head = 0; head < tail; head++) {
+    const n = queue[head];
+    const x = n % W;
+    const y = (n - x) / W;
+    // (a step onto `n` only where the search takes one)
+    if (avoid[n] === 1 || (!toEdge && (x === 0 || y === 0 || x === W - 1 || y === H - 1))) continue;
+    for (let k = 0; k < 8; k++) {
+      const xc = x - DX8[k];
+      const yc = y - DY8[k];
+      if (xc < 0 || yc < 0 || xc >= W || yc >= H) continue;
+      const c = yc * W + xc;
+      if (steps[c] >= 0) continue;
+      if (DX8[k] !== 0 && DY8[k] !== 0 && (avoid[yc * W + x] === 1 || avoid[y * W + xc] === 1)) continue;
+      steps[c] = steps[n] + 1;
+      queue[tail++] = c;
+    }
+  }
+  return steps;
+}
+
+/** Whether `ditchRoute` finds a route to water from `from` round this pit (its steps, never onto the border: the way
+ *  `ditchSteps` measured without the border), whatever it costs: some tile `steps` reaches water from, walked to
+ *  without stepping into the pit. */
+function ditchReaches(from: readonly number[], pit: Uint8Array, goal: Uint8Array, avoid: Uint8Array, steps: Int32Array, W: number, H: number): boolean {
+  const seen = new Uint8Array(W * H);
+  const queue: number[] = [];
+  for (const i of from) {
+    if (seen[i] || steps[i] < 0) continue;
+    if (goal[i]) return true;
+    seen[i] = 1;
+    queue.push(i);
+  }
+  for (let head = 0; head < queue.length; head++) {
+    const c = queue[head];
+    const x = c % W;
+    const y = (c - x) / W;
+    for (let k = 0; k < 8; k++) {
+      const xx = x + DX8[k];
+      const yy = y + DY8[k];
+      if (xx <= 0 || yy <= 0 || xx >= W - 1 || yy >= H - 1) continue;
+      const n = yy * W + xx;
+      if (seen[n] || pit[n] === 1 || avoid[n] === 1 || steps[n] < 0) continue;
+      if (DX8[k] !== 0 && DY8[k] !== 0) {
+        const a = y * W + xx;
+        const b = yy * W + x;
+        if (pit[a] === 1 || avoid[a] === 1 || pit[b] === 1 || avoid[b] === 1) continue;
+      }
+      if (goal[n]) return true;
+      seen[n] = 1;
+      queue.push(n);
+    }
+  }
+  return false;
+}
+
 /** The route of a ditch from the pit's edge down to a river or the map edge where the field's own
  *  way is barred, as a stream finds its way down (Kyler, #330: the routed courses read as dug, a
  *  dead-straight trench through terraces, a long straight run with a right-angle turn): steps to all
@@ -935,6 +1009,8 @@ interface Ends {
   floor: number;
   near: Float64Array | null;
   ways: [DitchWay | null, DitchWay | null];
+  /** Each tile's fewest steps to an end, to water and to water or the edge (`ditchSteps`), when a gully reads them. */
+  steps: [Int32Array | null, Int32Array | null];
   /** A gully's: the water it may not join and the ring beside it (`traceRoute`). */
   foreign: Uint8Array | null;
 }
@@ -1480,7 +1556,7 @@ export function planBadwater(h: Uint8Array, W: number, H: number, wetNow: ArrayL
               }
           }
         }
-        ends = { goal, keepOff, floor, near: null, ways: [null, null], foreign };
+        ends = { goal, keepOff, floor, near: null, ways: [null, null], steps: [null, null], foreign };
         cached.floors.set(floor, ends);
       }
       const { goal, keepOff, foreign } = ends;
@@ -1514,8 +1590,29 @@ export function planBadwater(h: Uint8Array, W: number, H: number, wetNow: ArrayL
       // (a gully whose own fall line runs first into water it may not join is no site, D(new-ditch) (1))
       if (traced === "water") continue;
       let base = traced;
-      if (!base) base = ditchRoute(hh, E, valleys, groundOf(hh), W, H, edge, pit, wayOf(ends, false), hash32(seed, "ditch", attempt, c))?.tiles ?? null;
-      if (!base && !only) base = ditchRoute(hh, E, valleys, groundOf(hh), W, H, edge, pit, wayOf(ends, true), hash32(seed, "ditch", attempt, c))?.tiles ?? null;
+      // (a gully's search is run only where its route can be no longer than its cap: the fewest steps from its rim,
+      // `ditchSteps`, rule the rest out whatever the route, and a rim that reaches no end has none. A search not run
+      // is not counted toward the shared lower bound, which changes no route, `wayOf`)
+      const stepsOf = (toEdge: boolean): Int32Array => (ends.steps[toEdge ? 1 : 0] ??= ditchSteps(ends.goal, ends.keepOff, toEdge, W, H));
+      const fewest = (toEdge: boolean): number => {
+        if (!gullies) return 0;
+        const st = stepsOf(toEdge);
+        let m = Infinity;
+        for (const j of edge) if (st[j] >= 0 && st[j] < m) m = st[j];
+        return m;
+      };
+      if (!base) {
+        const s0 = fewest(false);
+        // (past the cap, its route to water is no gully's; where the pit cuts it off from all water, the way to the
+        // edge is tried, as when the search finds none)
+        if (s0 + 1 > limit && s0 < Infinity) {
+          if (only || ditchReaches(edge, pit, ends.goal, ends.keepOff, stepsOf(false), W, H)) continue;
+        } else if (s0 < Infinity) base = ditchRoute(hh, E, valleys, groundOf(hh), W, H, edge, pit, wayOf(ends, false), hash32(seed, "ditch", attempt, c))?.tiles ?? null;
+      }
+      if (!base && !only) {
+        if (fewest(true) + 1 > limit) continue;
+        base = ditchRoute(hh, E, valleys, groundOf(hh), W, H, edge, pit, wayOf(ends, true), hash32(seed, "ditch", attempt, c))?.tiles ?? null;
+      }
       if (!base || base.length < 3 || base.length > limit) continue;
       // drawn as a gully down that line (D(new-ditch): a ditch that cannot wander, running straight
       // along the grid or the diagonal or in a regular wave, is no gully: the pit goes elsewhere)
