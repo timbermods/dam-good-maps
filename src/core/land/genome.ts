@@ -28,6 +28,7 @@ import { alongLongAxis, mapShape } from "./shape";
 import { clamp, smoothstep } from "../math/clamp";
 import { sinDet, TWO_PI } from "../math/detmath";
 import { fbm } from "../math/noise";
+import { drawPlan, type Plan } from "./plan";
 
 export type PartKind = "ridge" | "trough" | "basin" | "caldera" | "mesa" | "mesaField" | "escarpment" | "cone" | "plateau" | "knolls" | "spiral" | "isle";
 
@@ -353,6 +354,8 @@ export interface Genome {
   variation: number;
   /** The orientation the map's land was turned into (M9b, D275 (2); land/orient.ts). */
   orientation?: number;
+  /** The plan of the land (uplands round 2, `plan.ts`): its tiers at the map's own scale; absent for none. */
+  plan?: Plan;
   /** The woods (D164): the grove species weights the resources planner draws. */
   woods: { kind: "oak" | "mixed" | "birch"; pine: number; birch: number; oak: number; succulent: number };
 }
@@ -646,6 +649,49 @@ export function randomPart(rng: Rng, kind: PartKind, W: number, H: number, vy: n
   }
 }
 
+/** The landforms `atMapScale` grows with the map: the ones that make the land's large shapes. Basins (the lakes, held to
+ *  the water's budgets), troughs (grown, their hollows held lakes of a fifth of the map and drowned Canyon 256² seed 2's
+ *  gorge), knolls and an island's parts keep their sizes in tiles. */
+const MAP_SCALE_KINDS = new Set<PartKind>(["ridge", "mesa", "plateau", "escarpment", "cone", "caldera", "mesaField", "spiral"]);
+
+/** The themes whose land above 128² stays as generator 0.10.48 drew it (uplands round 5, B): Lake Basin and Islands draw
+ *  few of the forms the uplands rounds grew, and on them the rounds' map-scale forms, smoothing and slow warp left the
+ *  land rougher in the small (Lake Basin seed 1's fine relief 6.4 -> 7.4 %, its runs of 12+ 3 -> 5) or straighter
+ *  (Islands seed 2's runs of 12+ 3 -> 10), and their starts no better. Their promised forms need their own shaping. */
+export const UPLANDS_BASE_PATH: ReadonlySet<ThemeId> = new Set<ThemeId>(["lakeBasin", "islands"]);
+
+/** How much larger than a 128²'s a map's landforms stand (uplands round 1): its narrower side over 128, never under 1. */
+export function formScale(W: number, H: number): number {
+  return Math.max(1, Math.min(W, H) / 128);
+}
+
+/** The landforms at the map's scale (docs/design/uplands.md, round 1). They were drawn at a 128²'s size and counted by
+ *  area, so a 256² map stood four 128² maps' small forms side by side and nothing at its own scale: its height spread
+ *  as a mottle of 10–30-tile forms. Of the forms drawn, one in `formScale`² stays, its size (and a ridge's or trough's
+ *  width, an escarpment's wobble, a cone's crater, a caldera's ring) grown by `formScale`, its height as drawn: the
+ *  same share of the map covered, by forms the map's size, so a plateau stands as a tableland across a third of it. The
+ *  draws are made as before, so the rest of the genome keeps them. */
+export function atMapScale(parts: Part[], W: number, H: number): void {
+  const f = formScale(W, H);
+  if (f <= 1) return;
+  const every = Math.max(1, Math.round(f * f));
+  let k = 0;
+  for (let i = 0; i < parts.length; i++) {
+    const p = parts[i];
+    if (!MAP_SCALE_KINDS.has(p.kind) || p.isle) continue;
+    if (k++ % every !== 0) {
+      parts.splice(i--, 1);
+      continue;
+    }
+    p.size *= f;
+    if (p.kind === "ridge" || p.kind === "escarpment" || p.kind === "cone") p.extra *= f;
+    if (p.kind === "caldera") {
+      p.extra *= f;
+      p.soft *= f;
+    }
+  }
+}
+
 /** The woods, from their own stream (so the other draws stay as they are). */
 export function drawWoods(theme: ThemeId, seed: number, attempt: number, vy: number): Genome["woods"] {
   const rng = stream(seed, "woods", attempt);
@@ -874,6 +920,19 @@ export function drawGenome(theme: ThemeId, seed: number, W: number, H: number, a
     g.ownScale = o.ownScale === "side" ? r : portable.sqrt(r);
   }
   for (let k = 0; k < n; k++) g.parts.push(randomPart(rng, pickPart(rng, p.parts, vy), W, H, vy, tallK));
+  // (uplands round 1: above 128² the landforms stand at the map's scale, a 128²'s composition grown with the map)
+  if (!UPLANDS_BASE_PATH.has(theme)) atMapScale(g.parts, W, H);
+  // (uplands round 2: above 128² Highlands, Canyon and River Valley lay their land on a plan at the map's own scale, its
+  // valley or gorge along the regional slope: a slope toward a bowl left Canyon 256² seed 1's trunk no way
+  // along its gorge, and it left by a side, cutting its own across the tableland)
+  const plan = drawPlan(theme, vt, seed, W, H, attempt, variation);
+  if (plan) {
+    g.plan = plan;
+    g.tiltKind = "linear";
+    // (River Valley's broad floor is the plan's: the floor the river clears beside its channel half as wide, so the
+    // valley floor keeps its rolling; cleared as wide as before, 57–62% of the land stood dead flat)
+    if (plan.kind !== "gorge") g.hydro.floor *= 1 - 0.5 * Math.min(1, plan.strength);
+  }
   // extra lakes: basins beyond the parts, so water spans the workshop's range (at its own scale by the root of the area:
   // a 48² map drew a 128²'s five basins of 12 to 32 tiles, and its land was hollows)
   const lakes = Math.max(0, Math.round(d(p.lakes) * (o.ownScale && Math.min(W, H) < OWN_SCALE_SIDE ? portable.sqrt(areaK) : Math.max(1, portable.sqrt(areaK)))));

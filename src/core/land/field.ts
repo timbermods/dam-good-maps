@@ -25,6 +25,7 @@ import { clamp, smoothstep } from "../math/clamp";
 import { sinDet, TWO_PI } from "../math/detmath";
 import { lipKeep, rimKeep, type Genome, type Part } from "./genome";
 import { mapShape } from "./shape";
+import { planField } from "./plan";
 
 /** The seed the land's noise draws from: a variation (D143) gets land of its own. */
 export function landSeed(seed: number, variation: number): number {
@@ -451,7 +452,7 @@ export interface Field {
 }
 
 /** Uplift: the regional tilt, the slow regional field, warped noise and the parts. */
-export function uplift(g: Genome, seed: number, W: number, H: number): Float64Array {
+export function uplift(g: Genome, seed: number, W: number, H: number, slope?: Float64Array): Float64Array {
   const ls = landSeed(seed, g.variation);
   const N = W * H;
   const U = new Float64Array(N);
@@ -490,6 +491,7 @@ export function uplift(g: Genome, seed: number, W: number, H: number): Float64Ar
         // ruler-straight across the sea, seams in the water)
         h += g.tilt * (portable.sqrt(du * du + dv * dv) * 1.6 - 0.4) - (g.seaLayout && !g.seaRing ? 0 : 0.3 * g.tilt * proj);
       }
+      if (slope) slope[y * W + x] = h;
       // the slow regional field: broad highs and lows that are not one plane (D417: on a sea's map
       // its lattice is warped, whose straight creases drew rectangles on the sea's broad floor and
       // its shore, Islands 128² seeds 14 and 26)
@@ -629,14 +631,44 @@ export function weather(E: Float64Array, hard: Float64Array, stratum: Float64Arr
   return out;
 }
 
+/** The plan's tiers laid on the uplift (uplands round 2, `plan.ts`): its field times a height of 0.6 + 0.9 × its
+ *  strength of the uplift's own spread (p2 to p98), so the tiers' ranges part (at strength 1 the floor's highest
+ *  ground stands about level with the top's lowest) and the genome's forms stand on them. On the floor the uplift's
+ *  own relief but its regional slope (`slope`) stands at `FLOOR_RELIEF` of its height, on the bench halfway: a
+ *  valley's floor is the land the river laid, and a plateau the genome drew across it stood as a dam across the gorge
+ *  (Canyon 256² seed 1). Returns what it added, or null without a plan. */
+export function layPlan(U: Float64Array, slope: Float64Array, g: Genome, seed: number, W: number, H: number): Float64Array | null {
+  const p = g.plan;
+  if (!p || p.strength <= 0) return null;
+  const sorted = Float64Array.from(U).sort();
+  const span = Math.max(1, sorted[Math.floor(0.98 * (sorted.length - 1))] - sorted[Math.floor(0.02 * (sorted.length - 1))]);
+  const T = planField(p, landSeed(seed, g.variation), g.flowDir, W, H);
+  const amp = span * (0.6 + 0.9 * p.strength);
+  const keep = 1 - (1 - FLOOR_RELIEF) * Math.min(1, p.strength);
+  for (let i = 0; i < T.length; i++) {
+    const own = U[i] - slope[i];
+    U[i] = slope[i] + own * (keep + (1 - keep) * T[i]) + amp * T[i];
+    T[i] = U[i] - slope[i] - own;
+  }
+  return T;
+}
+
+/** How much of the uplift's own relief stands on a planned land's floor (`layPlan`). */
+const FLOOR_RELIEF = 0.2;
+
 export function makeField(g: Genome, seed: number, W: number, H: number): Field {
-  const U = uplift(g, seed, W, H);
+  const slope = g.plan ? new Float64Array(W * H) : undefined;
+  const U = uplift(g, seed, W, H, slope);
+  const P = slope ? layPlan(U, slope, g, seed, W, H) : null;
   const { hard, stratum } = caprock(U, g, seed, W, H);
   // (D357: down a long map the land is worn toward its far end, as its water will run: worn toward every edge,
   // a strip's valleys ran out by its long sides and its near end, and the land at its head stood in a hollow no
   // river could leave by the far end)
   const [fx, fy] = DIRS8[g.flowDir];
-  const lengthwise = g.tiltKind === "linear" && mapShape(W, H).long;
+  // (uplands round 2: a planned land is worn toward its far end too, so its tiers drain into the valley or the gorge
+  // and the side canyons the erosion cuts open onto it: worn toward every edge, the erosion cut a canyon from a side
+  // edge deep into Canyon 256² seed 1's tableland, and the trunk left its gorge down it)
+  const lengthwise = g.tiltKind === "linear" && (mapShape(W, H).long || !!P);
   const farEnd = (i: number) => {
     const x = i % W;
     const y = (i - x) / W;
@@ -644,7 +676,15 @@ export function makeField(g: Genome, seed: number, W: number, H: number): Field 
   };
   let E = erodeHard(U, hard, W, H, g.erosion.iterations, g.erosion.k, g.erosion.diffusion, lengthwise ? farEnd : undefined);
   // weathering acts in the caprock's stratum: soft rock goes, hard rock stands
-  if (g.cap.share > 0.01) E = weather(E, hard, stratum, W, H, g.weathering);
+  // (the plan's tiers are left to the erosion: the weathering wears the land's own relief on them, so a tier's soft rim
+  // is not worn down to the floor beside it, and its caprock stands as buttes on the tier)
+  if (g.cap.share > 0.01) {
+    if (P) {
+      for (let i = 0; i < E.length; i++) E[i] -= P[i];
+      E = weather(E, hard, stratum, W, H, g.weathering);
+      for (let i = 0; i < E.length; i++) E[i] += P[i];
+    } else E = weather(E, hard, stratum, W, H, g.weathering);
+  }
   // (round 6: an island sea's lip, the two outer rows and the shore wandering in from them (the D410 shore
   // round), between it and a fall of a dozen levels, keeps its uplift: the erosion's diffusion wore a ridge that thin down into the sea, and
   // the sea drained over it. The mainland's lobes keep their erosion.)

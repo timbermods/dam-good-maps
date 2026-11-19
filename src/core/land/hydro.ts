@@ -1180,7 +1180,8 @@ function planHydroSingle(E: Float64Array, h: Uint8Array, g: Genome, seed: number
   //      its level. Only ground is taken away; none is raised (D111).
   {
     const tr = stream(seed, "trough", attempt);
-    let n = Math.floor(g.troughs + tr.float());
+    // (a gorge drains, uplands round 3: no valley lake deepened in a planned gorge)
+    let n = g.plan?.kind === "gorge" ? 0 : Math.floor(g.troughs + tr.float());
     const scale = side / 128;
     /** Deepen the stretch a0–a1 of a traced river's valley, `reach` tiles either side. */
     const deepen = (t: (typeof traced)[number], a0: number, a1: number, reach: number, level: number): void => {
@@ -1244,7 +1245,7 @@ function planHydroSingle(E: Float64Array, h: Uint8Array, g: Genome, seed: number
     };
     // M9b ("lakes step down the valley", D274): a chain of valley lakes down the main river, each
     // stretch ending a level or more below the last, from its own random stream
-    const chain = natural ? (g.hydro.chainLakes ?? 0) : 0;
+    const chain = natural && g.plan?.kind !== "gorge" ? (g.hydro.chainLakes ?? 0) : 0;
     const main = traced.find((t) => t.k === mainK);
     if (chain > 0 && main) {
       const cr = stream(seed, "chain-lakes", attempt);
@@ -1421,6 +1422,9 @@ function planHydroSingle(E: Float64Array, h: Uint8Array, g: Genome, seed: number
   const profileOf = (path: Point[], width: number, cut: number, withLakes: boolean, rid: string, half: (s: number, L: number) => number, startBed = Infinity, endBed = -Infinity, maxSill = Infinity, floorOthers = false) => {
     // An intentional plugged lake keeps its impoundment; it is a distinct water feature.
     const valleyMain = g.theme === "riverValley" && !g.intentions.includes("plug-lake") && rid === featureId(seed, "river", "river/main");
+    // (uplands round 3: a gorge drains: the trunk's bed grades down through its gorge to where it leaves the map, and
+    // no hollow on its course holds a lake there)
+    const gorgeMain = g.plan?.kind === "gorge" && rid === featureId(seed, "river", "river/main");
     if (withLakes) newCourse();
     const st = stamp(path, W, H, Math.ceil(width / 2 + g.hydro.floor * 1.5 + 3 + (natural ? width * 0.15 : 0)));
     const L = arcLength(path);
@@ -1493,7 +1497,7 @@ function planHydroSingle(E: Float64Array, h: Uint8Array, g: Genome, seed: number
           }
         }
       if (!Number.isFinite(ring)) ring = Number.isFinite(run) ? run + 1 : h[Math.max(0, Math.min(N - 1, ci))] + 1;
-      if (withLakes && isIn && depth[ci] > 0 && lakeOf[ci] < 0 && inLake < 0) {
+      if (withLakes && !gorgeMain && isIn && depth[ci] > 0 && lakeOf[ci] < 0 && inLake < 0) {
         // A flat valley's trunk stays below its upstream bed when it crosses a hollow.
         const lk = hollow(ci, valleyMain ? Math.min(maxSill, run + 1) : maxSill);
         // (a hollow too big for the budget is cut down to its lowest part: the same lake again)
