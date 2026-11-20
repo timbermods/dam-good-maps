@@ -750,7 +750,7 @@ on one shared forces core, `src/core/forces/` (D203, D206, D220; see its README)
   level round it, to where the force put it, or where the force's rounding would leave that one tile wide to where it
   stood, or where that too would, to the level of the ground beside it within two levels of where it stood, and
   failing all of those still within two levels, the ground it leaves one tile wide joining ground within two levels
-  of its own (D(craterize-gentle)): never down its cliff, and where it can never leaving ground one tile wide (the
+  of its own (D531): never down its cliff, and where it can never leaving ground one tile wide (the
   land's own ground that was one tile wide before the force, where it still stands, holds no corner down: the
   tidying may not widen such a ledge by dropping the ridge above it). A tile no square reaches joins ground within
   two levels of its own before any further off, so the corner of a cliff's foot waits for the low ground beside it
