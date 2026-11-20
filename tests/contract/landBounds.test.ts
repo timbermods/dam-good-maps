@@ -47,7 +47,7 @@ const spec = (theme: ThemeId, size: number, seed: number, badwaterDistance?: num
 
 describe("the shown land's bounds (#236)", () => {
   it("above 128², a shown land failing the same way three times in a row ends its round, and is never dropped within it", () => {
-    // (Highlands 136², badwater distance 60, seed 11 → 67 at 0.10.51, D545 round 3 (the pick reads its walks over the
+    // (Highlands 136², badwater distance 60, seed 11 → 67 at 0.10.52, D545 round 3 (the pick reads its walks over the
     // build's slopes), D148: seed 11 passes on its 14th attempt with no round ended by the bound; of seeds 1–72 only 64 and 67 end
     // a round, each passing the whole test;
     // seed 30 → 11 at 0.10.49, D547: the land above 128² drawn in rings, D148: seed
