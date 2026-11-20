@@ -1635,14 +1635,20 @@ for (const phone of PHONES) {
             .filter((p) => p.r.height > 0 && p.r.top < foot - 1 && p.r.bottom > foot + 0.5)
             .map((p) => p.name);
         });
+      // (fitted as the page last fitted it: the sheet is cut to a whole row a frame after it opens or changes, `roomSettled`)
+      await page.waitForFunction(() => window.dgmEditor!.roomSettled());
       expect(await cutAtFoot(), "Show at rest: cut by the sheet's foot").toEqual([]);
       const land = sheet.getByRole("checkbox", { name: "Land", exact: true });
       await sheet.evaluate((e) => (e.scrollTop = 0));
       const landInView = await land.evaluate((e) => e.getBoundingClientRect().bottom <= e.closest(".phone-show")!.getBoundingClientRect().bottom);
       await land.tap();
       await expect(sheet.locator(".land-shares")).toHaveCount(1);
-      await page.waitForTimeout(400);
-      await expect.poll(cutAtFoot, { message: "Show with Land on: cut by the sheet's foot" }).toEqual([]);
+      // (the page's own word that the sheet is fitted to them: Land's lines come in a task and the sheet is cut to a whole
+      // line in the next frame, before it is drawn; under software drawing that frame came seconds later, and a fixed
+      // 400 ms wait and a 5 s poll read the lines over the sheet's old height, Spoiled ground 8px past its foot, dev at
+      // e152d6d3. Settled, one reading is the sheet as drawn.)
+      await page.waitForFunction(() => window.dgmEditor!.roomSettled());
+      expect(await cutAtFoot(), "Show with Land on: cut by the sheet's foot").toEqual([]);
       // (upright the Land chip is in the first screenful, and its numbers come under the chips: some of them show at once)
       if (landInView && W < H) expect(await sheet.locator(".land-line").evaluateAll((els) => els.filter((l) => l.getBoundingClientRect().bottom <= l.closest(".phone-show")!.getBoundingClientRect().bottom).length), "Land's lines in sight").toBeGreaterThan(0);
       await land.tap();
@@ -1698,7 +1704,11 @@ for (const phone of PHONES) {
       await look.tap();
       const menu = page.locator("#look-menu");
       await expect(menu).toBeVisible();
-      await page.waitForTimeout(300);
+      // (grown in full: it grows from 0.95 as it opens, and the growing moves only as frames are drawn; under software
+      // drawing a fixed 300 ms wait read a choice at 43.49px, mid-growth)
+      await menu.evaluate(async (e) => {
+        await Promise.all(e.getAnimations({ subtree: true }).map((a) => a.finished));
+      });
       const s = (await sheet.boundingBox())!;
       const m = (await menu.boundingBox())!;
       expect(m.x >= s.x - 0.5 && m.x + m.width <= s.x + s.width + 0.5, `the Look menu ${JSON.stringify(m)} inside the sheet ${JSON.stringify(s)} across`).toBe(true);

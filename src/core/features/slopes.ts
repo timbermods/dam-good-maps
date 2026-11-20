@@ -203,7 +203,23 @@ export function placeSlopes(h: Uint8Array, W: number, H: number, start: { x: num
   const joined = (r: number) => find(r) === find(root);
 
   const placed: PlacedSlope[] = [];
-  const used: [number, number][] = [];
+  // the slopes placed, by square of `SPACING` tiles: a slope nearer a tile than `SPACING` (Manhattan) stands in its
+  // square or one of the eight round it, so the spacing rules read only those (above 128² hundreds of slopes stand,
+  // and every candidate of every step read them all)
+  const cellsW = Math.ceil(W / SPACING);
+  const cells: number[][] = Array.from({ length: cellsW * Math.ceil(H / SPACING) }, () => []);
+  const use = (x: number, y: number) => cells[Math.floor(y / SPACING) * cellsW + Math.floor(x / SPACING)].push(x, y);
+  /** Whether a slope placed stands nearer (x, y) than `r` (Manhattan, `r` at most `SPACING`). */
+  const usedNear = (x: number, y: number, r: number): boolean => {
+    const cx = Math.floor(x / SPACING);
+    const cy = Math.floor(y / SPACING);
+    for (let gy = Math.max(0, cy - 1); gy <= cy + 1 && gy * SPACING < H; gy++)
+      for (let gx = Math.max(0, cx - 1); gx <= cx + 1 && gx < cellsW; gx++) {
+        const cell = cells[gy * cellsW + gx];
+        for (let k = 0; k < cell.length; k += 2) if (Math.abs(x - cell[k]) + Math.abs(y - cell[k + 1]) < r) return true;
+      }
+    return false;
+  };
   const occ = occupied.slice();
   // the ramps' steps first: a slope on each step whose ground still steps as the ramp cut it (the
   // high tile one level up, the tile behind the low one level with it), joining its regions
@@ -218,7 +234,7 @@ export function placeSlopes(h: Uint8Array, W: number, H: number, start: { x: num
     if (bx < 0 || by < 0 || bx >= W || by >= H || h[by * W + bx] !== h[lo] || occ[lo] || occ[by * W + bx]) continue;
     placed.push({ x, y, z: h[lo], orientation: orientationForHigh(dx, dy) });
     occ[lo] = 1;
-    used.push([x, y]);
+    use(x, y);
     const a = labels[lo];
     const b = labels[hi];
     linked[a].push(b);
@@ -253,10 +269,10 @@ export function placeSlopes(h: Uint8Array, W: number, H: number, start: { x: num
       if (lx < 0 || lx >= W || ly < 0 || ly >= H) continue;
       const li = ly * W + lx;
       if (occ[i] || occ[li] || h[li] !== h[i]) continue;
-      if (used.some(([ux, uy]) => Math.abs(x - ux) + Math.abs(y - uy) < SPACING)) continue;
+      if (usedNear(x, y, SPACING)) continue;
       placed.push({ x, y, z: h[i], orientation: orientationForHigh(dx, dy) });
       occ[i] = 1;
-      used.push([x, y]);
+      use(x, y);
       n++;
       if (n >= (extra ? 2 : 1)) break;
     }
@@ -281,7 +297,7 @@ export function placeSlopes(h: Uint8Array, W: number, H: number, start: { x: num
     const put = (x: number, y: number, i: number, dx: number, dy: number) => {
       placed.push({ x, y, z: h[i], orientation: orientationForHigh(dx, dy) });
       occ[i] = 1;
-      used.push([x, y]);
+      use(x, y);
       own.push([x, y]);
     };
     for (const { c, x, y } of scored) {
@@ -289,7 +305,7 @@ export function placeSlopes(h: Uint8Array, W: number, H: number, start: { x: num
       const lx = x - dx;
       const ly = y - dy;
       if (lx < 0 || lx >= W || ly < 0 || ly >= H || !fits(i, ly * W + lx)) continue;
-      if (used.some(([ux, uy]) => Math.abs(x - ux) + Math.abs(y - uy) < SPACING)) continue;
+      if (usedNear(x, y, SPACING)) continue;
       if (own.some(([ux, uy]) => Math.abs(x - ux) + Math.abs(y - uy) < apart)) continue;
       put(x, y, i, dx, dy);
       if (own.length >= want) break;
@@ -300,7 +316,7 @@ export function placeSlopes(h: Uint8Array, W: number, H: number, start: { x: num
       const lx = x - dx;
       const ly = y - dy;
       if (lx < 0 || lx >= W || ly < 0 || ly >= H || !fits(i, ly * W + lx)) continue;
-      if (used.some(([ux, uy]) => Math.abs(x - ux) + Math.abs(y - uy) < RING_SLOPES.close)) continue;
+      if (usedNear(x, y, RING_SLOPES.close)) continue;
       put(x, y, i, dx, dy);
       return 1;
     }

@@ -267,6 +267,9 @@ describe("Craterize's gentlest is gentle on any ground: seeds 1 to 10 (D361 (3))
   // a fifth of the way, raising a valley or cutting a ridge by two or three levels, and the forces' last step then
   // dropped the corners of the land's own ridges down their cliffs. Now a crater weaker than its Size replaces the
   // land's relief only as far as its Power, and that step leaves the land's own ground where the force only brushed it)
+  // (generator 0.10.48's River Valley 128² seed 5 left the gentlest crater 6 levels deep: a diagonal ridge six levels tall crossed its edge, its
+  // rows above raised a level and its last row not, so that row stood one tile wide between the two and the last step dropped
+  // its end to the ridge's foot. Such a tile now goes with the ground beside it, D(craterize-gentle))
   for (let seed = 1; seed <= 10; seed++)
     it(`seed ${seed}: at its largest Size, Power 0 is gentle but visible, and the change grows with Power`, async () => {
       await open(seed);
