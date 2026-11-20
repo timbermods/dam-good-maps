@@ -785,6 +785,14 @@ where the land's own processes make them. The builder's limits still fix what a 
   the start and 18+ tiles between field centres; 1 field 20–40% of the way to the far edge, most at 40–70%, the
   largest at the frontier. **Each column:** `RuinModels.VariantId` A–E (A 26%, B–E 18–19%), turns mostly Cw0 (59%),
   `Yielder:Ruin` 15·h; each needs an 8-neighbour at its own level, which the one-level rule guarantees.
+- **A stand in the opening view** (D493, amended 2026-11-20; `src/core/gen/frameStand.ts`): on every map but Easy
+  start's, one stand of 12–36 columns (median about 20, the bundled maps' nearest stands) is planned last, on the dry
+  ground the other resources left, whole inside the opening camera pulled back to the default zoom's widest
+  (`VISTA_ZOOM`): ahead along its look and raised first, then ahead, then raised; within each a step's foot, a rise, a
+  level's rim, the far side of the water, about 42 tiles out; never on green, never between the start and its water,
+  past Normal's clear distance, beyond the two-ways intention's reach on a map that draws it. Grown as a field is (a
+  ragged rim band with gaps, one piece, never a row); its scrap adds to the map's. A map whose view offers no place
+  keeps its ruins as they are.
 - **Ruins placed with meaning** (D488 (2), `src/core/gen/ruinStories.ts`), found where the land offers them, never
   forced (D138): a **ruined dam** across the river's natural narrows (the checks' dam site there, 16 tiles or fewer, holding 600 water or more at 128², by area), three or
   four columns deep from bank to bank and into the abutments, broken here and there, its columns about two levels over
