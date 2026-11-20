@@ -17,13 +17,14 @@ import { hash32 } from "../math/hash";
 import type { ThemeId } from "../spec/mapspec";
 
 /** The forms' numbers: their radius (tiles) and height (levels) at the most and least, the calm ground kept between two
- *  (tiles, past their radii), how many each 128² of the map draws by theme, and the draws tried for each. */
+ *  (tiles, past their radii), how many each 128² of the map draws by theme, and the draws tried for each. Highlands
+ *  draws few (1.25) since round 6: its mesas are `bold.ts` `standMesas`', and the ring forms only roll its floor. */
 export const RING_FORMS = { rMin: 15, rMax: 40, hMin: 3.5, hMax: 6, gap: 6, tries: 30 } as const;
-const PER_128: Partial<Record<ThemeId, number>> = { highlands: 4, canyon: 5, riverValley: 5, any: 2, lakeBasin: 1 };
+const PER_128: Partial<Record<ThemeId, number>> = { highlands: 1.25, canyon: 5, riverValley: 5, any: 2, lakeBasin: 1 };
 
-/** The levels under the top a theme's land leaves its forms (the land itself spread over the rest; Highlands 4 since
- *  round 5, so its forms and the bold family's mesas, `bold.ts`, stand over the ring terraces). */
-const ROOM: Partial<Record<ThemeId, number>> = { highlands: 4, canyon: 3, riverValley: 2, any: 2, lakeBasin: 1.5 };
+/** The levels under the top a theme's land leaves its forms (the land itself spread over the rest; Highlands 3 since
+ *  round 6, its forms standing over its floor, `bold.ts` `STAND.floor`, under the mesas' tops). */
+const ROOM: Partial<Record<ThemeId, number>> = { highlands: 3, canyon: 3, riverValley: 2, any: 2, lakeBasin: 1.5 };
 export function ringFormRoom(theme: ThemeId): number {
   return ROOM[theme] ?? 0;
 }
@@ -34,8 +35,9 @@ export type RingKind = "hill" | "mesa" | "stepped" | "terraced";
  *  mostly terraced hills and mesas, whose risers stand two levels (its promise's plateaus and cliffs, and the stacked
  *  ring terraces of the game's Terraces and Pressure); Canyon's tableland carries buttes; elsewhere hills. Round 5 (the bold
  *  family) moved Highlands and Canyon from hills to mesas: with hills 15 and 35 %, 75–81 % of Canyon's steps were one
- *  level, against 44–62 % on the game's bold maps. */
-const KINDS: Partial<Record<ThemeId, readonly [number, number, number]>> = { highlands: [0.1, 0.35, 0.15], canyon: [0.1, 0.5, 0.25], riverValley: [0.45, 0.25, 0.2] };
+ *  level, against 44–62 % on the game's bold maps. Round 6 (Highlands stands up) takes Highlands' mesas from the ring
+ *  forms (its mesas are walled ones, `bold.ts`): hills and stepped hills roll the floor round them. */
+const KINDS: Partial<Record<ThemeId, readonly [number, number, number]>> = { highlands: [0.4, 0, 0.3], canyon: [0.1, 0.5, 0.25], riverValley: [0.45, 0.25, 0.2] };
 const KINDS_ANY = [0.4, 0.3, 0.3] as const;
 /** A terraced hill's riser: two levels, over this share of a terrace's run. */
 const RISER = { levels: 2, run: 0.03 } as const;

@@ -324,6 +324,14 @@ export interface Genome {
    *  above the theme's own; 4 and 100 when absent). */
   lakeSpringMax?: number;
   lakeSpringMin?: number;
+  /** Tiles where no spring is drawn (uplands round 6: Highlands' mesa tops, `bold.ts` `standMesas`, kept dry). */
+  dryTops?: Uint8Array;
+  /** Tiles of rock a lake's river crosses at its outlet's bed, cutting down only past them (uplands round 6b:
+   *  Highlands' valley's sill, `bold.ts` `standValley`). */
+  rockSill?: Uint8Array;
+  /** The valley of a land that stands up (uplands round 6b step 5: Highlands above 128², `bold.ts` `standValley`): 1 its
+   *  bowl, 2 its channel, 0 elsewhere. The badwater keeps off it (`bold.ts` `standBadKeep`). */
+  standValley?: Uint8Array;
   /** How far the water's way wanders from the steepest descent (levels), and the size of its
    *  wanders in tiles. */
   wander: number;
