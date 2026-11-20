@@ -494,9 +494,19 @@ export function uplift(g: Genome, seed: number, W: number, H: number, slope?: Fl
           const oy = g.basinWarp.amp * fbm(bw + 1, x, y, g.basinWarp.cell * S, 2);
           du += ox;
           dv += oy;
-          // (and the land falls on past the lake to the outlet's side: heights behind one shore, low open ground on the
-          // other, the lake held by a low sill; its contours bent by the same warp)
-          h += g.basinWarp.lin * -0.5 * (((u + 2 * ox) * fx + (v + 2 * oy) * fy) / (Math.abs(fx) + Math.abs(fy)));
+          // (round 7b: the land rising across the map, ever more steeply, to a rim on the far side from the outlet and,
+          // on some maps, on one side as well; the outlet's side open. Its contours bent by the same warp)
+          const bwk = g.basinWarp;
+          const n1 = Math.abs(fx) + Math.abs(fy);
+          const q = -(((u + 2 * ox) * fx + (v + 2 * oy) * fy) / n1);
+          h += bwk.lin * portable.pow(clamp((q + 1) / 2, 0, 1.25), bwk.pow);
+          if (bwk.side) {
+            // (the side's rim rising from beside the lake: `rl` the lake's place across the map)
+            const r = ((u + 2 * ox) * -fy + (v + 2 * oy) * fx) / n1;
+            const rl = ((2 * g.focus[0] - 1) * -fy + (2 * g.focus[1] - 1) * fx) / n1;
+            const sr = bwk.side * (r - rl);
+            if (sr > 0) h += bwk.sideLin * portable.pow(clamp(sr / Math.max(0.2, 1 - bwk.side * rl), 0, 1.25), bwk.pow);
+          }
         }
         // (round 6: not on an open island sea, whose floor lies level: its levels' contours ran
         // ruler-straight across the sea, seams in the water)

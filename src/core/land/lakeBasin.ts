@@ -3,7 +3,8 @@ import type { Genome } from './genome';
 import { THEME_PRESETS, type Settings, type Difficulty } from '../spec/mapspec';
 import { stream } from '../math/rng';
 import { DIRS8, unit } from './num';
-import { clamp } from '../math/clamp';
+import { clamp, smoothstep } from '../math/clamp';
+import { sinDet, TWO_PI } from '../math/detmath';
 import * as portable from '../math/portable';
 import { mapShape } from './shape';
 
@@ -33,6 +34,17 @@ export function shapeLakeBasin(g: Genome, s: Settings, W: number, H: number, see
   const [ox, oy] = unit(composition.float());
   const displacement = composition.range(0.12, 0.21);
   const focus: [number, number] = [0.5 + ox * displacement, 0.5 + oy * displacement];
+  // (round 7b, above 128²: the basin found in the land, `sidedBasin`: the lake off-centre against a rim on one or two
+  // sides, the far side open)
+  const found = side > 128;
+  const sided = found ? stream(seed, 'lake-basin-sided', g.variation) : null;
+  const [nx, ny] = DIRS8[g.flowDir];
+  if (sided) {
+    const up = sided.range(0, 0.2);
+    const lat = sided.range(-0.16, 0.16);
+    focus[0] = clamp(0.5 - nx * up - ny * lat, 0.25, 0.75);
+    focus[1] = clamp(0.5 - ny * up + nx * lat, 0.25, 0.75);
+  }
   const paired = composition.float() < 0.32;
   const aspect = composition.range(1.2, 2.7);
   const size = side * composition.range(paired ? 0.22 : 0.23, paired ? 0.27 : 0.29) * (side >= 192 ? 0.85 : 1);
@@ -52,8 +64,6 @@ export function shapeLakeBasin(g: Genome, s: Settings, W: number, H: number, see
       height: -rng.range(9.5, 11), turn: turn + composition.range(-0.15, 0.15),
       extra: composition.range(1.2, 2.6), soft: 0 });
   }
-  // (round 7, above 128²: the basin found in the land, not drawn with a compass: `basinLand`)
-  const found = side > 128;
   if (found || composition.float() < 0.35) {
     // A raised, winding flank meets one shore; the opposite shore remains broad lowland.
     const at: [number, number] = [focus[0] - uy * 0.20, focus[1] + ux * 0.20];
@@ -63,15 +73,15 @@ export function shapeLakeBasin(g: Genome, s: Settings, W: number, H: number, see
   }
   g.focus = focus;
   leanCatchment(g, s, preset, rng.range(3.8, 4.8), W * H > 128 * 128);
-  if (found) basinLand(g, side, stream(seed, 'lake-basin-found', g.variation));
-  if (side >= 192) {
+  if (sided) sidedBasin(g, side, sided);
+  if (side >= 192 && !sided) {
     const [dx, dy] = DIRS8[g.flowDir];
     g.parts.push({ kind: 'trough', at: [focus[0] + dx * 0.23, focus[1] + dy * 0.23],
       size: side * 0.62, height: -3, turn: g.flowDir / 8, extra: side * 0.055, soft: 0 });
   }
 
   // (round 7: the lake's hollow as deep as a lake, so the land keeps the levels over it)
-  const deep = found ? 0.35 : 1;
+  const deep = found ? 0.5 : 1;
   for (const p of hollows) p.height *= deep;
   g.parts.push(...hollows);
   // A compact deeper reach inside the main hollow keeps elongated lakes broad enough to
@@ -83,6 +93,11 @@ export function shapeLakeBasin(g: Genome, s: Settings, W: number, H: number, see
   // meet the main depression. Intervening spurs stand above parts of the same floor.
   // The shared erosion and drainage still decide what floods and where rivers enter.
   const valleys = stream(seed, 'lake-basin-valleys', g.variation);
+  if (sided) {
+    inflowValleys(g, side, focus, valleys);
+    outletValley(g, side, focus, valleys);
+    return;
+  }
   const branches = valleys.int(3, 6);
   const axes: number[] = [];
   for (let k = 0; k < branches; k++) {
@@ -265,29 +280,107 @@ function longLakes(g: Genome, W: number, H: number, seed: number, attempt: numbe
   g.focus = at(focusT, focusC);
 }
 
-/** Round 7 (above 128²): the basin found in the land. The catchment's radial slope is weak and read through a slow warp,
- *  the land's own regional field at the map's scale carries the relief, and the flank behind one shore is the
- *  amphitheatre's heights. */
-function basinLand(g: Genome, side: number, r: ReturnType<typeof stream>): void {
+/** Round 7b (above 128²): the basin found in the land. The land rises toward a rim on one or two sides (`basinWarp`'s
+ *  profile), the lake lies low against it, the far side stays open; the catchment's radial slope is weak and read
+ *  through a slow warp; the regional field at the map's scale and benches of two or three levels carry the relief. */
+function sidedBasin(g: Genome, side: number, r: ReturnType<typeof stream>): void {
   g.tilt *= 0.35;
-  g.basinWarp = { amp: 0.12, cell: 0.45, lin: 8 };
+  const lin = 16;
+  const two = r.float() < 0.5;
+  const sideSign = r.float() < 0.5 ? 1 : -1;
+  g.basinWarp = { amp: 0.12, cell: 0.45, lin, pow: 1.8, side: two ? sideSign : 0, sideLin: two ? lin * 0.7 : 0 };
+  g.noise.amp = 1.5;
   g.regional.amp = r.range(4, 5.5);
-  g.regional.cell = side * r.range(0.45, 0.7);
+  g.regional.cell = side * r.range(0.35, 0.6);
   g.regional.warped = true;
-  // (the drop gathered: on part of the land the levels stand in benches of two)
-  g.terrace.step = 2;
-  g.terrace.share = 0.4;
-  g.terrace.cell = side * 0.25;
+  g.terrace.step = r.float() < 0.4 ? 3 : 2;
+  g.terrace.share = 1;
+  g.terrace.cell = side * 0.22;
+  g.hyps.eq = 0.25;
+  // (benches standing as benches: tableland over a third of the land more, short risers, gentler rolls, so a bench's
+  // flank is a face of two or three levels, not a run of one-level steps)
+  g.grade = { ...g.grade, mesa: 0.5, riser: 0.25, roll: 1.2 };
+  g.base = 3;
+  g.relief = g.top - g.base;
+  // (the water: two to four inflows down their own valleys from the rim, no springs sent to the land far from water)
+  g.hydro.reachSprings = false;
+  // (a river through its lake cuts no channel through the lake's floor, which would drain it: hydro's rock-sill rule, with no
+  // rock of its own)
+  g.rockSill = new Uint8Array(side * side);
+  g.hydro.incise = 1;
+  g.hydro.springs = 0;
   const esc = g.parts.find((p) => p.kind === 'escarpment');
   if (esc) {
     esc.height = r.range(5, 7);
     esc.size = side * r.range(0.7, 0.9);
     esc.soft = side * 0.035;
     esc.extra = side * 0.06;
-    // (behind the upstream shore, rising away from the lake: the amphitheatre's heights)
+    // (behind the upstream shore, rising away from the lake)
     const [dx, dy] = DIRS8[g.flowDir];
     const back = r.range(0.18, 0.26);
     esc.at = [clamp(g.focus[0] - dx * back, 0.1, 0.9), clamp(g.focus[1] - dy * back, 0.1, 0.9)];
     esc.turn = g.flowDir / 8 + 0.5 + r.range(-0.06, 0.06);
+  }
+}
+
+/** How far from `at` (fractions of the map) along `v` to the map's border. */
+function toEdge(at: readonly [number, number], v: readonly [number, number]): number {
+  let t = Infinity;
+  for (const k of [0, 1]) {
+    if (v[k] > 1e-6) t = Math.min(t, (1 - at[k]) / v[k]);
+    else if (v[k] < -1e-6) t = Math.min(t, at[k] / -v[k]);
+  }
+  return Math.max(0, t);
+}
+
+/** Round 7b: two to four valleys from the lake up to the rim's edges, each the way an inflow comes down. */
+function inflowValleys(g: Genome, side: number, focus: [number, number], r: ReturnType<typeof stream>): void {
+  const n = r.int(2, 5);
+  const upTurn = g.flowDir / 8 + 0.5 + (g.basinWarp?.side ? g.basinWarp.side * 0.08 : 0);
+  const spreadT = 0.34;
+  const axes: number[] = [];
+  for (let k = 0; k < n; k++) {
+    const bearing = upTurn + spreadT * ((k + 0.5) / n - 0.5) + r.range(-0.03, 0.03);
+    axes.push(bearing);
+    const [vx, vy] = unit(bearing);
+    const reach = toEdge(focus, [vx, vy]) * 0.7;
+    const bend = r.range(-0.1, 0.1);
+    const segs = 5;
+    for (let j = 0; j < segs; j++) {
+      const t = (j + 1) / segs;
+      const at: [number, number] = [clamp(focus[0] + vx * reach * t - vy * bend * t * t, 0.01, 0.99),
+        clamp(focus[1] + vy * reach * t + vx * bend * t * t, 0.01, 0.99)];
+      g.parts.push({ kind: 'isle', at, size: side * r.range(0.05, 0.07) * (1.1 - 0.3 * t),
+        height: -r.range(3.5, 5), turn: bearing + bend * t,
+        extra: r.range(1.3, 2), soft: 0 });
+    }
+  }
+  if (!g.hydro.exactInflows && !g.hydro.noInflows) g.hydro.inflows = n;
+  // spurs between the valleys, the dry benches above the water
+  axes.sort((a, b) => a - b);
+  for (let k = 0; k + 1 < axes.length; k++) {
+    const bearing = (axes[k] + axes[k + 1]) / 2;
+    const [vx, vy] = unit(bearing);
+    const reach = r.range(0.14, 0.22);
+    g.parts.push({ kind: 'ridge', at: [clamp(focus[0] + vx * reach, 0.12, 0.88), clamp(focus[1] + vy * reach, 0.12, 0.88)],
+      size: side * r.range(0.16, 0.26), height: r.range(2, 4), turn: bearing,
+      extra: side * r.range(0.035, 0.055), soft: 0 });
+  }
+}
+
+/** Round 7b: the outlet's valley from the lake to the open side's edge, winding as Highlands' rivers do. */
+function outletValley(g: Genome, side: number, focus: [number, number], r: ReturnType<typeof stream>): void {
+  const [nx, ny] = DIRS8[g.flowDir];
+  const L = toEdge(focus, [nx, ny]);
+  const amp = 0.06;
+  const waves = r.range(1.0, 1.8);
+  const ph = r.float();
+  const segs = 9;
+  for (let j = 1; j <= segs; j++) {
+    const t = j / segs;
+    const off = amp * sinDet(TWO_PI * (waves * t + ph)) * smoothstep(t * 3);
+    const at: [number, number] = [clamp(focus[0] + nx * L * t - ny * off, 0.01, 0.99), clamp(focus[1] + ny * L * t + nx * off, 0.01, 0.99)];
+    g.parts.push({ kind: 'isle', at, size: side * 0.04, height: -3, turn: g.flowDir / 8,
+      extra: 1.5, soft: 0 });
   }
 }

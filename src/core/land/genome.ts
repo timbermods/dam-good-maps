@@ -237,9 +237,11 @@ export interface Genome {
   tiltKind: "linear" | "radial";
   /** Where a radial slope falls to (fractions of the map). */
   focus: [number, number];
-  /** Lake Basin above 128² (round 7): the radial slope's distance read through a slow warp (`amp` a fraction of the map,
-   *  over `cell` of its narrower side), so its contours are never a compass's rings. */
-  basinWarp?: { amp: number; cell: number; lin: number };
+  /** Lake Basin above 128² (round 7b): the radial slope's distance read through a slow warp (`amp` a fraction of the map,
+   *  over `cell` of its narrower side), so its contours are never a compass's rings; and the land rising to a rim on the
+   *  far side from the outlet, `lin` levels' worth as a power `pow` of the way across, and on one side as well (`side`
+   *  ±1, `sideLin`; 0 for none). */
+  basinWarp?: { amp: number; cell: number; lin: number; pow: number; side: number; sideLin: number };
   noise: { amp: number; cell: number; octaves: number; warp: number; warpCell: number; ridged: number };
   parts: Part[];
   erosion: { iterations: number; k: number; diffusion: number };
