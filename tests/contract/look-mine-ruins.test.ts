@@ -133,7 +133,7 @@ import * as ed from "../../src/worker/session";
 // back to 0.10.50 the branch gives `5247e4c8…` byte for byte, D148
 // and generator 0.10.53's version alone (uplands round 6b, Highlands stands up; it moves no map at 128² and none but Highlands):
 // with the version set back to 0.10.51 the branch gives `1d4cdee1…` byte for byte, D148
-const LIVE_SHA = "1d4cdee1baffb1dc861a777fcdb8183f5f7e76fd22a2c79ac4233dd29b2fec92";
+const LIVE_SHA = "6b7fc1715cfbb4ae52f1935d0e7f7fc25ed2021f20d51a767bea5e2b5b17bcde";
 const spec = () => makeSpec({ seed: 4242, size: { x: 128, y: 128 }, theme: "riverValley", designedFor: "normal" });
 
 describe("mine sites and ruins, models of our own", () => {
