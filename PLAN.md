@@ -444,7 +444,7 @@ Maps are grown, not drawn (D108, D208, D209). `generate` (`src/core/gen/generate
    confirms one, and a failed one is dropped, never forced (D138). Above 128² (the narrower side over 128; not Lake
    Basin or Islands) the landforms stand at the map's scale and the levels are drawn in rings: long curved level lines
    round hills, mesas and terraces 30–80 tiles across, Highlands' mesas and Canyon's gorge walled 4–6 levels, every
-   long wall notched by ways through (D(uplands), `land/rings.ts`, `bold.ts`, `plan.ts`, docs/design/uplands.md).
+   long wall notched by ways through (D547, `land/rings.ts`, `bold.ts`, `plan.ts`, docs/design/uplands.md).
 4. **Features read back** out of the field (`gen/readback.ts`, §19.2): the map's plan, for the analysis and Claude's
    steering, which the editor keeps. The detected features in §7.10 (`derived`) are measurements for labels and names.
 5. **Start and slopes:** the start is picked (`gen/settler.ts`, §5.6) and the slopes derived (§7.5).
@@ -986,7 +986,7 @@ contamination under 0.05.
 | Id | Rule |
 |---|---|
 | `water.settles` | Steady within 6 game days (D358): volume change under 0.2% and 99.5% of tiles within 0.005 between 128-tick checks. A steady flow off the map is steady (D152); what fails is water that never settles. Only real flow counts (D222, D413): a sealed basin that is only evaporating (a carve's oxbow lake or a Fill: the water round its kept tiles, 4-connected, with no running source's tile and no map-edge tile in it; its tiles that lost water) is left out of both measures, the volume change measured against the rest; the canonical settle stops there (§10). Both validators apply it (`sim/water.ts` `steadyApartFromSealed`, `prototype/watersim.py` `steady_apart_from_sealed`); a `.timber` alone records no sealed basin, so there it changes nothing, and it never changes a generated map. |
-| `water.no_flood` | Wet share ≤ 0.35 (≤ 0.55 for Lake Basin and Any; ≤ 0.70 for Islands, D369; an opened file made with Dam Good Maps keeps its theme's cap, read from its description); official p90 0.40, workshop median 0.27, p90 0.67. The premise-based cap (decisions-pending #33) is dropped with the premises (D278). |
+| `water.no_flood` | Wet share ≤ 0.35 (≤ 0.55 for Lake Basin and Any; ≤ 0.70 for Islands, D369; a generated land whose rivers and lakes alone stand over the line on their pre-fill is drawn again at the land stage, `gen/generate.ts` `FLOOD_LOOK`; an opened file made with Dam Good Maps keeps its theme's cap, read from its description); official p90 0.40, workshop median 0.27, p90 0.67. The premise-based cap (decisions-pending #33) is dropped with the premises (D278). |
 | `water.clean_exists`, `water.clean_reach` | Advisory (D152): clean wet tiles ≥ 2% of the map; a connected body of clean water of 40+ tiles. The start's water is `start.water`'s. |
 | `water.outflow` | Every running source's water reaches an edge or a planned basin: its connected wet region touches a draining map-edge tile (not a walled source tile) or a lake feature. Not applicable without features (imports). |
 | `water.source_in_flow` | Sources start rivers (D171): no WaterSource or BadwaterSource stands where water from another source comes down to it. Emitters whose tiles touch are one group (a sealed mouth, a cluster at a river's head). Water runs down the spill levels, across a flat toward its way out and never back, and all through a pool. A group is inside a flow when a running group's water reaches one of its sources and its own water does not reach that group back. Design class. |

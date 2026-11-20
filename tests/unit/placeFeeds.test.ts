@@ -1,5 +1,5 @@
 // The springs' search and the film rule of the Real places tool (tools/lib/placeFeeds.ts, tools/lib/placeWater.ts;
-// D521, D(new-films)): on a made-up settle, so each step's rule is seen alone.
+// D521, D537): on a made-up settle, so each step's rule is seen alone.
 
 import { describe, expect, it } from "vitest";
 import { films, FILM_THIN_SHARE } from "../../tools/lib/placeWater";
@@ -10,7 +10,7 @@ const W = 20;
 const H = 20;
 const place = (sources: [number, number, number][]): PlaceData => ({ W, H, sources }) as unknown as PlaceData;
 
-describe("a film is a body thin on 90 % of its tiles (D(new-films))", () => {
+describe("a film is a body thin on 90 % of its tiles (D537)", () => {
   it("a few deeper tiles where its spring rises do not unmake it", () => {
     const depth = new Float64Array(W * H);
     const floor = new Float64Array(W * H).fill(3);
@@ -51,7 +51,7 @@ function settleOf(spots: Record<string, { real: number; dry: number }>) {
   };
 }
 
-describe("the springs' search (D(new-films))", () => {
+describe("the springs' search (D537)", () => {
   it("drops sources together where no single drop gains: two that wet the same dry land", () => {
     // a and b each wet the same 30 dry tiles (dropping one leaves the other's), c holds the real water
     const real = new Uint8Array(W * H);

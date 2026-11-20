@@ -450,7 +450,7 @@ picked out by texture, Highlands 2 shows mesas and Canyon 1 a gorge. Lake Basin 
 
 ## The PR round (2026-11-19)
 
-Generator 0.10.49 (D(uplands)); numbers in `C:/dgm-showcase/gen/uplands-pr/`.
+Generator 0.10.49 (D547); numbers in `C:/dgm-showcase/gen/uplands-pr/`.
 
 - **Highlands' promise.** Read the same way as a built map, the bundled highlands' high share is Terraces 0.52, Pressure
   0.18, Mountain Range 0.45, Helix Mountain 0.29, Oasis 0.65 (their plateaus 9, 0, 0, 1, 3; cliffs .110, .087, .054,
@@ -499,7 +499,7 @@ is its own work: the Rust water's settle, or a badwater search that finds no sit
 
 ## Round 6: Highlands stands up (2026-11-19)
 
-Generator 0.10.52 (first numbered 0.10.51), on pickStart (0.10.50, D(pick-start)); D(uplands) amended. Numbers and sheets in
+Generator 0.10.52 (first numbered 0.10.51), on pickStart (0.10.50, D545); D547 amended. Numbers and sheets in
 `C:/dgm-showcase/gen/uplands6/`. Highlands above 128² only (`bold.ts` `standsUp`): every other theme, and Highlands at
 128² and under, is 0.10.50's byte for byte.
 

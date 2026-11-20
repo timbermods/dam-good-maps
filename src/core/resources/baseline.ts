@@ -464,7 +464,7 @@ export interface RuinFieldOptions {
   /** Fields follow the land (D518, the look round): each lies in a band along its level's rim (a contour, a rise's
    *  edge or a shore), 2 to 4 tiles wide, ragged, with gaps, never an ellipse's filled blob. */
   follow?: boolean;
-  /** When the dry ground has no room for the scrap asked, lay the rest on the moist ground too (D(new-ruins): a real
+  /** When the dry ground has no room for the scrap asked, lay the rest on the moist ground too (D535: a real
    *  place keeps the scrap it had, and its own land decides where its dry ground lies). The generator's fields never
    *  do: its land is made with room for them. */
   moistWhenShort?: boolean;
@@ -587,7 +587,7 @@ export function planRuinFields(g: BaselineGround, scrap: number, o: RuinFieldOpt
   let left = scrap;
   // (`topUp`, D527: where the fields placed have no room left to grow, new fields come at half the spacing, and then on
   // moist ground too, each pass's fields grown in turn, until the scrap is placed or the land holds no more;
-  // `moistWhenShort`, D(new-ruins): a second pass on the moist ground, the fields laid and their moats kept)
+  // `moistWhenShort`, D535: a second pass on the moist ground, the fields laid and their moats kept)
   for (let pass = 0; pass < (eligible ? 3 : o.moistWhenShort ? 2 : 1) && left > 0; pass++) {
     const spacing = (o.spacing ?? 18) / (pass && eligible ? 2 : 1);
     if (pass && !eligible) for (let i = 0; i < N; i++) ruinFree[i] = freeAt(g, i) && !nearWater[i] && far(i) && !moat[i] ? 1 : 0;

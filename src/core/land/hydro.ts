@@ -342,7 +342,7 @@ export const GORGE_CUT = 3;
 export const GORGE_FLOOR = 3;
 
 /** A gorge's wander on a map under 128²: its wavelength and its ends' taper drawn at the map's scale, the narrower
- *  side's ratio to 128, never under half (D(highlands-slot)). A river's meander is drawn for the width of its channel,
+ *  side's ratio to 128, never under half (D542). A river's meander is drawn for the width of its channel,
  *  at a 128²'s scale (`wanderOf`, 16 to 40 tiles); on a 48² map a gorge cut six levels under its banks held under two
  *  bends over its whole course and ran 22 tiles in a straight 45° trench 3 wide with sheer walls, read as drawn with a
  *  ruler (Highlands 48² seed 3). A course cut a level or two, or with a broad floor between its channel and its walls,
@@ -356,7 +356,7 @@ export function gorgeWander(wv: Wander, W: number, H: number): Wander {
 
 /** The longest stretch of a course, in tiles, along which its bed would run more than `GORGE_CUT` levels under the higher
  *  of its banks just past its floor: its floor (a level over its bed) under a wall of `GORGE_CUT` or more
- *  (D(gorge-followups)). A tributary's planned cut is a level or two under the lowest ground beside it, but where it runs
+ *  (D543). A tributary's planned cut is a level or two under the lowest ground beside it, but where it runs
  *  down a terrace's edge or through a rise its bed follows the lowest ground upstream, and the wall on its high side
  *  stands at its water: Canyon 48² seed 18's spring tributary, cut a level, ran 13 tiles under a plateau's wall four
  *  and five levels high, 16.3 tiles of it straight. Its bed as the carve will set it, from the land before any channel
@@ -840,7 +840,7 @@ function planHydroSingle(E: Float64Array, h: Uint8Array, g: Genome, seed: number
     // (ruled water, planning's ruling of 2026-11-15: a course that runs beside one already traced, within `BESIDE.near`
     // tiles of it for `BESIDE.run` cells, joins it where that stretch begins, so the streams on one plain gather as a
     // land's do; River Valley 256² seed 9's three springs ran side by side down its floor like drawn lines)
-    // (never on a sea's map, whose islands drain to the sea as dev's do: planning, 2026-11-15, D(water-tree) round 3)
+    // (never on a sea's map, whose islands drain to the sea as dev's do: planning, 2026-11-15, D534 round 3)
     if (natural && !g.seaLayout && heads.length > 0 && opts.joins !== false) {
       const met = besideJoin(cells);
       if (met === null) {
@@ -1142,7 +1142,7 @@ function planHydroSingle(E: Float64Array, h: Uint8Array, g: Genome, seed: number
         });
     }
     // (a gorge winds at the map's own scale: `gorgeWander`; a course but the main river whose bed runs deep under a wall
-    // for half its gorge's wavelength or more is one, whatever its planned cut, D(gorge-followups), unless Canyon's promise
+    // for half its gorge's wavelength or more is one, whatever its planned cut, D543, unless Canyon's promise
     // was missed on this land with one wound so: such a tributary is often the canyon itself, in a slot a few tiles wide,
     // and its bends carry it and its floor out through the slot's thinner wall, Canyon 48² seed 18)
     const wv0 = natural ? wanderOf(g, widthFor(hd.flow)) : null;

@@ -257,7 +257,7 @@ describe("ruled land", () => {
     expect(best).toBeLessThan(100);
   });
 
-  it("the rims' ruler (D(plates-turned)): plates on the tile grid read straight, noise-shaped uplands do not, and the water's ground is left out", () => {
+  it("the rims' ruler (D540): plates on the tile grid read straight, noise-shaped uplands do not, and the water's ground is left out", () => {
     const W = 128;
     const rnd = splitmix32(5);
     // plates 16 tiles square on the grid, each at its own level: level near-rectangles

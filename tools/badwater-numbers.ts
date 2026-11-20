@@ -1,4 +1,4 @@
-// The badwater pits' numbers on generated maps (D(new-ditch)): for each theme and seed, the attempts the map took and why
+// The badwater pits' numbers on generated maps (D536): for each theme and seed, the attempts the map took and why
 // the failed ones failed, its pits and where each one's ditch ends (river, lake, another gully, the edge), whether its
 // badwater reaches the ditch's mouth in the settled water ("delivers"), and the start's check numbers (every map
 // verdict opens with the start). One JSON line a map, so a long run can be read while it goes and two checkouts compared.

@@ -11,7 +11,7 @@
 //
 // Every map gets `count` hollows unless its player chose No badwater (D200), each beyond the
 // difficulty's badwater distance from the start (plus the reach of its water and soil), apart from
-// each other. The ditch takes a gully's shape (D(new-ditch), planning's ruling of 2026-11-14/15): a
+// each other. The ditch takes a gully's shape (D536, planning's ruling of 2026-11-14/15): a
 // brook's width, wandering down the fall line to where D476 sends it. Its fall line is the eroded
 // field's own drainage from the pit's rim, else the least cut along the lowest ground that keeps off
 // what it must, with the field's fall in its cost (investigation/theme-critique: a ditch routed
@@ -29,7 +29,7 @@
 // outward (the fall lines that reach such water), and the pits are drawn from them, those ending in a river or
 // lake first, a join next, the map's edge last.
 // Islands' ditches are drawn as before (`windDitch`), its own ruling to come (D498 (3)). A land with no site a
-// fall-line gully serves (D(new-ditch) (14)) takes the ditch as before too, `BadwaterAsk.ditch`: the gully is the
+// fall-line gully serves (D536 (14)) takes the ditch as before too, `BadwaterAsk.ditch`: the gully is the
 // better way out for badwater, never a reason to refuse the land.
 //
 // Ported from the design version 2 prototype (investigation/generative/v2/hazards.ts).
@@ -69,7 +69,7 @@ export interface Hazards {
    *  is then found by other clean water (a reading for the generator's fixes). */
   past?: boolean;
   /** The pits drain by the ditch as before the gully, the land having no site a fall-line gully serves
-   *  (D(new-ditch) (14), `BadwaterAsk.ditch`). */
+   *  (D536 (14), `BadwaterAsk.ditch`). */
   ditch?: boolean;
 }
 
@@ -102,14 +102,14 @@ export interface BadwaterAsk {
    *  of it in the plan can still reach its level beside it; Lake Basin's lakes stand in their basins above the land
    *  around their outlets (its sea of badwater measured 0 without this). */
   sea?: boolean;
-  /** Designed for's pull on where the badwater runs (D(new-ditch) (6)): "near" (Hard) takes, of the first
+  /** Designed for's pull on where the badwater runs (D536 (6)): "near" (Hard) takes, of the first
    *  `CHOOSE_FROM` sites its gullies can serve, the one whose badwater comes nearest the start, "far" (Easy) the one
    *  that stays farthest, never under the distance; without it (Normal) the first, the distance aiming it. */
   prefer?: "near" | "far";
   /** The places prepared for the start before the land is shown, the plan's own first (D85 read as the player meets
-   *  it, D(new-ditch) (13)): no gully turns bad the nearest clean water of any of them. */
+   *  it, D536 (13)): no gully turns bad the nearest clean water of any of them. */
   starts?: { x: number; y: number }[] | null;
-  /** The ditch as before the gully (D(new-ditch) (14)): where a land has no site a fall-line gully serves, the
+  /** The ditch as before the gully (D536 (14)): where a land has no site a fall-line gully serves, the
    *  badwater takes the place the rule the gully replaced gives it, the attempt going on; Islands' ditch. */
   ditch?: boolean;
 }
@@ -290,7 +290,7 @@ export function mainLake(water: ArrayLike<number>, W: number, H: number): Uint8A
 function traceRoute(dn: Drainage, E: Float64Array, W: number, rim: readonly number[], pit: Uint8Array, goal: Uint8Array, avoid: Uint8Array, isEnd: (i: number) => boolean, limit: number, foreign?: Uint8Array): number[] | "water" | null {
   const starts = rim.filter((i) => !avoid[i]).sort((a, b) => E[a] - E[b] || a - b).slice(0, 6);
   // (`foreign`, a gully's: the water it may not join and the ring beside it. A fall line that runs into it
-  // first is no gully's, D(new-ditch) (1): a gully ends in the nearest water its own fall line reaches)
+  // first is no gully's, D536 (1): a gully ends in the nearest water its own fall line reaches)
   let blocked = false;
   for (const s of starts) {
     const tiles = [s];
@@ -592,7 +592,7 @@ const DITCH_STRAIGHT = 9;
 
 /** The longest run a ditch may make along one row or column, in tiles, and the fewest tiles on one
  *  diagonal that make an even 45° stair it may not run (`ditchRuns`): a run along the grid reads as a
- *  ruled slot, an even stair as a ruled diagonal (D(new-ditch); the look round of 2026-11-14, item
+ *  ruled slot, an even stair as a ruled diagonal (D536; the look round of 2026-11-14, item
  *  (c): Lake Basin 2's first pit drained by a ditch 7 tiles dead straight down a column). */
 const DITCH_RUN = 4;
 const DITCH_STAIR = 6;
@@ -602,7 +602,7 @@ const DITCH_STAIR = 6;
  *  edge), and its pit goes elsewhere. */
 const DITCH_LONG = 8;
 
-/** Planning's ruling of 2026-11-15 on the gully (D(new-ditch)), its measures. `DITCH_CAP`, the longest gully in tiles
+/** Planning's ruling of 2026-11-15 on the gully (D536), its measures. `DITCH_CAP`, the longest gully in tiles
  *  (4): a pit whose gully would run longer is no site. `ABREAST_NEAR` and `ABREAST_RUN` (2): no gully stays within 6
  *  tiles of a river, a stream or another gully for 20 tiles or more, but for its last `MOUTH` before it joins. `MOUTH`
  *  (3): the bed stays above the water it joins until its last 6 tiles. */
@@ -694,7 +694,7 @@ function wavy(tiles: readonly number[], W: number): boolean {
  *  still cross ground the ditch keeps off, or that comes out ruler-straight or in a regular wave (D209),
  *  is drawn again from the next seed, four times; then with a smaller swing; the route as traced
  *  is the last resort. Null where even that fails. Islands' ditches only, as they were before the gully
- *  (D(new-ditch)): its own ruling is to come (D498 (3)). */
+ *  (D536): its own ruling is to come (D498 (3)). */
 function windDitch(tiles: readonly number[], h: Uint8Array, W: number, H: number, allowed: (i: number) => boolean, isEnd: (i: number) => boolean, seed: number, rng: Rng): number[] | null {
   const n = tiles.length;
   const pts: Point[] = tiles.map((i) => [i % W, (i - (i % W)) / W]);
@@ -736,12 +736,12 @@ const GULLY_DRAWS = 6;
 /** How many sites a round of pits tries for gullies (`planBadwater`). */
 const GULLY_TRIES = 120;
 
-/** How many servable sites a pit chooses from on Hard and Easy (D(new-ditch) (6)): their gullies drawn, the one whose
+/** How many servable sites a pit chooses from on Hard and Easy (D536 (6)): their gullies drawn, the one whose
  *  badwater comes nearest the start (Hard) or stays farthest (Easy). Eight: on River Valley 96² the near sites a
  *  gully can serve are a handful at most, and each one more is a gully drawn and dug into a copy. */
 const CHOOSE_FROM = 8;
 
-/** A ditch drawn as a gully (D(new-ditch), planning's ruling of 2026-11-14/15: "a brook's width,
+/** A ditch drawn as a gully (D536, planning's ruling of 2026-11-14/15: "a brook's width,
  *  wandering down the fall line to where D476 sends it; it follows the fall, wanders, narrows and
  *  widens, never a straight stepped slot or a ruled trench"). Its route as traced (the field's own
  *  way down, else the least cut along the lowest ground) is its fall line: that line smoothed over
@@ -916,7 +916,7 @@ function gullyWalk(start: number, tx: readonly number[], ty: readonly number[], 
   return null;
 }
 
-/** Where a ditch's bed widens beside its route (D(new-ditch): a gully narrows and widens): a noise
+/** Where a ditch's bed widens beside its route (D536: a gully narrows and widens): a noise
  *  along its length gives each route tile a width of 1, 2 or 3 (about half its length 1), and a tile
  *  of 2 or 3 takes the lowest one or two of the tiles beside it that `may` allows (off its route, off
  *  water, ground the ditch keeps off and the pit's ring, not more than two levels over the route
@@ -956,7 +956,7 @@ function gullySides(tiles: readonly number[], h: Uint8Array, W: number, H: numbe
 const STEP_REACH = 3;
 
 /** A ditch's banks stepped down to its bed in `h` (a copy, changed in place; the look round of
- *  2026-11-14, item (c), and D(new-ditch): a gully's sides, never a one-tile slot cut two or three
+ *  2026-11-14, item (c), and D536: a gully's sides, never a one-tile slot cut two or three
  *  deep): the ground within `STEP_REACH` of the bed (`bed`: tile and level) lowered to at most its
  *  level plus how far it lies from it (the most of the two ways along the grid), so every bank falls a
  *  level a tile to the bed; a tile beside the bed (side or corner) stays at least a level over it.
@@ -1047,7 +1047,7 @@ export function atStandingLevel(spare: Uint8Array, h: ArrayLike<number>, lakes: 
   return zone;
 }
 
-/** A pit's site found, its gully drawn and dug into a copy of the ground (`planBadwater`, D(new-ditch) (6)). */
+/** A pit's site found, its gully drawn and dug into a copy of the ground (`planBadwater`, D536 (6)). */
 interface Found {
   c: number;
   cx: number;
@@ -1066,7 +1066,7 @@ export function planBadwater(h: Uint8Array, W: number, H: number, wetNow: ArrayL
   const avoid = new Uint8Array(N);
   const out: Hazards = { count: 0, features: [], avoid, heights: h };
   if (!(ask.count > 0)) return out;
-  // (the gullies drawn so far, D(new-ditch) (2): a later gully may join one, which goes on below as one bed. `beds`: each
+  // (the gullies drawn so far, D536 (2): a later gully may join one, which goes on below as one bed. `beds`: each
   // bed tile's level and its gully; `joinable`: their beds and stepped banks outside their pits' squares, which a later
   // gully may cut through to its join and the ground it keeps off leaves out)
   const gullies = !ask.sea && !ask.ditch;
@@ -1103,7 +1103,7 @@ export function planBadwater(h: Uint8Array, W: number, H: number, wetNow: ArrayL
   // the start's water and what flows past it: badwater must join below it
   const startWater = new Uint8Array(N);
   for (let i = 0; i < N; i++) if (wet[i] && sd[i] <= 24) startWater[i] = 1;
-  // (D(new-ditch) (13): each prepared start's distance from every tile, and from its nearest water as planned)
+  // (D536 (13): each prepared start's distance from every tile, and from its nearest water as planned)
   const startsAt = (ask.starts ?? []).map((p) => {
     const m = new Uint8Array(N);
     for (let y = Math.max(0, p.y - 1); y <= Math.min(H - 1, p.y + 1); y++) for (let x = Math.max(0, p.x - 1); x <= Math.min(W - 1, p.x + 1); x++) m[y * W + x] = 1;
@@ -1162,7 +1162,7 @@ export function planBadwater(h: Uint8Array, W: number, H: number, wetNow: ArrayL
   // pits drawn)
   const keepGround = (j: number): boolean => sd[j] < D + 6 || startWater[j] === 1 || ask.keepOff?.[j] === 1 || byMouth[j] === 1 || (avoid[j] === 1 && !joinable[j]);
   const planned = (j: number): boolean => hy.water[j] === 1 || hy.water[j] === 2;
-  // D(new-ditch) (2): below where a gully joins it, a gully goes on as one bed a tile wider: each of its route tiles
+  // D536 (2): below where a gully joins it, a gully goes on as one bed a tile wider: each of its route tiles
   // below the join takes the lowest tile beside it that its bed may take (off the beds, water, the ground it keeps off,
   // its pit's ring, at most two levels over the route tile), at the level of the lowest route tile beside it, where the
   // banks round that tile hold; its banks stepped as the rest. Where its pit would leak so, it stays as it was.
@@ -1339,7 +1339,7 @@ export function planBadwater(h: Uint8Array, W: number, H: number, wetNow: ArrayL
     // (a ditch runs as far as the land takes it to water; past the side's length it is no ditch; a gully no
     // further than `DITCH_CAP`)
     const limit = gullies ? DITCH_CAP : Math.max(W, H);
-    // (D(new-ditch) (5): a gully's sites are found from the water outward: the places whose own fall line, the field's
+    // (D536 (5): a gully's sites are found from the water outward: the places whose own fall line, the field's
     // drainage, reaches water it may join or a gully drawn before any other water and within `DITCH_CAP` of its pit's
     // rim; or the map's edge, where it may end there)
     // (planning's ruling of 2026-11-15, the edge ends last: each site's fall line ends in water it may join (1), an
@@ -1439,7 +1439,7 @@ export function planBadwater(h: Uint8Array, W: number, H: number, wetNow: ArrayL
         at = 0;
       }
     };
-    // (D(new-ditch) (6): on Hard and Easy a pit's site is chosen from the first `CHOOSE_FROM` its gully can serve, all
+    // (D536 (6): on Hard and Easy a pit's site is chosen from the first `CHOOSE_FROM` its gully can serve, all
     // with the same kind of end, each drawn and dug into a copy of the ground: Hard takes the one whose badwater (its
     // pit, its gully and the water below its mouth, `approach`) comes nearest the start, Easy the one that stays
     // farthest, neither under the distance; ties to the first. Normal takes the first, as before. The rest are tried
@@ -1538,7 +1538,7 @@ export function planBadwater(h: Uint8Array, W: number, H: number, wetNow: ArrayL
           const y = (j - x) / W;
           for (let yy = Math.max(0, y - 1); yy <= Math.min(H - 1, y + 1); yy++) for (let xx = Math.max(0, x - 1); xx <= Math.min(W - 1, x + 1); xx++) if (!goal[yy * W + xx]) keepOff[yy * W + xx] = 1;
         }
-        // (a gully's: the beds of the gullies drawn below its floor are water it may join, D(new-ditch) (2); every
+        // (a gully's: the beds of the gullies drawn below its floor are water it may join, D536 (2); every
         // other water, and their beds above it, with the ring beside them, `foreign`: its fall line may not run into it)
         let foreign: Uint8Array | null = null;
         if (gullies) {
@@ -1587,7 +1587,7 @@ export function planBadwater(h: Uint8Array, W: number, H: number, wetNow: ArrayL
       // to water that keeps off it; to the edge only where no water can be reached (Kyler, 2026-10-03:
       // badwater draining off the map on its own is rare)
       const traced = E && dnE ? traceRoute(dnE, E, W, edge, pit, goal, keepOff, (i) => goal[i] === 1, limit, foreign ?? undefined) : null;
-      // (a gully whose own fall line runs first into water it may not join is no site, D(new-ditch) (1))
+      // (a gully whose own fall line runs first into water it may not join is no site, D536 (1))
       if (traced === "water") continue;
       let base = traced;
       // (a gully's search is run only where its route can be no longer than its cap: the fewest steps from its rim,
@@ -1614,7 +1614,7 @@ export function planBadwater(h: Uint8Array, W: number, H: number, wetNow: ArrayL
         base = ditchRoute(hh, E, valleys, groundOf(hh), W, H, edge, pit, wayOf(ends, true), hash32(seed, "ditch", attempt, c))?.tiles ?? null;
       }
       if (!base || base.length < 3 || base.length > limit) continue;
-      // drawn as a gully down that line (D(new-ditch): a ditch that cannot wander, running straight
+      // drawn as a gully down that line (D536: a ditch that cannot wander, running straight
       // along the grid or the diagonal or in a regular wave, is no gully: the pit goes elsewhere)
       // (Islands' ditches as they were, its own ruling to come, D498 (3))
       const gully = gullies;
@@ -1638,13 +1638,13 @@ export function planBadwater(h: Uint8Array, W: number, H: number, wetNow: ArrayL
       }
       // (the gully it joins, if it joins one: its bed's tile and level there)
       const joins = gully ? beds.get(route.end) : undefined;
-      // its bed widened beside its route where the gully widens (D(new-ditch)), else (where that
+      // its bed widened beside its route where the gully widens (D536), else (where that
       // would not hold) one tile wide all along
       const ring3 = (i: number) => nearOfAt(i, W, H, 3, (j) => pit[j] === 1);
       const wet = (j: number) => hy.water[j] === 1 || hy.water[j] === 2;
       const bedNear = (i: number) => nearOfAt(i, W, H, 1, (j) => beds.has(j));
       let dug: { next: Uint8Array; plan: BadwaterPlan; bed: Map<number, number>; stepped: number[] } | null = null;
-      // (D(new-ditch) (3): a gully's bed keeps its fall: it stays a level over the water it joins as it settles, the
+      // (D536 (3): a gully's bed keeps its fall: it stays a level over the water it joins as it settles, the
       // planned surface beside its end, until its last `MOUTH` tiles, so nothing backs up it; over the bed it joins, a
       // level over that bed. Ground too low for that is no gully's: its banks don't hold, and the site is no site)
       let need = -Infinity;
@@ -1749,7 +1749,7 @@ export function planBadwater(h: Uint8Array, W: number, H: number, wetNow: ArrayL
     for (let j = end, n = 0; j >= 0 && n < 4 * (W + H); j = rcv[j], n++) m = Math.min(m, sd[j]);
     return m;
   };
-  // (D(new-ditch) (13): whether the water a gully turns bad, as the plan reads it, takes a prepared start's nearest
+  // (D536 (13): whether the water a gully turns bad, as the plan reads it, takes a prepared start's nearest
   // clean water: from its mouth (down the bed it joins to that one's water) the water it reaches standing no higher,
   // the rest of a lake and a river's reach below it)
   const spoilsStart = (end: number): boolean => {
@@ -1811,7 +1811,7 @@ export function planBadwater(h: Uint8Array, W: number, H: number, wetNow: ArrayL
         if (offSquare(j)) joinable[j] = 1;
       }
       for (const j of dug.stepped) if (offSquare(j)) joinable[j] = 1;
-      // (the gully it joins goes on below as one bed, a tile wider, D(new-ditch) (2))
+      // (the gully it joins goes on below as one bed, a tile wider, D536 (2))
       if (joins) widen(joins.g, s.end);
     }
   };

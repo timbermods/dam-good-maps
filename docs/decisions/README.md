@@ -91,21 +91,21 @@ Read this index, then [how-we-work.md](how-we-work.md), then only the topic file
 
 ## [The generator](generator.md)
 
-- D(pick-start): The start is picked for the level room it has, never at the cost of an Easy row: the places with Easy's room that keep the rows the pick before would keep, else those with at least its room, worth weighing the draw
-- D(uplands): Above 128² the land is drawn in rings: landforms at the map's scale, a plan of the land, nothing fine in the snap, slopes for a ringed land, bold walls for Highlands and Canyon; Lake Basin and Islands stay on 0.10.48's land; Highlands stands up (round 6): a few walled mesas on a gentle floor, the valley sunk in the middle
-- D(terrace-edges): No level's edge runs ruler-straight over a dozen tiles: the graded levels are read through a fine warp before rounding, the water's field left as it is
-- D(ruled-water): No course runs beside another: it joins the one it would run beside; Delta's arms step diagonally
-- D(gorge-followups): An arch over a gorge is looked for along the heading its gorge runs at the crossing, a diagonal too; a course but the main river deep under a wall for half its gorge's wavelength winds as a gorge, unless on a Canyon land it cost the promise
-- D(start-spring-stop): A start spring's settle ends where it plainly won't settle; the spring is refused as the limit refuses it
-- D(highlands-slot): A gorge (cut 3 levels or more at its water) winds at its map's scale under 128²: its meander's wavelength and taper by the narrower side's ratio to 128, never under half
-- D(new-ditch): The badwater ditch takes a gully's shape: down its fall line, wandering, 1 to 3 wide, stepped banks, at most 40 tiles, ending in water D476 and D498 let it join, at another gully, or at the edge last; a land with no gully site takes the ditch as before
-- D(sea-steps): The sea steps keep the sea below a course's last edge: an inflow's own edge is never lowered under the water standing on its course
-- D(plates-turned): A premise's plates are turned off the grid and their rims ragged by noise at every size; D518's 128² cap is gone
-- D(new-leaks): A course's water leaves only by its own way: pools only inside banks that hold them, never a raised lip; nothing beside a course lowered under its water; Delta courses join the fan by plan; no channel left under its reach downstream
+- D545: The start is picked for the level room it has, never at the cost of an Easy row: the places with Easy's room that keep the rows the pick before would keep, else those with at least its room, worth weighing the draw
+- D547: Above 128² the land is drawn in rings: landforms at the map's scale, a plan of the land, nothing fine in the snap, slopes for a ringed land, bold walls for Highlands and Canyon; Lake Basin and Islands stay on 0.10.48's land; Highlands stands up (round 6): a few walled mesas on a gentle floor, the valley sunk in the middle
+- D544: No level's edge runs ruler-straight over a dozen tiles: the graded levels are read through a fine warp before rounding, the water's field left as it is
+- D534: No course runs beside another: it joins the one it would run beside; Delta's arms step diagonally
+- D543: An arch over a gorge is looked for along the heading its gorge runs at the crossing, a diagonal too; a course but the main river deep under a wall for half its gorge's wavelength winds as a gorge, unless on a Canyon land it cost the promise
+- D539: A start spring's settle ends where it plainly won't settle; the spring is refused as the limit refuses it
+- D542: A gorge (cut 3 levels or more at its water) winds at its map's scale under 128²: its meander's wavelength and taper by the narrower side's ratio to 128, never under half
+- D536: The badwater ditch takes a gully's shape: down its fall line, wandering, 1 to 3 wide, stepped banks, at most 40 tiles, ending in water D476 and D498 let it join, at another gully, or at the edge last; a land with no gully site takes the ditch as before
+- D533: The sea steps keep the sea below a course's last edge: an inflow's own edge is never lowered under the water standing on its course
+- D540: A premise's plates are turned off the grid and their rims ragged by noise at every size; D518's 128² cap is gone
+- D532: A course's water leaves only by its own way: pools only inside banks that hold them, never a raised lip; nothing beside a course lowered under its water; Delta courses join the fan by plan; no channel left under its reach downstream
 - D527: Every move of a generator control changes the next map, or the control is greyed with its reason
 - D520: The reach rule: a crossing between two bends under 5 wide is a ruled reach past five times its width; every other straight stretch, wider water and lakes at 12 rows
 - D519: A premise map's moist floor falls as the map grows: 30 % at 128², 25 % at 192², 20 % at 256²
-- D518: Contour edges and Canyon's side canyons: the levels' edges on warped contours, no one-level step straight over 8 tiles, ruin fields along the land, rises in nested rings, the premise plates turned and bent; Canyon's side canyons cut 3 levels by the wash pass (amended: Real places' ruin fields too, D(new-ruins))
+- D518: Contour edges and Canyon's side canyons: the levels' edges on warped contours, no one-level step straight over 8 tiles, ruin fields along the land, rises in nested rings, the premise plates turned and bent; Canyon's side canyons cut 3 levels by the wash pass (amended: Real places' ruin fields too, D535)
 - D517: Dry washes and an old bed: one or two long winding dry channels a map where rain would run, with branches and fords, ending at water, in a dry hollow, or behind a lake's lip; none in the start's ground, no reach lost
 - D516: Dead stands on the dry land: a floor of 28 per 1,000 dry tiles (the aim about 40) in a few old woods where forest was, pine and birch by the site, none in the start's walk
 - D515: The start's floors are the map's, in one gate: a bench, walkable land, fast wood and a forester's plot
@@ -125,7 +125,7 @@ Read this index, then [how-we-work.md](how-we-work.md), then only the topic file
 - D480: The water story's reach counts the main water
 - D476: Badwater joins the main water
 - D471: Every setting makes a map
-- D(small-own-scale): A map narrower than 96, under 128² of area, is drawn at its own scale from the first round; Highlands from the eighth (amends D471)
+- D541: A map narrower than 96, under 128² of area, is drawn at its own scale from the first round; Highlands from the eighth (amends D471)
 - D469: Badwater mixes with clean water
 - D458: Lake Basin round 2 adopted
 - D464: Lake Basin always reads as one
@@ -140,6 +140,7 @@ Read this index, then [how-we-work.md](how-we-work.md), then only the topic file
 - D273: M9b's five outcomes
 - D138: Intentions, maps feel authored
 - D278: Candidate choice and speed
+- D530: A land flooded by its own planned water is drawn again at the land stage; the river channel cut is deferred (D453)
 - D363: Mine-site pads levelled
 - D307: Floodplain floods
 - D405: Small starts' hidden land
@@ -170,8 +171,8 @@ Read this index, then [how-we-work.md](how-we-work.md), then only the topic file
 - D27: The canonical settle
 - D120: One water model, stacked columns
 - D350: Water that won't settle
-- D99: The editor's water (its warm start amended by D(new-preview))
-- D(new-preview): A wet tile beside an edit keeps its water and momentum in the preview's warm start (amends D99)
+- D99: The editor's water (its warm start amended by D538)
+- D538: A wet tile beside an edit keeps its water and momentum in the preview's warm start (amends D99)
 - D98: Approximate water on imports
 - D133: Weather: Drought and Badtide
 
@@ -208,7 +209,7 @@ Read this index, then [how-we-work.md](how-we-work.md), then only the topic file
 
 ## [The forces](forces.md)
 
-- D(craterize-gentle): The forces' last step never drops ground the force only brushed down its cliff: a tile it would drop goes with the ground beside it within two levels
+- D531: The forces' last step never drops ground the force only brushed down its cliff: a tile it would drop goes with the ground beside it within two levels
 - D500: A Carve with a Depth keeps its channel falling, or is refused
 - D474: Forces can clear sources
 - D473: Carve's aging setting removed
@@ -236,10 +237,10 @@ Read this index, then [how-we-work.md](how-we-work.md), then only the topic file
 - D420: No map keeps unfed water
 - D421: Gallery hides unfed starts (amended)
 - D445: Gallery shows every place
-- D(new-ruins): Real places' ruins lie along the land, laid as the generator lays its own (with D518)
+- D535: Real places' ruins lie along the land, laid as the generator lays its own (with D518)
 - D521: Real places built under the game's water rules (D311's conversion carried out)
 - D522: Real places' names without "Near", in the id and link too (amends D136)
-- D(new-films): Real places' films by share, mended after the springs' search or the place keeps its build; one spring where no real water lies; springs gone together
+- D537: Real places' films by share, mended after the springs' search or the place keeps its build; one spring where no real water lies; springs gone together
 - D166: Pick a place
 
 ## [3D terrain](3d-terrain.md)

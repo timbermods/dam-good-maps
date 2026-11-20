@@ -8,7 +8,7 @@
 // stream), the intentions' preferences, the drought-aware preference (#59: water that stays
 // pumpable through the first Normal drought, preferred on Normal and Hard, required on Easy) and what
 // the place is worth to a settlement (the level room it has, as Easy start's room row reads it, and the
-// moist ground its wood will grow on, `startWorth`) rank the places. Room comes first (D(pick-start)):
+// moist ground its wood will grow on, `startWorth`) rank the places. Room comes first (D545):
 // the places with Easy's room that keep every Easy row today's ranking's place keeps, else those with
 // at least that place's room; the seed chooses among the best few of them, kept 20 tiles apart, whose
 // worth stands within `VALUE_MARGIN` of the worthiest, so starts differ as much as the land does.
@@ -64,7 +64,7 @@ export const BANK_FOOT = 800;
 export const FRAME_GAIN = 0.05;
 
 /** How much longer a start chosen for its room may walk to its water than the place the pick would choose by its
- *  score alone (D(pick-start)), in tiles. */
+ *  score alone (D545), in tiles. */
 export const WALK_SPARE = 2;
 
 /** The least walk from a start's middle tile to a shore: its 5×5 stays dry (`start.dry`), so the
@@ -145,7 +145,7 @@ export interface SettlerOptions {
    *  `band` (its pond is dug between, land/easyStart.ts), at least `room` tiles 2 levels under to 3 over the start's
    *  within 12 tiles (its clearing), the more the better, and water a pond can be joined to (`pond`). */
   easy?: { band: readonly [number, number]; room: number; pond: (x: number, y: number, level: number) => boolean } | null;
-  /** Room first (D(pick-start), the default): the places with Easy start's room that keep the Easy rows the place
+  /** Room first (D545, the default): the places with Easy start's room that keep the Easy rows the place
    *  its score alone ranks first keeps. False on the water the hydrology planned, whose guess the badwater hollows are
    *  planned away from: that place, as the pick before ranked it, so the start picked for its room on the settled water
    *  keeps the rows the start the generator would have given keeps (the planned water's walks are an estimate). */
@@ -315,7 +315,7 @@ export function footAt(foot: SettlerOptions["foot"], i: number): number {
   return k >= 0 && k < foot.size.length ? foot.size[k] : 0;
 }
 
-/** What a place is worth to a settlement when the start is picked (D(pick-start)): `startValue`'s bench and wood
+/** What a place is worth to a settlement when the start is picked (D545): `startValue`'s bench and wood
  *  parts, each a ratio to its target on a log scale, uncapped (`startParts`), the bench read as the start's own
  *  level room (`roomAt`, Easy start's room row, against its ask) and the wood as the moist dry ground a level either
  *  side of the start's within 14 tiles, where its wood will grow (`woodAt`'s window). A Small Start area (`small`)
@@ -527,7 +527,7 @@ export function pickStart(
     const y1 = Math.min(H - 1, y + r);
     return t[(y1 + 1) * (W + 1) + x1 + 1] - t[y0 * (W + 1) + x1 + 1] - t[(y1 + 1) * (W + 1) + x0] + t[y0 * (W + 1) + x0];
   };
-  // what a place is worth to a settlement (D(pick-start)): the level room it has and the moist ground its wood will
+  // what a place is worth to a settlement (D545): the level room it has and the moist ground its wood will
   // grow on, against a place at the targets
   const worthRef = START_WEIGHTS.bench + START_WEIGHTS.wood;
   // Easy start's asks for this map (`easyTargets`): its room (and the share of the start's middle it holds), its water
@@ -664,7 +664,7 @@ export function pickStart(
         }
         // the player's settings weigh on the intentions' preference too: they are asked for
         const settingsFit = (0.3 + 0.7 * benchFit * benchFit) * (0.3 + 0.7 * walkFit) * (0.4 + 0.6 * storeFit) * (0.5 + 0.5 * footFit);
-        // (what it is worth to a settlement, against a place at the targets: D(pick-start); with room first it scales the
+        // (what it is worth to a settlement, against a place at the targets: D545; with room first it scales the
         // whole score, the seed's draw too, so between places worth the same the draw weighs as before and only worth
         // tilts it)
         const space = roomFirst ? roomAt(h, W, H, roomWet, x, y, L, ask.roomRadius, ask.insideRadius, roomMark, ++roomStamp, roomQueue) : { n: 0, inside: 0 };
@@ -717,7 +717,7 @@ export function pickStart(
     return top;
   };
   // one of the best few, among those nearly as good as the best (the settings' preferences hold), with room first worth
-  // nearly as much to a settlement as the worthiest of them (D(pick-start): a place with a third of another's room, or
+  // nearly as much to a settlement as the worthiest of them (D545: a place with a third of another's room, or
   // half its moist ground, is never drawn over it): the one nearest where the start was expected, else one at random
   // (`u`, drawn once, so each list is drawn from with the seed's same draw)
   // (drawn once a list has a place, as the pick before drew: with none, `bankStart` draws on from where it did)
@@ -739,7 +739,7 @@ export function pickStart(
     if (near) for (const t of good) if (d2(t) < d2(c) || (d2(t) === d2(c) && t.i < c.i)) c = t;
     return { c, good };
   };
-  // the place the pick would choose without room first (its score alone, as before D(pick-start)): the Easy rows it
+  // the place the pick would choose without room first (its score alone, as before D545): the Easy rows it
   // keeps, a place chosen for its room keeps too (planning on #236: room is never bought with another row). Of the rows
   // the pick can read: the water walk from the middle (read over the slopes for the best few) within Easy's, half a tile
   // to spare, where that place's is, and never `WALK_SPARE` tiles longer than it (planning: the clean water walk's

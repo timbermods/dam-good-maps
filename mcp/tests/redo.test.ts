@@ -48,7 +48,7 @@ describe("redo", () => {
 describe("falls, lakes, the nearest tile and the crater's size", () => {
   it("lists falls and lakes in describe and marks them on the picture", async () => {
     // (seed 1, D148: at generator 0.10.44 the gorge follow-ups wind seed 12's canyon and it keeps no fall; seed 1 has 6
-    // falls and 2 lakes; seed 10 for seed 1 at 0.10.47, D(terrace-edges), D148: seed 1's canyon keeps no fall now; seed 10 has 6 falls and
+    // falls and 2 lakes; seed 10 for seed 1 at 0.10.47, D544, D148: seed 1's canyon keeps no fall now; seed 10 has 6 falls and
     // 4 lakes, and of seeds 1 to 12 only seeds 1 and 7 have none)
     const { handle } = generateMap({ theme: "canyon", size: 96, seed: 10 });
     const d = JSON.parse(textOf(await callTool("describe", { map: handle, checks: false })));

@@ -13,6 +13,7 @@ const PHRASES: Record<string, string> = {
   "a river's water leaves its course": "a river left its course",
   "a river's head under a lake": "a river began under a lake",
   "a sea over its shelf": "a sea stood over a wide shelf",
+  "a flooded land (planned)": "the land's own water flooded too much of it",
   "an edge wall": "a wall stood along an edge",
   "no rivers": "no river found its way",
   rivers: "too few rivers reached the edge",

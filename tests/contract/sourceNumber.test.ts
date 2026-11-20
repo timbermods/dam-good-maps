@@ -23,7 +23,7 @@ function strengthIn(v: EntityView, x: number, y: number): number | undefined {
 describe("a source's one number (D368 (4))", () => {
   // (Highlands 96² seed 3 → 2 at 0.10.29 (#1186), D148: the disc's land (the weathering's disc of the square's area, the washes' brush and swing) puts a mine site on one of the two
   // dry level spots the test picks on seed 3, so a source is refused there; seed 2, the nearest, takes both tests, as 4 and 5 do)
-  // (seed 2 → 1 at 0.10.46, D(new-ditch) and D(sea-steps) on #1236's land, D148: seed 2's one spot is refused, so its source
+  // (seed 2 → 1 at 0.10.46, D536 and D533 on #1236's land, D148: seed 2's one spot is refused, so its source
   // does not exist; seeds 1, 3 and 4 take both tests, seed 5's spot holds a mine site, and 1 and 3 are the nearest, 1 the first)
   it("every notch's new strength reaches the page's copy of the objects, alone and in a row", async () => {
     await runGenerate(makeSpec({ seed: 1, theme: "highlands", size: { x: W, y: W } }));

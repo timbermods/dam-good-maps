@@ -142,7 +142,7 @@ export function snapLevels(E: Float64Array, g: Genome, seed: number, W: number, 
   if (stand) g.standValley = Uint8Array.from(stand.m, (m, i) => (m >= 0.5 ? (stand.bowl[i] === 1 ? 1 : 2) : 0));
   const keepRims = mesas ? mesas.skip : null;
   if (ringed && tiers && g.plan?.kind === "gorge") boldGorge(level, W, H, seed, g.variation, tiers.bands[0][1], tiers.bands[1][0]);
-  // (D(terrace-edges): every level's edge read through a warp, so no edge the field, the grade or the tableland's
+  // (D544: every level's edge read through a warp, so no edge the field, the grade or the tableland's
   // outline leaves smooth over a dozen tiles runs ruler-straight; the levels' edges, not the field the water is planned
   // on. Above 128² a slow one, `RINGS`, that bends the lines without jagging them: uplands round 4)
   const ws = hash32(seed, "edge-warp", g.variation);
@@ -179,7 +179,7 @@ export function snapLevels(E: Float64Array, g: Genome, seed: number, W: number, 
   // regions under 4 tiles merge (a 2×2 stack survives, as the build's integrity pass keeps it)
   mergeSmallRegions(out, W, H, 4);
   cleanPitsAndSpikes(out, W, H, null);
-  // (D(terrace-edges): the warp bends the edges and makes no cliff; the regions its easing leaves under 4 tiles merge too)
+  // (D544: the warp bends the edges and makes no cliff; the regions its easing leaves under 4 tiles merge too)
   if (easeWarpCliffs(out, level, src, W, H, BED_FLOOR + 1, maxLv)) {
     mergeSmallRegions(out, W, H, 4);
     cleanPitsAndSpikes(out, W, H, null);
@@ -467,7 +467,7 @@ export function contourField(E: Float64Array, W: number, H: number, seed: number
   return out;
 }
 
-/** The edge warp bends the levels' edges and makes no cliff (D(terrace-edges)). Where it crowds the levels (or folds,
+/** The edge warp bends the levels' edges and makes no cliff (D544). Where it crowds the levels (or folds,
  *  and the small regions it leaves merge), a step can drop two levels or more where the unwarped levels only stepped;
  *  each such step is eased, its lower tile raised to a level under its neighbour, until none is left. A tile whose
  *  source (`src`, in the unwarped levels `level`, before rounding) lies within a tile of a step the unwarped levels
@@ -519,7 +519,7 @@ export function easeWarpCliffs(out: Uint8Array, level: Float64Array, src: Int32A
   return raised;
 }
 
-/** The levels' edge warp (D(terrace-edges)) at 128² and under: its reach and its cell, tiles, and its noise's octaves.
+/** The levels' edge warp (D544) at 128² and under: its reach and its cell, tiles, and its noise's octaves.
  *  The reach is `reach` at `full` (128²), scaled by the map's narrower side over `full` below it (small maps keep their
  *  flats whole), and tapers to nothing over a cell at the map's border. Above 128² the warp is `RINGS`' (uplands round
  *  4: there the fine warp, its reach grown to 8.5 tiles, put a third of the land's fine relief into the levels). On the
@@ -584,7 +584,7 @@ export function softened(f: ArrayLike<number>, W: number, H: number, r: number):
  *  bench levels wandering by `gr.drift` steps; swells and hollows of `gr.roll` levels over `gr.rollCell`
  *  tiles). The returned function takes a level `L` at a tile and the benches it stands on (`st` levels apart
  *  from `phase`; `st` 1 for none) and gives the graded level, unrounded. The same seed and variation give the
- *  same land, at every size (D518; a premise's relief over 128² too since D(plates-turned)). */
+ *  same land, at every size (D518; a premise's relief over 128² too since D540). */
 export function grader(gr: Grade, seed: number, variation: number, W: number, H: number, scale = 1): (L: number, x: number, y: number, st: number, phase: number) => number {
 
   const gs = hash32(seed, "grade", variation);

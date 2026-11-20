@@ -26,11 +26,11 @@ const W = 96;
 // nor do seeds 1 and 4 and 6 to 8; seed 3's does)
 function session() {
   // (seed 4 since generator 0.10.21's look round (D518: the land's long straight steps jog, the dead stands read the dry land as the checks do), D148: seed 3's carve crosses no rise that Depth 2 cannot cut; of seeds 1–14 the whole file passes on 4, 5 and 8–12, seed 4 the first)
-  // (seed 5 since generator 0.10.27, D(new-leaks): a course's water leaves only by its own way, so the land moved, D148: seed 4's
+  // (seed 5 since generator 0.10.27, D532: a course's water leaves only by its own way, so the land moved, D148: seed 4's
   // carve crosses no rise that Depth 2 cannot cut; of seeds 1–13 the whole file passes on 5, 7, 10, 12 and 13)
   // (the test needs a carve from the far spot whose course crosses a rise Depth 2 cannot cut: Highlands 96² seed 5's saved
-  // land, D148, where it does, so a land change does not move it; generated live at generator 0.10.30, D(new-ditch), seed
-  // 5's carve crosses no such rise; dev's live seed 3 at 0.10.43, D(highlands-slot), stands down for the saved land, which no
+  // land, D148, where it does, so a land change does not move it; generated live at generator 0.10.30, D536, seed
+  // 5's carve crosses no such rise; dev's live seed 3 at 0.10.43, D542, stands down for the saved land, which no
   // land change moves)
   const s = fixtureSession("highlands", W, 5);
   s.setWaterMode("defer");

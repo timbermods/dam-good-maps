@@ -49,23 +49,23 @@ describe("the shown land's bounds (#236)", () => {
   it("above 128², a shown land failing the same way three times in a row ends its round, and is never dropped within it", () => {
     // (Highlands 136², badwater distance 60, seed 11 → 12 at 0.10.52, uplands round 6b step 4 (the mesas' walls from the floor,
     // one spring), D148: seed 11 passes with no round ended by the bound; of seeds 12–30 only 12 ends a round, passing the whole
-    // test; seed 30 → 11 at 0.10.49, D(uplands): the land above 128² drawn in rings, D148: seed
+    // test; seed 30 → 11 at 0.10.49, D547: the land above 128² drawn in rings, D148: seed
     // 30 passes on its 11th attempt with no round ended by the bound; of seeds 1–18 only 11 ends a round, passing the whole test;
-    // seed 14 → 28 at 0.10.48, D(terrace-edges)'s reach scaled up above 128² (6.2 tiles
+    // seed 14 → 28 at 0.10.48, D544's reach scaled up above 128² (6.2 tiles
     // at 136²), D148: seed 14 passes on its 26th attempt with no round ended by the bound; of seeds 1–48 only 28 (twice), 30 and
-    // 45 end a round, each passing the whole test; seed 28 → 30 at 0.10.48, D(terrace-edges)' warp making no cliff, D148: seed 28
+    // 45 end a round, each passing the whole test; seed 28 → 30 at 0.10.48, D544' warp making no cliff, D148: seed 28
     // passes on its 36th attempt with no round ended by the bound; of seeds 28–47 only 30 and 45 end
     // one, each passing the whole test;
-    // seed 1 → 14 at 0.10.47, D(terrace-edges), D148: seed 1 passes on its first attempt now,
+    // seed 1 → 14 at 0.10.47, D544, D148: seed 1 passes on its first attempt now,
     // with no round ended by the bound; of seeds 1–16 only 14, 15 and 16 end a round, each passing the whole test;
-    // seed 2 → 1 at 0.10.46, D(new-ditch) and D(sea-steps) on #1217's land, D148: seed 2 passes
+    // seed 2 → 1 at 0.10.46, D536 and D533 on #1217's land, D148: seed 2 passes
     // now with no round ended by the bound; of seeds 1–8 only 1 and 6 end a round, each passing the whole test;
-    // seed 6 → 2 at 0.10.30, D(new-ditch) and D(sea-steps), D148: the badwater drains by
+    // seed 6 → 2 at 0.10.30, D536 and D533, D148: the badwater drains by
     // gullies, so seed 6's lands moved and it passes on its 17th attempt with no round ended by the bound; of seeds 1–8 only 2
     // ends a round now, and none breaks the shown land's rules;
     // seed 2 → 6 at 0.10.29 (#1186), D148: the disc's land (the weathering's disc of the square's area, the washes' brush and swing) gives seed 2 no
     // round ended by the bound, it passing on land 5; of seeds 1 and 3–20 only 6, 14 and 16 end a round now, and none breaks the shown land's rules;
-    // seed 2 since generator 0.10.27, D(new-leaks): a course's water leaves only by its own way,
+    // seed 2 since generator 0.10.27, D532: a course's water leaves only by its own way,
     // so the land moved, D148: seed 1 passes on its first shown land now, with no round ended by the bound; of seeds 1–5, 8 and 10 only
     // 2 and 8 end a round now; seed 1 since generator 0.10.24's round forms, the look round, D148: seed 6 passes now
     // with no round ended by the bound; of seeds 1–8, 10–14, 18, 27, 28, 34, 36, 48, 56 and 59 only 1, 2, 8 and 10 end a round now, and none breaks
@@ -99,9 +99,9 @@ describe("the shown land's bounds (#236)", () => {
     // seed 1 since generator 0.10.24's round forms, the look round, D148: seed 2 fails one attempt now, and seed 1 fails four, each
     // for its own reason;
     // seed 1 → 3 at 0.10.36: seeds 1 and 2 fail only one attempt now, the others gone from their land (#1205); seed 3 fails more than one;
-    // seed 3 → 5 at 0.10.40, small maps at their own scale (#1193, D(small-own-scale), D148): seeds 1 and 3 make their map at the first
+    // seed 3 → 5 at 0.10.40, small maps at their own scale (#1193, D541, D148): seeds 1 and 3 make their map at the first
     // attempt now, seed 5 at its ninth;
-    // seed 5 → 2 at 0.10.44, a tributary deep under a wall winding at a small map's scale (D(gorge-followups), D148): seed 5 makes
+    // seed 5 → 2 at 0.10.44, a tributary deep under a wall winding at a small map's scale (D543, D148): seed 5 makes
     // its map at the first attempt now, seed 2, the first of seeds 1–10 that fails more than one, at its third)
     const { progress, failures } = traced(spec("riverValley", 64, 2));
     expect(failures.length).toBeGreaterThan(1);

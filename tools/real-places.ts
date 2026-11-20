@@ -142,7 +142,7 @@ const WOOD_CHECKS = ["start.wood", "start.wood_floor", "start.wood_fast"];
  *  whose note says Real places 2 places sources only at heads) when #1094 withheld it, and that list never grows:
  *  planning's ruling on #1096. Twelve Apostles has no pumpable water within 20 tiles of its start and its build has
  *  faults no known list takes (`water.settles`, a source in another's flow). A place whose start the run leaves with
- *  no water within its walk at all is withheld without a name here (no place ships that way: D(new-films), planning's
+ *  no water within its walk at all is withheld without a name here (no place ships that way: D537, planning's
  *  rulings on #1201), printed with what was tried; #1218 gave the others it named a pool or leaves that to the run. */
 const WITHHELD_UNTIL: Record<string, string> = {
   "dinaric-karst-plitvice": "withheld until water.source_in_flow is mended (sources at heads only)",
@@ -544,13 +544,13 @@ function basinsFor(libraryId: string, place: PlaceData): { place: PlaceData; not
   return { place, note: notes.length ? `  water mends: ${notes.join("; ")}` : "", beds };
 }
 
-/** The films the land is mended for before the springs' search: thin on every tile, as before D(new-films). The films the
+/** The films the land is mended for before the springs' search: thin on every tile, as before D537. The films the
  *  check's share finds besides (`FILM_THIN_SHARE`) are left to the springs' search, and those it leaves get their mend
  *  after it (`filmsAfter`), so a film the springs take away costs the land nothing. */
 const FILM_BEFORE = 1;
 
 /** The places that keep today's build (dev's: the committed place, its ruins laid again as `--ruins` lays them, which
- *  gives today's files), by planning's rulings of 2026-11-16 on D(new-films): a place whose film above floor 0 (the
+ *  gives today's files), by planning's rulings of 2026-11-16 on D537: a place whose film above floor 0 (the
  *  check's, `FILM_THIN_SHARE`) the springs' search leaves and no mend after it (`filmsAfter`) reaches; one whose search
  *  ends with less water over real water than today's; and one whose search puts more water over real dry land than
  *  today's that its start does not need. Every run prints each by name with its reason, and the check passes the film
@@ -570,7 +570,7 @@ const TODAY_KEPT: Record<string, string> = {
   "roaring-river-fan": "its search puts 138 more tiles over real dry land than today's (602 → 740) and takes the start's water from 1.4 to 10.2 tiles' walk; the start's spring that held it nearer (70,57) leaves it at 4",
 };
 
-/** The films above floor 0 the searched springs leave (D(new-films): thin on 90 % of their tiles) mended as `basinsFor`
+/** The films above floor 0 the searched springs leave (D537: thin on 90 % of their tiles) mended as `basinsFor`
  *  mends a film: a basin where real water lies under it, else a bed to where its water leaves its flat; each kept only
  *  where the water still settles, nothing the place passed then fails and no source lands in another's flow. */
 function filmsAfter(libraryId: string, place: PlaceData, had: Checked): { place: PlaceData; r: Checked; note: string } {
@@ -602,7 +602,7 @@ function filmsAfter(libraryId: string, place: PlaceData, had: Checked): { place:
       const cand = { ...cur, heights: encodeHeights(tried) };
       const c = buildChecked(cand);
       const worse = c.strictFails.filter((id) => !r.strictFails.includes(id));
-      // (and the water over real water held, the water over real dry land not grown: D(new-films)'s conditions)
+      // (and the water over real water held, the water over real dry land not grown: D537's conditions)
       const mm = realMeasure(c.built.settle.depth, real);
       const measure = [...(mm.real < m.real ? [`real water ${m.real} → ${mm.real}`] : []), ...(mm.dry > m.dry ? [`real dry land ${m.dry} → ${mm.dry}`] : [])];
       if ((r.built.settle.settled && !c.built.settle.settled) || worse.length || measure.length || flaggedSources(cand).flagged.length > flow) {
@@ -645,7 +645,7 @@ function feedsFor(libraryId: string, place: PlaceData): { place: PlaceData; note
   const baseFilm = filmTiles(base.built, place);
   const keep = (p: PlaceData) => {
     const r = buildChecked(p);
-    // (the start's water first: a start that loses its water is not a mend, D(new-films))
+    // (the start's water first: a start that loses its water is not a mend, D537)
     const worse = r.strictFails.filter((id) => !base.strictFails.includes(id)).sort((x, y) => Number(y === "start.water") - Number(x === "start.water"));
     const filmed = filmTiles(r.built, p) > baseFilm;
     const flow = flaggedSources(p).flagged.length;
@@ -702,7 +702,7 @@ function feedsFor(libraryId: string, place: PlaceData): { place: PlaceData; note
   // the refusals that only a source in another's flow stood in the way of: the best of each move, by the measure
   const flowOnly = r.refused.filter((x) => x.source >= 0 && x.why.split(", ").every((w) => w === "water.source_in_flow" || w.startsWith("sources in a flow")));
   const fmt = (ss: readonly [number, number, number][]) => `${ss.length} (${ss.map((s) => s[2].toFixed(2)).join(" ")})`;
-  // the measure's parts (D(new-films)): the water over real dry land as the floor-0 sheet and everything else
+  // the measure's parts (D537): the water over real dry land as the floor-0 sheet and everything else
   const parts = (p: PlaceData) => {
     const b = buildPlace(p, settles);
     return realParts(b.settle.depth, b.model.floor, p.W, p.H, real);
@@ -720,7 +720,7 @@ function feedsFor(libraryId: string, place: PlaceData): { place: PlaceData; note
   return { place: r.place, note };
 }
 
-// No place ships with no pumpable water within 20 tiles of its start (D(new-films), planning's ruling of 2026-11-16): a
+// No place ships with no pumpable water within 20 tiles of its start (D537, planning's ruling of 2026-11-16): a
 // start still without it gets the start's spring, whatever its sealed land had: a spring by it (above it first) whose
 // water stands as a pool the start walks to and pumps from with the first pump (`startPool`), no film above floor 0
 // and nothing else it passed then failing; the fewest failures win, then the nearest pool
@@ -838,7 +838,7 @@ const REAL_HEAD_STRENGTHS = [FEED_MIN, 1];
 const REAL_POOL_SPOTS = 24;
 
 /**
- * The start's pool on real water (#1218, D(new-films): real water first): the bodies of real water (the observed-water
+ * The start's pool on real water (#1218, D537: real water first): the bodies of real water (the observed-water
  * mask, 30 tiles or more, `BODY`) within `REAL_POOL_REACH` of the start, the nearest first, each tried
  * as it is, with its bed cut one level down where the survey's land still stands (`cutLevel`'s rule: real-water tiles
  * inside the flat's own rim, never twice), and with a source at its head where no source stands in it (the tile nearest
@@ -1003,7 +1003,7 @@ function waterIn(s: Checked["strict"]): number | null {
   return typeof v === "number" ? v : null;
 }
 
-/** The start's numbers (D(new-films)): its water in reach first (the walk to it, of the check's limit), then its logs,
+/** The start's numbers (D537): its water in reach first (the walk to it, of the check's limit), then its logs,
  *  its starting-logs floor, its berries and its moist ground for farms. */
 function startNumbers(s: Checked["strict"]): string {
   const c = (id: string) => s.report.checks.find((x) => x.id === id);
@@ -1063,7 +1063,7 @@ interface Outcome {
   entries: PlaceIndexEntry[];
   files: [string, Uint8Array][];
   failed: boolean;
-  /** D271's measure of its water as it opens (D(new-films): the water over real dry land in its two parts). */
+  /** D271's measure of its water as it opens (D537: the water over real dry land in its two parts). */
   measure?: Measure;
   /** Whether its start's water within its walk is a pool (`startPool`); false too for a place withheld for no water. */
   pool?: boolean;
@@ -1199,7 +1199,7 @@ function runPlaceOnce(item: LibraryItem): Outcome | null {
   // Sources only at heads (D171, tools/lib/placeSources.ts): a source in another's flow merges into the upstream source
   // where that file's rules allow it; the rest stay, and the place keeps the fault until none is left. (The sealed-land
   // comparison for the start's water below is the survey's own, so it keeps the unmended sources.)
-  // The survey's ruin squares hold no tiles while the start, springs and plants are placed (D(new-films), planning's
+  // The survey's ruin squares hold no tiles while the start, springs and plants are placed (D537, planning's
   // ruling of 2026-11-15): the ruins are laid again last, along the land (`layRuins`), so the trees and bushes may stand
   // where an old square stood
   place = { ...place, ruins: encodeTiles([]) };
@@ -1475,7 +1475,7 @@ function runPlaceOnce(item: LibraryItem): Outcome | null {
     place = unbed.place;
     ({ built, v, strict, blocking, strictFails } = unbed.r);
   }
-  // the films the searched springs leave get their mend (D(new-films)); a film none of whose mends is kept stays, and
+  // the films the searched springs leave get their mend (D537); a film none of whose mends is kept stays, and
   // the check refuses it (planning: such a place keeps today's build, `TODAY_KEPT`)
   const after = filmsAfter(item.id, place, { built, v, strict, blocking, strictFails });
   if (after.place !== place) {
@@ -1615,7 +1615,7 @@ function runPlaceOnce(item: LibraryItem): Outcome | null {
     }
   }
   lap("groves");
-  // No place ships with no pumpable water within 20 tiles of its start (D(new-films), #1218): a start that the steps
+  // No place ships with no pumpable water within 20 tiles of its start (D537, #1218): a start that the steps
   // above leave with none at all is withheld, printed with what was tried
   if (noWaterAtAll(strict)) {
     out.pool = false;
@@ -1643,7 +1643,7 @@ function runPlaceOnce(item: LibraryItem): Outcome | null {
   return finishPlace(item, place, surveyedRuins, t, notes, out);
 }
 
-/** A place whose start, water and plants are settled: its ruin fields laid along its land (D(new-ruins),
+/** A place whose start, water and plants are settled: its ruin fields laid along its land (D535,
  *  src/core/places/ruins.ts) to the survey's count of columns, built and checked, its files and index entry made. The
  *  last step of `runPlace`, and the whole of `--ruins`, which takes the committed place for everything before it: the
  *  ruins are laid on the place with none, so both give the same files, and `--ruins` again changes nothing. */
@@ -1651,7 +1651,7 @@ function finishPlace(item: LibraryItem, place: PlaceData, columns: number, t: nu
   const say = (line: string) => void out.lines.push(line);
   const { entries } = out;
   const files = { set: (k: string, b: Uint8Array) => void out.files.push([k, b]) };
-  // Ruin fields along the land (D(new-ruins)): the survey's ruled squares go and the generator's laying (D518) lays the
+  // Ruin fields along the land (D535): the survey's ruled squares go and the generator's laying (D518) lays the
   // place's columns again on its settled ground, objects only. The water and soil they are read from stay as they are
   // (the build throws if the water moved), and a laying that fails a check the place passed is not kept.
   lap("before the ruins");
@@ -1763,7 +1763,7 @@ if (claimDir) {
   process.exit(0);
 }
 const outcomes: (Outcome | null)[] = await runShards();
-/** The offered places' measure, summed (D(new-films): over real water; over real dry land as the floor-0 sheet and the rest). */
+/** The offered places' measure, summed (D537: over real water; over real dry land as the floor-0 sheet and the rest). */
 const totals = { real: 0, dry: 0, sheet: 0, rest: 0 };
 /** The places kept on today's build (`TODAY_KEPT`), by name. */
 const kept: string[] = [];
