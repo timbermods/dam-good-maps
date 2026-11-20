@@ -135,9 +135,10 @@ import * as ed from "../../src/worker/session";
 // 0.10.51 the branch gives `1d4cdee1…` byte for byte, D148
 // and generator 0.10.53's version alone (D547 Highlands stands up, which keeps this River Valley map): with the version set
 // back to 0.10.52 the branch gives `66ac2da8…` byte for byte, D148
-// and generator 0.10.55's version alone (D547's Islands round 8, which keeps this River Valley map): with the version set
-// back to 0.10.53 the branch gives `6b7fc171…` byte for byte, D148
-const LIVE_SHA = "6962e182ff932cea56b0bd1dda083d44b01dc2d1bb9f2d8d1e839c291226902c";
+// and generator 0.10.54, a stand of ruins in the opening view (D493, amended 2026-11-20): this map gains a stand of
+// 12 to 36 columns and its other fields give back the stand's scrap, the map still passing every check, D148
+// and generator 0.10.55's version alone (D547's Islands round 8, which keeps this River Valley map), D148
+const LIVE_SHA = "5d76ac7a2dc72ddf1da6b8effbb11bbf63c7b98f43265ab27ae164bb2bab6729";
 const spec = () => makeSpec({ seed: 4242, size: { x: 128, y: 128 }, theme: "riverValley", designedFor: "normal" });
 
 describe("mine sites and ruins, models of our own", () => {
