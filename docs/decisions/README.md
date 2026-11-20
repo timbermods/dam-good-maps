@@ -140,6 +140,7 @@ Read this index, then [how-we-work.md](how-we-work.md), then only the topic file
 - D273: M9b's five outcomes
 - D138: Intentions, maps feel authored
 - D278: Candidate choice and speed
+- D530: A land flooded by its own planned water is drawn again at the land stage; the river channel cut is deferred (D453)
 - D363: Mine-site pads levelled
 - D307: Floodplain floods
 - D405: Small starts' hidden land
