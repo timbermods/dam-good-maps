@@ -129,7 +129,9 @@ import * as ed from "../../src/worker/session";
 // branch gives `524a9cec…` byte for byte, D148
 // and generator 0.10.50's version alone (D(pick-start), which keeps this map's start): with the version set back to 0.10.49
 // the branch gives `1557cad0…` byte for byte, D148
-const LIVE_SHA = "5247e4c8a3ca6359c343211632385463990a3cf0f9bce76f2d046bd7e3ec8c2d";
+// and generator 0.10.51's version alone (D530's flood refusal, which moves no map of 168 at 128²–256²): with the version set
+// back to 0.10.50 the branch gives `5247e4c8…` byte for byte, D148
+const LIVE_SHA = "1d4cdee1baffb1dc861a777fcdb8183f5f7e76fd22a2c79ac4233dd29b2fec92";
 const spec = () => makeSpec({ seed: 4242, size: { x: 128, y: 128 }, theme: "riverValley", designedFor: "normal" });
 
 describe("mine sites and ruins, models of our own", () => {
