@@ -24,6 +24,7 @@
 
 import * as portable from "../math/portable";
 import { walledRun } from "../analysis/signature";
+import { openingFrame } from "../analysis/opening";
 import { damSites } from "../analysis/damsites";
 import { sourcesInFlow } from "../analysis/sources";
 import { STRAIGHT_LIMITS, straightness, tooStraight } from "../analysis/straight";
@@ -1821,6 +1822,10 @@ function planLandStage(land: Land, attempt: number, W: number, H: number, seed: 
       for (let dy = -6; dy <= 6; dy++) for (let dx = -6; dx <= 6; dx++) if ((!g.seaLayout || dx * dx + dy * dy <= 40) && cx + dx >= 0 && cy + dy >= 0 && cx + dx < W && cy + dy < H) heads[(cy + dy) * W + cx + dx] = 1;
     }
     for (let i = 0; i < N; i++) if (hy.water[i] === 2) heads[i] = 1;
+    // (on a land that stands up the way out stays in the valley, its bowl and its channel: the bowl read as a sea's
+    // basin, its way out cut 20–30 tiles wide along a route of its own beside the channel, a straight trench twice
+    // the river's width, Highlands 256² seed 3; round 6b step 5)
+    if (g.standValley) for (let i = 0; i < N; i++) if (!g.standValley[i]) heads[i] = 1;
     widenOutlets(h, W, H, heads, hash32(seed, "widen", attempt), hy.flowTotal * (W <= 128 ? 2 : 1), hy.lakes.map((l) => l.tiles), 2500, !!g.seaLayout);
   }
   // (D350, Islands' promise: an island a sea layout placed near the shore, joined to the land by low
@@ -2704,7 +2709,10 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
           const dy = Math.floor(i / W) - guess.y;
           if (dx * dx + dy * dy < STAND.badFar * STAND.badFar) far[i] = 1;
         }
-        badAsk.keepOff = orMask(badAsk.keepOff, far);
+        // (and off the opening view the plan's start is turned to: at 192² the view takes half the map, and past the
+        // disk every turn of the start saw a pit, Highlands 192² seed 1)
+        const view = openingFrame({ x: guess.x, y: guess.y, z: h[guess.y * W + guess.x], orientation: guess.orientation }, W, H, { heights: h }).mask;
+        badAsk.keepOff = orMask(orMask(badAsk.keepOff, far), view);
       }
       if (guess && badAsk.count > 0) bad = badAt(est, guess, 0);
       // (and the sources are read on the pre-fill, the water the settle starts from, before the land

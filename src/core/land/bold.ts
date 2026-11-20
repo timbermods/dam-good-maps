@@ -8,10 +8,10 @@
 // - Highlands stands up (round 6, `STAND`): few forms with tall walls on a floor, as the game's Terraces. A valley sunk
 //   in the map's middle (`standValley`: a lobed bowl and the channel the water takes through it, its floor two or more
 //   levels under the floor round it, the field the water is planned on sunk with it, `lowerValley`), a gentle floor in
-//   rings (`levels.ts`), and on it five to nine mesas a 256² (`standMesas`), 35–80 tiles across, each a wall of 4–6
-//   levels over most of its rim and broken, stepped ground over the rest, where the slopes find a way up. The field the
-//   water is planned on stands high under each, so no river is planned across one. Their rims are kept from the
-//   walls' notches (`notchWalls`): their ways are their own.
+//   rings (`levels.ts`), and on it four to six mesas a 256² (`standMesas`), radius 24–46 (about 48–92 tiles across
+//   before the stretch), each a wall of 4–6 levels over most of its rim and broken, stepped ground over the rest, where
+//   the slopes find a way up. The field the water is planned on stands high under each, so no river is planned across
+//   one. Their rims are kept from the walls' notches (`notchWalls`): their ways are their own.
 // - Canyon, the gorge (`boldGorge`): where the gorge's wall is steep, a bench is cut into the tableland's edge
 //   `rise` levels over the floor, its width wandering along the gorge (none in places, where the wall stands whole),
 //   so the gorge's side is two faces, the lower the taller; and one or two hollows off the gorge, a lobed bowl cut into
@@ -65,15 +65,16 @@ export const BOLD = {
  *  from. Step 5: the badwater's ground kept off (`standBadKeep`): round the bowl (`badView`, a share of the side),
  *  beside the channel (`badBeside`, tiles) but within `badJoin` tiles of the water it joins, and round the plan's start
  *  (`badFar`, tiles: the opening view pulled back reaches about that far to each side, whatever the map's side,
- *  gen/generate.ts); the channel's bend past the bowl (`valley.bend`, a share of the side, from 1.5 radii out, over
- *  `bendCell` of the side), so it winds where it ran straight as a chute (seed 3). */
+ *  gen/generate.ts, which keeps it off that start's opening view too); the channel's bend outside the bowl (`valley.bend`, a share of the side: past the sill a meander
+ *  `meander` of the side long at half that swing and a noise over `bendCell` of the side, from the sill's run on; up
+ *  the flow the noise alone, from 1.5 radii out), so it winds where it ran straight as a chute (seed 3). */
 export const STAND = {
   springs: 1,
   badView: 0.08,
   badFar: 60,
   badBeside: 6,
   badJoin: 6,
-  valley: { rMin: 0.14, rMax: 0.18, stray: 0.06, softMin: 1.2, softMax: 3.5, halfMin: 0.026, halfMax: 0.038, wander: 0.11, cell: 0.3, side: 1.5, over: 0, rise: 2, bend: 0.09, bendCell: 0.16 },
+  valley: { rMin: 0.14, rMax: 0.18, stray: 0.06, softMin: 1.2, softMax: 3.5, halfMin: 0.026, halfMax: 0.038, wander: 0.11, cell: 0.3, side: 1.5, over: 0, rise: 2, bend: 0.09, bendCell: 0.16, meander: 0.28 },
   lake: { sill: 2, deep: 2, share: 0.35, budget: 0.6, at: 0.7, sillPast: 0.2, soft: 1, sillRun: 4, incise: 1.4, stretch: 0.5, lobes: 2.6, bays: 0.12, baysCell: 0.35, shift: 0.12, benchStretch: 0.6, benchLobes: 1.5, benchCos: 0.35, benchTurn: 0.3 },
   bench: { min: 5, max: 13, cell: 40, wobble: 3, rings: 3, step: 2 },
   floor: { over: 4, relief: 4, roll: 0, riser: 0, drift: 0, away: 0.5, far: 0.5 },
@@ -149,19 +150,29 @@ export function standValley(seed: number, variation: number, phase: number, flow
     const soft = V.softMin + (V.softMax - V.softMin) * (fbm(s + 3, x, y, 0.25 * side, 2) + 1) / 2;
     return smoothstep(tin / soft + 0.5);
   };
-  // (round 6b step 5: past the bowl the line bends at a shorter wavelength too, `bend` of the side over `bendCell`, so
-  // the channel winds as a river's valley does: one that wandered only at the map's scale ran straight for 60 tiles past
-  // the sill, a chute, Normal 256² seed 3. Within 1.5 radii of the bowl's middle the line is as before, so is the bowl)
-  const offAt = (along: number): number => V.wander * side * fbm(s + 5, along, 0, V.cell * side, 2) + V.bend * side * smoothstep((Math.abs(along) - 1.5 * r) / (0.5 * r)) * fbm(s + 9, along, 0, V.bendCell * side, 2);
+  // (round 6b step 5: outside the bowl the line bends at a shorter wavelength too, `bend` of the side, so the channel
+  // winds as a river's valley does: one that wandered only at the map's scale ran straight for 60 tiles past the sill,
+  // a chute, Normal 256² seed 3)
+  const wanderAt = (along: number): number => V.wander * side * fbm(s + 5, along, 0, V.cell * side, 2);
+  // (where the line leaves the bowl, down the flow and up it, read on the wander alone, the bend not yet laid)
+  let aOut = 0;
+  while (aOut < side && bowlAt(cx + aOut * ax - wanderAt(aOut) * ay, cy + aOut * ay + wanderAt(aOut) * ax) >= 0.5) aOut += 0.5;
+  let aIn = 0;
+  while (aIn > -side && bowlAt(cx + aIn * ax - wanderAt(aIn) * ay, cy + aIn * ay + wanderAt(aIn) * ax) >= 0.5) aIn -= 0.5;
+  // (down the flow the bend grows over half a radius from the end of the sill's run, so the whole channel past the sill
+  // winds, the bowl, its lake and its sill as before; there it is a meander, a wave `meander` of the side long, its
+  // phase drifting with a slow noise, at half the bend's swing, and a noise over `bendCell` at its whole: the noise
+  // alone lay nearly flat over seed 3's 70 tiles and left it straight again. Up the flow it is the noise alone from 1.5
+  // radii out, as before: the meander there moved the main water's way in and left seed 1's first land with too little
+  // land near water, 0.31 of it against the story's 0.35)
+  const bendFrom = aOut + K.sillRun + 2;
+  const wave0 = (hash32(s, "meander") % 1024) / 1024;
+  const meander = (along: number): number => sinDet(TWO_PI * (along / (V.meander * side) + wave0 + 0.5 * fbm(s + 11, along, 0, V.meander * side, 1)));
+  const offAt = (along: number): number => wanderAt(along) + V.bend * side * (along > 0 ? smoothstep((along - bendFrom) / (0.5 * r)) * (0.5 * meander(along) + fbm(s + 9, along, 0, V.bendCell * side, 2)) : smoothstep((-along - 1.5 * r) / (0.5 * r)) * fbm(s + 9, along, 0, V.bendCell * side, 2));
   // (the water's line: the channel's middle, `along` tiles down the flow from the bowl's middle)
   const lineX = (a: number): number => cx + a * ax - offAt(a) * ay;
   const lineY = (a: number): number => cy + a * ay + offAt(a) * ax;
   const onMap = (a: number): boolean => lineX(a) >= 0 && lineY(a) >= 0 && lineX(a) <= W - 1 && lineY(a) <= H - 1;
-  // where the line leaves the bowl, down the flow and up it, and where it leaves the map downstream
-  let aOut = 0;
-  while (aOut < side && bowlAt(lineX(aOut), lineY(aOut)) >= 0.5) aOut += 0.5;
-  let aIn = 0;
-  while (aIn > -side && bowlAt(lineX(aIn), lineY(aIn)) >= 0.5) aIn -= 0.5;
   let aEnd = aOut;
   while (aEnd < 2 * side && onMap(aEnd)) aEnd += 1;
   const m = new Float64Array(N);
@@ -392,11 +403,13 @@ export function lowerValley(E: Float64Array, v: StandValley, flowDir: number, W:
 }
 
 /** Highlands' mesas on a land that stands up (round 6), on the graded levels `level` (before the warp and the snap),
- *  under `top`: five to nine a 256² (by area), 35–80 tiles across, lobed and stretched, clear of each other and of the
+ *  under `top`: four to six a 256² (by area), radius `STAND.mesa.rMin`–`rMax` (24–46, about 48–92 tiles across before
+ *  the stretch), lobed and stretched, clear of each other and of the
  *  valley. Each stands 4–6 levels over the ground round its rim, a wall over most of its rim; over one or two arcs of it
  *  (an eighth to a quarter of the rim, the first toward the valley) its side is broken and stepped, a level every few
- *  tiles, irregular, and its edge eaten in, so the slopes find a way up (never a ramp laid). Its top is level, half of
- *  them with one inner ring a level or two higher over less than half of it. The field `E` the water is planned on is
+ *  tiles, irregular, and its edge eaten in, so the slopes find a way up (never a ramp laid). Its top is level, four in
+ *  five (`inner`) with one inner ring over less than half of it, rising `tier` 4 levels where the top leaves room, else
+ *  1–2. The field `E` the water is planned on is
  *  raised to `eHigh` under each, so no river is planned across one, and no spring is drawn on a top (`tops`, the
  *  genome's `dryTops`): the tops stay dry, for a dam or a channel to water. Returns the tiles about their rims (`skip`,
  *  for `notchWalls` to leave) and the tops, or null where none stands. */

@@ -780,6 +780,23 @@ export function pickStart(
     return bestTurn(openingLand(), tx, ty, h[t.i], turns, dWet)!;
   };
   let orientation = turned(c);
+  // (and where its every turn shows badwater, the place among the good few, all of which keep the start's rules, whose
+  // turn shows the least: a start nearer the main water's lower reach saw its plume whichever way it faced, Highlands
+  // 256² seed 5; round 6b step 5)
+  if (badTiles.length && good.length > 1) {
+    let least = badSeen(c, orientation);
+    for (const t of good) {
+      if (!least) break;
+      if (t === c) continue;
+      const o = turned(t);
+      const n = badSeen(t, o);
+      if (n < least) {
+        least = n;
+        c = t;
+        orientation = o;
+      }
+    }
+  }
   // the frame (D507): among the good few, all of which keep the start's rules, the one whose opening frame shows
   // clearly more of the map than the one drawn (a start near a corner frames mostly the void past the edge), never at
   // the cost of its opening shot (a landmark in view first, D493, D502: its shot as `bestTurn` rounds it)
