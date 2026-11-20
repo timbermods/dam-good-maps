@@ -52,7 +52,9 @@ export function shapeLakeBasin(g: Genome, s: Settings, W: number, H: number, see
       height: -rng.range(9.5, 11), turn: turn + composition.range(-0.15, 0.15),
       extra: composition.range(1.2, 2.6), soft: 0 });
   }
-  if (composition.float() < 0.35) {
+  // (round 7, above 128²: the basin found in the land, not drawn with a compass: `basinLand`)
+  const found = side > 128;
+  if (found || composition.float() < 0.35) {
     // A raised, winding flank meets one shore; the opposite shore remains broad lowland.
     const at: [number, number] = [focus[0] - uy * 0.20, focus[1] + ux * 0.20];
     g.parts.push({ kind: 'escarpment', at, size: side * composition.range(0.45, 0.65),
@@ -61,17 +63,21 @@ export function shapeLakeBasin(g: Genome, s: Settings, W: number, H: number, see
   }
   g.focus = focus;
   leanCatchment(g, s, preset, rng.range(3.8, 4.8), W * H > 128 * 128);
+  if (found) basinLand(g, side, stream(seed, 'lake-basin-found', g.variation));
   if (side >= 192) {
     const [dx, dy] = DIRS8[g.flowDir];
     g.parts.push({ kind: 'trough', at: [focus[0] + dx * 0.23, focus[1] + dy * 0.23],
       size: side * 0.62, height: -3, turn: g.flowDir / 8, extra: side * 0.055, soft: 0 });
   }
 
+  // (round 7: the lake's hollow as deep as a lake, so the land keeps the levels over it)
+  const deep = found ? 0.35 : 1;
+  for (const p of hollows) p.height *= deep;
   g.parts.push(...hollows);
   // A compact deeper reach inside the main hollow keeps elongated lakes broad enough to
   // dominate their tributaries. It changes the floor, not the drawn outer shoreline.
   g.parts.push({ kind: 'basin', shape: 'round', at: focus, size: side * rng.range(0.18, 0.21),
-    height: -rng.range(3, 4), turn, extra: 0, soft: 0 });
+    height: -rng.range(3, 4) * (found ? Math.max(deep, 0.6) : 1), turn, extra: 0, soft: 0 });
 
   // Drowned valley relief, not a water outline: smaller hollows along bent valley axes
   // meet the main depression. Intervening spurs stand above parts of the same floor.
@@ -257,4 +263,31 @@ function longLakes(g: Genome, W: number, H: number, seed: number, attempt: numbe
     focusT = t;
   }
   g.focus = at(focusT, focusC);
+}
+
+/** Round 7 (above 128²): the basin found in the land. The catchment's radial slope is weak and read through a slow warp,
+ *  the land's own regional field at the map's scale carries the relief, and the flank behind one shore is the
+ *  amphitheatre's heights. */
+function basinLand(g: Genome, side: number, r: ReturnType<typeof stream>): void {
+  g.tilt *= 0.35;
+  g.basinWarp = { amp: 0.12, cell: 0.45, lin: 8 };
+  g.regional.amp = r.range(4, 5.5);
+  g.regional.cell = side * r.range(0.45, 0.7);
+  g.regional.warped = true;
+  // (the drop gathered: on part of the land the levels stand in benches of two)
+  g.terrace.step = 2;
+  g.terrace.share = 0.4;
+  g.terrace.cell = side * 0.25;
+  const esc = g.parts.find((p) => p.kind === 'escarpment');
+  if (esc) {
+    esc.height = r.range(5, 7);
+    esc.size = side * r.range(0.7, 0.9);
+    esc.soft = side * 0.035;
+    esc.extra = side * 0.06;
+    // (behind the upstream shore, rising away from the lake: the amphitheatre's heights)
+    const [dx, dy] = DIRS8[g.flowDir];
+    const back = r.range(0.18, 0.26);
+    esc.at = [clamp(g.focus[0] - dx * back, 0.1, 0.9), clamp(g.focus[1] - dy * back, 0.1, 0.9)];
+    esc.turn = g.flowDir / 8 + 0.5 + r.range(-0.06, 0.06);
+  }
 }

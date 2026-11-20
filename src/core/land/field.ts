@@ -477,6 +477,7 @@ export function uplift(g: Genome, seed: number, W: number, H: number, slope?: Fl
   const S = Math.min(W, H);
   const bendAlong = form.long && g.tiltKind === "linear" && g.theme === "delta" ? (0.15 * S * 2) / (Math.max(W, H) - 1) : 0;
   const lw = hash32(ls, "length-bend");
+  const bw = hash32(ls, "basin-warp");
   for (let y = 0; y < H; y++)
     for (let x = 0; x < W; x++) {
       const u = (x / (W - 1)) * 2 - 1;
@@ -485,8 +486,18 @@ export function uplift(g: Genome, seed: number, W: number, H: number, slope?: Fl
       let h = 0;
       if (g.tiltKind === "linear") h += tilt * -0.5 * (bendAlong ? proj + bendAlong * fbm(lw, x, y, 0.8 * S, 2) : proj) * lengthTilt;
       else {
-        const du = x / (W - 1) - g.focus[0];
-        const dv = y / (H - 1) - g.focus[1];
+        let du = x / (W - 1) - g.focus[0];
+        let dv = y / (H - 1) - g.focus[1];
+        // (Lake Basin above 128², round 7: the bowl's distance through a slow warp at the map's scale)
+        if (g.basinWarp) {
+          const ox = g.basinWarp.amp * fbm(bw, x, y, g.basinWarp.cell * S, 2);
+          const oy = g.basinWarp.amp * fbm(bw + 1, x, y, g.basinWarp.cell * S, 2);
+          du += ox;
+          dv += oy;
+          // (and the land falls on past the lake to the outlet's side: heights behind one shore, low open ground on the
+          // other, the lake held by a low sill; its contours bent by the same warp)
+          h += g.basinWarp.lin * -0.5 * (((u + 2 * ox) * fx + (v + 2 * oy) * fy) / (Math.abs(fx) + Math.abs(fy)));
+        }
         // (round 6: not on an open island sea, whose floor lies level: its levels' contours ran
         // ruler-straight across the sea, seams in the water)
         h += g.tilt * (portable.sqrt(du * du + dv * dv) * 1.6 - 0.4) - (g.seaLayout && !g.seaRing ? 0 : 0.3 * g.tilt * proj);

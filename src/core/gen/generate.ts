@@ -2190,7 +2190,7 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
     const lengthwise = mapShape(W, H).long;
     const prefer = lengthwise ? (x: number, y: number, L: number, w: number) => intended(x, y, L, w) + SHAPE_PULL * startAlong(spec.theme, x, y, W, H) : intended;
     const rng = stream(seed, "settler2", attempt, salt);
-    return pickStart(h, W, H, { depth: D, contamination: C, moisture: M }, hy, g.settler, rng, stageRule, { prepared, avoid, kept, drought: policy, prefer, foot, minFoot, footWant, moistWalk: { min: moistWant }, room, bench, benchMin, storage, near, level: allowLevel, roomFirst: !onPlan, badwater: badHollows(), slopeWater, ...(ease >= 2 ? { levelReach: Math.min(3, 1 + Math.floor(ease / 2)) } : {}), ...(ease >= 3 ? { margin: Math.max(5, Math.round(Math.min(W, H) * 0.08)) } : {}), ...(ease >= 1 ? { waterExact: true } : {}), ...(stageEasy ? { easy: stageEasy } : {}), ...(ringSlopes ? { ringSlopes } : {}) , ...(g.standValley ? { badView: true } : {}) });
+    return pickStart(h, W, H, { depth: D, contamination: C, moisture: M }, hy, g.settler, rng, stageRule, { prepared, avoid, kept, drought: policy, prefer, foot, minFoot, footWant, moistWalk: { min: moistWant }, room, bench, benchMin, storage, near, level: allowLevel, roomFirst: !onPlan, badwater: badHollows(), slopeWater, ...(ease >= 2 ? { levelReach: Math.min(3, 1 + Math.floor(ease / 2)) } : {}), ...(ease >= 3 ? { margin: Math.max(5, Math.round(Math.min(W, H) * 0.08)) } : {}), ...(ease >= 1 ? { waterExact: true } : {}), ...(stageEasy ? { easy: stageEasy } : {}), ...(ringSlopes ? { ringSlopes } : {}) , ...(g.standValley || g.basinWarp ? { badView: true } : {}) });
   };
   const levelStart = (p: StartPick) => {
     if (!p.levelled) return;
