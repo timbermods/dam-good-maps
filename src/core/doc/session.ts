@@ -2247,9 +2247,11 @@ export class MapSession {
     return previewBuild(this.cur, { ...this.input(), features });
   }
 
-  /** A full build of the document, from scratch (the reference for the incremental one). */
-  fullBuild(): BuildResult {
-    return buildMap(this.input());
+  /** A full build of the document, from scratch (the reference for the incremental one). `settles`: a cache that holds
+   *  only full builds' own settles from cold, so a run of reference builds does not settle a water model it settled
+   *  lately again (the settle depends only on the model: the same bytes), and never takes the incremental build's water. */
+  fullBuild(settles?: SettleCache): BuildResult {
+    return buildMap(this.input(), settles ? { settleCache: settles } : {});
   }
 
   /** The document's terrain, slopes and objects with other features (no water): the map a tool

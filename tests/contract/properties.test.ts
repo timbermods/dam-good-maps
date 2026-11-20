@@ -7,7 +7,7 @@ import { createHash } from "node:crypto";
 import { describe, expect, it } from "vitest";
 import { decodeProject } from "../../src/core/doc/document";
 import { MapSession } from "../../src/core/doc/session";
-import type { BuildResult } from "../../src/core/features/build";
+import { SettleCache, type BuildResult } from "../../src/core/features/build";
 import { entityJson } from "../../src/core/format/entities";
 import { stringify } from "../../src/core/format/json";
 import { writeTimber } from "../../src/core/format/timber";
@@ -48,7 +48,9 @@ const OPS: Record<number, number> = { 96: 40, 128: 32, 192: 20, 256: 16 };
  *  since Remove unfed water joined the log operations (#176), and
  *  304 then never found unfed water to take; the max preset on 310 since M9b's maps changed the draws, and 309 then never found unfed water to take;
  *  the max preset on 312 since generator 0.10.16's ground with grade: 310's Any map then held three times the water (22,157 wet
- *  tiles for 7,831), each full rebuild took 20 s for 8 and the test ran past its time limit; 312's holds 4,525 and rebuilds in 6 s. */
+ *  tiles for 7,831), each full rebuild took 20 s for 8 and the test ran past its time limit; 312's holds 4,525 and rebuilds in 6 s.
+ *  On generator 0.10.51 312's map holds 17,872 over terrain above terrain, and a full build's settle from cold takes
+ *  10 to 18 s: the reference builds keep their own last settles (`settles` below) and settle none of them again. */
 const SEED_FOR: Record<number, number> = { 96: 306, 192: 305, 256: 312 };
 
 // (River Valley and Any in turn: every map since M9a is a generated field, whose read-back features
@@ -59,6 +61,10 @@ describe.each(Object.entries(SIZE_PRESETS).map(([name, side], k) => [name, side,
   it("random operations: the incremental rebuild equals a full rebuild after every step, undo and redo included; export, re-import and compare; undo all", () => {
     expect(r.report.passed).toBe(true);
     const s = MapSession.fromGenerated(r);
+    // (the reference builds keep their own last four settles: an undo, a redo or an edit that leaves the water model as
+    // it was finds a full build's settle from cold of that model again, the same bytes, instead of settling it again; the
+    // incremental build's water never enters it, so every comparison is still against a settle from cold)
+    const settles = new SettleCache();
     const rng = stream(seed, "e1-property-test");
     let applied = 0;
     let rejected = 0;
@@ -146,15 +152,15 @@ describe.each(Object.entries(SIZE_PRESETS).map(([name, side], k) => [name, side,
       if (Array.isArray(drawn)) tools++;
       for (const op of Array.isArray(drawn) ? drawn : [drawn]) kinds.add(op.op);
       const name = Array.isArray(drawn) ? `a tool's ${drawn.map((o) => o.op).join("+")}` : drawn.op;
-      expectSameBuild(s.built, s.fullBuild(), `after ${name} (step ${step})`);
+      expectSameBuild(s.built, s.fullBuild(settles), `after ${name} (step ${step})`);
       if (rng.float() < 0.25 && s.canUndo) {
         // step back and forth: the snapshots and the undo data give the same maps
         const n = 1 + rng.int(0, Math.min(3, s.history().filter((h) => h.applied).length));
         const bytes = sha(s.exportTimber().bytes);
         for (let k = 0; k < n; k++) s.undo();
-        expectSameBuild(s.built, s.fullBuild(), `after ${n} undos (step ${step})`);
+        expectSameBuild(s.built, s.fullBuild(settles), `after ${n} undos (step ${step})`);
         for (let k = 0; k < n; k++) s.redo();
-        expectSameBuild(s.built, s.fullBuild(), `after ${n} redos (step ${step})`);
+        expectSameBuild(s.built, s.fullBuild(settles), `after ${n} redos (step ${step})`);
         expect(sha(s.exportTimber().bytes)).toBe(bytes);
       }
     }
@@ -164,7 +170,7 @@ describe.each(Object.entries(SIZE_PRESETS).map(([name, side], k) => [name, side,
     expect([...kinds].sort()).toEqual([...LOG_OPS].sort());
     // the incremental and the full build export the same file
     const exported = s.exportTimber().bytes;
-    expect(sha(writeTimber(s.exportFile(s.fullBuild())))).toBe(sha(exported));
+    expect(sha(writeTimber(s.exportFile(s.fullBuild(settles))))).toBe(sha(exported));
 
     // export, re-import and compare: our own file needs no normalization, and exports unchanged
     const again = MapSession.importMap(exported, "edited.timber");
@@ -186,7 +192,7 @@ describe.each(Object.entries(SIZE_PRESETS).map(([name, side], k) => [name, side,
     while (s.undo());
     expect(s.document.edits).toEqual([]);
     expect(s.features).toEqual(r.features);
-    expectSameBuild(s.built, s.fullBuild(), "after undoing everything");
+    expectSameBuild(s.built, s.fullBuild(settles), "after undoing everything");
     expect(sha(s.exportTimber().bytes)).toBe(sha(r.bytes));
   });
 });
