@@ -32,7 +32,7 @@ import { landRegions } from "../analysis/regions";
 import { integrityLevel } from "../features/raster/terrain";
 import { planBands } from "./plan";
 import { addRingForms, drawRingForms, ringFormRoom } from "./rings";
-import { boldGorge, boldMesas } from "./bold";
+import { benchValley, boldGorge, standMesas, standsUp, standValley, STAND } from "./bold";
 
 /** The rank of every value in [0, 1] (ties broken by index, so it is exact and stable). */
 function ranks(v: Float64Array): Float64Array {
@@ -75,6 +75,10 @@ export function snapLevels(E: Float64Array, g: Genome, seed: number, W: number, 
   // room)
   const ringRoom = ringed ? ringFormRoom(g.theme) : 0;
   const top0 = top - tilt - ringRoom;
+  // (uplands round 6: Highlands above 128² stands up, `bold.ts` `STAND`: a valley sunk in its middle, a gentle floor
+  // `STAND.floor.relief` levels deep from `STAND.floor.over` over the base, and mesas standing on it)
+  const stand = ringed && standsUp(g.theme, W, H) ? standValley(seed, g.variation, g.benchPhase, g.flowDir, W, H, g.hydro.lakeBudget * W * H) : null;
+  const floorTop = stand ? g.base + STAND.floor.over + STAND.floor.relief : top0;
   const tiers = g.plan && g.plan.strength > 0 ? planBands(g.plan, g.base, top0) : null;
   const grade = grader(tiers ? { ...g.grade, calm: Math.min(g.grade.calm, PLAN_CALM), roll: g.grade.roll * (ringed && g.plan?.kind === "gorge" ? RINGS.gorgeRoll : RINGS.planRoll) } : g.grade, seed, g.variation, W, H, f);
   const level = new Float64Array(N);
@@ -87,7 +91,15 @@ export function snapLevels(E: Float64Array, g: Genome, seed: number, W: number, 
       const lin = (E[i] - lo) / span;
       let t: number;
       if (curve) t = (1 - PLAN_EQ) * (plane ? (plane.rest[i] - plane.lo) / plane.span : lin) + PLAN_EQ * curve(rkd[i]);
-      else {
+      else if (stand) {
+        // (the floor: the land's rank among the land outside the valley, leaning as the theme leans)
+        t = clamp((rk[i] - stand.share) / Math.max(1e-6, 1 - stand.share), 0, 1);
+        if (t > 0 && t < 1) t = t / (t + g.hyps.lean * (1 - t));
+        // (rising away from the valley, so the valley lies in a bowl at the map's scale)
+        t = STAND.floor.away * stand.away[i] + (1 - STAND.floor.away) * t;
+        level[i] = g.base + STAND.floor.over + t * STAND.floor.relief + g.terrace.jitter * warpedFbm(js, x, y, 14 * f, 2, 7 * f);
+        continue;
+      } else {
         t = (1 - g.hyps.eq) * lin + g.hyps.eq * rk[i];
         // the lean: t / (t + lean (1 − t)) on [0, 1], continued straight beyond it
         if (t > 0 && t < 1) t = t / (t + g.hyps.lean * (1 - t));
@@ -97,7 +109,7 @@ export function snapLevels(E: Float64Array, g: Genome, seed: number, W: number, 
   if (ringed) level.set(smoothed(level, W, H, Math.round(RINGS.smooth * (f - 1)), RINGS.passes));
   if (tiers) gatherFaces(level, W, H, tiers.bands);
   // (uplands round 4: the land's ringed forms, on the smoothed levels, `rings.ts`)
-  if (ringed) addRingForms(level, drawRingForms(g.theme, level, W, H, seed, g.variation, top0 + ringRoom, tiers ? tiers.bands[0][1] : null), W, H);
+  if (ringed) addRingForms(level, drawRingForms(g.theme, level, W, H, seed, g.variation, stand ? floorTop + ringRoom : top0 + ringRoom, tiers ? tiers.bands[0][1] : null), W, H);
   for (let i = 0; i < N; i++) {
     let L = level[i] + (plane ? tilt * plane.at[i] : 0);
     // near the top the land bends toward it instead of being cut flat there
@@ -116,7 +128,19 @@ export function snapLevels(E: Float64Array, g: Genome, seed: number, W: number, 
   // (uplands round 5, the bold family, `bold.ts`: above 128² Highlands' mesas, their walls a steep band of their
   // profile, and the field the water is planned on raised under them; Canyon's gorge two faces with a bench between,
   // and its hollows)
-  const keepRims = ringed && g.theme === "highlands" ? boldMesas(level, E, W, H, seed, g.variation, g.base, top, hi) : null;
+  // (round 6: the valley sunk under the graded floor, then the mesas, `bold.ts`)
+  if (stand)
+    for (let i = 0; i < N; i++) {
+      const v = g.base + stand.floor[i];
+      if (stand.m[i] > 0 && v < level[i]) level[i] += stand.m[i] * (v - level[i]);
+    }
+  // (round 6b step 2: the floor stepping down to the valley in rings, `bold.ts` `benchValley`)
+  if (stand) benchValley(level, stand, g.base, W, H, seed);
+  const mesas = stand ? standMesas(level, E, W, H, seed, g.variation, stand, g.base, maxLv, hi) : null;
+  if (mesas) g.dryTops = mesas.tops;
+  if (stand) g.rockSill = stand.sill;
+  if (stand) g.standValley = Uint8Array.from(stand.m, (m, i) => (m >= 0.5 ? (stand.bowl[i] === 1 ? 1 : 2) : 0));
+  const keepRims = mesas ? mesas.skip : null;
   if (ringed && tiers && g.plan?.kind === "gorge") boldGorge(level, W, H, seed, g.variation, tiers.bands[0][1], tiers.bands[1][0]);
   // (D544: every level's edge read through a warp, so no edge the field, the grade or the tableland's
   // outline leaves smooth over a dozen tiles runs ruler-straight; the levels' edges, not the field the water is planned
@@ -140,7 +164,10 @@ export function snapLevels(E: Float64Array, g: Genome, seed: number, W: number, 
       const fy = py - y0;
       const j = y0 * W + x0;
       src[y * W + x] = Math.round(py) * W + Math.round(px);
-      const L = (level[j] * (1 - fx) + level[j + 1] * fx) * (1 - fy) + (level[j + W] * (1 - fx) + level[j + W + 1] * fx) * fy;
+      let L = (level[j] * (1 - fx) + level[j + 1] * fx) * (1 - fy) + (level[j + W] * (1 - fx) + level[j + W + 1] * fx) * fy;
+      // (round 6b step 4: on a land that stands up, a wall of 4 levels or more is read from its nearest tile, not eased
+      // across: the easing split a mesa's face into a 2 and a 3, so its wall lost its height)
+      if (stand && Math.max(level[j], level[j + 1], level[j + W], level[j + W + 1]) - Math.min(level[j], level[j + 1], level[j + W], level[j + W + 1]) >= 3.5) L = level[src[y * W + x]];
       // (the land stands a level above the beds' floor, item 47)
       out[y * W + x] = clamp(Math.round(L), BED_FLOOR + 1, maxLv);
     }
@@ -159,7 +186,7 @@ export function snapLevels(E: Float64Array, g: Genome, seed: number, W: number, 
   }
   // (uplands round 3: a planned land's walls have ways through, a graded notch about every 40 tiles of wall; round 4:
   // every land above 128², whose ring terraces stand behind walls too)
-  if ((tiers || ringed) && notchWalls(out, W, H, hash32(seed, "ways", g.variation), keepRims)) {
+  if ((tiers || ringed) && notchWalls(out, W, H, hash32(seed, "ways", g.variation), keepRims, !!stand)) {
     mergeSmallRegions(out, W, H, 4);
     cleanPitsAndSpikes(out, W, H, null);
   }
@@ -177,8 +204,13 @@ const NOTCH_RUN = 2;
  *  graded from the wall's foot in one-level steps `NOTCH_RUN` tiles long, so a colony walks up it. Ground is only
  *  taken away. The notch runs up the land's own slope (its normal, from the levels smoothed over 7 tiles) and bends
  *  with a slow noise, so no two are alike and none runs straight. Walls on `keep` (a mesa's rim, which has its own
- *  ways up: uplands round 5, `bold.ts`) are left as they stand. Returns whether any ground was cut. */
-export function notchWalls(out: Uint8Array, W: number, H: number, seed: number, keep: Uint8Array | null = null): boolean {
+ *  ways up: uplands round 5, `bold.ts`) are left as they stand. `found` (a land that stands up, Highlands above 128²,
+ *  uplands round 6b step 5): the notch is a gully, not a corridor: broad at its foot and narrowing as it climbs, each
+ *  side wandering on its own, so its sides are never two parallel lines (seed 2's front read as notches cut with a
+ *  ruler). Its sides keep 2 tiles from its line and its treads `NOTCH_RUN`: a narrower notch, or treads drawn 2 to 3
+ *  tiles long, left the slopes no room (their spacing rule), and the colony could not walk up it (seed 1's reach fell
+ *  by a third or more). Returns whether any ground was cut. */
+export function notchWalls(out: Uint8Array, W: number, H: number, seed: number, keep: Uint8Array | null = null, found = false): boolean {
   const N = W * H;
   const wall = new Uint8Array(N);
   const foot = new Int32Array(N).fill(-1);
@@ -289,8 +321,14 @@ export function notchWalls(out: Uint8Array, W: number, H: number, seed: number, 
       const px = fx + gx * k - gy * off;
       const py = fy + gy * k + gx * off;
       let reached = true;
-      for (let a = -Math.ceil(NOTCH_HALF); a <= Math.ceil(NOTCH_HALF); a++) {
-        const half = NOTCH_HALF + (k < 3 ? 1 : 0);
+      // (a found notch's sides: broad at its foot, narrowing to 2.5 tiles a side up it (never under 2), each wandering on
+      // its own)
+      const taper = Math.max(0, 1 - k / 8);
+      const halfL = found ? Math.max(2, 2.5 + 2 * taper + 0.8 * fbm(bend + 1, k, 0, 4, 2)) : 0;
+      const halfR = found ? Math.max(2, 2.5 + 2 * taper + 0.8 * fbm(bend + 2, k, 0, 4, 2)) : 0;
+      const reachA = found ? Math.ceil(Math.max(halfL, halfR)) : Math.ceil(NOTCH_HALF);
+      for (let a = -reachA; a <= reachA; a++) {
+        const half = found ? (a < 0 ? halfL : halfR) : NOTCH_HALF + (k < 3 ? 1 : 0);
         if (Math.abs(a) > half) continue;
         const x = Math.round(px - gy * a);
         const y = Math.round(py + gx * a);

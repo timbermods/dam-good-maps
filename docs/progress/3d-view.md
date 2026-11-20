@@ -763,6 +763,13 @@ Two plain pieces for the Block tool, only drawn or plain data; the page's interf
   drawn, and `setSlice` redraws them. The area brush's `BlockGhost` is unchanged. `renderer.blocksDrawn` gives the counts
   (tests). Capture (valid add, valid remove, refused remove, and the dark look, 1920×1080 frames):
   `docs/sheets/block-tool-preview.jpg`.
+- **The preview stays until the land answers** (D488 audit, `fix/hero-forms`): `useBlockTool.ts` `commit` used to clear
+  it as the click went, and on a 256² map the land came 255–301 ms later, so for a quarter second or more the click
+  showed nothing. It is now cleared once: in the edit's answer, in the same task the queue draws the new land in (the
+  queue's `shown` runs before its `answer`), else by a refusal (which then asks again and shows the core's line) or an
+  edit that never reached its answer (`run`'s end: a resize, a force running), which asks again for the face under
+  the pointer, so its preview is back without a move. A question the pointer asks meanwhile is answered on the land as it still is.
+  `tests/e2e/blockTool.spec.ts` records the renderer's calls through a click: the preview's clear comes after the land.
 
 ## Item 1: the masks from the worker (built, `feature/3d-view-worker-masks`)
 
@@ -1138,6 +1145,45 @@ Two plain pieces for the Block tool, only drawn or plain data; the page's interf
   60° camera looks down on its roof, the shelter under it out of sight, as in the game. Exposure and size hide
   nothing else.
 - **Captures:** `docs/sheets/hero-ruins.jpg` (`tools/capture-hero.ts`, real Chrome on the GPU).
+- **The card shows the map's rock arch (D488 audit, `fix/hero-forms`):** the sight camera (`sightCamera`) weighs the
+  land's arches (`formSights`, from the column masks, each looked through along `seeThrough`'s best heading) beside
+  the opening's landmark, each at 26 to 48 tiles with clear air to it. An arch's frame is kept only where it scores by
+  the looks score within 0.1 of the landmark's (`LOOKS_GIVE`), or on a map with no landmark frame within 0.05 of the
+  whole map's picture (`WHOLE_GIVE`; `heroCamera`, cast at the arches' 64 × 36 so the two are judged alike; only where an arch
+  frame exists), and shows 1.5% or more of rock above air; the frame
+  worth most (`pictureValue`: looks, plus rock seen above air, more for air seen through it) wins.
+- **Only an arch, never an overhang or a cave (planning, #236):** the first cut also framed overhangs and cave mouths,
+  and River Valley 2's card became a dark cliff face filling the frame. Planning's bar, a form counted by its seen
+  opening (400 px² of an 800 × 450 frame, the forms measure's), cannot tell them apart at the card's distance: at 26
+  to 48 tiles every opening clears it many times over (Highlands 12's arch 31 times, River Valley 2's overhang 55),
+  and the overhang shows more opening than the arch. An arch is seen through to the land beyond and reads as one; an
+  overhang's or a cave's opening is a dark band under a cliff face.
+- **An arch against the whole map (planning, #236):** with arches only, a map with no landmark frame let any arch take
+  the card, and Delta 8 and Islands 1 lost their theme: a slot in a cliff in place of the delta's channels and the
+  islands. The arch is now weighed against the whole map's picture there, with half the landmark's allowance
+  (`WHOLE_GIVE` 0.05): the whole map already shows the theme, and Delta 11's arch, 0.09 under it, hid the delta's
+  channels as Delta 8's had. Across the 84 maps at 256² Normal (7 themes × seeds 1–12, generator 0.10.51), 9 cards
+  change against dev 9a6523d8: 3 to a rock arch (looks, arch against landmark or whole map: Highlands 1 1.15 / 1.00,
+  Highlands 6 0.93 / 0.93, Highlands 12 0.99 / 1.03) and 6 to another frame of their landmark, the backdrop now
+  counted behind the crowns (Any 2, River Valley 9, Canyon 4, Highlands 2 and 10, Lake Basin 11). Any 3 (1.05 /
+  1.32), Highlands 7 (0.97 / 1.05, its other two arches lower), Delta 8 (0.98 / 1.08), Delta 11 (1.11 / 1.19) and
+  Islands 1 (0.32 / 1.21) keep the whole map; River Valley 2 is on dev's frame. The cast (`castPicture`) now says where a ray
+  met still beneath rock or came out from under it (`under`), at no cost to the generator's kind, depth and tile.
+  Frames are screened at 64 × 36 and only the winner is cast again at full size (`framePasses`), every cast from the
+  land prepared once per card (`preparePicture`: each tile's top, crown and water, shared by all the casts).
+- **The backdrop check sees what the drawn frame shows:** a tree's crown was a solid box to the cast, so the sky
+  behind a crown at the map's edge counted as land; the drawn crown is sparse and shows that sky. The cast marks those
+  pixels (`veiled`) and `voidShare` counts them. Highlands 256 seed 12's card had passed at 4.8% void (5.7% with the
+  veiled crowns) and drew about 8% sky; a further 2 points come from the map's far rim, drawn as sky where the cast
+  meets its edge water, not chased since the new frame shows none.
+- **The four maps' cards, generator 0.10.51** (before → after): Highlands 12, a bare plateau and its two springs from 45
+  tiles with 8% sky → the rock arch over its lake from 26 tiles, no sky; River Valley 2, a wooded slope above the
+  river, unchanged after the arch-only rule; Canyon 1 (ruins and river) and Any 6 (falls and river) unchanged, the same
+  camera. Sheets: `C:\dgm-showcase\hero-forms\sheet.jpg` (the first cut), `C:\dgm-showcase\hero-forms2\sheet.jpg`
+  (arch-only), `C:\dgm-showcase\hero-forms3\sheet.jpg` (arches weighed against the whole map),
+  `C:\dgm-showcase\hero-forms4\sheet.jpg` (`WHOLE_GIVE` 0.05).
+- **Where it falls short:** a map whose best 3D form is an overhang or a cave never shows it on its card; an arch
+  ranked below the six largest mouths (`FORMS_MOST`) is not looked at.
 
 ## Seeing the land behind objects (`feature/object-fade`)
 

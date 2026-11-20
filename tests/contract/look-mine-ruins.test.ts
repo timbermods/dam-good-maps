@@ -133,7 +133,9 @@ import * as ed from "../../src/worker/session";
 // back to 0.10.50 the branch gives `5247e4c8…` byte for byte, D148
 // and generator 0.10.52's version alone (D545 round 3, which keeps this map's start): with the version set back to
 // 0.10.51 the branch gives `1d4cdee1…` byte for byte, D148
-const LIVE_SHA = "66ac2da8d066a11d2bd47d4448972142257084e039a9c63ab2222f898734b9c6";
+// and generator 0.10.53's version alone (D547 Highlands stands up, which keeps this River Valley map): with the version set
+// back to 0.10.52 the branch gives `66ac2da8…` byte for byte, D148
+const LIVE_SHA = "6b7fc1715cfbb4ae52f1935d0e7f7fc25ed2021f20d51a767bea5e2b5b17bcde";
 const spec = () => makeSpec({ seed: 4242, size: { x: 128, y: 128 }, theme: "riverValley", designedFor: "normal" });
 
 describe("mine sites and ruins, models of our own", () => {

@@ -938,7 +938,7 @@ function planHydroSingle(E: Float64Array, h: Uint8Array, g: Genome, seed: number
     for (let y = 12; y < H - 12; y++)
       for (let x = 12; x < W - 12; x++) {
         const i = y * W + x;
-        if (downLen[i] < 0.35 * side || owner[i] >= 0) continue;
+        if (downLen[i] < 0.35 * side || owner[i] >= 0 || g.dryTops?.[i]) continue;
         if (joinable && (!joinable.reach[i] || joinable.len[i] < minTributary)) continue;
         cands.push([E[i] + 0.01 * downLen[i] + 3 * rng.float(), i]);
       }
@@ -983,7 +983,7 @@ function planHydroSingle(E: Float64Array, h: Uint8Array, g: Genome, seed: number
       for (let y = 12; y < H - 12; y++)
         for (let x = 12; x < W - 12; x++) {
           const i = y * W + x;
-          if (dist[i] <= reach || downLen[i] < longWay || owner[i] >= 0) continue;
+          if (dist[i] <= reach || downLen[i] < longWay || owner[i] >= 0 || g.dryTops?.[i]) continue;
           if (heads.some((hd) => Math.abs((hd.cell % W) - x) + Math.abs(Math.floor(hd.cell / W) - y) < 26)) continue;
           if (joinable.reach[i] && joinable.len[i] >= minTributary) far.push([dist[i] + 0.01 * downLen[i], i]);
           else apart.push([dist[i] + 0.01 * downLen[i], i]);
@@ -1433,6 +1433,9 @@ function planHydroSingle(E: Float64Array, h: Uint8Array, g: Genome, seed: number
     const lakeAt = new Uint8Array(n + 1);
     let run = startBed;
     let inLake = -1;
+    let onSill = false;
+    // (round 6b step 3: the lake a river last left, on a land with a rock sill)
+    let leftLake = -1;
     /** Whether a lake's water, standing at its sill, would spill out of the river's channel
      *  upstream of sample `j`: where the backwater reaches (the bed below the sill), the ground
      *  round the channel lower than the sill, outside the lake, drains away lower than it (to an
@@ -1518,16 +1521,27 @@ function planHydroSingle(E: Float64Array, h: Uint8Array, g: Genome, seed: number
           inLake = id;
         }
       }
+      // (round 6b step 3: on a land with a rock sill, a river that leaves its lake over a bar or a spit and comes back
+      // into it is in it again: it cuts no channel through its own lake's floor, which would drain it)
+      if (g.rockSill && inLake < 0 && leftLake >= 0 && isIn && lakeOf[ci] === leftLake) inLake = leftLake;
       if (inLake >= 0 && isIn && lakeOf[ci] === inLake) {
-        prof[j] = Math.min(run, lakes[inLake].outletBed);
+        // (round 6b: on a land with a rock sill a river entrenched under its lake's level cuts no channel through the
+        // lake's floor and its sill: its bed there is the lake's outlet)
+        prof[j] = g.rockSill ? lakes[inLake].outletBed : Math.min(run, lakes[inLake].outletBed);
         lakeAt[j] = 1;
         continue;
       }
       if (inLake >= 0) {
-        run = valleyMain ? Math.min(run, lakes[inLake].outletBed) : lakes[inLake].outletBed;
+        // (a land with a rock sill: the river leaves over the sill at the outlet's bed, whatever its bed upstream)
+        run = valleyMain && !g.rockSill ? Math.min(run, lakes[inLake].outletBed) : lakes[inLake].outletBed;
+        leftLake = inLake;
         inLake = -1;
+        onSill = !!g.rockSill;
       }
-      run = Math.min(run, ring - cut, floorRing - 1, beside);
+      // (uplands round 6b: a lake held by a rock sill, Highlands' valley's, `Genome.rockSill`: its river leaves over the
+      // sill at the outlet's bed and cuts down only past it, where it falls)
+      onSill = onSill && isIn && !!g.rockSill?.[ci];
+      if (!onSill) run = Math.min(run, ring - cut, floorRing - 1, beside);
       if (run < endBed) run = endBed;
       // (never below the beds' floor, item 47: a river there runs shallower)
       if (run < BED_FLOOR) run = BED_FLOOR;
