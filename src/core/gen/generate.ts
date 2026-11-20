@@ -1916,7 +1916,14 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
   const N = W * H;
   // ringed land above 128² (uplands round 5): its slopes follow the ringed land's rules (features/slopes.ts
   // `RING_SLOPES`), as the start is picked, checked and built
-  const ringSlopes = Math.min(W, H) > 128 && !UPLANDS_BASE_PATH.has(g.theme);
+  // (Islands round 8: an island sea above 128², its land 0.10.48's (`UPLANDS_BASE_PATH`), takes the ringed land's slopes,
+  // so the start's island is joined without stairs as far as its one-level steps reach; its start is turned from the
+  // badwater in view, never moved for it, `badTurnOnly`)
+  const islesUp = g.theme === "islands" && !!g.seaLayout && Math.min(W, H) > 128;
+  const ringSlopes = Math.min(W, H) > 128 && (!UPLANDS_BASE_PATH.has(g.theme) || islesUp);
+  // (the pick reads its places' walks over the slopes as before on Islands: the start is the one it chose, its room and
+  // rows kept, and the build's slopes join more of its island)
+  const pickRings = ringSlopes && !islesUp;
   // Easy start (D495): the start calm and generous, guaranteed. Its targets tighten the start rules the map is
   // made and checked by (the spec the result carries keeps the player's), the land is shaped for it before it is
   // shown (land/easyStart.ts), and its rows block a map (validate/checks.ts); a late rescue round asks a little
@@ -2190,7 +2197,7 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
     const lengthwise = mapShape(W, H).long;
     const prefer = lengthwise ? (x: number, y: number, L: number, w: number) => intended(x, y, L, w) + SHAPE_PULL * startAlong(spec.theme, x, y, W, H) : intended;
     const rng = stream(seed, "settler2", attempt, salt);
-    return pickStart(h, W, H, { depth: D, contamination: C, moisture: M }, hy, g.settler, rng, stageRule, { prepared, avoid, kept, drought: policy, prefer, foot, minFoot, footWant, moistWalk: { min: moistWant }, room, bench, benchMin, storage, near, level: allowLevel, roomFirst: !onPlan, badwater: badHollows(), slopeWater, ...(ease >= 2 ? { levelReach: Math.min(3, 1 + Math.floor(ease / 2)) } : {}), ...(ease >= 3 ? { margin: Math.max(5, Math.round(Math.min(W, H) * 0.08)) } : {}), ...(ease >= 1 ? { waterExact: true } : {}), ...(stageEasy ? { easy: stageEasy } : {}), ...(ringSlopes ? { ringSlopes } : {}) , ...(g.standValley ? { badView: true } : {}) });
+    return pickStart(h, W, H, { depth: D, contamination: C, moisture: M }, hy, g.settler, rng, stageRule, { prepared, avoid, kept, drought: policy, prefer, foot, minFoot, footWant, moistWalk: { min: moistWant }, room, bench, benchMin, storage, near, level: allowLevel, roomFirst: !onPlan, badwater: badHollows(), slopeWater, ...(ease >= 2 ? { levelReach: Math.min(3, 1 + Math.floor(ease / 2)) } : {}), ...(ease >= 3 ? { margin: Math.max(5, Math.round(Math.min(W, H) * 0.08)) } : {}), ...(ease >= 1 ? { waterExact: true } : {}), ...(stageEasy ? { easy: stageEasy } : {}), ...(pickRings ? { ringSlopes } : {}) , ...(g.standValley ? { badView: true } : islesUp ? { badView: true, badTurnOnly: true } : {}) });
   };
   const levelStart = (p: StartPick) => {
     if (!p.levelled) return;
@@ -3283,7 +3290,7 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
   // settled water a tile further off fails it, its pump's shore on the settled water, walked from its
   // middle over the slopes the build derives, is within the aim too, or it is passed over before its
   // water is settled)
-  const servedOnB1 = (q: StartPick): boolean => rule >= 7 || startWalks(h, W, H, b1.water, b1.contamination, b1.moisture, q.x, q.y, rule, false, ringSlopes, b1.channel).water <= aim;
+  const servedOnB1 = (q: StartPick): boolean => rule >= 7 || startWalks(h, W, H, b1.water, b1.contamination, b1.moisture, q.x, q.y, rule, false, pickRings, b1.channel).water <= aim;
   // (Easy start, D495, D453: the start's clearing and pond on the settled water. The water the land was planned with
   // is an estimate, a level off the water that settles as often as not. So the plan's shapes are tried first as they
   // stand, on the land's own settle (`easyStartOn`): a place whose shape passes every start check is the start, and
@@ -3431,15 +3438,35 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
       if (!g.seaLayout) return null;
       const on = settlerOn(b1.water, b1.contamination, b1.moisture, 1, roomy(beyondBad(b1)), 1, near, false, "only") ?? settlerOn(b1.water, b1.contamination, b1.moisture, 1, roomy(avoidOf(bad)), 1, near, false, "only");
       if (on) return on;
-      const q = ready();
+      let q = ready();
+      // (Islands round 8: on an island sea above 128² the plan's place stands on minFoot's ground, or it is not taken here)
+      if (q && islesUp && (foot.size[foot.lab[q.y * W + q.x]] ?? 0) < minFoot) q = null;
       const mask = q ? islandStarts(h, b1.water, W, H, null) : null;
       return q && mask && !mask[q.y * W + q.x] ? q : null;
     };
     const skip = g.seaLayout ? "skip" : "prefer";
+    // (no place on the settled water stands on the ground the map's share asks for, `minFoot`, D85: the plan's own place,
+    // made ready as the land was shaped, stood on less, and the land was shown with its start there. The settled water is
+    // read again with that place's ground as the floor, so the start is ranked for its room and rows on the water the
+    // map keeps, D545, and only where none is found is the plan's place itself the start)
+    const planFooted = (): StartPick | null => {
+      const q = ready();
+      if (!q) return null;
+      const at = foot.size[foot.lab[q.y * W + q.x]] ?? 0;
+      // (Islands round 8: on an island sea above 128² only; elsewhere the plan's place as before, every other map dev's)
+      if (at >= minFoot || !islesUp) return q;
+      const was = minFoot;
+      minFoot = at;
+      const p = settlerOn(b1.water, b1.contamination, b1.moisture, 1, roomy(beyondBad(b1)), 1, near, false, skip) ?? settlerOn(b1.water, b1.contamination, b1.moisture, 1, roomy(avoidOf(bad)), 1, near, false, skip);
+      minFoot = was;
+      // (Islands round 8: and where none is found there either, the plan's place is not the start on an island sea above
+      // 128², since it stands on less than minFoot asks: the settler's last ways are tried, and past them the land again)
+      return p ?? (islesUp ? null : q);
+    };
     // (Easy start, D495: only a place with its clearing and pond, the plan's as it stands on this settled water or
     // one shaped on it: any other start misses its targets, and its land is planned again at once)
     if (easy) return easyStartOn();
-    let p = isleStart() ??settlerOn(b1.water, b1.contamination, b1.moisture, 1, roomy(beyondBad(b1)), 1, near, false, skip) ?? settlerOn(b1.water, b1.contamination, b1.moisture, 1, roomy(avoidOf(bad)), 1, near, false, skip) ?? ready() ?? settlerOn(b1.water, b1.contamination, b1.moisture, 1, avoidOf(bad), 1, near, false, skip);
+    let p = isleStart() ?? settlerOn(b1.water, b1.contamination, b1.moisture, 1, roomy(beyondBad(b1)), 1, near, false, skip) ?? settlerOn(b1.water, b1.contamination, b1.moisture, 1, roomy(avoidOf(bad)), 1, near, false, skip) ?? planFooted() ?? settlerOn(b1.water, b1.contamination, b1.moisture, 1, avoidOf(bad), 1, near, false, skip);
     // D348: no place for a start on the settled water: the start goes where the plan put it (the
     // land was shown because it had one), when that is still dry ground clear of the hollows and of
     // the starts that failed here; a spring by it gives it water below when the settled water left
