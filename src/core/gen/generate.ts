@@ -129,33 +129,53 @@ export const MAX_ATTEMPTS = 24;
 /** Places tried for the badwater hollows before the land is shown, each off the last that another's
  *  water reached (D348: they are never dug again after). */
 const HOLLOW_TRIES = 3;
+/** Lake Basin above 128² (round 7c): each lake the hydrology planned, planned again on the finished land at the level its
+ *  hollow spills at (its lowest saddle, the land filled from the map's edges) and over the ground that water stands on
+ *  joined to it: smaller where the land holds less, and joined to a channel that runs past it with no bank between, at
+ *  the lower level. The tiles it leaves are dry land (`keep` let go); a lake the land holds no water for is none. */
+function lakesAtSpill(h: Uint8Array, W: number, H: number, hy: Hydro, keep: Uint8Array): void {
+  const N = W * H;
+  const filled = drainage(h, W, H, { eight: false }).filled;
+  const taken = new Uint8Array(N);
+  const lakes: Hydro["lakes"] = [];
+  for (const lk of hy.lakes) {
+    const q: number[] = [];
+    for (const i of lk.tiles)
+      if (!taken[i] && filled[i] > h[i]) {
+        taken[i] = 1;
+        q.push(i);
+      }
+    for (let k = 0; k < q.length; k++) {
+      const c = q[k];
+      const x = c % W;
+      const y = (c - x) / W;
+      for (const n of [x > 0 ? c - 1 : -1, x < W - 1 ? c + 1 : -1, y > 0 ? c - W : -1, y < H - 1 ? c + W : -1]) {
+        if (n < 0 || taken[n] || !(filled[n] > h[n])) continue;
+        taken[n] = 1;
+        q.push(n);
+      }
+    }
+    if (!q.length) continue;
+    lakes.push({ ...lk, tiles: q, outletBed: Math.round(filled[q[0]]) - 1 });
+  }
+  for (let i = 0; i < N; i++)
+    if (hy.water[i] === 2 && !taken[i]) {
+      hy.water[i] = 0;
+      keep[i] = 0;
+    }
+  // (a channel the lake's water stands over stays the river's)
+  for (const lk of lakes)
+    for (const i of lk.tiles)
+      if (hy.water[i] !== 1) {
+        hy.water[i] = 2;
+        keep[i] = 1;
+      }
+  hy.lakes = lakes;
+}
+
 /** Lake Basin above 128²: how far its badwater keeps from the plan's start, in tiles (round 7c), half again a land
  *  that stands up's `STAND.badFar`: its start is chosen again on the settled water and moves further. */
 const BASIN_BAD_FAR = 90;
-/** Lake Basin above 128²: the ring of dry ground round a planned lake, in tiles, that no ramp or widened way out cuts
- *  (round 7c). */
-const BASIN_LAKE_RING = 3;
-/** Round each planned lake, the dry tiles within `r` (Chebyshev) of it: each one's floor, the lake's sill (its outlet's
- *  bed and a level; the highest where two lakes' rings meet), 0 off every ring. */
-function sillFloors(hy: Hydro, W: number, H: number, r: number): Uint8Array {
-  const out = new Uint8Array(W * H);
-  for (const lk of hy.lakes) {
-    const sill = lk.outletBed + 1;
-    for (const i of lk.tiles) {
-      const x = i % W;
-      const y = (i - x) / W;
-      for (let dy = -r; dy <= r; dy++)
-        for (let dx = -r; dx <= r; dx++) {
-          const xx = x + dx;
-          const yy = y + dy;
-          if (xx < 0 || yy < 0 || xx >= W || yy >= H) continue;
-          const j = yy * W + xx;
-          if (!hy.water[j] && out[j] < sill) out[j] = sill;
-        }
-    }
-  }
-  return out;
-}
 /** Maps (in 100) whose badwater drains where the land takes it, unsteered (D476: on the rest one
  *  badwater course is routed into the theme's main water, as in the game; an aim, never tuned). */
 const OWN_DRAIN = 15;
@@ -1770,7 +1790,6 @@ function planLandStage(land: Land, attempt: number, W: number, H: number, seed: 
   relaxEdges(h, W, H);
   opts.onProgress?.({ attempt, stage: "water" });
   const hy = planHydro(land.E, h, g, seed, W, H, attempt, land.joinsOff ? { joins: false } : {});
-  const __snap = h.slice(); const __low: Map<number, string> = (globalThis as any).__LOW = new Map(); const __mk = (st: string) => { if (!(globalThis as any).process?.env?.DGM_TR) return; for (let i = 0; i < N; i++) if (h[i] < __snap[i]) __low.set(i, (__low.get(i) ?? '') + st + (__snap[i] - h[i]) + ' '); __snap.set(h); };
   land.joined = (hy.joined ?? 0) > 0;
   land.joinedRivers = new Set(hy.joinedRivers ?? []);
   // (M9b: the banks beside an inflow's mouth stay as the land has them: lowered to its channel, the
@@ -1785,24 +1804,12 @@ function planLandStage(land: Land, attempt: number, W: number, H: number, seed: 
     for (let i = 0; i < N; i++) if (beside[i] < edgeFloor[i]) beside[i] = edgeFloor[i];
   }
   relaxEdges(h, W, H, mouthBanks(hy, W, H), beside);
-  __mk('relax');
   const keep = new Uint8Array(N);
   for (let i = 0; i < N; i++) keep[i] = hy.water[i] === 1 || hy.water[i] === 2 ? 1 : 0;
-  // (Lake Basin above 128², round 7c: the ground round a planned lake, `BASIN_LAKE_RING` tiles, is its sill: a sliver of
-  // it merged into the land below, no ramp and no widened way out takes it under the lake's level, which drained the
-  // lake three levels, Lake Basin 256² seed 3)
-  const sills = g.basinWarp ? sillFloors(hy, W, H, BASIN_LAKE_RING) : null;
-  const lakeRing = sills ? Uint8Array.from(sills, (v) => (v ? 1 : 0)) : null;
-  const preMerge = sills ? h.slice() : null;
   mergeSmallRegions(h, W, H, 4, keep);
-  if (sills) for (let i = 0; i < N; i++) if (h[i] < sills[i] && preMerge![i] >= sills[i]) h[i] = sills[i];
-  __mk('merge');
   cleanPitsAndSpikes(h, W, H, keep);
-  __mk('pits');
   fillDryHollows(h, W, H, keep);
-  __mk('dryHollows');
-  const ramps = naturalRamps(h, W, H, keep, lakeRing ?? new Uint8Array(N), g, seed, attempt);
-  __mk('ramps');
+  const ramps = naturalRamps(h, W, H, keep, new Uint8Array(N), g, seed, attempt);
   if (ramps.cut) {
     cleanPitsAndSpikes(h, W, H, keep);
     fillDryHollows(h, W, H, keep);
@@ -1841,7 +1848,6 @@ function planLandStage(land: Land, attempt: number, W: number, H: number, seed: 
       if (Math.min(x, y, W - 1 - x, H - 1 - y) < 2) channels[i] = 1;
     }
   carveOutlets(h, W, H, channels, hash32(seed, "outlets", attempt), Math.max(3, Math.min(9, Math.round(0.35 * hy.flowTotal)) | 1), 300, 120, null, beside);
-  __mk('outlets');
   // (and a small basin the planned water reaches whose spill level is a broad flat: its water would
   // stand a few hundredths over the flat as a sheet, a knife-edge under the game's spill threshold
   // that a drought leaves dry or not by millimetres (the probe's refill, D333, M9b): a stream a level
@@ -1850,7 +1856,6 @@ function planLandStage(land: Land, attempt: number, W: number, H: number, seed: 
     const wet = new Uint8Array(N);
     for (let i = 0; i < N; i++) wet[i] = hy.water[i] === 1 || hy.water[i] === 2 ? 1 : 0;
     carveOutlets(h, W, H, channels, hash32(seed, "outlets-small", attempt), 3, 4, 60, wet, beside);
-    __mk('outletsSmall');
   }
   // a sea's way out as wide as its water needs, so it settles within the four days (the rivers'
   // heads, the kept lakes and the locks stay as they are)
@@ -1869,9 +1874,7 @@ function planLandStage(land: Land, attempt: number, W: number, H: number, seed: 
     // basin, its way out cut 20–30 tiles wide along a route of its own beside the channel, a straight trench twice
     // the river's width, Highlands 256² seed 3; round 6b step 5)
     if (g.standValley) for (let i = 0; i < N; i++) if (!g.standValley[i]) heads[i] = 1;
-    if (lakeRing) for (let i = 0; i < N; i++) if (lakeRing[i]) heads[i] = 1;
     widenOutlets(h, W, H, heads, hash32(seed, "widen", attempt), hy.flowTotal * (W <= 128 ? 2 : 1), hy.lakes.map((l) => l.tiles), 2500, !!g.seaLayout);
-    __mk('widen');
   }
   // (D350, Islands' promise: an island a sea layout placed near the shore, joined to the land by low
   // ground, is parted from it by a strait; D432: on every sea map)
@@ -1893,7 +1896,6 @@ function planLandStage(land: Land, attempt: number, W: number, H: number, seed: 
   // (item 47: nothing the processes cut goes below the beds' floor; where one would, it runs
   // shallower there)
   for (let i = 0; i < N; i++) if (h[i] < BED_FLOOR) h[i] = BED_FLOOR;
-  __mk('floor');
   // item 27: a river that starts at the map's edge flows into the map, never off it: the edge tiles
   // its head's water would reach beside its row (a lake's shore at the edge too) stand a level above
   // that water (a natural lip, water/edgeLip.ts); the mouths themselves and the player's ground stay
@@ -1934,7 +1936,7 @@ function planLandStage(land: Land, attempt: number, W: number, H: number, seed: 
   // drought took for good, and such sheets fill for days. The tiles of a lake the hydrology planned
   // that stand at its spill level are cut a level lower, the lake's own bed
   // (not round a sea: a sea is big, and its shelf cut down makes a bigger sea that fills for days)
-  if (!g.seaLayout) { lowerShelves(h, W, H, hy.water, hash32(seed, "shelves", attempt)); __mk('shelves'); }
+  if (!g.seaLayout) lowerShelves(h, W, H, hy.water, hash32(seed, "shelves", attempt));
   // (D410: round a sea the shelf at its spill level rises a level instead, to the low shore it is, so no
   // pale sheet of water a few hundredths deep lies round its islands and along its coast)
   else if (raiseSeaShelves(h, W, H, hy.water, hy.rivers)) {
@@ -1947,6 +1949,10 @@ function planLandStage(land: Land, attempt: number, W: number, H: number, seed: 
   for (let k = 0; k < 3 && blocked.some((b) => b.back) && closeBackEdges(h, W, H, blocked, hy.rivers, g.hydro.exactInflows ? 4 : 2); k++) blocked = blockedCourses(h, W, H, hy.rivers, mouthArms);
   // (a tie with the exit on another edge: a lip there, D350)
   for (let k = 0; k < 3 && !blocked.length && closeSideEdges(h, W, H, hy.rivers, mouthArms); k++) blocked = blockedCourses(h, W, H, hy.rivers, mouthArms);
+  // (Lake Basin above 128², round 7c: its lakes planned again on the finished land, each at the level its hollow spills at
+  // and as far as that water reaches: the land's edits after the hydrology, its channels carved, its small regions
+  // merged, its ramps and ways out, left lower saddles than the hydrology's, and the lake it planned drained to them)
+  if (g.basinWarp) lakesAtSpill(h, W, H, hy, keep);
   return { h, hy, keep, ramps, blocked };
 }
 
