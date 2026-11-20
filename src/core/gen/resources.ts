@@ -19,6 +19,8 @@ import { pickSeeds } from "./blobs";
 import { BUSHES, density, FOREST, OFFICIAL_LAYOUT, RUIN_HEIGHT_SHARES, RUINS } from "./calibrated";
 import { START_FLOORS } from "../validate/playability";
 import { planDeadStands } from "./deadStands";
+import { frameStandSwitch, planFrameStand } from "./frameStand";
+import type { Orientation } from "../format/footprints";
 import { growGroveAcross, growGroveAt, growPatchAt, livingSpecies, NEAR_WALK, planGroves, planPatches, planRuinFields, resourceBudget, ruinColumns, saplings, startWalkField, succulentsOf, woodPerTree, type BaselineGround } from "../resources/baseline";
 
 export interface Ground {
@@ -60,6 +62,8 @@ export interface ResourceConstraints {
    *  least `bushes` of them within `within` tiles' walk, the map's own patches kept out of the start's walk, and a
    *  small ruin field the colony walks to within `ruins` tiles' walk (scrap at hand). */
   easy?: { safe: Uint8Array; bushes: number; within: number; ruins: number };
+  /** The start's turn (its door's orientation): the game's first camera is turned by it (D493). */
+  turn?: Orientation;
   /** The share of the moist ground the map's own groves may cover at most (default the official maps',
    *  `OFFICIAL_LAYOUT.moistCover`; a premise map's wood budget asks less, PREMISES §2.2 stage 6). */
   moistCover?: number;
@@ -168,6 +172,26 @@ export function planResources(spec: MapSpec, g: Ground, candidate: number, attem
   // counts toward the map's)
   const easy = constraints?.easy ?? null;
   let easyScrap = 0;
+  // (D493's first step, prototype: a stand of the map's own ruins in the game's first frame, past Normal's clear
+  // distance, where the land offers a place; its scrap counts toward the map's, so the fields elsewhere give it up.
+  // Not with Easy start, whose own small field stands on the start's walk)
+  const turn = constraints?.turn;
+  if (frameStandSwitch.on && !easy && g.start && turn && g.entities) {
+    const fr = stream(seed, "frame-stand", candidate, attempt);
+    const clear = spec.settings.start.rules.ruinsWithin + 1;
+    const stand = planFrameStand({ ...ground, entities: g.entities }, { x: g.start.x, y: g.start.y, z: g.heights[g.start.y * W + g.start.x], orientation: turn }, free, moist, startDist, walk, clear, fr);
+    if (stand) {
+      const role = "ruinField/firstFrame";
+      const id = featureId(seed, "ruinField", role);
+      easyScrap = ruinColumns(stand.tiles, W, stream(seed, id, "heights"), stand.tallness).scrap;
+      out.push({ id, kind: "ruinField", origin: "generated", role, locked: false, params: { area: tilesToRuns(stand.tiles, W), scrapTarget: easyScrap, heightMix: [...RUIN_HEIGHT_SHARES], centerBias: 0, layout: { tallness: stand.tallness } } });
+      for (const i of stand.tiles) {
+        const x = i % W;
+        const y = (i - x) / W;
+        for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) if (x + dx >= 0 && y + dy >= 0 && x + dx < W && y + dy < H) free[(y + dy) * W + x + dx] = 0;
+      }
+    }
+  }
   if (easy && walk && g.start) {
     const er = stream(seed, "easy-ruins", candidate, attempt);
     const lo = 15;
