@@ -163,7 +163,10 @@ export function snapLevels(E: Float64Array, g: Genome, seed: number, W: number, 
       const fy = py - y0;
       const j = y0 * W + x0;
       src[y * W + x] = Math.round(py) * W + Math.round(px);
-      const L = (level[j] * (1 - fx) + level[j + 1] * fx) * (1 - fy) + (level[j + W] * (1 - fx) + level[j + W + 1] * fx) * fy;
+      let L = (level[j] * (1 - fx) + level[j + 1] * fx) * (1 - fy) + (level[j + W] * (1 - fx) + level[j + W + 1] * fx) * fy;
+      // (round 6b step 4: on a land that stands up, a wall of 4 levels or more is read from its nearest tile, not eased
+      // across: the easing split a mesa's face into a 2 and a 3, so its wall lost its height)
+      if (stand && Math.max(level[j], level[j + 1], level[j + W], level[j + W + 1]) - Math.min(level[j], level[j + 1], level[j + W], level[j + W + 1]) >= 3.5) L = level[src[y * W + x]];
       // (the land stands a level above the beds' floor, item 47)
       out[y * W + x] = clamp(Math.round(L), BED_FLOOR + 1, maxLv);
     }

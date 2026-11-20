@@ -499,7 +499,7 @@ is its own work: the Rust water's settle, or a badwater search that finds no sit
 
 ## Round 6: Highlands stands up (2026-11-19)
 
-Generator 0.10.51, on pickStart (0.10.50, D(pick-start)); D(uplands) amended. Numbers and sheets in
+Generator 0.10.52 (first numbered 0.10.51), on pickStart (0.10.50, D(pick-start)); D(uplands) amended. Numbers and sheets in
 `C:/dgm-showcase/gen/uplands6/`. Highlands above 128² only (`bold.ts` `standsUp`): every other theme, and Highlands at
 128² and under, is 0.10.50's byte for byte.
 
@@ -529,7 +529,7 @@ Generator 0.10.51, on pickStart (0.10.50, D(pick-start)); D(uplands) amended. Nu
   floor's steps stand two levels where they gather (`highlands.ts`). Its promise asks four plateaus and a cliff share of
   0.06 at 128² (falling as the square root of the side), not three and 0.1 (`gen/outcomes.ts`, below).
 
-**Measures** (256², Normal, seeds 1–6, base 0.10.50 → 0.10.51; bars in brackets; all in
+**Measures** (256², Normal, seeds 1–6, base 0.10.50 → 0.10.52; bars in brackets; all in
 `C:/dgm-showcase/gen/uplands6/numbers.md`). Regional relief 6.5–8.2 → 7.0–9.2 [≥ 12]; relief p5–p95 10 → 11–12 [≥ 10];
 land beside a 4+ drop 3.5–5.1 → 2.7–6.1 % [6–9]; one-level share of steps 56.9–67.8 → 50.0–57.6 % [44–55]; longest 3+
 face 63–198 → 83–209 tiles at a median drop of 5–7 [≥ 85, ≥ 5]; plateaus 2–6 → 5–14 [4–9]; fine relief 2.7–5.8 →
@@ -569,7 +569,7 @@ relief of seeds 1, 3 and 5 (4.1, 3.8, 3.7 %).
 
 ### Round 6b: a lake in the bowl, a bench beside it (2026-11-19)
 
-Still generator 0.10.51 (unreleased), on pickStart (89d6887e). The starts before and after:
+Still generator 0.10.52 (unreleased), on pickStart (89d6887e). The starts before and after:
 `C:/dgm-showcase/hl6b/sheet-starts.jpg`. Highlands above 128² only; every other theme, and
 Highlands at 128² and under, is 0.10.50's byte for byte (below).
 
@@ -652,9 +652,9 @@ and 6b, each side run alone, on round 6's 52 maps: Canyon, River Valley, Lake Ba
 seeds 1, 2; Any × 136/192/256 × seeds 1–4; Highlands 128² seeds 1, 2, 7, 96² seed 1, 64² seed 2; Canyon 128² seed 2,
 River Valley 128² seed 5, Islands 128² seed 3, Lake Basin 96² seed 1, Delta 64² seed 2.
 
-### Round 6b step 2: the look (2026-11-19, committed, not pushed: the start's bars fail)
+### Round 6b step 2: the look (2026-11-19, pushed as a branch and held: the start's bars failed)
 
-Still generator 0.10.51, on step 1's a5d893b5; Highlands above 128² only (`standsUp`). Top views and notes in the
+Still generator 0.10.52, on step 1's a5d893b5; Highlands above 128² only (`standsUp`). Top views and notes in the
 worktree's `.scratch/notes-6b2.md`; numbers in `C:/dgm-showcase/gen/uplands6b/numbers.md`.
 
 **What was built.**
@@ -680,7 +680,7 @@ beside a 4+ drop 2.0–3.0 % [5–9: all short]; one-level share 49.5–59.9 % [
 face 64–104 tiles, drop 4–6 [≥ 85: seeds 1, 5, 6 short]; plateaus 4–8, 13 on seed 6 [4–9]; fine relief 1.7–2.3 %;
 patches under 40 tiles 2.5–3.5 %; moist 9.3–21.9 % [1.7–11.7: seeds 2, 3 inside]; water 7.6–13.3 % [0.6–14.1].
 
-**Short of the bars: why it is not pushed.** The start's rows move with the bowl's shape, and no shape tried keeps
+**Short of the bars: why it was held.** The start's rows move with the bowl's shape, and no shape tried keeps
 every map's. With this head, against a5d893b5, on the eleven maps measured: Easy rows missed worse on Normal 256² s1
 (3 → 4) and s5 (1 → 3), Easy s3 and s4 (2 → 4, room 226 and 361); better on Easy s1 and s2 and Normal s6; Normal s4's
 start leaves the valley for the downstream river. With the flooded lake, before: 43 → 48 rows on all 16, food lost
@@ -690,9 +690,9 @@ bench. With step 1's own lake and everything else of step 2, the Easy rows held 
 share on three seeds, the longest face on three, moist share on four; ruled bits (item 4) were not worked: only the
 channel past the sill now leaves in rings, not a chute.
 
-### Round 6b step 3: the lake keeps the bench (2026-11-19, committed, not pushed: the start's bars fail)
+### Round 6b step 3: the lake keeps the bench (2026-11-19, pushed as a branch and held: the start's bars failed)
 
-Still generator 0.10.51, on step 2's 1404903f; Highlands above 128² only (`standsUp`). Before/after sheet (step 2 and
+Still generator 0.10.52, on step 2's 1404903f; Highlands above 128² only (`standsUp`). Before/after sheet (step 2 and
 step 3 round the start, four maps): `C:/dgm-showcase/hl6c/sheet-step2-vs-step3.png`.
 
 **The base count is 43, not 42.** Measured again on a5d893b5 with the same script (16 maps, `pr/gen.ts`, rows from
@@ -746,7 +746,7 @@ draws are planned promise (8), the start's water moved (8), straight channels (4
 open floor, not the lake's) and the water story (2). Every start stands on the valley's bench (level 6) but Normal
 192²'s (level 11, room 309).
 
-**Short of the bars: why it is not pushed.**
+**Short of the bars: why it was held.**
 - Easy rows worse on five maps: Normal s2, s4, s5 and 192², Easy s4. CPU over 15 % on Easy 192² (38.1 → 47 s). Normal's misses swing with the pick's
   draw: it aims its walk at 6.75 tiles, past the water row's 6, so the water, drought and food rows of a Normal map
   come and go with which of the best few places it draws (the same lake gave Normal s1 3 or 4 and s5 3 or 4 across
@@ -766,3 +766,64 @@ round); the lake's middle 0.2 of the radius off the line (50: the far shore pinn
 (49, and 45 with the middle 0.12 off, but Easy s4's lake became a reservoir down the channel); the sill reaching only the bowl's rim, not past it
 (44, Normal 384²'s lake at 4.7: the river left past the sill's end). Turning off the rings round the downstream
 channel left 384²'s attempts at 7: they are not the rings'.
+
+### Round 6b step 4: walls, green, the start (2026-11-20, pushed as a branch and held: the start's bars fail)
+
+Generator 0.10.52 (planning, 11-20: another session's pick PR takes 0.10.51), on step 3's d86a318b with origin/dev
+merged. Highlands above 128² only (`standsUp`). Sheets and numbers: `C:/dgm-showcase/gen/uplands6c/`.
+
+**What was built.**
+- **The wall rises from the floor** (`bold.ts` `standMesas`). A mesa's top is the 75th percentile of the ground round
+  its rim plus its wall (4–6), and its wall rises from the floor in one face; the plinth (two levels, 4–9 tiles a
+  ring) is kept only under its stepped side, where the steps end on it. Its wall is a band of `wall` 0.5 tiles (1.2),
+  its outline lobed twice as deep as a ring form's (1.5 before), and the first mesa is drawn from the top 15 % of the
+  radii (`first`, 30 % before). An inner ring rises `tier` 4 where the top leaves room, else 2 (the tops stand at 16
+  on these seeds, so it stays 2). In the levels' edge warp (`levels.ts`) a wall of 4 levels or more on such a land is
+  read from its nearest tile, not eased across, which split a face into a 2 and a 3.
+- **Green a pocket** (`STAND.springs` 3 → 1): one spring at the most. Moist share of land 9.3–21.9 → 6.5–11.3 %.
+
+**Land, 256² Normal seeds 1–6** (bars in brackets): regional relief 8.04–8.88 [≥ 8.5: seeds 2, 3, 6 short]; p5–p95
+10; beside a 4+ drop 2.0–3.3 % [5–9: all short]; one-level share 49.9–59.4 % [44–55: seeds 3, 4, 5 over]; longest 3+
+face 71–109 tiles, drop 4–6 [≥ 85: seeds 4, 5, 6 short; seed 5's drop 4]; plateaus 4–8 [4–9]; fine relief 1.9–2.6 %;
+patches under 40 tiles 2.2–3.0 %; moist 6.5–11.3 % [≤ 12]; water 6.9–10.9 %.
+
+**The start** (base a5d893b5 → head; one map at a time, base and head in turn, on a loaded machine).
+
+| map | attempts | room | reach | Easy rows missed (a5d893b5 → head) | water / drought | CPU s |
+|---|---|---|---|---|---|---|
+| 256² s1 | 2 → 2 | 477 | 34,632 | 3 → 4 (water, drought, food, metal) | 7 / – | 41.3 → 35.7 |
+| 256² s2 | 1 → 1 | 563 | 54,883 | 3 → 3 (water, drought, metal) | 7 / – | 37.8 → 27.1 |
+| 256² s3 | 2 → 3 | 530 | 38,506 | 4 → 3 (water, drought, metal) | 7 / – | 42.4 → 50.4 |
+| 256² s4 | 1 → 2 | 499 | 45,708 | 3 → 3 (water, drought, metal) | 6.7 / – | 41.5 → 45.4 |
+| 256² s5 | 1 → 2 | 529 | 36,751 | 1 → 3 (water, drought, food) | 6.7 / – | 40.2 → 35.8 |
+| 256² s6 | 2 → 1 | 549 | 32,629 | 4 → 3 (water, drought, metal) | 7.1 / – | 39.1 → 27.8 |
+| 192² s1 | 7 → 2 | 515 | 25,773 | 3 → 3 (badwater, food, metal) | 5.7 / 8.7 | 39.9 → 25.8 |
+| 384² s1 | 3 → 5 | 533 | 92,358 | 4 → 4 (water, drought, food, metal) | 6.7 / – | 119.4 → 109 |
+| Easy 256² s1 | 2 → 2 | 310 | 49,338 | 2 → 4 (room, food, metal, hazards) | 3.8 / 3.8 | 42.2 → 36.4 |
+| Easy 256² s2 | 1 → 1 | 508 | 48,361 | 3 → 2 (food, metal) | 3 / 5 | 37.7 → 29.1 |
+| Easy 256² s3 | 2 → 3 | 439 | 32,920 | 2 → 1 (metal) | 3 / 3 | 47.1 → 48.1 |
+| Easy 256² s4 | 1 → 2 | 401 | 45,380 | 2 → 3 (food, metal, hazards) | 3 / 3 | 45.2 → 42.8 |
+| Easy 256² s5 | 1 → 2 | 403 | 32,365 | 2 → 2 (food, metal) | 2.8 / 2.8 | 44 → 40.4 |
+| Easy 256² s6 | 2 → 1 | 435 | 29,169 | 3 → 2 (food, metal) | 3.4 / 3.4 | 33.1 → 26.3 |
+| Easy 192² s1 | 7 → 2 | 457 | 23,556 | 2 → 1 (metal) | 2.4 / 4.8 | 37.6 → 26.3 |
+| Easy 384² s1 | 4 → 7 | 416 | 98,173 | 2 → 2 (food, metal) | 2.8 / 2.8 | 106.8 → 132 |
+
+Summed: attempts 39 → 38, Easy rows missed 43 → 43, CPU 795 → 738 s. Every start passes and stands on the valley's
+bench (level 6), Normal 192²'s too (room 515; it stood at level 11, room 309, on step 3). Reach is over base on all
+16. **The hash proof**: base a5d893b5 and this head, round 6's 52 maps, 52 of 52 identical.
+
+**Short of the bars: why it is held.**
+- Easy 256² s1: room 310 and four Easy rows against two (room and hazards added); Easy 256² s4: three against two
+  (hazards). Normal's rows are reported, not a bar (the pick's `walkWant`).
+- Attempts over base on eight maps: Normal 256² s3, s4, s5 and 384²; Easy 256² s3, s4, s5 and 384². The extra draws
+  are "promise (planned)" (the planned land's cliff share under .0424: with no plinth on the wall side less land
+  stands beside a 2+ drop), "source in a flow" (s3) and, at 384², the water story and badwater sites.
+- CPU over 15 %: Normal 256² s3 (+19 %, 3 attempts against 2) and Easy 384² (+24 %, 7 against 4).
+- The walls: land beside a 4+ drop stays 2.0–3.3 %. The mesas' perimeter sets it: four to six mesas of radius 24–46
+  give about 1,100 tile edges of 4+ on a 256², and 5 % asks about 1,700. Tried and dropped: floor benches gathered in
+  faces of 4 (beside a 4+ drop 3.7–5.6 %, but regional relief 6.1–8.5, one-level share to 60.5 %, the calm row lost
+  on Normal s2 and 2–4 attempts on every seed); five to seven mesas of radius 20–46 (no gain: 2.1–3.3 %, plateaus 11
+  on seed 6, one-level share 64 % on seed 2).
+- Not worked: straight spring channels at 384² (with one spring the floor draws fewer; the 384² draws now fail on the
+  water story and badwater, not straight channels); the ruled bits (the bench-side shore of Easy s4 and Normal 384²,
+  seed 2's notch, the stepped sides' staircases, seed 4's front notch).

@@ -89,9 +89,9 @@ import { decodeSpecFragment, encodeSpecFragment, makeSpec, type MapSpec } from "
 // branch gives `0743284b…` byte for byte, D148
 // and generator 0.10.50's version alone (D(pick-start), which keeps this map's start): with the version set back to 0.10.49
 // the branch gives `238e0be0…` byte for byte, D148
-// and generator 0.10.51's version alone (uplands round 6, Highlands stands up, which moves no map at 128² and none but
+// and generator 0.10.52's version alone (uplands round 6, Highlands stands up, renumbered from 0.10.51; it moves no map at 128² and none but
 // Highlands): with the version set back to 0.10.50 the branch gives `4ef44283…` byte for byte, D148
-const SHA = "f7cce1490a940e33785f881d5a9ef8a1d331431e13d9bdfa9150f71656d8e3a7";
+const SHA = "dc8f9a8deebcea64b80cde5800a87ecfa114004598a6913fe085a632379f2fe8";
 
 // (a Hard map whose start lake parts as it falls: the single analytic reading stood 0.32 over the run there, PR #1040;
 // seed 5 for 7 since D518 with dev's ways out by a ramp's line (#1061), D148: seed 7's Hard lake stair holds no plan now

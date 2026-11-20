@@ -58,15 +58,17 @@ export const BOLD = {
  *  bench, over `benchTurn`). `springs`
  *  (step 2): the springs such a land draws at the most. `bench` (step 2): the rings the floor steps down to the bowl
  *  and the channel past the sill in, each `min`–`max` tiles broad over a noise of `cell` tiles, wobbling `wobble`
- *  tiles, `rings` of them, `step` levels each. `mesa.plinth` (step 2): the levels of the one bench a mesa stands on
- *  where its wall keeps `plinthWall` levels over it, `plinthMin`–`plinthMax` tiles broad. */
+ *  tiles, `rings` of them, `step` levels each. `mesa.plinth` (step 2; step 4: under the stepped side only): the levels
+ *  of the bench a mesa's stepped side ends on, `plinthMin`–`plinthMax` tiles broad; `mesa.tier` (step 4): an inner
+ *  ring's rise where the top leaves room for it, and `mesa.first` the least share of the radii the first mesa is drawn
+ *  from. */
 export const STAND = {
-  springs: 3,
+  springs: 1,
   valley: { rMin: 0.14, rMax: 0.18, stray: 0.06, softMin: 1.2, softMax: 3.5, halfMin: 0.026, halfMax: 0.038, wander: 0.11, cell: 0.3, side: 1.5, over: 0, rise: 2 },
   lake: { sill: 2, deep: 2, share: 0.35, budget: 0.6, at: 0.7, sillPast: 0.2, soft: 1, sillRun: 4, incise: 1.4, stretch: 0.5, lobes: 2.6, bays: 0.12, baysCell: 0.35, shift: 0.12, benchStretch: 0.6, benchLobes: 1.5, benchCos: 0.35, benchTurn: 0.3 },
   bench: { min: 5, max: 13, cell: 40, wobble: 3, rings: 3, step: 2 },
   floor: { over: 4, relief: 4, roll: 0, riser: 0, drift: 0, away: 0.5, far: 0.5 },
-  mesa: { fewest: 4, most: 6, rMin: 24, rMax: 46, hMin: 4, hMax: 6, gap: 8, edge: 0.6, wall: 1.2, stretch: 0.35, brokenMin: 0.12, brokenMax: 0.25, runMin: 1.8, runMax: 4.5, inset: 7, inner: 0.8, tries: 200, plinth: 2, plinthWall: 5, plinthMin: 4, plinthMax: 9 },
+  mesa: { fewest: 4, most: 6, rMin: 24, rMax: 46, hMin: 4, hMax: 6, gap: 8, edge: 0.6, wall: 0.5, stretch: 0.35, brokenMin: 0.12, brokenMax: 0.25, runMin: 1.8, runMax: 4.5, inset: 7, inner: 0.8, tier: 4, first: 0.85, tries: 200, plinth: 2, plinthMin: 4, plinthMax: 9 },
 } as const;
 
 /** A form's outline for `formDist`: a mesa's or a hollow's, its lobes gentler than the ringed forms'. */
@@ -380,7 +382,7 @@ export function standMesas(level: Float64Array, E: Float64Array, W: number, H: n
     let best: { x: number; y: number; r: number; e: number; turn: number; T: number; foot: number; t: number; share: number; plinth: number; p75: number } | null = null;
     for (let t = 0; t < M.tries; t++) {
       const u = rng.float();
-      const r = (M.rMin + (M.rMax - M.rMin) * (k === 0 ? 0.7 + 0.3 * u : u)) * sizeK;
+      const r = (M.rMin + (M.rMax - M.rMin) * (k === 0 ? M.first + (1 - M.first) * u : u)) * sizeK;
       const e = 1 + M.stretch * rng.float();
       const turn = rng.float();
       const reach = r * e;
@@ -422,20 +424,21 @@ export function standMesas(level: Float64Array, E: Float64Array, W: number, H: n
           if (L > inMax) inMax = L;
         }
       const sorted = rim.slice().sort((a, b) => a - b);
-      // (round 6b step 2: on a plinth of one or two benches where the top leaves room, its wall over the last)
+      // (round 6b step 4: the wall rises from the floor in one face; only the stepped side stands on a plinth)
       const p75 = Math.round(sorted[18]);
-      const T = Math.min(p75 + M.plinth + h, top);
-      const plinth = T - p75 - M.plinthWall >= M.plinth ? M.plinth : 0;
+      const T = Math.min(p75 + h, top);
+      const plinth = T - p75 - M.plinth >= M.plinth ? M.plinth : 0;
       if (inMax > T - 2.5 || inMin < base + 2) continue;
       let share = 0;
-      for (const L of rim) if (T - plinth - L >= M.hMin - 0.5 && T - plinth - L <= M.hMax + 1.5) share++;
+      for (const L of rim) if (T - L >= M.hMin - 0.5 && T - L <= M.hMax + 1.5) share++;
       share /= rim.length;
       if (share >= 0.6 && (!best || share > best.share + 0.05 || (k === 0 && share >= best.share - 0.05 && r > best.r))) best = { x, y, r, e, turn, T, foot: T - h, t, share, plinth, p75 };
     }
     if (!best) continue;
     const { x, y, r, e, turn, T, t, plinth } = best;
-    const foot = T - Math.max(M.hMin, T - best.p75 - plinth);
-    const f = outline(hash32(seed, "stand-mesa", variation, k, t), x, y, r, 1.5);
+    // (the stepped side's foot: the plinth's level, where the steps end)
+    const foot = best.p75 + plinth;
+    const f = outline(hash32(seed, "stand-mesa", variation, k, t), x, y, r, 2);
     const o = stream(f.s, "mesa-parts");
     // the broken arcs: one or two, an eighth to a quarter of the rim, the first toward the valley
     const share = M.brokenMin + (M.brokenMax - M.brokenMin) * o.float();
@@ -447,7 +450,8 @@ export function standMesas(level: Float64Array, E: Float64Array, W: number, H: n
     if (o.float() < M.inner) {
       const ir = (0.4 + 0.2 * o.float()) * r;
       inner = outline(hash32(f.s, "inner"), x + (o.float() - 0.5) * 0.4 * r, y + (o.float() - 0.5) * 0.4 * r, ir, 1.5);
-      rise = Math.min(2, top - T);
+      // (round 6b step 4: a second tier with a wall of its own where the top leaves room, else a bench)
+      rise = top - T >= M.tier ? M.tier : Math.min(2, top - T);
       if (rise <= 0) inner = null;
     }
     mesas.push({ f, e, ca: sinDet(TWO_PI * turn + TWO_PI / 4), sa: sinDet(TWO_PI * turn), T, foot, arcs, inner, rise });
@@ -486,21 +490,20 @@ export function standMesas(level: Float64Array, E: Float64Array, W: number, H: n
         if (tin > 2) tops[i] = 1;
         let top0 = T;
         if (inner) top0 += rise * smoothstep((1 - formDist(inner, x, y, inner.x, inner.y, inner.r)) * inner.r + 0.5);
-        // the plinth: from the wall's foot down to the floor a level a ring, each ring a few tiles, irregular (round
-        // 6b step 2)
-        let Lp = L;
-        if (foot > L && tin < 0 && valley.m[i] <= 0) {
-          const run = M.plinthMin + (M.plinthMax - M.plinthMin) * (fbm(f.s + 19, x, y, 14, 2) + 1) / 2;
-          const pl = foot - M.plinth * Math.floor(Math.max(0, -tin - M.wall / 2) / run);
-          if (pl > L) Lp = pl;
-        }
-        // the wall: a steep band at the rim, standing on the plinth
+        // the wall: a steep band at the rim, rising from the floor in one face (round 6b step 4)
         const w = smoothstep((tin + M.wall / 2) / M.wall);
-        const vWall = Lp + w * (top0 - Lp);
-        // the broken side: the edge eaten in, then a level every few tiles, irregular
+        const vWall = L + w * (top0 - L);
+        // the broken side: the edge eaten in, then a level every few tiles, irregular, down to a plinth that falls to
+        // the floor a level a ring, each ring a few tiles, irregular (round 6b step 2; step 4: under this side only)
         const a = arcOf(arcs, pseudoAngle(x - f.x, y - f.y));
         let v = vWall;
         if (a > 0) {
+          let Lp = L;
+          if (foot > L && tin < 0 && valley.m[i] <= 0) {
+            const run = M.plinthMin + (M.plinthMax - M.plinthMin) * (fbm(f.s + 19, x, y, 14, 2) + 1) / 2;
+            const pl = foot - M.plinth * Math.floor(Math.max(0, -tin - M.wall / 2) / run);
+            if (pl > L) Lp = pl;
+          }
           const inset = M.inset * (fbm(f.s + 11, x, y, 9, 2) + 1) / 2;
           const run = M.runMin + (M.runMax - M.runMin) * (fbm(f.s + 13, x, y, 7, 2) + 1) / 2;
           const out = Math.max(0, inset - tin);
