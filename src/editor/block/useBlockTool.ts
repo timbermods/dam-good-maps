@@ -302,8 +302,14 @@ export function useBlockTool(ed: Ed): BlockSlice {
       ed.setMessage({ kind: "error", text: plain(known.reason) });
       return;
     }
-    // (the preview is cleared as the edit goes: the new blocks stand where it was)
-    ask(null);
+    // (the preview stays until the land answers, so the click shows at once and the new blocks take its place in the
+    // frame they land in; cleared once: by the answer, a refusal, or an edit that never went)
+    let shown = true;
+    const landed = () => {
+      if (!shown) return;
+      shown = false;
+      ask(null);
+    };
     void run(
       (w) => {
         // (said as it goes, after any edit queued before it has landed: the land its answer brings is its own)
@@ -311,6 +317,7 @@ export function useBlockTool(ed: Ed): BlockSlice {
         return w.apply({ op: "blocks", params }, "user", blockLabel(mode));
       },
       (u) => {
+        landed();
         if (!u.ok) return refresh();
         ed.firstDoneRef.current("paint");
         // the land's answer: dust and the thud of stone for blocks taken, a set-down for blocks added
@@ -318,7 +325,14 @@ export function useBlockTool(ed: Ed): BlockSlice {
         const c = list[Math.floor(list.length / 2)] ?? sweep.at[0];
         feel(mode === "add" ? "raise" : "lower", c[0], c[1], params.size);
       },
-    ).finally(() => renderer.current?.blockEditSent(false));
+    ).finally(() => {
+      renderer.current?.blockEditSent(false);
+      // (an edit that never reached its answer, a resize or a force running: its preview cleared, the face under the
+      // pointer is asked about again, so the preview is back without a move)
+      if (!shown) return;
+      landed();
+      refresh();
+    });
   }
 
   // the map changed (an edit, an undo, a redo): the face under the pointer is asked about again

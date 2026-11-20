@@ -1161,7 +1161,8 @@ on one shared forces core, `src/core/forces/` (D203, D206, D220; see its README)
   blocks the viewer sees, those whose face toward the aimed side is open (read by the core from the ground before the
   operation, under the layer cut), never what is buried inside a hill, so the preview and the operation agree; nothing is
   applied until the press is let go, then it is one `blocks` operation, one undo
-  step ("Add blocks" or "Remove blocks"); a refusal is the page's usual note and changes nothing; Esc in the middle of a
+  step ("Add blocks" or "Remove blocks"), its preview kept drawn until the land answers and cleared in the frame the new
+  land is drawn in, so a click shows at once however long the answer takes; a refusal is the page's usual note and changes nothing; Esc in the middle of a
   drag drops it, a second Esc (or X) puts the tool away. A press on nothing (the sky) turns the camera. The page sends
   the working area (Select's open selection as runs, `area`) and the view's layer cut (`cut`) with every operation and
   makes no refusals of its own: the core refuses a cell outside the area ("(x, y) is outside the selection") and
@@ -2296,7 +2297,13 @@ checks dot counts; every other row is information under Good to know, worded as 
     `sightCamera`): the landmark the start's opening frame holds, as the landmark intention reads it (`analysis/opening.ts`
     `openingSight`: a standing form 8+ over its ring, else a fall of 6+; a premise's landmark fall is placed in that
     frame), seen from the colony's side, 30° or 40° down, 45 to 85 tiles off, the nearest frame that holds its top and
-    shows at most 5% backdrop, the best of those by the looks score. A map with no start, no sight or no such frame
+    shows at most 5% backdrop, the best of those by the looks score; beside it the land's rock arches (`formSights`: each
+    seen through along its best heading, 26 to 48 tiles off, with no rock between the eye and it; never an overhang
+    or a cave, whose opening is a dark band under a cliff face at the card's size), each kept where its frame looks
+    within 0.1 of the landmark's (on a map with no landmark frame, within 0.05 of the whole map's picture below), shows at least
+    1.5% of rock above air and passes the backdrop check, the frame worth
+    most (looks plus rock seen above air, more for air seen through) winning. Backdrop counts the sky behind a tree's crown too (`castPicture`'s `veiled`), the
+    sky the drawn crown does not hide. A map with no start, or no landmark or arch frame that passes,
     keeps the game's own map thumbnail camera
     (`ThumbnailCameraDefaultPositionProvider`; `render3d/heroView.ts` `heroCamera`: 40° down, face-on, the game camera's
     35° field of view, turned to the start's orientation (north without a start), centred on the land and pulled back
