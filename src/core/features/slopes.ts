@@ -443,7 +443,7 @@ export function placeSlopes(h: Uint8Array, W: number, H: number, start: { x: num
 }
 
 /** The last river mask `stepsFrom` read and its steps (the settler reads the slopes of many starts toward one river,
- *  D(pick-start)). Read only. */
+ *  D545). Read only. */
 let lastSteps: { mask: Uint8Array; W: number; H: number; d: Int32Array } | null = null;
 
 /** 4-neighbour steps from every tile to the nearest set tile of `mask` (a large number where none

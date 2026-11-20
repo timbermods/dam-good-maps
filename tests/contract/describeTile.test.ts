@@ -92,7 +92,7 @@ describe("describeTile: what is on a tile, in plain data (D347, B11)", () => {
     const [sx, sy] = startTiles[Math.floor(startTiles.length / 2)];
     expect(ed.describeTileAt(sx, sy)!.objects.map((o) => o.text)).toContain("Start");
     if (slope >= 0) expect(ed.describeTileAt(e.x[slope], e.y[slope])!.objects.map((o) => o.text)).toContain("Slope");
-    // (a tile with nothing on it: (1, 1) until generator 0.10.48, whose ruin field covers that corner since D(terrace-edges)' warp
+    // (a tile with nothing on it: (1, 1) until generator 0.10.48, whose ruin field covers that corner since D544' warp
     // making no cliff moved the land, D148; the north-west corner has no object)
     const bare = ed.describeTileAt(1, W - 2)!;
     expect(bare.objects).toEqual([]);
@@ -179,7 +179,7 @@ describe("describeTile: what is on a tile, in plain data (D347, B11)", () => {
     // leaves seed 1 no such ground; of seeds 1–8 only 5, 7 and 8 hold it, seed 5 at (12, 39), level 10)
     // (the test needs a dry, flat, empty 7×7 at level 5 or above, 6 tiles clear of the water: River Valley 96² seed 1's saved
     // land, D148, where the search below finds one at (40, 14), level 10, so a land change does not move it; generated live
-    // at generator 0.10.30, D(new-ditch), seed 5's land holds none, and of the saved River Valley 96² lands seed 1 is the first
+    // at generator 0.10.30, D536, seed 5's land holds none, and of the saved River Valley 96² lands seed 1 is the first
     // that does)
     fixtureInEditor("riverValley", W, 1);
     const s = MapSession.open(decodeProject(ed.project().bytes));

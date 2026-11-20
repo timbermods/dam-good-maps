@@ -6,7 +6,7 @@
 // A search by turns over the sources, strongest first: each may keep its place and strength, run weaker (three
 // quarters or half of today's, never under the official maps' 0.5 a second), go, or stand at the head of the largest
 // body of real water (a feed in a real lake the land holds no river into). Never stronger than today. Two steps more
-// (D(new-films), planning's rulings of 2026-11-15): a place with no real water (no body of 30 tiles in the mask) first
+// (D537, planning's rulings of 2026-11-15): a place with no real water (no body of 30 tiles in the mask) first
 // tries D245's water floor, one spring for all of them (each of its own alone, at its strengths, or a spring by the
 // start: `opts.springs`); and once no single change gains, two or three sources go together (`DROP_GROUPS`). A change
 // is kept when it raises the measure by `GAIN` tiles or more, holds the real water (`REAL_HELD`) and the caller's `keep` passes (the checks that may not get worse: the start's water first and the rest
@@ -23,7 +23,7 @@ export const FEED_SHARES = [0.75, 0.5] as const;
 /** The least gain in the measure a change must bring, in tiles (less is the settle's noise). */
 export const GAIN = 20;
 /** The real water a turn may cost, as a share of what the place had (planning: the water over real water is held, the
- *  rest brought down); never less than `GAIN` tiles, the settle's noise. The steps D(new-films) adds (one spring, sources
+ *  rest brought down); never less than `GAIN` tiles, the settle's noise. The steps D537 adds (one spring, sources
  *  gone together) cost none, and once one is taken no later step goes under the real water it started from (planning's
  *  ruling of 2026-11-15: the water over real water stays at or above today's on every place). */
 export const REAL_HELD = 0.02;
@@ -45,7 +45,7 @@ export function realMeasure(depth: ArrayLike<number>, real: Uint8Array, wet = 0.
   return { real: r, dry: d, score: r - d };
 }
 
-/** The water over real dry land in two parts (D(new-films), planning's ruling of 2026-11-15: the measure splits, it does
+/** The water over real dry land in two parts (D537, planning's ruling of 2026-11-15: the measure splits, it does
  *  not forgive): the floor-0 sheet (wet tiles on floor 0 no deeper than `FILM_DEPTH`, in bodies of `FILM_TILES` or more,
  *  held by the edge's spill, D303) and everything else; with the water over real water. */
 export function realParts(depth: ArrayLike<number>, floor: ArrayLike<number>, W: number, H: number, real: Uint8Array): { real: number; dry: number; sheet: number; rest: number } {
@@ -115,7 +115,7 @@ type Scores = (mm: Measure, now: Measure, over?: number) => boolean;
  * sources, src/core/places/spring.ts). `served`: whether a candidate's start has water within its walk (`start.water`
  * passes); `above`: whether a spring list stands above the start (`aboveStart`); `rank`: the walk to the start's pool
  * (`startPool`), the nearest first. The one spring is the start's
- * (D(new-films), planning's ruling of 2026-11-16): a list whose start then has water within its walk, those above the
+ * (D537, planning's ruling of 2026-11-16): a list whose start then has water within its walk, those above the
  * start first; once taken, no later step takes that water from the start.
  */
 export function searchFeeds(
@@ -156,7 +156,7 @@ function search(place: PlaceData, real: Uint8Array, settle: (p: PlaceData) => Ar
   // a candidate kept by the measure: the real water held, no more water over real dry land where `dryNotUp` says so,
   // and a gain of `GAIN` over the water it would replace (`now`) and over the best candidate so far (`over`)
   const scores: Scores = (mm, now, over = now.score) => mm.real >= realFloor && !(opts.dryNotUp && mm.dry > now.dry) && mm.score >= over + GAIN;
-  // a step D(new-films) adds: no real water lost from where it starts, and none under it after
+  // a step D537 adds: no real water lost from where it starts, and none under it after
   const held = (mm: Measure) => mm.real >= m.real;
   const hold = () => void (realFloor = Math.max(realFloor, m.real));
   // the strength a source had before the search (where it stands now), or its own

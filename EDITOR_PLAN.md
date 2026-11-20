@@ -750,7 +750,7 @@ on one shared forces core, `src/core/forces/` (D203, D206, D220; see its README)
   level round it, to where the force put it, or where the force's rounding would leave that one tile wide to where it
   stood, or where that too would, to the level of the ground beside it within two levels of where it stood, and
   failing all of those still within two levels, the ground it leaves one tile wide joining ground within two levels
-  of its own (D(craterize-gentle)): never down its cliff, and where it can never leaving ground one tile wide (the
+  of its own (D531): never down its cliff, and where it can never leaving ground one tile wide (the
   land's own ground that was one tile wide before the force, where it still stands, holds no corner down: the
   tidying may not widen such a ledge by dropping the ridge above it). A tile no square reaches joins ground within
   two levels of its own before any further off, so the corner of a cliff's foot waits for the low ground beside it
@@ -2270,7 +2270,7 @@ checks dot counts; every other row is information under Good to know, worded as 
     whose source its maker removed) is the map's own, a stored lake like a Fill (`features/build.ts`
     `importedWater`), so the live water and the export keep it alike and the game evaporates it in its own time;
     Remove unfed water can still take it. D420 is unchanged for generated maps and Real places.
-  - **Speed:** after an edit the preview re-settles from its previous state (the warm start, `sim/preview.ts`: only the tiles whose floor, dam or emitters changed and the dry tiles within 2 tiles of them start again; a wet tile beside the edit keeps its water and momentum, so a flowing river carries on as it ran, D(new-preview)); the target is ≤ 2 s for a local edit
+  - **Speed:** after an edit the preview re-settles from its previous state (the warm start, `sim/preview.ts`: only the tiles whose floor, dam or emitters changed and the dry tiles within 2 tiles of them start again; a wet tile beside the edit keeps its water and momentum, so a flowing river carries on as it ran, D538); the target is ≤ 2 s for a local edit
     on 256² (measured 1.3–1.4 s in Chrome on the slowest themes, at most 1.75 s in Node, D99). A full re-settle
     runs in the background with progress, past the first game day while the water still moves, up to the canonical
     settle's days (`PREVIEW_JOB_DAYS`), so the dot leaving "Settling…" means it. Speed belongs to the day strip alone (D268; §5).

@@ -17,12 +17,12 @@ import { springCandidates } from "../water/springSites";
 import { decodeTiles, type PlaceData } from "./place";
 
 /** Whether a spring at tile `i` stands above the start: on ground higher than the start's middle tile, so its water runs
- *  down across land the start can use (D(new-films), planning's ruling of 2026-11-16: the start's spring). */
+ *  down across land the start can use (D537, planning's ruling of 2026-11-16: the start's spring). */
 export function aboveStart(p: PlaceData, heights: ArrayLike<number>, i: number): boolean {
   return heights[i] > heights[(p.start[1] + 1) * p.W + p.start[0] + 1];
 }
 
-/** The pool the start's first settlers pump from (D(new-films), planning's ruling of 2026-11-16): the nearest water,
+/** The pool the start's first settlers pump from (D537, planning's ruling of 2026-11-16): the nearest water,
  *  by the walk from the start (`walkDistance`), that a pump on a shore the walk reaches draws from (`tileShoreWalk`:
  *  clean, 0.3 deep or more, its surface 0 to 2 levels under the shore's ground, the Folktails WaterPump's pipe, the
  *  shorter of the two factions' first pumps; Iron Teeth's first is the DeepWaterPump), within `within` tiles, in a body

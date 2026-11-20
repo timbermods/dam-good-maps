@@ -279,7 +279,7 @@ export function canonicalSettle(m: WaterModel, opts: WaterSimOptions = {}, from?
   return r;
 }
 
-/** `canonicalSettle`'s water, watched at every check (D(start-spring-stop)): the same settle, ended early and
+/** `canonicalSettle`'s water, watched at every check (D539): the same settle, ended early and
  *  `stopped` when `watch` says the water plainly won't settle. Null where it can't be watched (terrain above terrain,
  *  or a batch job's native backend), for the caller to settle as ever. */
 export function watchedSettle(m: WaterModel, watch: SettleWatch): CanonicalWater | null {
@@ -325,7 +325,7 @@ export function canonicalRun(m: WaterModel, opts: WaterSimOptions = {}, from?: S
         const r = run.advance(left);
         left -= sim.ticks - t0;
         if (!r) return null;
-        // (a watch ended it, D(start-spring-stop): the water as it stands, never a canonical settle)
+        // (a watch ended it, D539: the water as it stands, never a canonical settle)
         if (r.stopped) {
           done = { ...r, depth: sim.D.slice(), contamination: sim.C.slice(), sat: new Uint8Array(m.W * m.H) };
           sim.dispose();

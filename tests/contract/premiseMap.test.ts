@@ -58,7 +58,7 @@ import { decodeSpecFragment, encodeSpecFragment, makeSpec, type MapSpec } from "
 // reaching in a disc), a new ground, D148;
 // and generator 0.10.25's version alone, its Lake Basin water settings moving no Canyon map, D148;
 // and generator 0.10.26's ruins to within a column, D527: its ruin fields hold the scrap asked to a column, D148;
-// and generator 0.10.27's version alone, the premise map otherwise 0.10.26's (D(new-leaks) moves the themes' land, not a premise's), D148;
+// and generator 0.10.27's version alone, the premise map otherwise 0.10.26's (D532 moves the themes' land, not a premise's), D148;
 // and generator 0.10.29's version alone (#1186): at 0.10.27 the branch gives `7760e7be…` byte for byte, D148;
 // and generator 0.10.36's version alone (#1205): `93bb3867…` before it, and with the version set back to 0.10.29 the branch gives
 // `93bb3867…` byte for byte, the round forms at their meant size not reaching this premise's land, D148;
@@ -66,30 +66,30 @@ import { decodeSpecFragment, encodeSpecFragment, makeSpec, type MapSpec } from "
 // `c42349c0…` byte for byte, Generous's forms kept in and a small map's gentle rescue land not reaching this map, D148)
 // and generator 0.10.38's version alone (the dead-stand cap): with the version set back to 0.10.37 the branch gives
 // `a7b0b746…` byte for byte, D148;
-// and generator 0.10.39's plates (D(plates-turned)) over the cap: `96638837…` before it; each plate's rim ragged by noise moves its
+// and generator 0.10.39's plates (D540) over the cap: `96638837…` before it; each plate's rim ragged by noise moves its
 // uplands, every property above unchanged (the cap's stands (#1213) move this map no further: the branch gives `1eed1d4c…`
 // with the cap merged in and without it), D148
 // and generator 0.10.40's version alone (#1225, small maps at their own scale): with the version set back to 0.10.39 the
 // branch gives `1eed1d4c…` byte for byte, D148
 // and generator 0.10.42's version alone (#1227, Easy start shaped on the settled water, which a map without Easy start never
 // reaches): with the version set back to 0.10.40 the branch gives `5e8e12c9…` byte for byte, D148
-// and generator 0.10.43's version alone (D(highlands-slot), a gorge winding at a small map's scale, which a 128² map never
+// and generator 0.10.43's version alone (D542, a gorge winding at a small map's scale, which a 128² map never
 // reaches; #1236 merged after #1227): `4dd5345e…` before it,
 // and dev with its version set to 0.10.43 gives this branch's bytes, D148
-// and generator 0.10.44's version alone (D(gorge-followups): a tributary deep under a wall winds at a small map's scale, which a
+// and generator 0.10.44's version alone (D543: a tributary deep under a wall winds at a small map's scale, which a
 // 128² map never reaches, and a gorge arch found along its gorge's heading, which this map never grows):
 // `63980a48…` before it, and dev with its version set to 0.10.44 gives this branch's bytes, D148
-// and generator 0.10.46's version alone (D(new-ditch), D(sea-steps)): with the version set back to 0.10.44 the merged code gives
+// and generator 0.10.46's version alone (D536, D533): with the version set back to 0.10.44 the merged code gives
 // `aa6cb441…` byte for byte, the gullies and sea steps not reaching this premise's land, D148
-// and generator 0.10.47's version alone (the merge of #1162's ruled water, D(ruled-water), with #1195): with the version set back
+// and generator 0.10.47's version alone (the merge of #1162's ruled water, D534, with #1195): with the version set back
 // to 0.10.46 the merge gives `c55bf4df…` byte for byte, D148
-// and generator 0.10.48's version alone (the merge of D(terrace-edges) with D(ruled-water)): with the version set back to
+// and generator 0.10.48's version alone (the merge of D544 with D534): with the version set back to
 // 0.10.47 the merge gives `62e2f45d…` byte for byte, D148
-// and generator 0.10.49's version alone (D(uplands), which moves no map at 128²): with the version set back to 0.10.48 the
+// and generator 0.10.49's version alone (D547, which moves no map at 128²): with the version set back to 0.10.48 the
 // branch gives `0743284b…` byte for byte, D148
-// and generator 0.10.50's version alone (D(pick-start), which keeps this map's start): with the version set back to 0.10.49
+// and generator 0.10.50's version alone (D545, which keeps this map's start): with the version set back to 0.10.49
 // the branch gives `238e0be0…` byte for byte, D148
-// and generator 0.10.51's version alone (D(pick-start) round 3, which keeps this map's start): with the version set back to
+// and generator 0.10.51's version alone (D545 round 3, which keeps this map's start): with the version set back to
 // 0.10.50 the branch gives `4ef44283…` byte for byte, D148
 const SHA = "f7cce1490a940e33785f881d5a9ef8a1d331431e13d9bdfa9150f71656d8e3a7";
 

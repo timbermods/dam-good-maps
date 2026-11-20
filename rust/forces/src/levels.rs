@@ -242,7 +242,7 @@ pub(super) fn whole(surface: &[f64], ground: &[f64], before: &[u8], w: usize, h:
     // where that leaves nothing one tile wide that the tidying had left at least two wide: else that
     // ground goes back where it stood, or the corner alone does, or it takes the level of the ground
     // beside it within two levels of where it stood. Failing all of these it still never falls the cliff
-    // (D(craterize-gentle)): it stands on the first of those levels that puts it in a square, else where
+    // (D531): it stands on the first of those levels that puts it in a square, else where
     // it stood, and the ground beside it that this leaves one tile wide joins ground within two levels of
     // where that stood, where it can. The
     // land's own ground one tile wide, standing where it stood, counts for none of this: the tidying may

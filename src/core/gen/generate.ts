@@ -205,7 +205,7 @@ export interface GenerationInfo {
    *  D330's fix), "gentler rivers" (water over the flood line), "way out worn wider" (D350 (b)), "start
    *  moved off badwater" (a start that broke the badwater distance gave way to another), "start by
    *  other water" (the badwater joins the main water past the start planned from, D476), "badwater by a ditch" (the
-   *  land had no site a fall-line gully serves: the ditch as before the gully, D(new-ditch) (14)). */
+   *  land had no site a fall-line gully serves: the ditch as before the gully, D536 (14)). */
   fixes?: string[];
   /** The way out worn wider (D350 (b), D360 (3)): the tiles cut, the basin's size and its level, the
    *  width worn and the path its water takes out. */
@@ -577,7 +577,7 @@ export async function generateAsync(specIn: MapSpec, opts: GenerateOptions, runn
  *  channel's half-width and its banks. */
 const JOIN_TOUCH = 6;
 
-/** Ruled water's retry (D(ruled-water)): a refusal is the joins' doing only when it names or touches a joined course
+/** Ruled water's retry (D534): a refusal is the joins' doing only when it names or touches a joined course
  *  (`Hydro.joinedRivers`): before the build, the rivers it names (`Attempt.touches`); on a built map, a blocking check whose
  *  feature is one or whose tiles lie within `JOIN_TOUCH` of one's course. A start, a mine pair, a dam wall or a badwater
  *  hollow with no place, away from them, is the land's, and the land is drawn again as dev draws it, at no second plan's
@@ -933,7 +933,7 @@ function attemptRound(specIn: MapSpec, optsIn: GenerateOptions, t0: number, roun
  *  the sea, and any lake on an island) that stand at the level their water spills at, in 4-connected
  *  groups of 8 tiles or more, off the locks and the protected tiles, rise a level and are dry: the
  *  water stands a level or more deep everywhere but at its shore. A planned course's own channel across a
- *  shelf stays (D(sea-steps)): risen, it would dam the course, whose water then left by another way. Returns
+ *  shelf stays (D533): risen, it would dam the course, whose water then left by another way. Returns
  *  how many rose. */
 function raiseSeaShelves(h: Uint8Array, W: number, H: number, water: Uint8Array, rivers: readonly RiverFeature[]): number {
   const N = W * H;
@@ -1419,7 +1419,7 @@ function springByStart(b: BuildResult, rule: number, seed: number, attempt: numb
   return null;
 }
 
-/** When a start spring's settle plainly won't settle (D(start-spring-stop)): a body of water over `body` of the map
+/** When a start spring's settle plainly won't settle (D539): a body of water over `body` of the map
  *  has moved more than the settle's tolerance at every one of the last `run` checks, filling all the while (a sea
  *  or a lake the spring still raises), and its move, shrinking as it has over those checks, would not come under the
  *  tolerance until `margin` times the checks the settle has left (its drain days counted). The full settle would end
@@ -1736,7 +1736,7 @@ function planLandStage(land: Land, attempt: number, W: number, H: number, seed: 
   // basins' outlets below: either would give the course's water a second way out, lower than its own)
   const beside = besideCourses(h, W, H, hy.water, hy.rivers);
   // (nor an inflow's own edge below a level over the water standing on its course: lowered, a sea it
-  // ends in would leave beside its mouth, D(sea-steps))
+  // ends in would leave beside its mouth, D533)
   {
     const edgeFloor = inflowEdges(h, W, H, hy.rivers, hy.arms.filter((a) => a.kind === "mouth").map((a) => a.path));
     for (let i = 0; i < N; i++) if (beside[i] < edgeFloor[i]) beside[i] = edgeFloor[i];
@@ -2142,13 +2142,13 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
     if (isles === "only") return null;
     return pickOn(D, C, M, salt, avoid, weight, near, reusePlanned);
   };
-  // (room first on the settled water only, D(pick-start): on the water the hydrology planned the start is the guess
+  // (room first on the settled water only, D545: on the water the hydrology planned the start is the guess
   // the badwater hollows keep away from, ranked as before)
   let onPlan = true;
   // (on the settled water, the rivers' channel the build lays: the pick reads its walks over the slopes the build
-  // places, toward it, D(pick-start))
+  // places, toward it, D545)
   let slopeWater: Uint8Array | null = null;
-  // (the badwater sources' hollows dug, for the Easy badwater row a start chosen for its room keeps: D(pick-start))
+  // (the badwater sources' hollows dug, for the Easy badwater row a start chosen for its room keeps: D545)
   const badHollows = (): [number, number][] => bad.features.flatMap((f) => (f.kind === "setPiece" && f.params.kind === "badwaterBasin" ? [(f.params.request as { at: [number, number] }).at] : []));
   const pickOn = (D: ArrayLike<number>, C: ArrayLike<number>, M: ArrayLike<number>, salt: number, avoid: Uint8Array | null, weight: number, near: { x: number; y: number } | null, reusePlanned: boolean): StartPick | null => {
     let data = reusePlanned ? plannedStart : null;
@@ -2260,9 +2260,9 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
     keepOff: (weir ? pool : null) as Uint8Array | null,
     // (the ditches follow the field's own drainage, as the rivers' courses do)
     field: land.E,
-    // (Designed for pulls the badwater near the start on Hard, away on Easy: D(new-ditch) (6))
+    // (Designed for pulls the badwater near the start on Hard, away on Easy: D536 (6))
     prefer: (spec.designedFor === "hard" ? "near" : spec.designedFor === "easy" ? "far" : undefined) as "near" | "far" | undefined,
-    // (the places prepared for the start, set once they are: no gully turns bad their nearest clean water, D(new-ditch) (13))
+    // (the places prepared for the start, set once they are: no gully turns bad their nearest clean water, D536 (13))
     starts: null as { x: number; y: number }[] | null,
   };
   // (the mine sites' squares, found or padded as the land was shaped, D363: the hollows keep off them)
@@ -2277,7 +2277,7 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
   if (from?.fillWalls !== undefined) info.fillWalls = from.fillWalls;
   // (the hollows off the mine sites' squares and the ways to them; off the squares alone where that
   // leaves them no room, and where even that does, as before: a map needs its badwater too)
-  // (D(new-ditch) (14): a land with no site a fall-line gully serves is never refused for it: the badwater takes the
+  // (D536 (14): a land with no site a fall-line gully serves is never refused for it: the badwater takes the
   // place the rule the gully replaced gives it, the ditch as before, and the attempt goes on. The gully is the better
   // way out for badwater, not a gate)
   const planBad = (D: ArrayLike<number>, ask: typeof badAsk, salt: number, start: { x: number; y: number }): Hazards => {
@@ -2345,7 +2345,7 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
         if (!lastAttempt && opts.screen !== false && screened.count < landScreen(W, H) && (!keeps || !po.story.readable)) {
           screened.count++;
           // A rejected Canyon course can be incised on the same shaped field, its tributaries back on their own wander if one
-          // wound as a gorge for running deep under a wall (`land/hydro.ts` `deepStretch`, D(gorge-followups)): Canyon 48²
+          // wound as a gorge for running deep under a wall (`land/hydro.ts` `deepStretch`, D543): Canyon 48²
           // seed 18's canyon was that tributary, and wound it missed the promise on every plan of its first land
           if (!keeps && shown.theme === "canyon") {
             g.hydro.incise += 1;
@@ -2695,7 +2695,7 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
           for (const f of bad.features) for (const o of by.get(f.id) ?? []) badReachers.add(o);
           for (const f of bad.features) contains.delete(f.id);
           h.set(bare);
-          // (only the pits reached are kept off: the others were sites, which the plan finds again, D(new-ditch) (5);
+          // (only the pits reached are kept off: the others were sites, which the plan finds again, D536 (5);
           // on Islands all of them, as before, its own ruling to come)
           if (shown.theme === "islands") keepOffH = orMask(keepOffH, bad.avoid);
           else {
@@ -3544,7 +3544,7 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
             contains.delete(f.id);
             return false;
           }
-          // (D(start-spring-stop): its water settled watched; water that plainly won't settle before the settle's limit,
+          // (D539: its water settled watched; water that plainly won't settle before the settle's limit,
           // a sea the spring still fills, is refused there as the limit would refuse it. A settle that ends is the
           // canonical one, which the build below takes from the cache)
           if (!caves && !cache.get(model)) {

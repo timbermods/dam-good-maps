@@ -450,7 +450,7 @@ picked out by texture, Highlands 2 shows mesas and Canyon 1 a gorge. Lake Basin 
 
 ## The PR round (2026-11-19)
 
-Generator 0.10.49 (D(uplands)); numbers in `C:/dgm-showcase/gen/uplands-pr/`.
+Generator 0.10.49 (D547); numbers in `C:/dgm-showcase/gen/uplands-pr/`.
 
 - **Highlands' promise.** Read the same way as a built map, the bundled highlands' high share is Terraces 0.52, Pressure
   0.18, Mountain Range 0.45, Helix Mountain 0.29, Oasis 0.65 (their plateaus 9, 0, 0, 1, 3; cliffs .110, .087, .054,

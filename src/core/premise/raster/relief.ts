@@ -89,9 +89,9 @@ const STAIR_CELL = 8;
  *  outlands' mean over it, rounded after a lift of its own, up to `lift` levels either way, so neighbours meet in a
  *  step of none to three. */
 const PLATE = { from: 5, wander: 3, start: 16, lift: 1.2 };
-/** The plates' scatter's turn off the tile grid (cos, sin: 3-4-5, exact), at every size (D518, D(plates-turned)). */
+/** The plates' scatter's turn off the tile grid (cos, sin: 3-4-5, exact), at every size (D518, D540). */
 const PLATE_TURN = [4 / 5, 3 / 5] as const;
-/** The plates' rims wander (D(plates-turned)): each tile's distance to a plate's point is pushed by up to `rag` tiles,
+/** The plates' rims wander (D540): each tile's distance to a plate's point is pushed by up to `rag` tiles,
  *  by two noise fields `cell` tiles across weighed by the point's own draw, so two plates meet on a line that wanders
  *  as a natural rim does, never a straight side between two points. */
 const PLATE_RAG = { rag: 3, cell: 11 } as const;
@@ -535,7 +535,7 @@ export function reliefBetween(plan: PremisePlan, w: StageWater, style?: ReliefSt
   // so whatever is set a plate at a time meets its neighbours along ragged lines that run every way. The scatter's
   // lattice is turned off the tile grid (by 3-4-5, `PLATE_TURN`), so the plates' sides never run along its rows and
   // columns and meet in no square corner (D518: the scatter on the grid met in rectangles), at every size; and each
-  // point's distance is pushed by the rag fields (`PLATE_RAG`), so the line two plates meet on wanders (D(plates-turned):
+  // point's distance is pushed by the rag fields (`PLATE_RAG`), so the line two plates meet on wanders (D540:
   // over 128² the plates stood on the grid, level near-rectangles from the widest view)
   const P = 8 + Math.round(W / 16);
   const [tc, ts] = PLATE_TURN;

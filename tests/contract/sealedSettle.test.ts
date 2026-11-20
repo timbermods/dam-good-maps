@@ -26,8 +26,8 @@ function filled(N: number): { s: MapSession; level: number; tiles: readonly numb
   // (seed 3 → 2 at 0.10.36: seed 3's own flowing water settles in 4,736 ticks at 256² on the new land, against 2,432, so the Fill's settle, which is the plain settle's, ran past the test's 4 days; seed 2 settles in 2,560. Of seeds 1–6 at 256² one stands past 3,072 at each version: seed 6 at 0.10.29 (4,736), seed 3 at 0.10.36 (4,736), so it is the land's settle, not the Fill's, #1205)
   // (the test needs a map whose own water settles within the four days the Fill's must stop under: of seeds 3, 5, 1 and 6,
   // the first whose generated map does, read off the map, so a land change does not move it, D148; seeds 2 and 4 stay out
-  // for the plain check's reason above, and seed 2's 128² map fails it on D(new-ditch)'s land; at generator 0.10.30,
-  // D(new-ditch), River Valley 256² seed 3's map settles in 6.17 days, three gullies draining to the edge, and seed 5's in 2.00)
+  // for the plain check's reason above, and seed 2's 128² map fails it on D536's land; at generator 0.10.30,
+  // D536, River Valley 256² seed 3's map settles in 6.17 days, three gullies draining to the edge, and seed 5's in 2.00)
   const made = [3, 5, 1, 6].map((seed) => () => generate(makeSpec({ seed, theme: "riverValley", size: { x: N, y: N } }), { forms: false }));
   let r0 = made[0]();
   for (let k = 1; k < made.length && !(waterSteady(r0.built.settle) && r0.built.settle.ticks < 4 * TICKS_PER_DAY); k++) r0 = made[k]();
