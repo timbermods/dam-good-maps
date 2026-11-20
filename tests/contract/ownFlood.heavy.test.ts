@@ -1,7 +1,7 @@
 // A land whose own water floods past its theme's line (`water.no_flood`) is drawn again at the land stage, before
 // its start, its badwater and its settle (D348; planning's ruling on #236, 2026-11-15): never shown and then failed
 // on every attempt. D530 records it; its first case, Any 256² seed 4 (six shown attempts failing water.no_flood on
-// 0.10.29), no longer floods since the uplands (0.10.49). Islands 128² seed 1 is the case on 0.10.49: its third
+// 0.10.29), no longer floods since the uplands (0.10.49). Islands 128² seed 1 is the case on 0.10.51: its third
 // land's planned water stands over the line and is refused before it is shown.
 import { describe, expect, it } from "vitest";
 import { generate } from "../../src/core/gen/generate";
