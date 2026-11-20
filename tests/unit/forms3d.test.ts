@@ -109,9 +109,9 @@ describe("3D forms on hand-made land (D488)", () => {
     expect(readsThrough(seeThrough({ W, H, mask: g.mask, wet: wetOf(inp) }, underRock(g.mask, N, deck)))).toBe(true);
   });
 
-  it("an arch spans a gorge running along a diagonal, seen through both ways along it (D(gorge-followups))", () => {
+  it("an arch spans a gorge running along a diagonal, seen through both ways along it (D543)", () => {
     // rims at 12, a gorge 7 across at 45° (|x − y| ≤ 3) with the river in it: its walls close every sightline along x or
-    // y, and a winding gorge's crossing often runs so (D(highlands-slot))
+    // y, and a winding gorge's crossing often runs so (D542)
     const inp = land((x, y) => (Math.abs(x - y) <= 3 ? 3 : 12), (x, y) => (Math.abs(x - y) <= 1 ? 0.6 : 0));
     inp.rivers = [{ id: "r", path: [[4, 4], [44, 44]], badwater: false }];
     const g = growForms(inp, { "gorge-arch": 1 }, stream(3, "forms3d"));

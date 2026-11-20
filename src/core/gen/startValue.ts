@@ -3,7 +3,7 @@
 // `pickStart`) keeps its own ranking (ranking its places by this whole measure, read again on each one's build, raised
 // the bench but not the walkable land or the wood a start ends with: gen/start-value, #236 comment 6957728337) and
 // weighs its places by this measure's bench and wood parts, the bench read as the start's own level room (Easy start's
-// room row, `settler.ts` `roomAt`, `startWorth`, D(pick-start)): a place's score is scaled by them, and the seed draws
+// room row, `settler.ts` `roomAt`, `startWorth`, D545): a place's score is scaled by them, and the seed draws
 // only among the best few worth within `VALUE_MARGIN` of the worthiest.
 // The bench's regions (`benchRegions`, `benchAt`) live here and the settler reads them.
 //

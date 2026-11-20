@@ -210,7 +210,7 @@ export function checkForm(form: FormPlan, built: BuildResult, owner: string | nu
         if (low >= surface) air = Math.min(air, low - surface);
       }
       const see = seeThrough({ W, H, mask, wet: wetOf(stack, N) }, underRock(mask, N, deck), true);
-      // (both ways down the gorge: its `from` stands along it, along x, y or a diagonal, D(gorge-followups))
+      // (both ways down the gorge: its `from` stands along it, along x, y or a diagonal, D543)
       const through = readsThrough(see, [archWay(form.at, form.from, W)]);
       const ok = over >= 1 && air >= 2 && air < 99 && through;
       return { ok, note: `${over} of ${deck.length} deck tiles over water, ${air === 99 ? 0 : air} levels of air under it, ${through ? "seen through" : "not seen through"} (${see.beyond[1]} tiles beyond at 45°)`, ...(ok ? { say: `A natural arch spans the gorge, the river running ${air} levels under it.` } : {}) };

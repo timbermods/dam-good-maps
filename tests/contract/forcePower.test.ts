@@ -53,7 +53,7 @@ beforeAll(async () => {
   // more than its share on seeds 3 and 5; seed 9 since generator 0.10.20's contour edges, D518, D148: on seed 1 the gentlest
   // Slide moves 8,545 levels to Power 100's 28,278, over its 0.3; of seeds 1 to 10 only seed 9 keeps every force's check, the
   // gentlest glacier moving more than its share on the rest but seed 1, and the gentlest Carve on seeds 3, 6 and 8; seed 4
-  // since generator 0.10.27, D(new-leaks): a course's water leaves only by its own way, so the land moved, D148: on seed 9 the
+  // since generator 0.10.27, D532: a course's water leaves only by its own way, so the land moved, D148: on seed 9 the
   // gentlest glacier moves 1,267 levels to Power 100's 3,924, over its quarter; of seeds 1 to 5 only seed 4 keeps every force's
   // check, the gentlest glacier moving more than its share on the rest, the gentlest eruption on seed 1 and Carve on seed 3)
   // (River Valley 128² seed 4, as generator 0.10.27 made it, opens a saved fixture of the land it was written on (D148, the #1163 pattern); the generated land moves with the generator)

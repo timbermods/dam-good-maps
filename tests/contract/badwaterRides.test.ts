@@ -14,7 +14,7 @@ import { generate } from "../../src/core/gen/generate";
 import { fixtureSession } from "../fixtureProjects";
 
 describe("a brush stroke over a badwater source leaves it level, never floating (D249)", () => {
-  // ((20, 4) on M9b's map, D148: dev's (27, 5) is not level there; 0.10.27's move (dev, D(new-leaks)) followed the generator's land; the fixture keeps 0.10.25's, where this holds)
+  // ((20, 4) on M9b's map, D148: dev's (27, 5) is not level there; 0.10.27's move (dev, D532) followed the generator's land; the fixture keeps 0.10.25's, where this holds)
   it("Highlands 64², seed 3: a BadwaterSource at (20, 4); a Raise (target 15, Size 1.5) over its corner; the stroke is refused, or the source rides level, and the map has no load error", () => {
     const W = 64;
     // (a fixture since generator 0.10.29, D148: the land these cases were written on, tests/fixtures/projects, so the weathering's reach moving the generator's land moves nothing here)
