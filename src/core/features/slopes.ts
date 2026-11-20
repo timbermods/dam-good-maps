@@ -442,9 +442,25 @@ export function placeSlopes(h: Uint8Array, W: number, H: number, start: { x: num
   return placed;
 }
 
+/** The last river mask `stepsFrom` read and its steps (the settler reads the slopes of many starts toward one river,
+ *  D545). Read only. */
+let lastSteps: { mask: Uint8Array; W: number; H: number; d: Int32Array } | null = null;
+
 /** 4-neighbour steps from every tile to the nearest set tile of `mask` (a large number where none
  *  is reachable). */
 function stepsFrom(mask: Uint8Array, W: number, H: number): Int32Array {
+  const last = lastSteps;
+  if (last && last.W === W && last.H === H && last.mask.length === mask.length) {
+    let same = true;
+    for (let i = 0; i < mask.length && same; i++) if (last.mask[i] !== mask[i]) same = false;
+    if (same) return last.d;
+  }
+  const d = stepsOf(mask, W, H);
+  lastSteps = { mask: mask.slice(), W, H, d };
+  return d;
+}
+
+function stepsOf(mask: Uint8Array, W: number, H: number): Int32Array {
   const N = W * H;
   const d = new Int32Array(N).fill(1 << 20);
   const queue = new Int32Array(N);
