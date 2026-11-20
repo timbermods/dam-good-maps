@@ -763,6 +763,12 @@ Two plain pieces for the Block tool, only drawn or plain data; the page's interf
   drawn, and `setSlice` redraws them. The area brush's `BlockGhost` is unchanged. `renderer.blocksDrawn` gives the counts
   (tests). Capture (valid add, valid remove, refused remove, and the dark look, 1920×1080 frames):
   `docs/sheets/block-tool-preview.jpg`.
+- **The preview stays until the land answers** (D488 audit, `fix/hero-forms`): `useBlockTool.ts` `commit` used to clear
+  it as the click went, and on a 256² map the land came 255–301 ms later, so for a quarter second or more the click
+  showed nothing. It is now cleared once: in the edit's answer, in the same task the queue draws the new land in (the
+  queue's `shown` runs before its `answer`), else by a refusal (which then asks again and shows the core's line) or an
+  edit that never went (`run`'s end). A question the pointer asks meanwhile is answered on the land as it still is.
+  `tests/e2e/blockTool.spec.ts` records the renderer's calls through a click: the preview's clear comes after the land.
 
 ## Item 1: the masks from the worker (built, `feature/3d-view-worker-masks`)
 
@@ -1138,6 +1144,26 @@ Two plain pieces for the Block tool, only drawn or plain data; the page's interf
   60° camera looks down on its roof, the shelter under it out of sight, as in the game. Exposure and size hide
   nothing else.
 - **Captures:** `docs/sheets/hero-ruins.jpg` (`tools/capture-hero.ts`, real Chrome on the GPU).
+- **The card shows the map's best 3D form (D488 audit, `fix/hero-forms`):** the sight camera (`sightCamera`) weighs
+  the land's arches, cave mouths and overhangs (`formSights`, from the column masks: an arch looked through along
+  `seeThrough`'s best heading, a mouth or overhang looked into from its open side) beside the opening's landmark, each
+  at 26 to 48 tiles with clear air to it. A form's frame is kept only where it scores by the looks score within 0.1
+  of the landmark's (`LOOKS_GIVE`) and shows 1.5% or more of rock above air; the frame worth most (`pictureValue`:
+  looks, plus rock seen above air, more for air seen through it) wins. The cast (`castPicture`) now says where a ray
+  met still beneath rock or came out from under it (`under`), at no cost to the generator's kind, depth and tile.
+  Frames are screened at 64 × 36 and only the winner is cast again at full size (`framePasses`); the sight costs
+  0.2 to 0.8 s in Node, the whole picture 0.8 to 1.0 s in Chrome.
+- **The backdrop check sees what the drawn frame shows:** a tree's crown was a solid box to the cast, so the sky
+  behind a crown at the map's edge counted as land; the drawn crown is sparse and shows that sky. The cast marks those
+  pixels (`veiled`) and `voidShare` counts them. Highlands 256 seed 12's card had passed at 4.8% void (5.7% with the
+  veiled crowns) and drew about 8% sky; a further 2 points come from the map's far rim, drawn as sky where the cast
+  meets its edge water, not chased since the new frame shows none.
+- **The four maps' cards, generator 0.10.51** (before → after): Highlands 12, a bare plateau and its two springs from 45
+  tiles with 8% sky → the rock arch over its lake from 26 tiles, no sky; River Valley 2, a wooded slope above the
+  river → the overhanging mesa cliff from 26 tiles, which reads as a sheer wall; Canyon 1 (ruins and river) and Any 6 (falls and river) unchanged, the same camera. Sheet:
+  `C:dgm-showcasehero-formssheet.jpg`.
+- **Where it falls short:** an overhang reads only as a dark band under a ledge at the card's 960 × 540; a cave mouth
+  that faces a wall has no frame (the eye must see into it through air).
 
 ## Seeing the land behind objects (`feature/object-fade`)
 

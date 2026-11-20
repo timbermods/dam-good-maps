@@ -4,7 +4,8 @@
 
 import { describe, expect, it } from "vitest";
 import { OPENING } from "../../src/core/analysis/opening";
-import { heroCamera, heroScene, pictureLand } from "../../src/render3d/heroView";
+import { castPicture, PIXEL } from "../../src/core/analysis/picture";
+import { formSights, FORM_LEAST, framePasses, heroCamera, heroScene, pictureLand, pictureValue, SIGHT_VOID, sightCamera, sightCast, sightFrames, voidShare } from "../../src/render3d/heroView";
 import type { PictureLand } from "../../src/core/analysis/picture";
 import { sunOfYaw, sunVector } from "../../src/render3d/light";
 import { LIGHT } from "../../src/render3d/palette";
@@ -196,5 +197,140 @@ describe("the map's picture: its camera and light (D488)", () => {
       expect(at.distance).toBeCloseTo(c.distance, 9);
       at.target.forEach((t, k) => expect(t).toBeCloseTo(c.target[k], 9));
     }
+  });
+});
+
+/** A 96 × 96 map of level ground 4 high, its start in the middle facing north, with a fin of rock 12 high along y at
+ *  x 60–61 that a window 3 wide and 6 high is worn through (an arch, seen through along x), and a block of cliff 12 high
+ *  whose south foot is worn back two tiles under its roof (an overhang, open to the south). */
+function formsMap(): MapView {
+  const W = 96;
+  const H = 96;
+  const N = W * H;
+  const heights = new Uint8Array(N).fill(4);
+  const masks = new Map<number, number>();
+  const plain = (h: number) => (1 << h) - 1;
+  for (let y = 30; y <= 60; y++)
+    for (const x of [60, 61]) {
+      heights[y * W + x] = 12;
+      // the window: air at layers 4–9 under a roof 10–11
+      if (y >= 44 && y <= 46) masks.set(y * W + x, plain(12) & ~(plain(10) & ~plain(4)));
+    }
+  for (let y = 70; y <= 80; y++)
+    for (let x = 20; x <= 35; x++) {
+      heights[y * W + x] = 12;
+      // the shelter under the roof: air at layers 4–6
+      if (y <= 71) masks.set(y * W + x, plain(12) & ~(plain(7) & ~plain(4)));
+    }
+  const tiles = [...masks.keys()];
+  const voxels = new Uint8Array(tiles.length * LAYERS);
+  tiles.forEach((i, k) => {
+    for (let z = 0; z < LAYERS; z++) voxels[k * LAYERS + z] = (masks.get(i)! >>> z) & 1;
+  });
+  const entities: EntityView = {
+    count: 1,
+    templates: ["StartingLocation"],
+    owners: ["f"],
+    template: Uint16Array.of(0),
+    x: Int16Array.of(46),
+    y: Int16Array.of(46),
+    z: Int16Array.of(4),
+    orientation: Uint8Array.of(0),
+    flags: new Uint8Array(1),
+    owner: new Uint16Array(1),
+    variant: new Uint8Array(1),
+    strength: new Float32Array(1),
+    ids: ["start"],
+  };
+  return {
+    W,
+    H,
+    heights,
+    columns: { tiles: Int32Array.from(tiles), voxels },
+    water: { count: 0, tile: new Int32Array(0), floor: new Float32Array(0), depth: new Float32Array(0), contamination: new Float32Array(0), outflow: new Float32Array(0) },
+    entities,
+    soil: { moisture: new Uint8Array(N).fill(120), contamination: new Uint8Array(N), runs: { tile: new Int32Array(0), level: new Uint8Array(0), moisture: new Uint8Array(0), contamination: new Uint8Array(0) } },
+  };
+}
+
+describe("the map's picture on its 3D forms and within the map (D488 audit)", () => {
+  it("finds the arch, looked through along it, and the overhang, looked into from its open side; a heightfield has none", () => {
+    const v = formsMap();
+    const forms = formSights(pictureLand(v));
+    const arch = forms.find((f) => f.arch)!;
+    expect(arch, "the window through the fin reads as an arch").toBeDefined();
+    // looked through along x, at the window's air (x 60–62, y 44–47, layers 4–10)
+    expect(Math.abs(arch.look[0])).toBeCloseTo(1, 9);
+    expect(arch.look[1]).toBeCloseTo(0, 9);
+    expect(arch.x).toBeGreaterThan(60);
+    expect(arch.x).toBeLessThan(62);
+    expect(arch.y).toBeGreaterThan(44);
+    expect(arch.y).toBeLessThan(47);
+    expect(arch.z).toBeGreaterThan(4);
+    expect(arch.z).toBeLessThan(10);
+    const shelter = forms.find((f) => !f.arch)!;
+    expect(shelter, "the worn foot reads as an overhang").toBeDefined();
+    // its mouth along the cliff's south face (y 70), looked into northward from the south
+    expect(shelter.look[0]).toBeCloseTo(0, 9);
+    expect(shelter.look[1]).toBeCloseTo(1, 9);
+    expect(Math.abs(shelter.y - 70)).toBeLessThan(0.5);
+    expect(shelter.x).toBeGreaterThan(20);
+    expect(shelter.x).toBeLessThan(36);
+    expect(formSights({ ...pictureLand(v), mask: null })).toEqual([]);
+  });
+
+  it("frames a form where the map's landmark is missing, and the frame chosen passes on the full picture", () => {
+    const v = formsMap();
+    const land = pictureLand(v);
+    const f = sightFrames(v, land);
+    expect(f.landmark, "level ground has no landmark").toBeNull();
+    expect(f.forms.length).toBeGreaterThanOrEqual(2);
+    // the arch, seen through to the land beyond, is worth more than the shelter's shade
+    const arch = f.forms.find((g) => g.form.arch)!;
+    expect(arch.frame.through).toBeGreaterThan(0);
+    for (const g of f.forms) if (!g.form.arch) expect(arch.frame.value).toBeGreaterThan(g.frame.value);
+    const c = sightCamera(v, land)!;
+    expect(c).toEqual(arch.frame.c);
+    expect(framePasses(land, c, FORM_LEAST)).toBe(true);
+    const pic = castPicture(land, sightCast(c));
+    expect(voidShare(pic)).toBeLessThanOrEqual(SIGHT_VOID);
+    expect(pictureValue(pic).through).toBeGreaterThan(0);
+    // the picture's camera is the sight's (heroScene)
+    const scene = heroScene(v).camera;
+    expect(scene.target).toEqual([c.x, c.level, -c.y]);
+    expect([scene.yaw, scene.pitch, scene.distance]).toEqual([c.yaw, c.pitch, c.distance]);
+  });
+
+  it("counts the backdrop behind the trees' crowns as the backdrop: the share the frame shows is the share without the trees", () => {
+    // trees along the map's far edge, the camera looking out past it, low: their crowns stand in front of the void
+    const W = 64;
+    const H = 64;
+    const N = W * H;
+    const heights = new Uint8Array(N).fill(4);
+    const trees: { template: string; x: number; y: number }[] = [];
+    for (let x = 0; x < W; x++) for (const y of [H - 1, H - 2, H - 3]) trees.push({ template: "Pine", x, y });
+    const land: PictureLand = { W, H, heights, water: new Float32Array(N), contamination: new Float32Array(N), moisture: new Float32Array(N).fill(10), entities: trees };
+    const c = { x: 32, y: 24, level: 4, distance: 30, pitch: (25 * Math.PI) / 180, yaw: 0 };
+    const pic = castPicture(land, sightCast(c));
+    const bare = castPicture({ ...land, entities: [] }, sightCast(c));
+    let voids = 0;
+    let veiled = 0;
+    for (let k = 0; k < pic.kind.length; k++) {
+      if (pic.kind[k] === PIXEL.void) voids++;
+      if (pic.veiled[k]) {
+        veiled++;
+        expect(pic.kind[k]).toBe(PIXEL.tree);
+        expect(bare.kind[k]).toBe(PIXEL.void);
+      }
+    }
+    expect(veiled, "crowns against the void").toBeGreaterThan(0);
+    expect(voidShare(pic)).toBe(voidShare(bare));
+    expect(voidShare(pic)).toBeGreaterThan(voids / pic.kind.length);
+    // what the picture shows is as before: the crowns, their looks unchanged
+    expect(Array.from(pic.kind).filter((k) => k === PIXEL.tree).length).toBeGreaterThan(veiled);
+    // and such a frame is refused where the void alone would have let it by (about 3 % void, 10 % with the crowns')
+    expect(voids / pic.kind.length).toBeLessThanOrEqual(SIGHT_VOID);
+    expect(voidShare(pic)).toBeGreaterThan(SIGHT_VOID);
+    expect(framePasses(land, c, 0)).toBe(false);
   });
 });

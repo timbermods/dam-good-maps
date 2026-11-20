@@ -58,6 +58,13 @@ export interface OpeningPicture {
   depth: Float32Array;
   /** Each pixel's tile (−1 for the void). */
   tile: Int32Array;
+  /** Where the ray ran beneath rock before what it met: 1 where it met it still beneath (a cave's back, the shelter
+   *  under an overhang), 2 where it came out from under into the open first (seen through an arch to the land beyond);
+   *  0 elsewhere. The map's 3D forms as the picture shows them (render3d/heroView.ts). */
+  under: Uint8Array;
+  /** 1 where the ray met a tree's crown with nothing behind it but the void past the map's edge: a crown is drawn as
+   *  a box here, where the game's tree, or a dead one's bare stems, lets most of that void show. */
+  veiled: Uint8Array;
 }
 
 const TREES = new Set<string>(MAP_TREES);
@@ -120,9 +127,12 @@ export function castPicture(land: PictureLand, camera: PictureCamera, opts: { w?
     const d = land.water[i];
     return d > 0.05 && f(heights[i], heights[i] + d, land.contamination[i]);
   };
+  // (and which tiles hold water at all: a ray asks the rest nothing)
+  const wetAt = new Uint8Array(N);
   for (let i = 0; i < N; i++) {
     let t = Math.max(top[i], crown[i] >= 0 ? crown[i] + CROWN : 0);
     cols(i, (_f, s) => {
+      wetAt[i] = 1;
       if (s > t) t = s;
       return false;
     });
@@ -140,6 +150,8 @@ export function castPicture(land: PictureLand, camera: PictureCamera, opts: { w?
   const kind = new Uint8Array(w * h);
   const depth = new Float32Array(w * h);
   const tileOf = new Int32Array(w * h).fill(-1);
+  const under = new Uint8Array(w * h);
+  const veiled = new Uint8Array(w * h);
   for (let py = 0; py < h; py++) {
     const v = 1 - ((py + 0.5) * 2) / h;
     for (let px = 0; px < w; px++) {
@@ -157,12 +169,15 @@ export function castPicture(land: PictureLand, camera: PictureCamera, opts: { w?
       kind[p] = hit.kind;
       depth[p] = hit.t;
       tileOf[p] = hit.tile;
+      under[p] = hit.under;
+      veiled[p] = hit.veiled ? 1 : 0;
     }
   }
-  return { w, h, kind, depth, tile: tileOf };
+  return { w, h, kind, depth, tile: tileOf, under, veiled };
 
-  /** The ray from (ox, oy, oz) along the unit (dx, dy, dz): what it meets first, and how far. */
-  function cast(ox: number, oy: number, oz: number, dx: number, dy: number, dz: number): { kind: PixelKind; t: number; tile: number } | null {
+  /** The ray from (ox, oy, oz) along the unit (dx, dy, dz): what it meets first, and how far; whether it ran beneath
+   *  rock before it (`OpeningPicture.under`), and (a tree's crown) whether only the void lies behind it. */
+  function cast(ox: number, oy: number, oz: number, dx: number, dy: number, dz: number): { kind: PixelKind; t: number; tile: number; under: number; veiled?: boolean } | null {
     // into the box the map stands in: [0, W] × [0, H] × [0, zTop]
     let t0 = 0;
     let t1 = Infinity;
@@ -195,32 +210,43 @@ export function castPicture(land: PictureLand, camera: PictureCamera, opts: { w?
     let nz = dz !== 0 ? ((dz > 0 ? z + 1 : z) - oz) / dz : Infinity;
     // which face the ray came in by: 0 the top or bottom, 1 a side
     let side = 0;
+    // beneath rock so far (0 not yet, 1 beneath it, 2 out from under it); the first tree's crown met (what the pixel
+    // shows), the ray going on past it to see whether anything but the void lies behind it
+    let below = 0;
+    let tree: { kind: PixelKind; t: number; tile: number; under: number } | null = null;
+    const met = (kind: PixelKind, at: number, tile: number) => tree ?? { kind, t: at, tile, under: below };
+    const gone = () => (tree ? { ...tree, veiled: true } : null);
     for (;;) {
-      if (x < 0 || y < 0 || x >= W || y >= H || z < 0) return null;
+      if (x < 0 || y < 0 || x >= W || y >= H || z < 0) return z < 0 ? (tree ?? null) : gone();
       if (z < zTop) {
         const i = y * W + x;
-        const out = Math.min(nx, ny, nz);
         if (solid(i, z)) {
-          if (side) return { kind: PIXEL.cliff, t, tile: i };
+          if (side) return met(PIXEL.cliff, t, i);
           const m = land.moisture[i];
           const desert = m > 0 ? (m < GRASS_RULE.threshold ? (1 - m / GRASS_RULE.threshold) * GRASS_RULE.max : 0) : 1;
-          return { kind: desert <= 0.5 ? PIXEL.grass : PIXEL.dry, t, tile: i };
+          return met(desert <= 0.5 ? PIXEL.grass : PIXEL.dry, t, i);
         }
+        // (air with rock above it in its column: the ray runs beneath the rock here; in open air after that, it is out)
+        if (z + 1 < top[i]) below = 1;
+        else if (below === 1) below = 2;
         // a tree's crown
-        if (crown[i] >= 0 && z >= crown[i] && z < crown[i] + CROWN) return { kind: PIXEL.tree, t, tile: i };
+        if (!tree && crown[i] >= 0 && z >= crown[i] && z < crown[i] + CROWN) tree = { kind: PIXEL.tree, t, tile: i, under: below };
         // water in this cell: the ray's lowest point in it (where it leaves, going down) under a column's surface
-        const zOut = oz + dz * out;
-        const zIn = oz + dz * t;
-        let wet = null as { kind: PixelKind; t: number; tile: number } | null;
-        cols(i, (floor, surface, c) => {
-          if (z < floor || z >= surface) return false;
-          const lo = Math.min(zIn, zOut);
-          if (lo >= surface) return false;
-          const at = zIn <= surface ? t : dz !== 0 ? (surface - oz) / dz : t;
-          wet = { kind: c >= 0.5 ? PIXEL.badwater : PIXEL.water, t: at, tile: i };
-          return true;
-        });
-        if (wet) return wet;
+        if (wetAt[i]) {
+          const out = Math.min(nx, ny, nz);
+          const zOut = oz + dz * out;
+          const zIn = oz + dz * t;
+          let wet = null as { kind: PixelKind; t: number; tile: number } | null;
+          cols(i, (floor, surface, c) => {
+            if (z < floor || z >= surface) return false;
+            const lo = Math.min(zIn, zOut);
+            if (lo >= surface) return false;
+            const at = zIn <= surface ? t : dz !== 0 ? (surface - oz) / dz : t;
+            wet = { kind: c >= 0.5 ? PIXEL.badwater : PIXEL.water, t: at, tile: i };
+            return true;
+          });
+          if (wet) return tree ?? { ...(wet as { kind: PixelKind; t: number; tile: number }), under: below };
+        }
       }
       if (nx <= ny && nx <= nz) {
         x += sx;
@@ -238,7 +264,7 @@ export function castPicture(land: PictureLand, camera: PictureCamera, opts: { w?
         nz += tdz;
         side = 0;
       }
-      if (t > t1 + 1) return null;
+      if (t > t1 + 1) return gone();
     }
   }
 }
