@@ -61,6 +61,8 @@ export type IntentionId = (typeof INTENTIONS)[number];
 export const ACTIVE: readonly IntentionId[] = INTENTIONS;
 /** Kyler's own, in his words. */
 export const KYLERS = new Set<IntentionId>(["under-cliff", "snaking-river", "crater-rivers", "cliff-falls-lake"]);
+/** How far from the start (straight tiles) the two-ways intention weighs each side's farmland, wood and ruins. */
+export const TWO_WAYS_REACH = 60;
 /** Intentions the settler steers: the start's place decides them, so they are re-steered once. */
 export const START_SIDE = new Set<IntentionId>(["under-cliff", "long-view", "meeting-waters", "falls-shield", "two-ways", "badwater-rich", "landmark"]);
 
@@ -1506,7 +1508,7 @@ export function checkIntention(id: IntentionId, c: FinalCtx): CheckResult {
         for (let i = 0; i < N; i++) {
           if (D[i] >= 0.05) continue;
           const e = eu(i);
-          if (e < 12 || e > 60) continue;
+          if (e < 12 || e > TWO_WAYS_REACH) continue;
           const dot = ((i % W) - sx) * ux + (Math.floor(i / W) - sy) * uy;
           if (Math.abs(dot) < 3) continue;
           const s = side[dot > 0 ? 0 : 1];
@@ -1516,7 +1518,7 @@ export function checkIntention(id: IntentionId, c: FinalCtx): CheckResult {
         }
         for (const t of trees) {
           const e = portable.sqrt((t.x - sx) * (t.x - sx) + (t.y - sy) * (t.y - sy));
-          if (e < 12 || e > 60) continue;
+          if (e < 12 || e > TWO_WAYS_REACH) continue;
           const dot = (t.x - sx) * ux + (t.y - sy) * uy;
           if (Math.abs(dot) < 3) continue;
           const s = side[dot > 0 ? 0 : 1];
