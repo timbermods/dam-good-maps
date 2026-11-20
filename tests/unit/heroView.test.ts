@@ -346,4 +346,20 @@ describe("the map's picture on its 3D forms and within the map (D488 audit)", ()
     }
     expect(sightCamera(v, land, prep)).toEqual(sightCamera(v, land));
   });
+
+  it("weighs an arch against the whole map's picture where the map has no landmark, and only then", () => {
+    const v = formsMap();
+    const land = pictureLand(v);
+    const prep = preparePicture(land);
+    const arch = sightFrames(v, land, prep).forms[0].frame;
+    let asked = 0;
+    // a whole-map picture that looks as good as the arch's (the arch's own frame), or worse (flat ground), keeps it
+    expect(sightCamera(v, land, prep, () => (asked++, arch.c))).toEqual(arch.c);
+    expect(asked).toBe(1);
+    expect(sightCamera(v, land, prep, () => ({ x: 46, y: 46, level: 4, distance: 30, pitch: 0.6, yaw: 0 }))).toEqual(arch.c);
+    // no arch: the whole map is never cast for it
+    asked = 0;
+    expect(sightCamera(v, { ...land, mask: null }, preparePicture({ ...land, mask: null }), () => (asked++, arch.c))).toBeNull();
+    expect(asked).toBe(0);
+  });
 });

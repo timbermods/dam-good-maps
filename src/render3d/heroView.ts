@@ -477,16 +477,19 @@ export function sightFrames(view: MapView, land: PictureLand, prep: PreparedPict
  *    `SIGHT_BACKS`, holding the sight's top;
  *  - **each rock arch** (`formSights`' arches, looked through; never an overhang or a cave: `sightFrames`), at the
  *    frame's middle, from `ARCH_PITCHES` × `FORM_DISTANCES`, seen beneath its rock over `FORM_LEAST` of the frame or
- *    more, and scoring by the looks score alone no more than `LOOKS_GIVE` under the landmark's frame.
+ *    more, and scoring by the looks score alone no more than `LOOKS_GIVE` under the landmark's frame, or, on a map with
+ *    no landmark frame, under the whole map's (`heroCamera`, its picture cast at the arches' `SCREEN` size so the two
+ *    are judged alike): an arch never takes the card from a picture that shows the map's theme better (Delta 8's
+ *    channels and Islands 1's islands had given way to a slot in a cliff).
  *  Every frame shows no more than `SIGHT_VOID` of the backdrop; of one sight's frames the nearest wins (the sight
  *  largest), the best among those as near. Null when the map has no start, or no frame passes: the whole-map camera
  *  then. */
-export function sightCamera(view: MapView, land: PictureLand, prep: PreparedPicture = preparePicture(land)): SightCam | null {
+export function sightCamera(view: MapView, land: PictureLand, prep: PreparedPicture = preparePicture(land), whole: () => SightCam = () => wholeMap(view, prep)): SightCam | null {
   const { landmark, forms } = sightFrames(view, land, prep);
-  // (a form's frame only where it looks as good as the landmark's, within `LOOKS_GIVE`; the best first, the landmark
-  // before a form as good; each checked again on the full picture, the next taken where that shows more of the
-  // backdrop, or less beneath rock, than the screening did)
-  const least = landmark ? landmark.looks - LOOKS_GIVE : -Infinity;
+  // (a form's frame only where it looks as good as the landmark's, or the whole map's where there is no landmark,
+  // within `LOOKS_GIVE`; the best first, the landmark before a form as good; each checked again on the full picture,
+  // the next taken where that shows more of the backdrop, or less beneath rock, than the screening did)
+  const least = landmark ? landmark.looks - LOOKS_GIVE : forms.length ? looksScore(castPicture(prep, sightCast(whole()), SCREEN)).score - LOOKS_GIVE : -Infinity;
   const all = [...(landmark ? [landmark] : []), ...forms.map((f) => f.frame).filter((f) => f.looks >= least)].map((f, k) => ({ f, k })).sort((a, b) => b.f.value - a.f.value || a.k - b.k);
   for (const { f } of all) if (framePasses(prep, f.c, f.least)) return f.c;
   return null;
@@ -549,15 +552,22 @@ function landmarkFrame(view: MapView, land: PictureLand, prep: PreparedPicture, 
   return bestFrame(prep, [sight.x + 0.5, sight.y + 0.5, sight.z - sight.stand / 2], [lx, ly], SIGHT_PITCHES, SIGHT_DISTANCES, SIGHT_BACKS, 0, keep);
 }
 
+/** The whole map's camera (`heroCamera`), turned to the start's orientation. */
+function wholeMap(view: MapView, prep: PreparedPicture): SightCam {
+  const s = startOf(view.entities);
+  return heroCamera(view.W, view.H, view.heights, s ? s.o : 0, prep);
+}
+
 /** What the picture draws (the map, its start hidden) and the camera it draws it from: on the map's sight where it
  *  has one (`sightCamera`), else the whole map from the game's thumbnail camera (`heroCamera`). */
 export function heroScene(view: MapView): { view: MapView; camera: HeroCamera } {
-  const { W, H } = view;
-  const s = startOf(view.entities);
   const land = pictureLand(view);
-  // (the land's per-tile setup made once for every picture cast in choosing the frame)
+  // (the land's per-tile setup made once for every picture cast in choosing the frame; the whole map's camera found
+  // once, where an arch is weighed against it or no sight frame passes)
   const prep = preparePicture(land);
-  const c = sightCamera(view, land, prep) ?? heroCamera(W, H, view.heights, s ? s.o : 0, prep);
+  let found: SightCam | null = null;
+  const whole = () => (found ??= wholeMap(view, prep));
+  const c = sightCamera(view, land, prep, whole) ?? whole();
   const camera: HeroCamera = { yaw: c.yaw, pitch: c.pitch, distance: c.distance, target: [c.x, c.level, -c.y], fov: OPENING.fov };
   return { view: { ...view, entities: withoutStart(view.entities) }, camera };
 }
