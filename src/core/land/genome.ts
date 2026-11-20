@@ -329,6 +329,9 @@ export interface Genome {
   /** Tiles of rock a lake's river crosses at its outlet's bed, cutting down only past them (uplands round 6b:
    *  Highlands' valley's sill, `bold.ts` `standValley`). */
   rockSill?: Uint8Array;
+  /** The valley of a land that stands up (uplands round 6b step 5: Highlands above 128², `bold.ts` `standValley`): 1 its
+   *  bowl, 2 its channel, 0 elsewhere. The badwater keeps off it (`bold.ts` `standBadKeep`). */
+  standValley?: Uint8Array;
   /** How far the water's way wanders from the steepest descent (levels), and the size of its
    *  wanders in tiles. */
   wander: number;

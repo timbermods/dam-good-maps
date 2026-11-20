@@ -33,8 +33,11 @@ const HIGH_RINGED = 0.35;
  *  it stands up (uplands round 6): its walls gathered into a few mesas and the valley's rim, its floor in broad
  *  two-level benches, the land beside a 2+ drop read .044–.063 at 256² on the planned lands of seeds 1 and 5 (13 lands)
  *  and .048–.066 on the built maps of seeds 1–6, against the 0.1 asked (.0707 at 256²), so every land missed it and
- *  each map spent its three screens on it; its plateaus 5–19. Asked: the lowest, rounded down. */
-const CLIFFS_STAND = 0.06;
+ *  each map spent its three screens on it; its plateaus 5–19. Asked: the lowest, rounded down. Round 6b step 5 (walls
+ *  from the floor, no plinth on the wall side): the planned lands of the 16 start maps read .036–.057 (.0537–.075 at
+ *  128²), under the .06 asked on seed 5's first land and the 192²'s, each drawn again; asked anew by the same rule,
+ *  .06 → .05. */
+const CLIFFS_STAND = 0.05;
 const PLATEAUS_STAND = 4;
 
 /** Each theme's promise (D273 (2)) as a line on its signature's measures, and in words: `text` the

@@ -26,6 +26,7 @@ import { hash32 } from "../math/hash";
 import { sinDet, TWO_PI } from "../math/detmath";
 import { formDist, pseudoAngle, type RingForm } from "./rings";
 import { DIRS8 } from "./num";
+import { distanceFrom } from "../math/grid";
 
 /** The bold family's numbers. `bench`: its rise over the gorge's floor (levels), its width (tiles) and how far that
  *  wanders, over what cell, and how steep (levels a tile) the gorge's wall must be for one. `hollow`: how many (fewest,
@@ -61,10 +62,18 @@ export const BOLD = {
  *  tiles, `rings` of them, `step` levels each. `mesa.plinth` (step 2; step 4: under the stepped side only): the levels
  *  of the bench a mesa's stepped side ends on, `plinthMin`–`plinthMax` tiles broad; `mesa.tier` (step 4): an inner
  *  ring's rise where the top leaves room for it, and `mesa.first` the least share of the radii the first mesa is drawn
- *  from. */
+ *  from. Step 5: the badwater's ground kept off (`standBadKeep`): round the bowl (`badView`, a share of the side),
+ *  beside the channel (`badBeside`, tiles) but within `badJoin` tiles of the water it joins, and round the plan's start
+ *  (`badFar`, tiles: the opening view pulled back reaches about that far to each side, whatever the map's side,
+ *  gen/generate.ts); the channel's bend past the bowl (`valley.bend`, a share of the side, from 1.5 radii out, over
+ *  `bendCell` of the side), so it winds where it ran straight as a chute (seed 3). */
 export const STAND = {
   springs: 1,
-  valley: { rMin: 0.14, rMax: 0.18, stray: 0.06, softMin: 1.2, softMax: 3.5, halfMin: 0.026, halfMax: 0.038, wander: 0.11, cell: 0.3, side: 1.5, over: 0, rise: 2 },
+  badView: 0.08,
+  badFar: 60,
+  badBeside: 6,
+  badJoin: 6,
+  valley: { rMin: 0.14, rMax: 0.18, stray: 0.06, softMin: 1.2, softMax: 3.5, halfMin: 0.026, halfMax: 0.038, wander: 0.11, cell: 0.3, side: 1.5, over: 0, rise: 2, bend: 0.09, bendCell: 0.16 },
   lake: { sill: 2, deep: 2, share: 0.35, budget: 0.6, at: 0.7, sillPast: 0.2, soft: 1, sillRun: 4, incise: 1.4, stretch: 0.5, lobes: 2.6, bays: 0.12, baysCell: 0.35, shift: 0.12, benchStretch: 0.6, benchLobes: 1.5, benchCos: 0.35, benchTurn: 0.3 },
   bench: { min: 5, max: 13, cell: 40, wobble: 3, rings: 3, step: 2 },
   floor: { over: 4, relief: 4, roll: 0, riser: 0, drift: 0, away: 0.5, far: 0.5 },
@@ -140,7 +149,10 @@ export function standValley(seed: number, variation: number, phase: number, flow
     const soft = V.softMin + (V.softMax - V.softMin) * (fbm(s + 3, x, y, 0.25 * side, 2) + 1) / 2;
     return smoothstep(tin / soft + 0.5);
   };
-  const offAt = (along: number): number => V.wander * side * fbm(s + 5, along, 0, V.cell * side, 2);
+  // (round 6b step 5: past the bowl the line bends at a shorter wavelength too, `bend` of the side over `bendCell`, so
+  // the channel winds as a river's valley does: one that wandered only at the map's scale ran straight for 60 tiles past
+  // the sill, a chute, Normal 256² seed 3. Within 1.5 radii of the bowl's middle the line is as before, so is the bowl)
+  const offAt = (along: number): number => V.wander * side * fbm(s + 5, along, 0, V.cell * side, 2) + V.bend * side * smoothstep((Math.abs(along) - 1.5 * r) / (0.5 * r)) * fbm(s + 9, along, 0, V.bendCell * side, 2);
   // (the water's line: the channel's middle, `along` tiles down the flow from the bowl's middle)
   const lineX = (a: number): number => cx + a * ax - offAt(a) * ay;
   const lineY = (a: number): number => cy + a * ay + offAt(a) * ax;
@@ -223,7 +235,8 @@ export function standValley(seed: number, variation: number, phase: number, flow
   const away = new Float64Array(N);
   for (let i = 0; i < N; i++) away[i] = smoothstep(dist[i] / (STAND.floor.far * side));
   const inBowlT = new Uint8Array(N);
-  for (let i = 0; i < N; i++) inBowlT[i] = mb[i] >= 0.5 && mb[i] >= mcs[i] ? 1 : 2 * (mb[i] < 0.5 && alongOf[i] > aOut + K.sillRun + 2 ? 1 : 0);
+  // (round 6b step 5: the channel upstream of the bowl too, so its sides step down to it in rings, not one wall)
+  for (let i = 0; i < N; i++) inBowlT[i] = mb[i] >= 0.5 && mb[i] >= mcs[i] ? 1 : 2 * (mb[i] < 0.5 && (alongOf[i] > aOut + K.sillRun + 2 || alongOf[i] < aIn - 2) ? 1 : 0);
   return { m, floor, away, share: n / N, cx, cy, r, line, sill, bowl: inBowlT };
 }
 
@@ -334,6 +347,27 @@ export function benchValley(level: Float64Array, v: StandValley, base: number, W
       const cap = base + v.floor[from[i]] + B.step * (ring + 1);
       if (level[i] > cap) level[i] = cap;
     }
+}
+
+/** Where a land that stands up keeps its badwater off (round 6b step 5): the valley's bowl, where the start stands on its
+ *  bench, and the ground round it within `STAND.badView` of the side, so no hollow, ditch or badwater shows from the
+ *  start; and the valley's channel and the ground within `STAND.badBeside` of it, so no ditch runs down it beside the
+ *  river (seeds 1 and 5, a badwater stream the length of the channel), but where the channel holds the water a ditch
+ *  joins (`join`, the main water's lower reach, D476): there the tiles within `STAND.badJoin` of that water are open,
+ *  so the ditch crosses the floor to it. `valley` is `Genome.standValley`. */
+export function standBadKeep(valley: Uint8Array, join: Uint8Array | null, W: number, H: number): Uint8Array {
+  const N = W * H;
+  const bowl = new Uint8Array(N);
+  for (let i = 0; i < N; i++) bowl[i] = valley[i] === 1 ? 1 : 0;
+  const db = distanceFrom(bowl, W, H);
+  const view = STAND.badView * Math.min(W, H);
+  const chan = new Uint8Array(N);
+  for (let i = 0; i < N; i++) chan[i] = valley[i] === 2 ? 1 : 0;
+  const dc = distanceFrom(chan, W, H);
+  const dj = join ? distanceFrom(join, W, H) : null;
+  const keep = new Uint8Array(N);
+  for (let i = 0; i < N; i++) if (db[i] < view || (dc[i] <= STAND.badBeside && !(dj && dj[i] <= STAND.badJoin))) keep[i] = 1;
+  return keep;
 }
 
 /** The field the water is planned on, sunk in the valley below all the land round it, falling along the channel

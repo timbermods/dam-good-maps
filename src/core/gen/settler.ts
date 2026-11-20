@@ -20,7 +20,7 @@
 //
 // Ported from the design version 2 prototype (investigation/generative/v2/start.ts, rules.ts).
 
-import { bestTurn, landInFrame, levelDoorTurns, openingShotScore, prepareOpening, type OpeningLand } from "../analysis/opening";
+import { bestTurn, landInFrame, levelDoorTurns, openingShotScore, prepareOpening, tilesInFrame, type OpeningLand } from "../analysis/opening";
 import { fallsOf } from "../analysis/vertical";
 import { PUMP_CLEAN, PUMP_DEPTH, PUMP_REACH, slopeLinks, walkDistance } from "../analysis/walk";
 import { placeSlopes, SLOPE_RULES } from "../features/slopes";
@@ -152,6 +152,10 @@ export interface SettlerOptions {
   roomFirst?: boolean;
   /** The badwater sources' hollows (their middles), for the Easy badwater row a start chosen for its room keeps. */
   badwater?: readonly (readonly [number, number])[] | null;
+  /** On a land that stands up (uplands round 6b step 5): the start turned to the view with the least badwater in it
+   *  (water 0.1+ deep whose contamination is over 0.05, as the settled water holds it), the opening shot choosing among
+   *  those; and the frame's swap to another of the good few never to one that shows more. */
+  badView?: boolean;
 }
 
 /** Shore tiles: dry ground beside clean water 0.3+ deep whose surface a pump on that ground
@@ -761,10 +765,19 @@ export function pickStart(
   const good = pick.good;
   let c = pick.c;
   // turned for the game's opening camera (D493)
+  const badTiles: number[] = [];
+  if (opts.badView) for (let i = 0; i < N; i++) if (D[i] >= 0.1 && water.contamination[i] > 0.05) badTiles.push(i);
+  const badSeen = (t: (typeof good)[number], o: Orientation): number => tilesInFrame({ x: t.i % W, y: Math.floor(t.i / W), z: h[t.i], orientation: o }, W, h, badTiles);
   const turned = (t: (typeof good)[number]): Orientation => {
     const tx = t.i % W;
     const ty = (t.i - tx) / W;
-    return bestTurn(openingLand(), tx, ty, h[t.i], levelDoorTurns(h, W, H, tx, ty, h[t.i]), dWet)!;
+    let turns = levelDoorTurns(h, W, H, tx, ty, h[t.i]);
+    if (badTiles.length && turns.length > 1) {
+      const seen = turns.map((r) => badSeen(t, r.o));
+      const least = Math.min(...seen);
+      turns = turns.filter((_, k) => seen[k] === least);
+    }
+    return bestTurn(openingLand(), tx, ty, h[t.i], turns, dWet)!;
   };
   let orientation = turned(c);
   // the frame (D507): among the good few, all of which keep the start's rules, the one whose opening frame shows
@@ -779,7 +792,7 @@ export function pickStart(
       if (t === c) continue;
       const o = turned(t);
       const s = landInFrame(W, H, at(t, o));
-      if (s > most && shot(t, o) >= drawnShot) {
+      if (s > most && shot(t, o) >= drawnShot && (!badTiles.length || badSeen(t, o) <= badSeen(c, orientation))) {
         most = s;
         c = t;
         orientation = o;

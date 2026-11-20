@@ -139,6 +139,7 @@ export function snapLevels(E: Float64Array, g: Genome, seed: number, W: number, 
   const mesas = stand ? standMesas(level, E, W, H, seed, g.variation, stand, g.base, maxLv, hi) : null;
   if (mesas) g.dryTops = mesas.tops;
   if (stand) g.rockSill = stand.sill;
+  if (stand) g.standValley = Uint8Array.from(stand.m, (m, i) => (m >= 0.5 ? (stand.bowl[i] === 1 ? 1 : 2) : 0));
   const keepRims = mesas ? mesas.skip : null;
   if (ringed && tiers && g.plan?.kind === "gorge") boldGorge(level, W, H, seed, g.variation, tiers.bands[0][1], tiers.bands[1][0]);
   // (D(terrace-edges): every level's edge read through a warp, so no edge the field, the grade or the tableland's
@@ -185,7 +186,7 @@ export function snapLevels(E: Float64Array, g: Genome, seed: number, W: number, 
   }
   // (uplands round 3: a planned land's walls have ways through, a graded notch about every 40 tiles of wall; round 4:
   // every land above 128², whose ring terraces stand behind walls too)
-  if ((tiers || ringed) && notchWalls(out, W, H, hash32(seed, "ways", g.variation), keepRims)) {
+  if ((tiers || ringed) && notchWalls(out, W, H, hash32(seed, "ways", g.variation), keepRims, !!stand)) {
     mergeSmallRegions(out, W, H, 4);
     cleanPitsAndSpikes(out, W, H, null);
   }
@@ -203,8 +204,13 @@ const NOTCH_RUN = 2;
  *  graded from the wall's foot in one-level steps `NOTCH_RUN` tiles long, so a colony walks up it. Ground is only
  *  taken away. The notch runs up the land's own slope (its normal, from the levels smoothed over 7 tiles) and bends
  *  with a slow noise, so no two are alike and none runs straight. Walls on `keep` (a mesa's rim, which has its own
- *  ways up: uplands round 5, `bold.ts`) are left as they stand. Returns whether any ground was cut. */
-export function notchWalls(out: Uint8Array, W: number, H: number, seed: number, keep: Uint8Array | null = null): boolean {
+ *  ways up: uplands round 5, `bold.ts`) are left as they stand. `found` (a land that stands up, Highlands above 128²,
+ *  uplands round 6b step 5): the notch is a gully, not a corridor: broad at its foot and narrowing as it climbs, each
+ *  side wandering on its own, so its sides are never two parallel lines (seed 2's front read as notches cut with a
+ *  ruler). Its sides keep 2 tiles from its line and its treads `NOTCH_RUN`: a narrower notch, or treads drawn 2 to 3
+ *  tiles long, left the slopes no room (their spacing rule), and the colony could not walk up it (seed 1's reach fell
+ *  by a third or more). Returns whether any ground was cut. */
+export function notchWalls(out: Uint8Array, W: number, H: number, seed: number, keep: Uint8Array | null = null, found = false): boolean {
   const N = W * H;
   const wall = new Uint8Array(N);
   const foot = new Int32Array(N).fill(-1);
@@ -315,8 +321,14 @@ export function notchWalls(out: Uint8Array, W: number, H: number, seed: number, 
       const px = fx + gx * k - gy * off;
       const py = fy + gy * k + gx * off;
       let reached = true;
-      for (let a = -Math.ceil(NOTCH_HALF); a <= Math.ceil(NOTCH_HALF); a++) {
-        const half = NOTCH_HALF + (k < 3 ? 1 : 0);
+      // (a found notch's sides: broad at its foot, narrowing to 2.5 tiles a side up it (never under 2), each wandering on
+      // its own)
+      const taper = Math.max(0, 1 - k / 8);
+      const halfL = found ? Math.max(2, 2.5 + 2 * taper + 0.8 * fbm(bend + 1, k, 0, 4, 2)) : 0;
+      const halfR = found ? Math.max(2, 2.5 + 2 * taper + 0.8 * fbm(bend + 2, k, 0, 4, 2)) : 0;
+      const reachA = found ? Math.ceil(Math.max(halfL, halfR)) : Math.ceil(NOTCH_HALF);
+      for (let a = -reachA; a <= reachA; a++) {
+        const half = found ? (a < 0 ? halfL : halfR) : NOTCH_HALF + (k < 3 ? 1 : 0);
         if (Math.abs(a) > half) continue;
         const x = Math.round(px - gy * a);
         const y = Math.round(py + gx * a);
