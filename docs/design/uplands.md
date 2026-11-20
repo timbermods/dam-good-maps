@@ -906,8 +906,12 @@ pick walks over the slopes, D545 rounds 3–4) merged in first. Generator 0.10.5
   (192²'s 49–73 tiles in view before), and where every turn of the place the settler draws shows some, the place among
   the good few that shows least is taken (seed 5's 27 tiles).
 - **Thorns on a map Designed for Easy keep Easy's 30 tiles** (`extras.ts` `EASY_THORNS`): Easy 256² seed 1's new
-  hazards miss was a belt in front of a small relic 27–30 tiles from the start, which moved with the land. The rows
-  judge a map Designed for Easy as an Easy start; Normal maps keep 22.
+  hazards miss (Easy start off, so read by this round's measures, not by the checks, which run Easy's rows only with
+  Easy start on) was a belt in front of a small relic 27–30 tiles from the start, which moved with the land. Belts
+  now keep 30 tiles where Easy start is on, as before, and on every map Designed for Easy; Normal maps keep 22.
+  Measured on the twelve Easy 256² maps of the other six themes (seeds 1 and 2) against dev 18a6518a: no Easy row worse,
+  every start, room, attempt count, land and water as they were; River Valley seed 1 alone moves, its belt (55 → 64
+  thorns) and the trees and ruins drawn after it (its Easy rows 4 → 4, hazards met on both).
 
 **The start** (base a5d893b5 with #1261's pick, head 0.10.53 merged with dev; one map at a time, base and head in
 turn, two streams). Every row of Easy's counts on the Normal maps too.

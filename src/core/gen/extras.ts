@@ -322,9 +322,10 @@ export function planExtras(inp: ExtrasInput): MapObjectFeature[] {
   return out;
 }
 
-/** How near the start's middle a thorn may stand: 22 tiles, and beyond Easy start's 30 for one (D495) and for a map
- *  Designed for Easy, whose start the same rows judge (uplands round 6b step 5: Highlands Easy 256² seed 1's belt in front
- *  of a relic stood 27–30 tiles from its start). */
+/** How near the start's middle a thorn may stand: 22 tiles, and beyond Easy start's 30 where Easy start is on (D495)
+ *  and on every map Designed for Easy, Easy start on or off (uplands round 6b step 5: the checks run Easy's rows only
+ *  with Easy start on, the round's measures on every map, and Highlands Easy 256² seed 1's belt in front of a relic stood
+ *  27–30 tiles from its start). */
 const THORNS_NEAR = 22;
 const EASY_THORNS = 31;
 
