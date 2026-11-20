@@ -48,10 +48,14 @@ export const BOLD = {
  *  tiles a level there (least and most) and how far its broken edge eats into the top (tiles), the share of mesas with
  *  an inner ring, the draws tried. `lake` (round 6b): the bowl's bench over the base and the lake's hollow under it
  *  (levels), the lake's share of the bowl and of the plan's lake budget at the most, its middle up the water's line from
- *  the bowl's rim and how far up the line the sill's rock reaches (shares of the radius), the scale it is read at down
- *  the line, its shore's fall (tiles), the channel's run at the bench's level past the rim (tiles), and the main
- *  river's incision on such a land at the most; round 6b step 2: how far down the line the lake is read (`stretch`),
- *  its outline's lobes and the noise its shore is read with (`bays`, over `baysCell` of the radius). `springs`
+ *  the bowl's rim and how far past the channel's run the sill's rock reaches (shares of the radius), the scale it is
+ *  read at down the line, its shore's fall (tiles), the channel's run at the bench's level past the rim (tiles), and
+ *  the main river's incision on such a land at the most; round 6b step 2: how far down the line the lake is read
+ *  (`stretch`), its outline's lobes and the noise its shore is read with (`bays`, over `baysCell` of the radius);
+ *  step 3: how far the lake's middle lies off the line, away from the bench (`shift`, a share of the radius), and the
+ *  bench's shore: how far down the line it is read (`benchStretch`), its outline's lobes (`benchLobes`), and the
+ *  turn from it to the far shore's lobes (where the direction from the lake's middle leans `benchCos` towards the
+ *  bench, over `benchTurn`). `springs`
  *  (step 2): the springs such a land draws at the most. `bench` (step 2): the rings the floor steps down to the bowl
  *  and the channel past the sill in, each `min`–`max` tiles broad over a noise of `cell` tiles, wobbling `wobble`
  *  tiles, `rings` of them, `step` levels each. `mesa.plinth` (step 2): the levels of the one bench a mesa stands on
@@ -59,7 +63,7 @@ export const BOLD = {
 export const STAND = {
   springs: 3,
   valley: { rMin: 0.14, rMax: 0.18, stray: 0.06, softMin: 1.2, softMax: 3.5, halfMin: 0.026, halfMax: 0.038, wander: 0.11, cell: 0.3, side: 1.5, over: 0, rise: 2 },
-  lake: { sill: 2, deep: 2, share: 0.35, budget: 0.6, at: 0.7, sillAt: 0.45, soft: 1, sillRun: 4, incise: 1.4, stretch: 0.5, lobes: 2.6, bays: 0.12, baysCell: 0.35 },
+  lake: { sill: 2, deep: 2, share: 0.35, budget: 0.6, at: 0.7, sillPast: 0.2, soft: 1, sillRun: 4, incise: 1.4, stretch: 0.5, lobes: 2.6, bays: 0.12, baysCell: 0.35, shift: 0.12, benchStretch: 0.6, benchLobes: 1.5, benchCos: 0.35, benchTurn: 0.3 },
   bench: { min: 5, max: 13, cell: 40, wobble: 3, rings: 3, step: 2 },
   floor: { over: 4, relief: 4, roll: 0, riser: 0, drift: 0, away: 0.5, far: 0.5 },
   mesa: { fewest: 4, most: 6, rMin: 24, rMax: 46, hMin: 4, hMax: 6, gap: 8, edge: 0.6, wall: 1.2, stretch: 0.35, brokenMin: 0.12, brokenMax: 0.25, runMin: 1.8, runMax: 4.5, inset: 7, inner: 0.8, tries: 200, plinth: 2, plinthWall: 5, plinthMin: 4, plinthMax: 9 },
@@ -190,9 +194,12 @@ export function standValley(seed: number, variation: number, phase: number, flow
     // (round the bowl's rim, off the channel, the ground stands at the bench's level at least: no way round the sill)
     const wb = smoothstep((mb[i] - 0.5) / 0.2 + 0.5);
     floor[i] = wb * vBowl + (1 - wb) * (mcs[i] >= mb[i] ? vChan : Math.max(vChan, K.sill));
-    // (the sill: the bench between the lake and the bowl's downstream rim, and the channel's run over it)
-    if (a >= aOut - K.sillAt * r && a <= aOut + K.sillRun + 2) sill[i] = 1;
   }
+  // (the sill, round 6b step 3: the ground from the lake's middle to the bowl's downstream rim and the channel's run
+  // over it and a little past, as far to each side as the river may wander, so wherever the river leaves its lake it
+  // leaves over rock: a sill that began past the lake's middle or ended at the run's end let a river that left by a
+  // lobe, or past a spit, cut down and drain the lake two levels under the bench)
+  for (let i = 0; i < N; i++) if (alongOf[i] >= aL && alongOf[i] <= aOut + K.sillRun + 2 + K.sillPast * r && line[i] <= 1.2 * r) sill[i] = 1;
   // how far each tile is from the valley (a chamfer distance, 1 and 1.4 a step), eased to 1 at `far` of the side
   const dist = new Float64Array(N).fill(1e9);
   for (let i = 0; i < N; i++) if (m[i] >= 0.5) dist[i] = 0;
@@ -218,17 +225,30 @@ export function standValley(seed: number, variation: number, phase: number, flow
   return { m, floor, away, share: n / N, cx, cy, r, line, sill, bowl: inBowlT };
 }
 
-/** The lake's shore in the bowl (round 6b step 2): found, not laid. The bowl's tiles nearest a lobed outline round the
- *  lake's middle on the water's line (`aL` tiles along it, at `lx`, `ly`), read `STAND.lake.stretch` as far down the
- *  line as across it, so the lake lies along the line with the bench beside it, the `want` nearest are the lake. The
- *  outline's lobes are deep (`lobes`) and the distance is read with a slow warped noise (`bays`), so the shore wanders
- *  into a bay or two and round a spit, and no two lakes share an outline (step 1's lake, of gentle lobes, read as a
- *  laid round basin). Returns each tile's signed distance to the shore (tiles, positive in the lake). */
+/** The lake's shore in the bowl (round 6b steps 2 and 3): found, not laid. The bowl's tiles nearest a lobed outline
+ *  round the lake's middle near the water's line (`aL` tiles along it, at `lx`, `ly`), the `want` nearest are the lake.
+ *  Step 3, the bench first: the bench lies on the side of the line where the bowl is broader beside the lake's middle,
+ *  and the lake's middle lies off the line away from it (`shift`). Facing the bench the shore is read from an outline
+ *  of gentle lobes (`benchLobes`, read `benchStretch` as far down the line as across it), so beside the bench it wanders
+ *  a tile or two and the bench keeps its level room; turning away from the bench (`benchCos`, `benchTurn`) it is read
+ *  from one of deep lobes (`lobes`, `stretch`) with a slow warped noise (`bays`), so the bays, the spit and the narrow
+ *  end lie on the far shore and at the ends, and no two lakes share an outline. Returns each tile's signed distance to
+ *  the shore (tiles, positive in the lake). */
 function lakeShore(s: number, W: number, H: number, r: number, aL: number, lx: number, ly: number, mb: Float64Array, alongOf: Float64Array, latOf: Float64Array, want: number, ax: number, ay: number): Float64Array {
   const K = STAND.lake;
   const N = W * H;
   const lakeF = outline(hash32(s, "lake-outline"), lx, ly, r, K.lobes);
   const bs = hash32(s, "lake-bays");
+  const benchF = outline(hash32(s, "lake-outline"), lx, ly, r, K.benchLobes);
+  // the bench's side: the side of the water's line where the bowl is broader beside the lake's middle
+  let pos = 0;
+  let neg = 0;
+  for (let i = 0; i < N; i++)
+    if (mb[i] >= 0.5 && Math.abs(alongOf[i] - aL) < r) {
+      if (latOf[i] > 0) pos++;
+      else if (latOf[i] < 0) neg++;
+    }
+  const side = pos > neg ? 1 : pos < neg ? -1 : bs & 1 ? 1 : -1;
   const ds: number[] = [];
   const dl = new Float64Array(N).fill(Infinity);
   for (let i = 0; i < N; i++)
@@ -236,8 +256,16 @@ function lakeShore(s: number, W: number, H: number, r: number, aL: number, lx: n
       const x = i % W;
       const y = (i - x) / W;
       const u = (alongOf[i] - aL) * K.stretch;
-      const v = latOf[i];
-      dl[i] = formDist(lakeF, lx + u * ax - v * ay, ly + u * ay + v * ax, lx, ly, r) + K.bays * warpedFbm(bs, x, y, K.baysCell * r, 3, 0.2 * r);
+      // (the lake's middle lies off the line, away from the bench)
+      const v = latOf[i] + side * K.shift * r;
+      const rho = portable.sqrt(u * u + v * v);
+      // (1 facing the bench, 0 facing away from it)
+      const g = smoothstep(((rho > 0 ? (side * v) / rho : 0) - K.benchCos) / K.benchTurn + 0.5);
+      const bay = warpedFbm(bs, x, y, K.baysCell * r, 3, 0.2 * r);
+      const far = g < 1 ? formDist(lakeF, lx + u * ax - v * ay, ly + u * ay + v * ax, lx, ly, r) + K.bays * bay : 0;
+      const un = (alongOf[i] - aL) * K.benchStretch;
+      const near = g > 0 ? formDist(benchF, lx + un * ax - v * ay, ly + un * ay + v * ax, lx, ly, r) : 0;
+      dl[i] = g * near + (1 - g) * far;
       ds.push(dl[i]);
     }
   ds.sort((a, b) => a - b);

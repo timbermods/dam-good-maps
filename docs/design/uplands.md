@@ -564,8 +564,9 @@ Highlands at 128² and under, is 0.10.50's byte for byte (below).
   river keeps to the middle.
 - **The sill holds** (`hydro.ts` `profileOf`, `Genome.rockSill`). On such a land, a river leaving a lake holds the
   lake's outlet bed while it crosses the sill's rock (the valley's tiles from 0.45 of the radius up the line from the
-  rim to 6 past it). Inside the lake its bed is the outlet bed. Without this, the main river's cut (incision and
-  hanging drops, up to 6 levels) drained the lake to its bed. Other lands have no `rockSill` and are unchanged.
+  rim to 6 past it; since step 3, from the lake's middle to 0.2 of the radius past that). Inside the lake its bed is
+  the outlet bed. Without this, the main river's cut (incision and hanging drops, up to 6 levels) drained the lake to
+  its bed. Other lands have no `rockSill` and are unchanged.
 - **No second lake, no drowned head** (`highlands.ts`, stand lands only). No troughs: a "valley lake" dug a second
   hollow into the bench. No hanging cut, and incision at most 1.4: the entrenched main river put its tributaries'
   mouths two levels under the lake, which failed as "a river's head under a lake".
@@ -667,3 +668,80 @@ bench. With step 1's own lake and everything else of step 2, the Easy rows held 
 195). Also short: the land beside a 4+ drop (the plinths eat the walls' height under the top of 16), the one-level
 share on three seeds, the longest face on three, moist share on four; ruled bits (item 4) were not worked: only the
 channel past the sill now leaves in rings, not a chute.
+
+### Round 6b step 3: the lake keeps the bench (2026-11-19, committed, not pushed: the start's bars fail)
+
+Still generator 0.10.51, on step 2's 1404903f; Highlands above 128² only (`standsUp`). Before/after sheet (step 2 and
+step 3 round the start, four maps): `C:/dgm-showcase/hl6c/sheet-step2-vs-step3.png`.
+
+**The base count is 43, not 42.** Measured again on a5d893b5 with the same script (16 maps, `pr/gen.ts`, rows from
+each map's JSON): 43 Easy rows missed, and step 1's own table's step-1 column sums to 43; "70 → 42" was a slip in
+the sum.
+
+**Why step 2's starts left the bench: the lake drained.** On step 2 the lake stood at 3.4–4.4 on Normal s3, Easy s4,
+Easy 192² and Normal 384² (5.1–5.7 on a5d893b5): two levels under the bench, whose moisture (2 × saturation, less 6
+a level over the water) then reached no land, so the pick left the valley or took a dry corner. Three ways out, all
+in `hydro.ts` `profileOf` and the sill's mask: the river left the lake by a lobe before the sill's rock began (0.45
+of the radius up the line from the rim); it crossed a bar or a spit and came back into the same lake, cutting
+through its floor; and it left past the sill's end (4 + 2 tiles past the rim on the line, short of where a 384²
+lake reaches).
+
+**What was built.**
+- **The bench first** (`bold.ts` `lakeShore`, `STAND.lake.shift`, `bench*`). The bench lies on the side of the
+  water's line where the bowl is broader beside the lake's middle, and the lake's middle lies 0.12 of the radius off
+  the line away from it. Facing the bench the shore is read from an outline of gentle lobes (1.5, read 0.6 as far down
+  the line as across); turning away from it, from step 2's deep lobes and bays, so the bays, the spit and the narrow
+  end lie on the far shore and at the ends.
+- **The sill holds wherever the river leaves** (`bold.ts` `standValley`, `STAND.lake.sillPast`; `hydro.ts`
+  `profileOf`, rock-sill lands only). The sill's rock reaches from the lake's middle to 0.2 of the radius past the
+  channel's run, within 1.2 radii of the line. A river that comes back into the lake it left is in it again. Leaving,
+  it takes the outlet's bed, not a lower bed it ran on upstream. Every lake now stands at 5.2–5.8 (in the middle
+  half; small side ponds at 3.4–4.7).
+
+**The start** (base a5d893b5 → step 3; base run alone earlier, head two maps at a time while another builder ran, so
+CPU is rough).
+
+| map | attempts | room | reach | Easy rows missed (a5d893b5 → step 3) | calm | water / drought | CPU s |
+|---|---|---|---|---|---|---|---|
+| 256² s1 | 2 → 2 | 468 | 53,567 | 3 → 3 (water, drought, metal) | 0 | 7.4 / – | 39.4 → 32.3 |
+| 256² s2 | 1 → 1 | 515 | 52,833 | 3 → 4 (water, drought, food, metal) | 0 | 6.7 / – | 37 → 28.5 |
+| 256² s3 | 2 → 1 | 531 | 48,026 | 4 → 3 (water, drought, metal) | 0 | 7.1 / – | 44.8 → 28.7 |
+| 256² s4 | 1 → 1 | 454 | 35,908 | 3 → 4 (water, drought, food, metal) | 0 | 6.7 / – | 42.3 → 39.6 |
+| 256² s5 | 1 → 2 | 531 | 33,569 | 1 → 4 (water, drought, food, metal) | 0 | 7 / – | 38.7 → 33.1 |
+| 256² s6 | 2 → 1 | 521 | 38,957 | 4 → 3 (water, drought, metal) | 0 | 6.8 / – | 38.2 → 32.3 |
+| Easy 256² s1 | 2 → 2 | 458 | 46,922 | 2 → 2 (food, metal) | 0 | 3 / 3 | 40.3 → 30.9 |
+| Easy 256² s2 | 1 → 1 | 467 | 50,338 | 3 → 2 (food, metal) | 0 | 3.4 / 6.2 | 35.2 → 25.5 |
+| Easy 256² s3 | 2 → 1 | 470 | 48,589 | 2 → 2 (food, metal) | 0 | 2.8 / 2.8 | 44.5 → 29 |
+| Easy 256² s4 | 1 → 1 | 389 | 39,912 | 2 → 4 (room, badwater, food, metal) | 0 | 3 / 3 | 41.3 → 40.6 |
+| Easy 256² s5 | 1 → 2 | 447 | 33,518 | 2 → 2 (food, metal) | 0 | 3.4 / 3.8 | 38.3 → 32.2 |
+| Easy 256² s6 | 2 → 1 | 443 | 15,804 | 3 → 1 (metal) | 0 | 3 / 3 | 38 → 32.4 |
+| 192² s1 | 7 → 4 | 309 | 26,136 | 3 → 5 (room, water, drought, food, metal) | 0 | 9 / – | 39 → 41.8 |
+| 384² s1 | 3 → 7 | 516 | 111,141 | 4 → 3 (water, drought, metal) | 0 | 6.7 / – | 108.8 → 100.6 |
+| Easy 192² s1 | 7 → 7 | 408 | 28,672 | 2 → 1 (metal) | 0 | 3 / 3 | 38.1 → 47 |
+| Easy 384² s1 | 4 → 6 | 407 | 111,762 | 2 → 2 (food, metal) | 0 | 2 / 2 | 108.3 → 91.4 |
+
+Summed: Easy rows missed 43 → 45 (step 2: 53), attempts 39 → 40, CPU 772 → 666 s. No draw is for a leak; the extra
+draws are planned promise (8), the start's water moved (8), straight channels (4, 384² only: spring rivers on the
+open floor, not the lake's) and the water story (2). Every start stands on the valley's bench (level 6) but Normal
+192²'s (level 11, room 309).
+
+**Short of the bars: why it is not pushed.**
+- Easy rows worse on five maps: Normal s2, s4, s5 and 192², Easy s4. CPU over 15 % on Easy 192² (38.1 → 47 s). Normal's misses swing with the pick's
+  draw: it aims its walk at 6.75 tiles, past the water row's 6, so the water, drought and food rows of a Normal map
+  come and go with which of the best few places it draws (the same lake gave Normal s1 3 or 4 and s5 3 or 4 across
+  variants). Nothing in the lake decides it, and the pick is not to be pulled.
+- Room under 400 on Normal 192² (309, start off the valley: the seed's draw prefers another kind of place; base
+  stood on a different land, its seventh draw) and Easy s4 (389, the start against the bench's shore).
+- Attempts over base on s5 (2: the first land's cliffs 0.0410 under 0.0424, the plinths eating the walls) and 384²
+  (7 and 6: straight spring channels on the floor, ~145 tiles from the valley). Both are step 2's land, step 4's.
+- The bench's shore is too even on Easy s4 and Normal 384²: a long, nearly straight stretch reads ruled. A gentler
+  near outline is what keeps the bench's room; with deeper lobes there the bench is cut again.
+
+**The hash proof.** Base 89d6887e and this head, each side run alone, round 6's 52 maps (step 1's list): 52 of 52
+identical.
+
+**Tried and dropped.** Step 1's round outline on the bench side with step 2's lobes beyond (43 → 46, the lake half
+round); the lake's middle 0.2 of the radius off the line (50: the far shore pinned against the rim); holding the river's bed at the lake's level while the ground round it stands at the bench's
+(49, and 45 with the middle 0.12 off, but Easy s4's lake became a reservoir down the channel); the sill reaching only the bowl's rim, not past it
+(44, Normal 384²'s lake at 4.7: the river left past the sill's end). Turning off the rings round the downstream
+channel left 384²'s attempts at 7: they are not the rings'.
