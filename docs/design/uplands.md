@@ -886,3 +886,62 @@ under, this head run alone against a5d893b5's, the version neutralised: 52 of 52
 - The tops are broader and blanker than the game's dense terracing.
 - The walls are short: land beside a 4+ drop 1.6–3.3 % on seeds 1–6 at 256² (bar 5–9 %); seed 2 the lowest
   (regional relief 6.97).
+
+### Round 6b step 5 follow-ups (2026-11-20)
+
+Planning's ruling on ecd24adf (start, look and ask accepted) asked two things more, and #1261 (generator 0.10.52, the
+pick walks over the slopes, D545 rounds 3–4) merged in first. Generator 0.10.53.
+
+**What was built.**
+- **No badwater above the lake.** The highest contamination of the water within the start's walk, read through the
+  first cycle and its first badtide (the settled water, then the badtide's run), is 0 on all 16 maps: the plume joins
+  the main water below the lake's outlet (D476's lower reach), never above it.
+- **The channel winds its whole length** (`standValley`'s `offAt`): past the sill a meander 0.28 of the side long with
+  noise along its phase, from the end of the sill's run, under the noise from before; up the flow the noise from 1.5
+  radii out, as step 5 drew it (a meander there drew seed 1's planned story reach under 0.35). Seed 3's line swings
+  21 tiles where it swung 9.5, its water 14.5 tiles wide where it ran 20 (the other seeds' rivers 10–15 at 256²).
+- **The way out stays in the valley** (`gen/generate.ts`): `widenOutlets` read the bowl's lake as a sea's basin and cut
+  its way out 20–30 tiles wide beside the channel, across the floor; the land outside the valley is now kept from it.
+- **Badwater off the start's view**: the plan's badwater keeps off the opening frame of the plan's start too
+  (192²'s 49–73 tiles in view before), and where every turn of the place the settler draws shows some, the place among
+  the good few that shows least is taken (seed 5's 27 tiles).
+- **Thorns on a map Designed for Easy keep Easy's 30 tiles** (`extras.ts` `EASY_THORNS`): Easy 256² seed 1's new
+  hazards miss was a belt in front of a small relic 27–30 tiles from the start, which moved with the land. The rows
+  judge a map Designed for Easy as an Easy start; Normal maps keep 22.
+
+**The start** (base a5d893b5 with #1261's pick, head 0.10.53 merged with dev; one map at a time, base and head in
+turn, two streams). Every row of Easy's counts on the Normal maps too.
+
+| map | attempts | room | reach | Easy rows missed | contamination | CPU s |
+|---|---|---|---|---|---|---|
+| 256² s1 | 2 → 1 | 525 → 490 | 26,827 → 47,164 | 2 → 1 (metal) | 0 | 34.3 → 25.8 |
+| 256² s2 | 1 → 1 | 496 → 522 | 35,836 → 50,066 | 1 → 3 (drought, food, metal) | 0 | 31.2 → 25.9 |
+| 256² s3 | 2 → 1 | 493 → 532 | 9,380 → 46,664 | 1 → 2 (food, metal) | 0 | 50.4 → 28.1 |
+| 256² s4 | 1 → 1 | 474 → 521 | 21,087 → 36,380 | 3 → 2 (food, metal) | 0 | 39 → 26.1 |
+| 256² s5 | 1 → 1 | 476 → 545 | 7,458 → 42,864 | 1 → 1 (drought) | 0 | 36 → 25.4 |
+| 256² s6 | 2 → 1 | 470 → 488 | 6,653 → 44,683 | 4 → 2 (food, metal) | 0 | 37.8 → 29.1 |
+| 192² s1 | 7 → 2 | 476 → 488 | 3,647 → 8,721 | 1 → 2 (food, metal) | 0 | 44.2 → 23 |
+| 384² s1 | 3 → 1 | 515 → 533 | 37,716 → 106,187 | 1 → 2 (food, metal) | 0 | 101 → 46.3 |
+| Easy 256² s1 | 2 → 1 | 453 → 493 | 30,489 → 44,835 | 2 → 2 (food, metal) | 0 | 34.7 → 24.5 |
+| Easy 256² s2 | 1 → 1 | 405 → 446 | 26,004 → 48,130 | 3 → 1 (metal) | 0 | 34.2 → 26.3 |
+| Easy 256² s3 | 2 → 1 | 438 → 461 | 9,542 → 50,209 | 2 → 2 (food, metal) | 0 | 38.4 → 24.9 |
+| Easy 256² s4 | 1 → 1 | 489 → 456 | 21,602 → 40,815 | 2 → 2 (food, metal) | 0 | 39.7 → 26.1 |
+| Easy 256² s5 | 1 → 1 | 468 → 509 | 7,489 → 43,089 | 2 → 2 (food, metal) | 0 | 37 → 24.9 |
+| Easy 256² s6 | 2 → 1 | 445 → 454 | 7,249 → 40,523 | 3 → 2 (food, metal) | 0 | 35.8 → 26.9 |
+| Easy 192² s1 | 7 → 2 | 431 → 482 | 3,646 → 25,592 | 2 → 2 (food, metal) | 0 | 38.5 → 29.7 |
+| Easy 384² s1 | 4 → 1 | 455 → 491 | 28,479 → 100,231 | 2 → 2 (food, metal) | 0 | 95.4 → 54.4 |
+
+Summed: attempts 39 → 18 (the 192² maps take two: the first land misses the planned promise, 3 plateaus against 4),
+Easy rows missed 32 → 30 (Easy maps 18 → 15, none worse; Normal maps 14 → 15), CPU 728 → 467 s. Every start passes on
+the valley's bench (level 6), room 446 or more, reach over base on all 16, badwater in the start's view 0 and in the
+water of the start's walk 0 on all 16, no leak draw.
+
+**More rows than base on four Normal maps**: 256² s2 (food and the drought's walk, 10.7 tiles against 10), s3, 192²
+and 384² (food). Easy's food row counts living bushes within 15 tiles' walk that stay moist through a drought (40).
+On the head's open bench, with room to spread over the 20 tiles' walk Normal plants in (`resources.ts`), the start's
+own patches stand 12–24 tiles from it, where base's tight floodplain packed them within 12 (s3: 57 of 76 within 12 tiles on base, 1 of 48 on
+the head). Normal's own row, 48 bushes within 20 tiles, is met on all eight. Not changed here: drawing the start's
+planting within Easy's 15 tiles is a rule for every theme's Normal maps.
+
+**The hash proof**: the 52 maps of the other themes Designed for Normal and of Highlands at 128² and under, this head
+against dev (18a6518a), the version neutralised: 52 of 52 identical.
