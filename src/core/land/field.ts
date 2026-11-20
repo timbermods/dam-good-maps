@@ -499,7 +499,10 @@ export function uplift(g: Genome, seed: number, W: number, H: number, slope?: Fl
           const bwk = g.basinWarp;
           const n1 = Math.abs(fx) + Math.abs(fy);
           const q = -(((u + 2 * ox) * fx + (v + 2 * oy) * fy) / n1);
-          h += bwk.lin * portable.pow(clamp((q + 1) / 2, 0, 1.25), bwk.pow);
+          const prof = (qq: number) => bwk.lin * portable.pow(clamp((qq + 1) / 2, 0, 1.25), bwk.pow);
+          // (and past the lake toward the outlet no lower than at the lake's own place less the lip, round 7c)
+          const ql = -(((2 * g.focus[0] - 1) * fx + (2 * g.focus[1] - 1) * fy) / n1);
+          h += Math.max(prof(q), prof(ql) - bwk.lip);
           if (bwk.side) {
             // (the side's rim rising from beside the lake: `rl` the lake's place across the map)
             const r = ((u + 2 * ox) * -fy + (v + 2 * oy) * fx) / n1;

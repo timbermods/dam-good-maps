@@ -80,14 +80,13 @@ export function shapeLakeBasin(g: Genome, s: Settings, W: number, H: number, see
       size: side * 0.62, height: -3, turn: g.flowDir / 8, extra: side * 0.055, soft: 0 });
   }
 
-  // (round 7: the lake's hollow as deep as a lake, so the land keeps the levels over it)
-  const deep = found ? 0.5 : 1;
-  for (const p of hollows) p.height *= deep;
+  // (the lake's hollow at its full depth above 128² as well, round 7c: at half of it the lake sat on the floor's flat,
+  // and the courses across and along it cut that floor below the lake, which drained)
   g.parts.push(...hollows);
   // A compact deeper reach inside the main hollow keeps elongated lakes broad enough to
   // dominate their tributaries. It changes the floor, not the drawn outer shoreline.
   g.parts.push({ kind: 'basin', shape: 'round', at: focus, size: side * rng.range(0.18, 0.21),
-    height: -rng.range(3, 4) * (found ? Math.max(deep, 0.6) : 1), turn, extra: 0, soft: 0 });
+    height: -rng.range(3, 4), turn, extra: 0, soft: 0 });
 
   // Drowned valley relief, not a water outline: smaller hollows along bent valley axes
   // meet the main depression. Intervening spurs stand above parts of the same floor.
@@ -280,6 +279,10 @@ function longLakes(g: Genome, W: number, H: number, seed: number, attempt: numbe
   g.focus = at(focusT, focusC);
 }
 
+/** The basin's lip on its outlet side, in levels (round 7c): past the lake the rise falls no lower than it stands at
+ *  the lake's own place, less this, so the land beyond the outlet holds the lake rather than draining it. */
+const BASIN_LIP = 2;
+
 /** Round 7b (above 128²): the basin found in the land. The land rises toward a rim on one or two sides (`basinWarp`'s
  *  profile), the lake lies low against it, the far side stays open; the catchment's radial slope is weak and read
  *  through a slow warp; the regional field at the map's scale and benches of two or three levels carry the relief. */
@@ -288,7 +291,7 @@ function sidedBasin(g: Genome, side: number, r: ReturnType<typeof stream>): void
   const lin = 16;
   const two = r.float() < 0.5;
   const sideSign = r.float() < 0.5 ? 1 : -1;
-  g.basinWarp = { amp: 0.12, cell: 0.45, lin, pow: 1.8, side: two ? sideSign : 0, sideLin: two ? lin * 0.7 : 0 };
+  g.basinWarp = { amp: 0.12, cell: 0.45, lin, pow: 1.8, side: two ? sideSign : 0, sideLin: two ? lin * 0.7 : 0, lip: BASIN_LIP };
   g.noise.amp = 1.5;
   g.regional.amp = r.range(4, 5.5);
   g.regional.cell = side * r.range(0.35, 0.6);

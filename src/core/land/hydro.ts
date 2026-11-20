@@ -108,6 +108,9 @@ const WIDE_WANT = 0.5;
 /** How far the soil's moisture has to spread from the water on `wet` tiles to reach each tile, by the game's own rule
  *  (sim/soil3d.ts: a step costs 1, and 6 for each level the tile stands above the one it spreads from; downhill is
  *  free of the climb), the water standing a level above its bed; 64 or more read as 64 (D504). */
+/** Lake Basin above 128² (round 7c): a hollow under this share of the map is a pond, not the basin's lake. */
+const BASIN_POND = 0.01;
+export const HYDRO_DBG: { on: boolean; at: Map<number, string>; who: string; lk: Uint8Array | null } = { on: !!(globalThis as any).process?.env?.DGM_TR, at: new Map(), who: '', lk: null };
 export function moistCost(wet: Uint8Array, h: ArrayLike<number>, W: number, H: number): Int32Array {
   const N = W * H;
   const CAP = 64;
@@ -1502,7 +1505,10 @@ function planHydroSingle(E: Float64Array, h: Uint8Array, g: Genome, seed: number
       if (!Number.isFinite(ring)) ring = Number.isFinite(run) ? run + 1 : h[Math.max(0, Math.min(N - 1, ci))] + 1;
       if (withLakes && !gorgeMain && isIn && depth[ci] > 0 && lakeOf[ci] < 0 && inLake < 0) {
         // A flat valley's trunk stays below its upstream bed when it crosses a hollow.
-        const lk = hollow(ci, valleyMain ? Math.min(maxSill, run + 1) : maxSill);
+        let lk = hollow(ci, valleyMain ? Math.min(maxSill, run + 1) : maxSill);
+        // (round 7c: Lake Basin above 128², a hollow smaller than the basin's lake stands no higher than the river's bed
+        // upstream: a pond on a bench over its course backed the water up to its head and out by the edge beside it)
+        if (g.basinWarp && !valleyMain && lk && lk.sill > run + 1 && lk.tiles.length < BASIN_POND * N) lk = hollow(ci, Math.min(maxSill, run + 1));
         // (a hollow too big for the budget is cut down to its lowest part: the same lake again)
         const again = lk ? lk.tiles.find((i) => lakeOf[i] >= 0) : undefined;
         if (lk && again !== undefined) inLake = lakeOf[again];
@@ -1588,10 +1594,11 @@ function planHydroSingle(E: Float64Array, h: Uint8Array, g: Genome, seed: number
       // on across its dry part in a channel, never spreading or standing over it; Codex's River
       // Valley prototype, River Valley 96² seed 5)
       if (water[i] === 2) {
-        if (d < r && h[i] > b) h[i] = b;
+        if (d < r && h[i] > b) { if (HYDRO_DBG.on) HYDRO_DBG.at.set(i, `LAKE<-${HYDRO_DBG.who} j${j} b${b} was${h[i]} lk${HYDRO_DBG.lk ? HYDRO_DBG.lk[j] : '?'}`); h[i] = b; }
         continue;
       }
       if (d < r) {
+        if (HYDRO_DBG.on && h[i] > b) HYDRO_DBG.at.set(i, `${HYDRO_DBG.who} j${j}/${n} b${b} was${h[i]} lk${HYDRO_DBG.lk ? HYDRO_DBG.lk[j] : '?'}`);
         if (h[i] > b) h[i] = b;
         water[i] = 1;
       } else if (floorHalf > 0 && water[i] !== 1 && d < r + floorHalf * (natural ? 1 + 0.7 * fbm(fs, x, y, 8, 2) : 1 + 0.45 * fbm(fs, x, y, 11, 2))) {
@@ -1763,6 +1770,7 @@ function planHydroSingle(E: Float64Array, h: Uint8Array, g: Genome, seed: number
       for (let q = j; q <= n && prof[q] === prof[j]; q++) level++;
       if (level >= 8) poolAt.push(j);
     }
+    HYDRO_DBG.who = String(rid); HYDRO_DBG.lk = lakeAt;
     carve(st, bedOf, L, n, half, floorHalf);
     // (a pool is cut only inside banks that hold it: every tile beside it but its outflow, the
     // channel below it, stands at the pool's water, its bed above it, or higher; else its water finds
@@ -2053,6 +2061,7 @@ function planHydroSingle(E: Float64Array, h: Uint8Array, g: Genome, seed: number
         const aws = hash32(seed, "arm-width", attempt, 0);
         const ahalf = (s: number, L: number) => halfWidthAt(aw, awv, aws, s, L);
         const pa = profileOf(armCourse, aw, 1, false, river.id, ahalf, m.prof[j0], m.prof[j1]);
+        HYDRO_DBG.who = 'L2058'; HYDRO_DBG.lk = null;
         carve(pa.st, pa.prof, pa.L, pa.n, ahalf, 0);
         markArm(pa.st, pa.L, ahalf);
         arms.push({ kind: "split", river: river.id, path: armCourse });
@@ -2086,6 +2095,7 @@ function planHydroSingle(E: Float64Array, h: Uint8Array, g: Genome, seed: number
         bed[q] = run;
       }
       const st = stamp(m.path, W, H, Math.ceil(m.width / 2 + 3));
+      HYDRO_DBG.who = 'L2091'; HYDRO_DBG.lk = null;
       carve(st, bed, m.L, m.n, m.half, 0);
       m.prof.set(bed);
       const steps: BedStep[] = [];
@@ -2156,6 +2166,7 @@ function planHydroSingle(E: Float64Array, h: Uint8Array, g: Genome, seed: number
       const ahalf = (s: number, L: number) => fan ? Math.max(MIN_WIDTH / 2, halfWidthAt(aw, awv, aws, s, L)) : halfWidthAt(aw, awv, aws, s, L);
       const j0 = Math.round((s0 / m.L) * m.n);
       const pa = profileOf(armCourse, aw, 1, false, main.id, ahalf, fan ? Math.max(BED_FLOOR, Math.min(m.prof[j0], deltaGround![Math.round(clamp(p0[1], 0, H - 1)) * W + Math.round(clamp(p0[0], 0, W - 1))]) - 1) : m.prof[j0]);
+      HYDRO_DBG.who = 'L2161'; HYDRO_DBG.lk = null;
       carve(pa.st, pa.prof, pa.L, pa.n, ahalf, fan ? 1.8 : 0);
       markArm(pa.st, pa.L, ahalf);
       // A short second thread round an island on a flat reach; both threads keep one bed.
@@ -2188,6 +2199,7 @@ function planHydroSingle(E: Float64Array, h: Uint8Array, g: Genome, seed: number
           if (clear) {
             const width = Math.max(1.8, aw * 0.75), half = () => width / 2;
             const bp = profileOf(branch, width, 1, false, main.id, half, bed, bed);
+            HYDRO_DBG.who = 'L2193'; HYDRO_DBG.lk = null;
             bp.prof.fill(bed);carve(bp.st, bp.prof, bp.L, bp.n, half, 1.2);markArm(bp.st, bp.L, half);
             braidBeds.push({prof:bp.prof,L:bp.L,n:bp.n,course:branch,st:bp.st,half});
             arms.push({kind:"split", river:main.id, path:branch});
@@ -2228,6 +2240,7 @@ function planHydroSingle(E: Float64Array, h: Uint8Array, g: Genome, seed: number
       for (let q = 0; q <= bins; q++) {run = Math.min(run, level[q]);level[q] = run;}
       for (const plan of [...plans, ...braidBeds]) {
         for (let q = 0; q <= plan.n; q++) plan.prof[q] = Math.min(plan.prof[q], level[at(pointAt(plan.course, q * plan.L / plan.n).p)]);
+        HYDRO_DBG.who = 'L2233'; HYDRO_DBG.lk = null;
         carve(plan.st, plan.prof, plan.L, plan.n, plan.half, 1.8);
       }
       const bed = pb.prof.slice();
@@ -2308,6 +2321,7 @@ function planHydroSingle(E: Float64Array, h: Uint8Array, g: Genome, seed: number
         }
       }
       if (!lowered) continue;
+      HYDRO_DBG.who = 'L2313'; HYDRO_DBG.lk = null;
       carve(st, bed, m.L, m.n, m.half, 0);
       m.prof.set(bed);
       const env = bed.slice();
@@ -2349,6 +2363,7 @@ function planHydroSingle(E: Float64Array, h: Uint8Array, g: Genome, seed: number
     if (trimmed) {
       for (let i = 0; i < N; i++) if (water[i] === 2) water[i] = 3;
       for (const lk of lakes) for (const i of lk.tiles) water[i] = 2;
+      HYDRO_DBG.who = 'L2354'; HYDRO_DBG.lk = null;
       for (const m of exits.values()) carve(stamp(m.path, W, H, Math.ceil(m.width / 2 + 3)), m.prof, m.L, m.n, m.half, 0);
       for (let k = lakes.length - 1; k >= 0; k--) if (lakes[k].tiles.length < 6) lakes.splice(k, 1);
     }
@@ -2427,6 +2442,7 @@ function planHydroSingle(E: Float64Array, h: Uint8Array, g: Genome, seed: number
 /** River Valley tries two courses around a drawn cliff and retains the stronger split.
  *  Both use the same field; only existing ground is carved, before the land stage. */
 export function planHydro(E: Float64Array, h: Uint8Array, g: Genome, seed: number, W: number, H: number, attempt: number, opts: HydroOptions = {}): Hydro {
+  HYDRO_DBG.at.clear();
   const cliffDraw = g.theme === "riverValley" && opts.meander !== false && !g.hydro.exactInflows && (g.intentions.includes("upper-lower") || g.intentions.includes("under-cliff"));
   if (!cliffDraw) {
     // River Valley's default trunk enters from an upstream edge and crosses half the map, or the land

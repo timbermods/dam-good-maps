@@ -163,6 +163,9 @@ export interface SettlerOptions {
    *  (water 0.1+ deep whose contamination is over 0.05, as the settled water holds it), the opening shot choosing among
    *  those; and the frame's swap to another of the good few never to one that shows more. */
   badView?: boolean;
+  /** With `badView` (Lake Basin above 128², round 7c): where each of the good few still shows badwater, the best place of
+   *  the rest of the list drawn from (every one keeps the rows the pick keeps) whose turn shows none. */
+  badViewWide?: boolean;
   /** The rivers' channel as the build lays it (`BuildResult.channel`), on the settled water: the places read over the
    *  slopes are read over the slopes the build will place (`startWalks`), toward the river, so the walk the pick
    *  weighs is the one the start's water rows read on the map. */
@@ -809,6 +812,7 @@ export function pickStart(
   const keeps = keepsOf(c0);
   // room first: the places with Easy's room (the start well inside it) that keep those rows; where none has, those that
   // keep them with at least the room of the place the pick before would choose (that place among them)
+  if ((globalThis as any).process?.env?.DGM_TR && opts.badViewWide && roomFirst) { const rm = cands.filter((t) => t.room >= ask.room && t.inside >= ask.insideShare); console.error(`[tr] cands ${cands.length} roomed ${rm.length} keeping ${rm.filter((t) => keeps(t)).length} c0 ${c0.i % W},${Math.floor(c0.i / W)} room ${c0.room} mid ${c0.mid} bad ${c0.bad} moist ${c0.moist}; roomed failing: ${rm.slice(0, 400).filter((t) => !keeps(t)).slice(0, 8).map((t) => `${t.i % W},${Math.floor(t.i / W)} r${t.room} mid${t.mid} bad${t.bad} m${t.moist}`).join(' | ')}`); }
   let top = roomFirst ? topOf(cands.filter((t) => keeps(t) && t.room >= ask.room && t.inside >= ask.insideShare), "scoreRoom", keeps) : [];
   if (!top.length && roomFirst) top = topOf(cands.filter((t) => keeps(t) && t.room >= c0.room), "scoreRoom", keeps);
   // (without room first, or past the 40 places read over the slopes, the first list's best few)
@@ -846,6 +850,17 @@ export function pickStart(
       }
     }
   }
+  if ((globalThis as any).process?.env?.DGM_TR && opts.badViewWide) console.error(`[tr] pick ${c.i % W},${Math.floor(c.i / W)} bad ${badTiles.length} seen ${badSeen(c, orientation)} top ${top.map((t) => `${t.i % W},${Math.floor(t.i / W)}:${badSeen(t, turned(t))}`).join(' ')}`);
+  if (opts.badViewWide && badTiles.length && badSeen(c, orientation) > 0)
+    for (const t of top) {
+      if (t === c) continue;
+      const o = turned(t);
+      if (badSeen(t, o) === 0) {
+        c = t;
+        orientation = o;
+        break;
+      }
+    }
   // the frame (D507): among the good few, all of which keep the start's rules, the one whose opening frame shows
   // clearly more of the map than the one drawn (a start near a corner frames mostly the void past the edge), never at
   // the cost of its opening shot (a landmark in view first, D493, D502: its shot as `bestTurn` rounds it)

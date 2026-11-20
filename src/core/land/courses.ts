@@ -149,7 +149,8 @@ export function drownedHeads(h: ArrayLike<number>, W: number, H: number, rivers:
         const u = x + dx;
         const v = y + dy;
         if (u <= 0 || v <= 0 || u >= W - 1 || v >= H - 1) continue;
-        top = Math.max(top, filled[v * W + u]);
+        // (only where water stands: a dry bank's own height is no water over the head)
+        if (filled[v * W + u] > h[v * W + u]) top = Math.max(top, filled[v * W + u]);
       }
     }
     if (top - bed >= DROWNED) out.push(r.id);

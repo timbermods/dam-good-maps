@@ -24,7 +24,7 @@
 
 import * as portable from "../math/portable";
 import { walledRun } from "../analysis/signature";
-import { openingFrame } from "../analysis/opening";
+import { openingFrame, tilesInFrame } from "../analysis/opening";
 import { damSites } from "../analysis/damsites";
 import { sourcesInFlow } from "../analysis/sources";
 import { STRAIGHT_LIMITS, straightness, tooStraight } from "../analysis/straight";
@@ -48,6 +48,7 @@ import { objectTiles } from "../features/objects";
 import type { Feature, ForestFeature, MapObjectFeature, RiverFeature, StartFeature } from "../features/schema";
 import { writeTimber, type TimberFile } from "../format/timber";
 import { drainage } from "../land/drainage";
+import { HYDRO_DBG } from "../land/hydro";
 import { bedMask, planWashes, startKeepOff, type Wash } from "../land/washes";
 import { WANDER, wanderEdges } from "../land/wander";
 import { EDGE_SHARE, edgeRuleApplies, edgeWalls } from "../analysis/edges";
@@ -128,6 +129,33 @@ export const MAX_ATTEMPTS = 24;
 /** Places tried for the badwater hollows before the land is shown, each off the last that another's
  *  water reached (D348: they are never dug again after). */
 const HOLLOW_TRIES = 3;
+/** Lake Basin above 128²: how far its badwater keeps from the plan's start, in tiles (round 7c), half again a land
+ *  that stands up's `STAND.badFar`: its start is chosen again on the settled water and moves further. */
+const BASIN_BAD_FAR = 90;
+/** Lake Basin above 128²: the ring of dry ground round a planned lake, in tiles, that no ramp or widened way out cuts
+ *  (round 7c). */
+const BASIN_LAKE_RING = 3;
+/** Round each planned lake, the dry tiles within `r` (Chebyshev) of it: each one's floor, the lake's sill (its outlet's
+ *  bed and a level; the highest where two lakes' rings meet), 0 off every ring. */
+function sillFloors(hy: Hydro, W: number, H: number, r: number): Uint8Array {
+  const out = new Uint8Array(W * H);
+  for (const lk of hy.lakes) {
+    const sill = lk.outletBed + 1;
+    for (const i of lk.tiles) {
+      const x = i % W;
+      const y = (i - x) / W;
+      for (let dy = -r; dy <= r; dy++)
+        for (let dx = -r; dx <= r; dx++) {
+          const xx = x + dx;
+          const yy = y + dy;
+          if (xx < 0 || yy < 0 || xx >= W || yy >= H) continue;
+          const j = yy * W + xx;
+          if (!hy.water[j] && out[j] < sill) out[j] = sill;
+        }
+    }
+  }
+  return out;
+}
 /** Maps (in 100) whose badwater drains where the land takes it, unsteered (D476: on the rest one
  *  badwater course is routed into the theme's main water, as in the game; an aim, never tuned). */
 const OWN_DRAIN = 15;
@@ -1742,6 +1770,7 @@ function planLandStage(land: Land, attempt: number, W: number, H: number, seed: 
   relaxEdges(h, W, H);
   opts.onProgress?.({ attempt, stage: "water" });
   const hy = planHydro(land.E, h, g, seed, W, H, attempt, land.joinsOff ? { joins: false } : {});
+  const __snap = h.slice(); const __low: Map<number, string> = (globalThis as any).__LOW = new Map(); const __mk = (st: string) => { if (!(globalThis as any).process?.env?.DGM_TR) return; for (let i = 0; i < N; i++) if (h[i] < __snap[i]) __low.set(i, (__low.get(i) ?? '') + st + (__snap[i] - h[i]) + ' '); __snap.set(h); };
   land.joined = (hy.joined ?? 0) > 0;
   land.joinedRivers = new Set(hy.joinedRivers ?? []);
   // (M9b: the banks beside an inflow's mouth stay as the land has them: lowered to its channel, the
@@ -1756,12 +1785,24 @@ function planLandStage(land: Land, attempt: number, W: number, H: number, seed: 
     for (let i = 0; i < N; i++) if (beside[i] < edgeFloor[i]) beside[i] = edgeFloor[i];
   }
   relaxEdges(h, W, H, mouthBanks(hy, W, H), beside);
+  __mk('relax');
   const keep = new Uint8Array(N);
   for (let i = 0; i < N; i++) keep[i] = hy.water[i] === 1 || hy.water[i] === 2 ? 1 : 0;
+  // (Lake Basin above 128², round 7c: the ground round a planned lake, `BASIN_LAKE_RING` tiles, is its sill: a sliver of
+  // it merged into the land below, no ramp and no widened way out takes it under the lake's level, which drained the
+  // lake three levels, Lake Basin 256² seed 3)
+  const sills = g.basinWarp ? sillFloors(hy, W, H, BASIN_LAKE_RING) : null;
+  const lakeRing = sills ? Uint8Array.from(sills, (v) => (v ? 1 : 0)) : null;
+  const preMerge = sills ? h.slice() : null;
   mergeSmallRegions(h, W, H, 4, keep);
+  if (sills) for (let i = 0; i < N; i++) if (h[i] < sills[i] && preMerge![i] >= sills[i]) h[i] = sills[i];
+  __mk('merge');
   cleanPitsAndSpikes(h, W, H, keep);
+  __mk('pits');
   fillDryHollows(h, W, H, keep);
-  const ramps = naturalRamps(h, W, H, keep, new Uint8Array(N), g, seed, attempt);
+  __mk('dryHollows');
+  const ramps = naturalRamps(h, W, H, keep, lakeRing ?? new Uint8Array(N), g, seed, attempt);
+  __mk('ramps');
   if (ramps.cut) {
     cleanPitsAndSpikes(h, W, H, keep);
     fillDryHollows(h, W, H, keep);
@@ -1800,6 +1841,7 @@ function planLandStage(land: Land, attempt: number, W: number, H: number, seed: 
       if (Math.min(x, y, W - 1 - x, H - 1 - y) < 2) channels[i] = 1;
     }
   carveOutlets(h, W, H, channels, hash32(seed, "outlets", attempt), Math.max(3, Math.min(9, Math.round(0.35 * hy.flowTotal)) | 1), 300, 120, null, beside);
+  __mk('outlets');
   // (and a small basin the planned water reaches whose spill level is a broad flat: its water would
   // stand a few hundredths over the flat as a sheet, a knife-edge under the game's spill threshold
   // that a drought leaves dry or not by millimetres (the probe's refill, D333, M9b): a stream a level
@@ -1808,6 +1850,7 @@ function planLandStage(land: Land, attempt: number, W: number, H: number, seed: 
     const wet = new Uint8Array(N);
     for (let i = 0; i < N; i++) wet[i] = hy.water[i] === 1 || hy.water[i] === 2 ? 1 : 0;
     carveOutlets(h, W, H, channels, hash32(seed, "outlets-small", attempt), 3, 4, 60, wet, beside);
+    __mk('outletsSmall');
   }
   // a sea's way out as wide as its water needs, so it settles within the four days (the rivers'
   // heads, the kept lakes and the locks stay as they are)
@@ -1826,7 +1869,9 @@ function planLandStage(land: Land, attempt: number, W: number, H: number, seed: 
     // basin, its way out cut 20–30 tiles wide along a route of its own beside the channel, a straight trench twice
     // the river's width, Highlands 256² seed 3; round 6b step 5)
     if (g.standValley) for (let i = 0; i < N; i++) if (!g.standValley[i]) heads[i] = 1;
+    if (lakeRing) for (let i = 0; i < N; i++) if (lakeRing[i]) heads[i] = 1;
     widenOutlets(h, W, H, heads, hash32(seed, "widen", attempt), hy.flowTotal * (W <= 128 ? 2 : 1), hy.lakes.map((l) => l.tiles), 2500, !!g.seaLayout);
+    __mk('widen');
   }
   // (D350, Islands' promise: an island a sea layout placed near the shore, joined to the land by low
   // ground, is parted from it by a strait; D432: on every sea map)
@@ -1848,6 +1893,7 @@ function planLandStage(land: Land, attempt: number, W: number, H: number, seed: 
   // (item 47: nothing the processes cut goes below the beds' floor; where one would, it runs
   // shallower there)
   for (let i = 0; i < N; i++) if (h[i] < BED_FLOOR) h[i] = BED_FLOOR;
+  __mk('floor');
   // item 27: a river that starts at the map's edge flows into the map, never off it: the edge tiles
   // its head's water would reach beside its row (a lake's shore at the edge too) stand a level above
   // that water (a natural lip, water/edgeLip.ts); the mouths themselves and the player's ground stay
@@ -1888,7 +1934,7 @@ function planLandStage(land: Land, attempt: number, W: number, H: number, seed: 
   // drought took for good, and such sheets fill for days. The tiles of a lake the hydrology planned
   // that stand at its spill level are cut a level lower, the lake's own bed
   // (not round a sea: a sea is big, and its shelf cut down makes a bigger sea that fills for days)
-  if (!g.seaLayout) lowerShelves(h, W, H, hy.water, hash32(seed, "shelves", attempt));
+  if (!g.seaLayout) { lowerShelves(h, W, H, hy.water, hash32(seed, "shelves", attempt)); __mk('shelves'); }
   // (D410: round a sea the shelf at its spill level rises a level instead, to the low shore it is, so no
   // pale sheet of water a few hundredths deep lies round its islands and along its coast)
   else if (raiseSeaShelves(h, W, H, hy.water, hy.rivers)) {
@@ -1916,7 +1962,7 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
   const N = W * H;
   // ringed land above 128² (uplands round 5): its slopes follow the ringed land's rules (features/slopes.ts
   // `RING_SLOPES`), as the start is picked, checked and built
-  const ringSlopes = Math.min(W, H) > 128 && !UPLANDS_BASE_PATH.has(g.theme);
+  const ringSlopes = Math.min(W, H) > 128 && (!UPLANDS_BASE_PATH.has(g.theme) || !!g.basinWarp);
   // Easy start (D495): the start calm and generous, guaranteed. Its targets tighten the start rules the map is
   // made and checked by (the spec the result carries keeps the player's), the land is shaped for it before it is
   // shown (land/easyStart.ts), and its rows block a map (validate/checks.ts); a late rescue round asks a little
@@ -2101,11 +2147,32 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
     // M9b (D273 (1)): every river's water runs its whole course; a plan where it would spill out
     // before the end (by a lower way beside a lake, or by the edge beside its own mouth, and the rest
     // of its course stood dry) is planned again (the course check runs before the first look)
+    if ((globalThis as any).process?.env?.DGM_TR) console.error(`[tr] a${attempt} flowDir ${g.flowDir} focus ${g.focus.map((v) => v.toFixed(2))} rivers ${hy.rivers.map((r) => r.role + ":" + ("edge" in r.params.entry ? r.params.entry.edge + "@" + JSON.stringify(r.params.path[0]) : "spring@" + JSON.stringify(r.params.path[0])) + "->" + JSON.stringify(r.params.path[r.params.path.length - 1]) + " flow " + r.params.flow.toFixed(2)).join(" | ")} lakes ${hy.lakes.map((l) => l.tiles.length + "@" + l.outletBed).join(",")} blocked ${JSON.stringify(blocked)}`);
     if (blocked.length && attempt < (opts.maxAttempts ?? MAX_ATTEMPTS) - 1) return fail("a river's water leaves its course", null, true, blocked.map((b) => b.id));
     // (and no inflow's head under water held downstream: it backs up to the edge, runs off beside
     // the head's sources and never settles)
     if (attempt < (opts.maxAttempts ?? MAX_ATTEMPTS) - 1) {
       const drowned = drownedHeads(h, W, H, hy.rivers);
+      if (drowned.length && (globalThis as any).process?.env?.DGM_TR) { const fl = drainage(h, W, H, { eight: false }).filled; console.error(`[tr] a${attempt} drowned ${drowned.map((id) => { const r = hy.rivers.find((q) => q.id === id)!; const [mx, my] = r.params.path[0]; const cx = Math.max(0, Math.min(W - 1, Math.round(mx))), cy = Math.max(0, Math.min(H - 1, Math.round(my))); const p1 = r.params.path[Math.min(r.params.path.length - 1, 6)]; const c1 = Math.round(p1[1]) * W + Math.round(p1[0]); return `${r.role}@[${cx},${cy}] h${h[cy * W + cx]} fill${fl[cy * W + cx].toFixed(1)} in6 h${h[c1]} end ${JSON.stringify(r.params.path[r.params.path.length - 1].map((v) => Math.round(v)))} endh ${h[Math.round(r.params.path[r.params.path.length - 1][1]) * W + Math.round(r.params.path[r.params.path.length - 1][0])]}`; }).join(" ; ")} lakes ${hy.lakes.map((l) => l.tiles.length + "@" + l.outletBed).join(",")}`); }
+      if (drowned.length && (globalThis as any).process?.env?.DGM_TR) {
+        const sealedM = sealedMouths(hy.rivers, W, H); const sealedF = drainage(h, W, H, { eight: false, outlet: (i) => !sealedM[i] }).filled;
+        for (const id of drowned) {
+          const r = hy.rivers.find((q) => q.id === id)!;
+          const [mx, my] = r.params.path[0];
+          const cx = Math.max(0, Math.min(W - 1, Math.round(mx))), cy = Math.max(0, Math.min(H - 1, Math.round(my)));
+          const rows: string[] = [];
+          for (let yy = Math.min(H - 1, cy + 8); yy >= Math.max(0, cy - 8); yy--) {
+            let row = "";
+            for (let xx = Math.max(0, cx - 12); xx <= Math.min(W - 1, cx + 12); xx++) {
+              const c = yy * W + xx;
+              const d = Math.round(sealedF[c] - h[c]);
+              row += (hy.water[c] === 1 ? "-" : hy.water[c] === 2 ? "~" : hy.water[c] === 3 ? "." : " ") + String(h[c]).padStart(2, " ") + (d > 0 ? "+" + d : "  ");
+            }
+            rows.push(row);
+          }
+          console.error(`[tr]   mouth ${r.role} at [${cx},${cy}] (x from ${Math.max(0, cx - 12)}, y from ${Math.min(H - 1, cy + 8)} down; +n = water over it, edges open):` + String.fromCharCode(10) + rows.join(String.fromCharCode(10)));
+        }
+      }
       if (drowned.length) return fail("a river's head under a lake", null, true, drowned);
     }
     // the Rivers setting's count, when the player set one: land that holds fewer is drawn again
@@ -2190,7 +2257,7 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
     const lengthwise = mapShape(W, H).long;
     const prefer = lengthwise ? (x: number, y: number, L: number, w: number) => intended(x, y, L, w) + SHAPE_PULL * startAlong(spec.theme, x, y, W, H) : intended;
     const rng = stream(seed, "settler2", attempt, salt);
-    return pickStart(h, W, H, { depth: D, contamination: C, moisture: M }, hy, g.settler, rng, stageRule, { prepared, avoid, kept, drought: policy, prefer, foot, minFoot, footWant, moistWalk: { min: moistWant }, room, bench, benchMin, storage, near, level: allowLevel, roomFirst: !onPlan, badwater: badHollows(), slopeWater, ...(ease >= 2 ? { levelReach: Math.min(3, 1 + Math.floor(ease / 2)) } : {}), ...(ease >= 3 ? { margin: Math.max(5, Math.round(Math.min(W, H) * 0.08)) } : {}), ...(ease >= 1 ? { waterExact: true } : {}), ...(stageEasy ? { easy: stageEasy } : {}), ...(ringSlopes ? { ringSlopes } : {}) , ...(g.standValley || g.basinWarp ? { badView: true } : {}) });
+    return pickStart(h, W, H, { depth: D, contamination: C, moisture: M }, hy, g.settler, rng, stageRule, { prepared, avoid, kept, drought: policy, prefer, foot, minFoot, footWant, moistWalk: { min: moistWant }, room, bench, benchMin, storage, near, level: allowLevel, roomFirst: !onPlan, badwater: badHollows(), slopeWater, ...(ease >= 2 ? { levelReach: Math.min(3, 1 + Math.floor(ease / 2)) } : {}), ...(ease >= 3 ? { margin: Math.max(5, Math.round(Math.min(W, H) * 0.08)) } : {}), ...(ease >= 1 ? { waterExact: true } : {}), ...(stageEasy ? { easy: stageEasy } : {}), ...(ringSlopes ? { ringSlopes } : {}) , ...(g.standValley || g.basinWarp ? { badView: true } : {}), ...(g.basinWarp ? { badViewWide: true } : {}) });
   };
   const levelStart = (p: StartPick) => {
     if (!p.levelled) return;
@@ -2432,6 +2499,7 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
         const po = outcomesOf({ spec: shown, built: { W, H, heights: hLand, water, contamination: new Float64Array(N) }, features: rivers, intentions: [], planned: true });
         info.planned = { promise: po.promise, water: po.story.readable };
         const keeps = shown.theme === "any" || PROMISES[shown.theme].holds(po.signature, W, H);
+        if ((globalThis as any).process?.env?.DGM_TR) { const lk = hy.lakes.map((l) => { let hd = 0, lo = 99; for (const i of l.tiles) { if ((held as ArrayLike<number>)[i] >= 0.1) hd++; lo = Math.min(lo, hLand[i]); } return `${l.tiles.length}@bed${l.outletBed}/floor${lo}/held${hd}`; }); { const fl = drainage(hLand, W, H, { eight: false }).filled; hy.lakes.forEach((l, k) => { let hd = 0, lo = 99, lt = -1; for (const i of l.tiles) { if ((held as ArrayLike<number>)[i] >= 0.1) hd++; if (hLand[i] < lo) { lo = hLand[i]; lt = i; } } if (hd * 2 >= l.tiles.length) return; const inL = new Set(l.tiles); const lim = fl[lt]; const prev = new Int32Array(N).fill(-2); prev[lt] = -1; const qq = [lt]; let end = -1; for (let z = 0; z < qq.length && end < 0; z++) { const c = qq[z]; const x = c % W, y = (c - x) / W; if (x === 0 || y === 0 || x === W - 1 || y === H - 1) { end = c; break; } for (const n of [c - 1, c + 1, c - W, c + W]) { if (n < 0 || n >= N || prev[n] !== -2 || hLand[n] > lim) continue; if ((n % W === 0 && x === W - 1) || (x === 0 && n % W === W - 1)) continue; prev[n] = c; qq.push(n); } } const path: number[] = []; for (let c = end; c >= 0; c = prev[c]) path.push(c); path.reverse(); const ex = path.findIndex((c) => !inL.has(c)); const e = ex >= 0 ? path[ex] : -1; const near = (c: number) => { let best = 1e9, who = ""; const cx = c % W, cy = (c - cx) / W; for (const r of hy.rivers) for (const [px, py] of r.params.path) { const d = Math.hypot(px - cx, py - cy); if (d < best) { best = d; who = r.role; } } return who + "~" + best.toFixed(1); }; if (e >= 0) { const ex0 = e % W, ey0 = Math.floor(e / W); const rows: string[] = []; for (let yy = Math.min(H - 1, ey0 + 15); yy >= Math.max(0, ey0 - 15); yy--) { let row = ""; for (let xx = Math.max(0, ex0 - 25); xx <= Math.min(W - 1, ex0 + 25); xx++) { const c = yy * W + xx; const hv = hLand[c]; const ch = hv < 10 ? String(hv) : String.fromCharCode(55 + hv); row += (c === e ? "*" : hy.water[c] === 2 ? (inL.has(c) ? "~" : "=") : hy.water[c] === 1 ? "-" : hy.water[c] === 3 ? "." : " ") + ch; } rows.push(row); } console.error(`[tr]   map around exit x${Math.max(0, ex0 - 25)} y${Math.min(H - 1, ey0 + 15)} down:\n` + rows.join("\n")); } console.error(`[tr]   lowered exit: ${e >= 0 ? (globalThis as any).__LOW?.get(e) : ''} | path: ${path.slice(Math.max(0, ex - 1), ex + 3).map((c) => (globalThis as any).__LOW?.get(c) ?? '-').join(' / ')}`); console.error(`[tr]   carved exit: ${e >= 0 ? HYDRO_DBG.at.get(e) : ''} | low: ${HYDRO_DBG.at.get(lt)} | path: ${path.slice(Math.max(0, ex - 2), ex + 4).map((c) => `[${c % W},${Math.floor(c / W)}]h${hLand[c]}w${hy.water[c]}:${HYDRO_DBG.at.get(c) ?? '-'}`).join(' ')}`); console.error(`[tr]   leak lake${k} ${l.tiles.length}@${l.outletBed} lim ${lim} low [${lt % W},${Math.floor(lt / W)}] exit ${e < 0 ? "none" : `[${e % W},${Math.floor(e / W)}] h${hLand[e]} w${hy.water[e]} ${near(e)}`} edge [${end % W},${Math.floor(end / W)}] w${hy.water[end]} ${near(end)} pathW ${[...new Set(path.slice(Math.max(0, ex)).map((c) => hy.water[c]))].join("")}`); }); } console.error(`[tr] a${attempt} promise lakeShare ${po.signature.lakeShare} bigLake ${po.signature.bigLake} keeps ${keeps} lakes ${lk.join(",")}`); }
         if (!lastAttempt && opts.screen !== false && screened.count < landScreen(W, H) && (!keeps || !po.story.readable)) {
           screened.count++;
           // (Highlands' promise is its land's: high ground, plateaus and cliffs, read on no river)
@@ -2704,13 +2772,16 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
       badAsk.starts = [guess, second, ...prepared].filter((p): p is StartPick => !!p).map((p) => ({ x: p.x, y: p.y }));
       // (a land that stands up keeps its badwater `STAND.badFar` tiles from the plan's start, the opening view's own
       // scale whatever the map's side: the view pulled back reaches about that far to each side, and the start is
-      // turned from what lies past it, gen/settler.ts `badView`; round 6b step 5)
-      if (guess && g.standValley) {
+      // turned from what lies past it, gen/settler.ts `badView`; round 6b step 5. Lake Basin above 128² as well, round 7c)
+      if (guess && (g.standValley || g.basinWarp)) {
         const far = new Uint8Array(N);
+        // (Lake Basin's start, chosen again on the settled water, moves further from the plan's than a valley's: its
+        // badwater keeps `BASIN_BAD_FAR` off, round 7c, Lake Basin 256² seed 1's start moving 25 tiles to see a pit)
+        const r = g.basinWarp ? BASIN_BAD_FAR : STAND.badFar;
         for (let i = 0; i < N; i++) {
           const dx = (i % W) - guess.x;
           const dy = Math.floor(i / W) - guess.y;
-          if (dx * dx + dy * dy < STAND.badFar * STAND.badFar) far[i] = 1;
+          if (dx * dx + dy * dy < r * r) far[i] = 1;
         }
         // (and off the opening view the plan's start is turned to: at 192² the view takes half the map, and past the
         // disk every turn of the start saw a pit, Highlands 192² seed 1)
@@ -2718,6 +2789,7 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
         badAsk.keepOff = orMask(orMask(badAsk.keepOff, far), view);
       }
       if (guess && badAsk.count > 0) bad = badAt(est, guess, 0);
+      if ((globalThis as any).process?.env?.DGM_TR) console.error(`[tr] a${attempt} guess ${guess?.x},${guess?.y} o${guess?.orientation} starts ${JSON.stringify(badAsk.starts)} bad ${bad.features.map((f: any) => f.id + ':' + JSON.stringify(f.params?.at ?? f.params?.center ?? f.params?.path?.[0] ?? Object.keys(f.params ?? {}))).join(' ')}`);
       // (and the sources are read on the pre-fill, the water the settle starts from, before the land
       // is shown: a spring river, or an inflow other than the main river, whose source another's water
       // reaches leaves now; hollows another's water reaches are planned again, off where they were;
@@ -3551,6 +3623,23 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
         continue;
       }
       h.set(levelled);
+    }
+    // (Lake Basin above 128², round 7c: a start whose opening view shows badwater gives way to the next, which is turned
+    // from it where it can be: its badwater was kept off the plan's start's view, and the start chosen on the settled
+    // water moved from it)
+    if (g.basinWarp && tryN + 1 < START_TRIES && !lastAttempt) {
+      const badTiles: number[] = [];
+      for (let i = 0; i < N; i++) if (b1.water[i] >= 0.1 && b1.contamination[i] > 0.05) badTiles.push(i);
+      if (badTiles.length && tilesInFrame({ x: cur.x, y: cur.y, z: h[cur.y * W + cur.x], orientation: cur.orientation }, W, h, badTiles) > 0) {
+        const levelled = h.slice();
+        h.set(hBefore);
+        const again = nextStart(cur);
+        if (again) {
+          cur = again;
+          continue;
+        }
+        h.set(levelled);
+      }
     }
     layout = [...rivers, ...bad.features, startOf(cur)];
     // (a start whose pad changes the water is first judged on the water warm-started from the
