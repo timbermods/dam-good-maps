@@ -19,7 +19,7 @@ import { pickSeeds } from "./blobs";
 import { BUSHES, density, FOREST, OFFICIAL_LAYOUT, RUIN_HEIGHT_SHARES, RUINS } from "./calibrated";
 import { START_FLOORS } from "../validate/playability";
 import { planDeadStands } from "./deadStands";
-import { markAround, planFrameStand } from "./frameStand";
+import { giveBackScrap, markAround, planFrameStand } from "./frameStand";
 import type { Orientation } from "../format/footprints";
 import { growGroveAcross, growGroveAt, growPatchAt, livingSpecies, NEAR_WALK, planGroves, planPatches, planRuinFields, resourceBudget, ruinColumns, saplings, startWalkField, succulentsOf, woodPerTree, type BaselineGround } from "../resources/baseline";
 
@@ -926,8 +926,9 @@ export function planResources(spec: MapSpec, g: Ground, candidate: number, attem
   // ---- a stand of the map's own ruins in the opening view pulled back (D493, planning's ruling of 2026-11-20 on #236):
   //      on dry ground ahead of the colony and raised where the land offers it, past Normal's clear distance
   //      (gen/frameStand.ts). It is planned last, on the ground everything else left, so every other resource keeps its
-  //      draws and its place (the start's food and wood with them); its scrap adds to the map's. Not with Easy start,
-  //      whose own small field stands on the start's walk.
+  //      draws and its place (the start's food and wood with them); the map's other fields give back its scrap, so the
+  //      map's scrap stays the setting's (gen/frameStand.ts `giveBackScrap`). Not with Easy start, whose own small field
+  //      stands on the start's walk.
   const turn = constraints?.turn;
   if (!easy && g.start && turn && g.entities) {
     const near = new Uint8Array(N);
@@ -949,6 +950,19 @@ export function planResources(spec: MapSpec, g: Ground, candidate: number, attem
       const role = "ruinField/firstView";
       const id = featureId(seed, "ruinField", role);
       const scrapTarget = ruinColumns(stand.tiles, W, stream(seed, id, "heights"), stand.tallness).scrap;
+      // (its scrap comes out of the map's: the fields planned above give it back, farthest from the start first)
+      const fields = out.filter((f): f is RuinFieldFeature & { params: { layout: { tallness: number } } } => f.kind === "ruinField" && !!f.params.layout && !f.params.story);
+      const back = giveBackScrap(
+        fields.map((f) => ({ tiles: runsToTiles(f.params.area, W), scrapOf: (t: readonly number[]) => ruinColumns(t, W, stream(seed, f.id, "heights"), f.params.layout.tallness).scrap })),
+        scrapTarget,
+        g.start,
+        W,
+      );
+      fields.forEach((f, k) => {
+        if (back.tiles[k].length === runsToTiles(f.params.area, W).length) return;
+        f.params.area = tilesToRuns(back.tiles[k], W);
+        f.params.scrapTarget = ruinColumns(back.tiles[k], W, stream(seed, f.id, "heights"), f.params.layout.tallness).scrap;
+      });
       out.push({ id, kind: "ruinField", origin: "generated", role, locked: false, params: { area: tilesToRuns(stand.tiles, W), scrapTarget, heightMix: [...RUIN_HEIGHT_SHARES], centerBias: 0, layout: { tallness: stand.tallness } } });
     }
   }

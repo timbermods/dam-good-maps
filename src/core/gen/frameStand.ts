@@ -45,6 +45,8 @@ export const FRAME_STAND = {
   distance: 42,
   spread: 20,
   tries: 24,
+  /** A field giving back the stand's scrap keeps this many columns at least (`ruins.fields` counts pieces of 10+). */
+  fieldLeast: 10,
 } as const;
 
 const sq = (v: number) => v * v;
@@ -197,7 +199,7 @@ export function planFrameStand(
       let tiles = growBlob(rng, band, W, H, s, want, 1.5);
       tiles = punchHoles(rng, tiles, W, gaps);
       tiles = largestPiece(tiles, W);
-      if (tiles.length < Math.max(10, Math.floor(size * 0.7))) continue;
+      if (tiles.length < Math.max(c.least, Math.floor(size * 0.7)) || tiles.length > c.most) continue;
       if (elongation(tiles, W) > FRAME_STAND.elongation) continue;
       // (it stands to be seen from afar: most of its columns three storeys or more, as the bundled stands')
       const tallness = Math.round(rng.range(0.1, 0.7) * 1000) / 1000;
@@ -206,6 +208,51 @@ export function planFrameStand(
     }
   }
   return null;
+}
+
+/** The map's other fields give back the stand's scrap, so the map's scrap stays what its setting asks (the stand is
+ *  planned last, after every other resource, so the scrap cannot be kept from the fields before they are planned without
+ *  moving the ground everything after them takes). The field farthest from the start gives first, a column at a time
+ *  from its edge (the column with the fewest of its field round it, then the farthest from the start), each field kept
+ *  in one piece of `fieldLeast` columns or more; it stops at the column that brings the scrap given back nearest
+ *  `scrap`. `scrapOf` is a field's scrap for its tiles (the build's own reading). Returns each field's tiles (those
+ *  given nothing as they were) and the scrap given. */
+export function giveBackScrap(
+  fields: readonly { tiles: readonly number[]; scrapOf: (tiles: readonly number[]) => number }[],
+  scrap: number,
+  start: { x: number; y: number },
+  W: number,
+): { tiles: number[][]; given: number } {
+  const out = fields.map((f) => [...f.tiles].sort((a, b) => a - b));
+  const away = (i: number) => sq((i % W) - start.x) + sq((i - (i % W)) / W - start.y);
+  const far = fields.map((f) => f.tiles.reduce((a, i) => a + away(i), 0) / Math.max(1, f.tiles.length));
+  const order = fields.map((_, k) => k).sort((a, b) => far[b] - far[a] || a - b);
+  let given = 0;
+  for (const k of order) {
+    let cur = out[k];
+    let now = fields[k].scrapOf(cur);
+    while (given < scrap && cur.length > FRAME_STAND.fieldLeast) {
+      const set = new Set(cur);
+      const round = (i: number) => {
+        let n = 0;
+        const x = i % W;
+        for (const [dx, dy] of N8) if (x + dx >= 0 && x + dx < W && set.has(i + dy * W + dx)) n++;
+        return n;
+      };
+      const cands = [...cur].sort((a, b) => round(a) - round(b) || away(b) - away(a) || b - a);
+      const t = cands.find((c) => largestPiece(cur.filter((i) => i !== c), W).length === cur.length - 1);
+      if (t === undefined) break;
+      const next = cur.filter((i) => i !== t);
+      const then = fields[k].scrapOf(next);
+      const after = given + now - then;
+      if (after > scrap && after - scrap > scrap - given) return { tiles: out, given };
+      out[k] = cur = next;
+      given = after;
+      now = then;
+    }
+    if (given >= scrap) break;
+  }
+  return { tiles: out, given };
 }
 
 /** The largest 8-connected piece of `tiles` (a field the checks count is one piece). */

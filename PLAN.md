@@ -791,8 +791,10 @@ where the land's own processes make them. The builder's limits still fix what a 
   (`VISTA_ZOOM`): ahead along its look and raised first, then ahead, then raised; within each a step's foot, a rise, a
   level's rim, the far side of the water, about 42 tiles out; never on green, never between the start and its water,
   past Normal's clear distance, beyond the two-ways intention's reach on a map that draws it. Grown as a field is (a
-  ragged rim band with gaps, one piece, never a row); its scrap adds to the map's. A map whose view offers no place
-  keeps its ruins as they are.
+  ragged rim band with gaps, one piece, never a row). Its scrap comes out of the map's: the other fields give it back
+  a column at a time from their edges, the farthest from the start first, each kept in one piece of 10 or more
+  (`giveBackScrap`), so the map's scrap stays its setting's within a column. A map whose view offers no place keeps
+  its ruins as they are.
 - **Ruins placed with meaning** (D488 (2), `src/core/gen/ruinStories.ts`), found where the land offers them, never
   forced (D138): a **ruined dam** across the river's natural narrows (the checks' dam site there, 16 tiles or fewer, holding 600 water or more at 128², by area), three or
   four columns deep from bank to bank and into the abutments, broken here and there, its columns about two levels over
