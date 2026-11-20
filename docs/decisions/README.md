@@ -208,6 +208,7 @@ Read this index, then [how-we-work.md](how-we-work.md), then only the topic file
 
 ## [The forces](forces.md)
 
+- D(craterize-gentle): The forces' last step never drops ground the force only brushed down its cliff: a tile it would drop goes with the ground beside it within two levels
 - D500: A Carve with a Depth keeps its channel falling, or is refused
 - D474: Forces can clear sources
 - D473: Carve's aging setting removed

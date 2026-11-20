@@ -18,6 +18,8 @@ compute the same bytes as the TypeScript they replace, natively (batch jobs) and
   on PR #255; the core's binding is `src/core/sim/stackWater.ts`). The multi-core settle
   (`src/core/sim/stackParallel.ts`) runs one instance per thread on a strip of the map, handing rows over as blocks
   (`Stack::export_rows`, `import_rows`) and the whole map's checks to the coordinating thread (`advanced_elsewhere`).
+  A substep rebuilds its active columns only when its wet columns changed (`Stack::active_wet`); the order of the
+  active list changes no result.
   A run trusts the state it wrote itself and checks it again only after a writable view of the water was handed out
   (`Session::trusted`); after a view of the emitters' parameters alone, which a badtide takes before each tick, the
   next run checks only those (`Session::params_trusted`, #1210); every result is checked before it is read. Its contracts are
