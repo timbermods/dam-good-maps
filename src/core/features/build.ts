@@ -305,7 +305,7 @@ export class SettleCache {
     return hit.water;
   }
 
-  /** A settle ended early (D(start-spring-stop)) takes the place its result would have taken, so the older settles
+  /** A settle ended early (D539) takes the place its result would have taken, so the older settles
    *  leave the cache as they did; nothing finds it. */
   spend(): void {
     this.last.unshift({ model: { W: -1, H: -1 } as WaterModel, emitters: "", water: null as unknown as CanonicalWater });

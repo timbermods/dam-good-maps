@@ -40,7 +40,7 @@ describe("a real place's check summary", () => {
   });
 
   it("a place whose start reaches no clean water warns, once", () => {
-    // (no place offered has such a start since D(new-films): Yosemite Valley, the place here before, is withheld until
+    // (no place offered has such a start since D537: Yosemite Valley, the place here before, is withheld until
     // its start has pumpable water, #1218; so Drumheller with its sources taken away, the water its start pumps gone)
     const { groups } = opened("drumheller", true, true);
     expect(groups.warnings.map((c) => c.id)).toContain("start.water");

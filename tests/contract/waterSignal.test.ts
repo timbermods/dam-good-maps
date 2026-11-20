@@ -116,9 +116,9 @@ describe("the water-changed signal for the hover readout (D347, D387 (1))", () =
     // preview's water stops 0.06 deeper than the canonical settle's at the deep tile, 0.91 against 0.85, across the readout's
     // rounding; seeds 5–8 and 10–16 each have the spot and the deep tile, with the same depth there to the readout's tenth, and
     // seeds 11 and 13 are the two whose preview stops on the canonical water byte for byte; seed 6 for seed 11 since the D518 mends (compact hills, no broad wash flats, dead-stand knots), D148: a mine site stands on seed 11's spot now, so the source is refused; of seeds 5–12, seed 5's preview stops 0.1 deeper than the canonical settle at the deep tile, seeds 8 and 12 have no dry spot 9 tiles clear of the water, seed 11 has a mine site on it, and seeds 6, 9 and 10 pass; seed 7 was not tried;
-    // seed 6 → 5 at generator 0.10.46, D(new-ditch) and D(sea-steps), D148: the gullies move the land and seed 6 has no dry spot
+    // seed 6 → 5 at generator 0.10.46, D536 and D533, D148: the gullies move the land and seed 6 has no dry spot
     // 9 tiles clear of the water now; of seeds 5–12, seeds 5, 7, 8, 9, 11 and 12 pass and seed 10 has a thorn on its spot, seed 5 the first)
-    // seed 5 → 6 at generator 0.10.47, D(terrace-edges), D148: seed 5's new land has no dry spot 9 tiles clear of the water; of
+    // seed 5 → 6 at generator 0.10.47, D544, D148: seed 5's new land has no dry spot 9 tiles clear of the water; of
     // seeds 5–12, seed 8's drought Day 0 reads the water 0.1 shallower than the settled water at the spot, and seeds 6, 7 and 9–12 pass, seed 6 the first)
     await runGenerate(makeSpec({ seed: 6, theme: "riverValley", size: { x: W, y: W } }));
     ed.setAutoWater(false);

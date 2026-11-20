@@ -350,7 +350,7 @@ export interface SettleOptions {
    *  they lose to evaporation is not the water changing (D222, D413): the settle stops at the first
    *  check where only that still changed (`steadyApartFromSealed`). */
   sealed?: readonly number[];
-  /** Asked at every check that has not settled (D(start-spring-stop)): true ends the settle there, unsettled and
+  /** Asked at every check that has not settled (D539): true ends the settle there, unsettled and
    *  `stopped`, as one that plainly won't settle before its limit. The answer comes from the check alone, never a
    *  clock, so the same water always stops at the same check. */
   watch?: SettleWatch;
@@ -385,7 +385,7 @@ export interface SettleResult {
   settled: boolean;
   /** Ticks run: the water is the water at this tick. */
   ticks: number;
-  /** When a `SettleOptions.watch` ended it at a check (D(start-spring-stop)): the water plainly won't settle. */
+  /** When a `SettleOptions.watch` ended it at a check (D539): the water plainly won't settle. */
   stopped?: boolean;
   /** When the settle stopped because, at a check, the water was steady apart from sealed basins
    *  evaporating (D222, D413), though its own test had not passed: that check's tick (`ticks` too).

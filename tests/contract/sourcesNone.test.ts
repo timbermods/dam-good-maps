@@ -67,7 +67,7 @@ describe("Sources: None (D330)", () => {
     expect(water.message).not.toBe(NO_WATER_SOURCE);
   });
 
-  it("above 128², a ringed land keeps its own slopes without its sources (D(uplands)): the field's flag and every slope", () => {
+  it("above 128², a ringed land keeps its own slopes without its sources (D547): the field's flag and every slope", () => {
     // (Sources: None rebuilds the map from the generation's field: a field that lost `ringSlopes` was built with the
     // slope rules of the land under 128², and its saved project said so)
     const big = generate(decodeSpecFragment("s=1&t=riverValley&z=136")!.spec);

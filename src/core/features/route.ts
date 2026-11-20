@@ -6,7 +6,7 @@
 // around it, width 1, 3 or 5), at a bed level that never rises along the route, and the tiles
 // around the channel are raised to one level above the bed where they are lower (banks), so the
 // water stays in it. A bed that follows the ground down where the ground falls, and cuts through it
-// where it rises, drains whatever the terrain. A badwater ditch's bed narrows and widens (D(new-ditch)):
+// where it rises, drains whatever the terrain. A badwater ditch's bed narrows and widens (D536):
 // `side` names the tiles beside its route that its bed takes too, each at the level of the lowest
 // route tile beside it, with banks round them as round the route.
 
@@ -23,7 +23,7 @@ export interface ChannelPlan {
   /** Where the water goes: "edge", or the id of the river or lake it joins. */
   to: string;
   /** Tiles beside the route the bed takes too, as x0, y0, x1, y1, … (a badwater ditch's widenings,
-   *  D(new-ditch)): each at the level of the lowest route tile it lies beside, side to side. */
+   *  D536): each at the level of the lowest route tile it lies beside, side to side. */
   side?: number[];
 }
 

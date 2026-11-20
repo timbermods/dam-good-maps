@@ -146,7 +146,7 @@ describe("nothing pops in after a force's animation (D368 (9))", () => {
   beforeAll(async () => {
     // (seed 1 for seed 21, D148: D518's mends moved the land; on seed 21 the drawn Carve's end point is now uphill of its
     // start, so the force is refused; seed 1's carves both ways and all ten gestures hold; seed 1 → 2 at 0.10.47,
-    // D(terrace-edges), D148: on seed 1's new land the drawn Carve is refused again, its force never ends; seed 2 holds
+    // D544, D148: on seed 1's new land the drawn Carve is refused again, its force never ends; seed 2 holds
     // all ten gestures, as seed 3 does)
     const { st, at, end, mid } = await ground(2);
     // dry, high ground far from the start, and a fault across the far half

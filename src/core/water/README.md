@@ -140,7 +140,7 @@ hollow, then the shorter walk, each place 6 tiles from the others. The generator
 and `doc/waterFix.ts` (on a map as edited) both use it, each with its own walk, filters (the generator: off the edge,
 under the start's pad), tries (3 and 6) and strengths.
 
-The generator settles each spring it tries watched (D(start-spring-stop), `generate.ts` `springWatch`, `SPRING_STOP`;
+The generator settles each spring it tries watched (D539, `generate.ts` `springWatch`, `SPRING_STOP`;
 `prefill.ts` `watchedSettle`, `SettleOptions.watch`): the same canonical settle, cached for the build that follows,
 but ended at the check where its water plainly won't settle before the settle's limit. That is a body of water over 5 %
 of the map, filling, that moved more than the tolerance at each of the last 8 checks, its move shrinking too slowly to

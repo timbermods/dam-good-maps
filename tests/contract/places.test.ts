@@ -84,11 +84,11 @@ describe("the gallery's data", () => {
     }
   });
 
-  it("lays no ruin field ruled square: each lies along the land (D(new-ruins))", () => {
+  it("lays no ruin field ruled square: each lies along the land (D535)", () => {
     // the measure: no group of 9 or more ruin tiles joined side by side that fills its bounding box exactly with both
-    // sides 3 or more (the survey's 5×5 squares: 395 of them over the 84 places before D(new-ruins)); and the places keep
+    // sides 3 or more (the survey's 5×5 squares: 395 of them over the 84 places before D535); and the places keep
     // nearly all the survey's columns (30,148 of the 84 places' 30,817 laid along the land; the floor, 29,000 of 30,817,
-    // stands as a share of the survey's columns of the places offered, since places are withheld, D(new-films))
+    // stands as a share of the survey's columns of the places offered, since places are withheld, D537)
     let columns = 0;
     for (const entry of INDEX.places) {
       const p = placeData(entry);
@@ -144,7 +144,7 @@ describe("the gallery shows every place, with a note on those whose start reache
     for (const p of INDEX.places) if (!p.faults.includes("start.water") && !p.faults.includes("water.settles")) expect(placeNote(p), p.id).toBeNull();
     expect(placeNote({ faults: ["start.water", "water.settles"] })).toBe(`${NO_WATER_NOTE} · ${MOVING_WATER_NOTE}`);
     expect(placeNote({ faults: ["start.wood", "plants.survive"] })).toBeNull();
-    // a place whose fault is fixed loses its note (no place offered has either fault since D(new-films) withheld the
+    // a place whose fault is fixed loses its note (no place offered has either fault since D537 withheld the
     // starts with no water in reach, so a place's faults as the index records them, with the note's faults added)
     expect(placeNote({ faults: [...INDEX.places[0].faults, "start.water"] })).toContain(NO_WATER_NOTE);
     expect(placeNote({ faults: INDEX.places[0].faults.filter((f) => f !== "start.water" && f !== "water.settles") })).toBeNull();

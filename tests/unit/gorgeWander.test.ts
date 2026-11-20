@@ -1,6 +1,6 @@
-// A gorge winds at the map's own scale (D(highlands-slot), land/hydro.ts `gorgeWander`): under 128² its meander's
+// A gorge winds at the map's own scale (D542, land/hydro.ts `gorgeWander`): under 128² its meander's
 // wavelength and its ends' taper shrink with the narrower side's ratio to 128, never under half; 128² and up keep them.
-// A course but the main river is a gorge where its bed runs deep under a wall on its high side (D(gorge-followups),
+// A course but the main river is a gorge where its bed runs deep under a wall on its high side (D543,
 // `deepStretch`), whatever its planned cut.
 import { describe, expect, it } from "vitest";
 import { deepStretch, gorgeWander, meanderPath, type Wander } from "../../src/core/land/hydro";
