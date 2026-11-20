@@ -7,7 +7,7 @@ import { describe, expect, it } from "vitest";
 import { createHash } from "node:crypto";
 import { decodeProject, encodeProject, generatedDocument } from "../../src/core/doc/document";
 import { MapSession } from "../../src/core/doc/session";
-import { generate } from "../../src/core/gen/generate";
+import { generate, withoutSources } from "../../src/core/gen/generate";
 import { decodeSpecFragment, encodeSpecFragment } from "../../src/core/spec/mapspec";
 import { blocks } from "../../src/core/validate/report";
 /** What a water check says on a map made with Sources: None (rust/checks/src/report.rs `NO_WATER_SOURCE`). */
@@ -65,5 +65,17 @@ describe("Sources: None (D330)", () => {
     expect(s.built.water.some((d) => d > 0.05)).toBe(true);
     const water = s.validate("export").report.checks.find((c) => c.id === "start.water")!;
     expect(water.message).not.toBe(NO_WATER_SOURCE);
+  });
+
+  it("above 128², a ringed land keeps its own slopes without its sources (D547): the field's flag and every slope", () => {
+    // (Sources: None rebuilds the map from the generation's field: a field that lost `ringSlopes` was built with the
+    // slope rules of the land under 128², and its saved project said so)
+    const big = generate(decodeSpecFragment("s=1&t=riverValley&z=136")!.spec);
+    expect(big.field!.ringSlopes).toBe(true);
+    const dry = withoutSources(big);
+    expect(dry.field!.ringSlopes).toBe(true);
+    const slopes = (e: { template: string; x: number; y: number }[]) => e.filter((x) => x.template === "Slope").map((x) => `${x.x},${x.y}`).sort();
+    expect(slopes(big.built.entities).length).toBeGreaterThan(0);
+    expect(slopes(dry.built.entities)).toEqual(slopes(big.built.entities));
   });
 });

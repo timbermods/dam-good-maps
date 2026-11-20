@@ -1099,6 +1099,29 @@
   line-height: 30px;
 }
 
+/* the list, cut by a short window: a soft fade into the plate's colour at its foot says more items lie below (a Mac's overlay
+   scrollbar shows only once the list scrolls), and goes once the foot is reached. It reaches into the list's padding at the
+   sides, never over the scrollbar, and its height is taken back by the margin, so the list scrolls just as far with or
+   without it; the rows under it still take the pointer. A phone's and a tablet's sheets have none */
+.objects-menu > .shelf-more {
+  position: sticky;
+  bottom: 0;
+  height: 36px;
+  margin: -36px -6px 0;
+  background: linear-gradient(transparent, var(--panel) 85%);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.15s;
+}
+
+.objects-menu > .shelf-more.on {
+  opacity: 1;
+}
+
+.editor:is([data-phone], [data-tablet]) .objects-menu > .shelf-more {
+  display: none;
+}
+
 /* the groups (the water objects, the plants, the landmarks, the core and reserves) divided by a hairline in the clear
    borders above each one's first row: no extra height */
 .objects-menu .shelf-item.shelf-first::before {
@@ -1906,7 +1929,7 @@ input.set-typed:disabled {
 }
 
 /* the count under the words (the attempt and the time so far): quiet, its line kept even while empty */
-.making-dialog p.making-count {
+.making-dialog p:is(.making-count, .making-why) {
   margin-top: 2px;
   font-size: 13px;
   font-weight: 400;
@@ -4575,4 +4598,63 @@ body:has(.checks-list) .show-key {
 
 .idea-card p {
   margin: 2px 0 0;
+}
+
+/* Save as… (File, Ctrl+Shift+S): a small card under the header's right group, the map's name in a field with the
+   file's name under it as it is typed */
+.save-as {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 10px;
+  z-index: 20;
+  box-sizing: border-box;
+  width: 360px;
+  max-width: calc(100vw - 20px);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 12px;
+  border: 1px solid var(--rule);
+  border-radius: 8px;
+  background: var(--panel);
+  box-shadow: var(--shadow);
+  font-size: 0.9rem;
+}
+
+.save-as-row {
+  display: flex;
+  gap: 6px;
+}
+
+.save-as-input {
+  box-sizing: border-box;
+  flex: 1 1 auto;
+  min-width: 0;
+  height: 36px;
+  padding: 0 10px;
+  border: 1px solid var(--rule);
+  border-radius: 6px;
+  background: var(--bg);
+  color: var(--ink);
+  font: inherit;
+}
+
+.save-as-input.refused {
+  border-color: var(--warn);
+}
+
+.save-as-go {
+  flex: none;
+  height: 36px;
+}
+
+/* the file's name, whole: a long one wraps rather than being cut */
+.save-as-file {
+  color: var(--muted);
+  font-size: 0.85rem;
+  overflow-wrap: anywhere;
+}
+
+.save-as-file.refused {
+  color: var(--warn);
 }

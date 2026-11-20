@@ -27,6 +27,19 @@ export function promiseSides(W: number, H: number): { across: number; course: nu
   return { across: side, course: long ? Math.max(W, H) : side, area: long ? portable.sqrt(W * H) : side };
 }
 
+/** Highlands' high share asked above 128², where the land is drawn in rings (uplands, the PR round). */
+const HIGH_RINGED = 0.35;
+/** Highlands' cliff share (at 128², falling as the square root of the side) and plateau count asked above 128², where
+ *  it stands up (uplands round 6): its walls gathered into a few mesas and the valley's rim, its floor in broad
+ *  two-level benches, the land beside a 2+ drop read .044–.063 at 256² on the planned lands of seeds 1 and 5 (13 lands)
+ *  and .048–.066 on the built maps of seeds 1–6, against the 0.1 asked (.0707 at 256²), so every land missed it and
+ *  each map spent its three screens on it; its plateaus 5–19. Asked: the lowest, rounded down. Round 6b step 5 (walls
+ *  from the floor, no plinth on the wall side): the planned lands of the 16 start maps read .036–.057 (.0537–.075 at
+ *  128²), under the .06 asked on seed 5's first land and the 192²'s, each drawn again; asked anew by the same rule,
+ *  .06 → .05. */
+const CLIFFS_STAND = 0.05;
+const PLATEAUS_STAND = 4;
+
 /** Each theme's promise (D273 (2)) as a line on its signature's measures, and in words: `text` the
  *  promise, `words` what a version that keeps it has, only where the check measures one thing (a canyon's length;
  *  null where it measures several, gen/versions.ts `versionNote`), `noun` the
@@ -39,8 +52,11 @@ export const PROMISES: Record<Exclude<ThemeId, "any">, { text: string; words: st
   // (a gorge is carved to the rivers' own size, not the map's: its line grows as the square root
   // of the side, as the floors do; its share of a longer course falls the same way)
   canyon: { text: "a river cut deep between cliffs for a real stretch", words: "a longer canyon", noun: "Gorge", holds: (s, W, H) => { const side = promiseSides(W, H).course; return s.canyon >= Math.max(16, 0.16 * 128 * portable.sqrt(side / 128)) && s.canyonShare >= 0.2 * portable.sqrt(128 / side); } },
-  // (cliffs are lines: their share of the land falls as the map grows, as the square root of its side)
-  highlands: { text: "high, rugged ground with plateaus and valleys among it", words: null, noun: "Heights", holds: (s, W, H) => s.high >= 0.6 && s.plateaus >= 3 && s.cliffs >= 0.1 * portable.sqrt(128 / promiseSides(W, H).area) },
+  // (cliffs are lines: their share of the land falls as the map grows, as the square root of its side.
+  // Above 128², where the land is drawn in rings (docs/design/uplands.md), the high share asked is the game's own
+  // highlands': read the same way, Terraces 0.52, Pressure 0.18, Mountain Range 0.45, Helix Mountain 0.29, Oasis 0.65;
+  // the lowest, held to 0.35)
+  highlands: { text: "high, rugged ground with plateaus and valleys among it", words: null, noun: "Heights", holds: (s, W, H) => { const stand = Math.min(W, H) > 128; return s.high >= (stand ? HIGH_RINGED : 0.6) && s.plateaus >= (stand ? PLATEAUS_STAND : 3) && s.cliffs >= (stand ? CLIFFS_STAND : 0.1) * portable.sqrt(128 / promiseSides(W, H).area); } },
   // (a big lake: a twelfth of the map or more. At 4% a wide river reach passed with no lake to see,
   // 0.8.3's 128² seed 15 at 4.8%; Lake Basin's lakes stand at 10% of the map and more, 96² to 256²)
   lakeBasin: { text: "big lakes that dominate the water", words: null, noun: "Lakelands", holds: (s) => s.lakeShare >= 0.55 && s.bigLake >= 0.08 },

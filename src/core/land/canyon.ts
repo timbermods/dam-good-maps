@@ -45,7 +45,9 @@ export function shapeCanyon(g: Genome, W: number, H: number, seed: number, attem
   if (!g.hydro.exactInflows && !g.hydro.noInflows) g.hydro.inflows = 1;
   g.hydro.incise = Math.max(g.hydro.incise, 7);
   g.hydro.floor = Math.min(g.hydro.floor, 3);
-  g.base = Math.max(g.base, 4 + 4 * s - 2 * big);
+  // (uplands round 2: a land on a plan stands its tableland over a gorge floor at the land's own base, so the walls take
+  // the levels the plateau's raised base held back: 6 at 256² left the gorge walls 5 and the regional relief under 8)
+  g.base = Math.max(g.base, g.plan ? 4 : 4 + 4 * s - 2 * big);
   if (big > 0) g.hyps.lean = Math.min(g.hyps.lean, 1.3 - 0.6 * big);
   g.relief = g.top - g.base;
   // the plateau's lake, the start's shore, is a tarn: a basin where the genome drew none, and no lake

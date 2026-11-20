@@ -49,7 +49,8 @@ import type { Feature, StartFeature } from "../features/schema";
 import { DERIVED_SLOPES } from "../features/ids";
 import { FOOTPRINTS, worldBlocks, type Orientation, type Placement } from "../format/footprints";
 import type { GenerateResult } from "../gen/generate";
-import { builtWater, description as generatedText, fileName as timberFileName, NO_SOURCES_NOTE, namedFile, toTimberFile, withWaterSingletons, worldOf } from "../gen/pack";
+import { builtWater, description as generatedText, NO_SOURCES_NOTE, toTimberFile, withWaterSingletons, worldOf } from "../gen/pack";
+import { mapFileName } from "../format/fileName";
 import { placeCredits } from "./description";
 import { NO_BADWATER_NOTE } from "../resources/badwater";
 import { runsToTiles, type Runs } from "../math/grid";
@@ -69,7 +70,7 @@ import { entityProblem, objectCells, resourceOwners } from "./placing";
 import { applyPaintObjects } from "./paint";
 import { forceLabel } from "../forces/op";
 import { versionName } from "../library/keptVersions";
-import { baseFeaturesOf, checkDocument, cleanMapName, documentAt, isRenamed, keepGeneratedWords, type NameResult, encodeProject, importDocument, toDocument, type DocMeta, type FieldData, type KeptContent, type MapDocument, type RetiredNotes, type SavedView, type VersionParent } from "./document";
+import { baseFeaturesOf, checkDocument, cleanMapName, documentAt, keepGeneratedWords, type NameResult, encodeProject, importDocument, toDocument, type DocMeta, type FieldData, type KeptContent, type MapDocument, type RetiredNotes, type SavedView, type VersionParent } from "./document";
 import { itemName, placeLabel, withArticle } from "./labels";
 import { restoreBuilt, sameMap, storeBuilt, storedFits, type StoredState } from "./stored";
 import { standingFeatures, standingOf } from "./startFit";
@@ -2246,9 +2247,11 @@ export class MapSession {
     return previewBuild(this.cur, { ...this.input(), features });
   }
 
-  /** A full build of the document, from scratch (the reference for the incremental one). */
-  fullBuild(): BuildResult {
-    return buildMap(this.input());
+  /** A full build of the document, from scratch (the reference for the incremental one). `settles`: a cache that holds
+   *  only full builds' own settles from cold, so a run of reference builds does not settle a water model it settled
+   *  lately again (the settle depends only on the model: the same bytes), and never takes the incremental build's water. */
+  fullBuild(settles?: SettleCache): BuildResult {
+    return buildMap(this.input(), settles ? { settleCache: settles } : {});
   }
 
   /** The document's terrain, slopes and objects with other features (no water): the map a tool
@@ -2410,10 +2413,10 @@ export class MapSession {
     return !built.waterFromFile || !sameBytes(built.heights, this.baseStuff().terrain.heights);
   }
 
-  /** The exported file's name. */
+  /** The exported file's name: the map's name as the header shows it, kept as written (D443, amended 2026-11-18), for
+   *  a generated map that keeps its own name too; only what a file name can't hold is replaced (`mapFileName`). */
   exportTimberName(): string {
-    // a generated map keeps its seed-based name until renamed; then, like any named map, `namedFile` (D443)
-    return this.gen.spec && !isRenamed(this.gen.spec, this.gen.meta.name, this.gen.meta.generatedName) ? timberFileName(this.gen.spec, this.gen.meta.seedWord) : namedFile(this.gen.meta.name);
+    return mapFileName(this.gen.meta.name);
   }
 
   /** The .timber file. Its description is the map's own words (`description`, with what must follow them): the
@@ -2607,7 +2610,7 @@ export function generatedField(f: FieldData, W: number, H: number, except: reado
   };
   // (the 3D forms the generation grew, D488: the field's runs)
   const caves = f.runs.length ? ColumnTerrain.fromData(f, W, H) : null;
-  return { heights, contains: new Set(f.contains.filter((id) => !out.has(id))), ...(ramps.length ? { ramps } : {}), ...(f.top !== undefined ? { top: f.top } : {}), ...(f.dry ? { dry: { moist: mask(f.dry.moist), poisoned: mask(f.dry.poisoned) } } : {}), ...(caves ? { caves } : {}) };
+  return { heights, contains: new Set(f.contains.filter((id) => !out.has(id))), ...(ramps.length ? { ramps } : {}), ...(f.top !== undefined ? { top: f.top } : {}), ...(f.dry ? { dry: { moist: mask(f.dry.moist), poisoned: mask(f.dry.poisoned) } } : {}), ...(caves ? { caves } : {}), ...(f.ringSlopes ? { ringSlopes: true } : {}) };
 }
 
 export function keptLayerOf(k: KeptContent, W: number, H: number): LockedLayer {

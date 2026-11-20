@@ -144,6 +144,19 @@ export function openingFrame(start: OpeningStart, W: number, H: number, opts: { 
   return { camera, tiles, mask };
 }
 
+/** How many of `tiles` (each at its own height in `h`) the opening camera pulled back (`VISTA_ZOOM`) shows: the
+ *  settler's count of badwater in a turn's view on a land that stands up (gen/settler.ts `badView`). */
+export function tilesInFrame(start: OpeningStart, W: number, h: ArrayLike<number>, tiles: readonly number[]): number {
+  if (!tiles.length) return 0;
+  const cam = openingCamera(start, VISTA_ZOOM);
+  let n = 0;
+  for (const i of tiles) {
+    const x = i % W;
+    if (inFrame(frameAt(cam, x + 0.5, (i - x) / W + 0.5, h[i]))) n++;
+  }
+  return n;
+}
+
 /** The orientations a start with its middle at (x, y) on level L may take: those whose door tile is on
  *  the map at the start's own level (the settler's hard rule). */
 export function levelDoorTurns(h: ArrayLike<number>, W: number, H: number, x: number, y: number, L: number): { o: Orientation; door: number }[] {

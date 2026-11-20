@@ -8,7 +8,7 @@ import { generate } from "../../src/core/gen/generate";
 import { generatePremise } from "../../src/core/premise/generate";
 import { gateMap } from "../../src/core/premise/gateMap";
 import { makeSpec } from "../../src/core/spec/mapspec";
-import { RULED_LIMITS, ruledLand, ruledLandMessage, ruledReach, wetOf } from "../../src/core/validate/ruledLand";
+import { RULED_LIMITS, rimRuler, ruledLand, ruledLandMessage, ruledReach, wetOf } from "../../src/core/validate/ruledLand";
 import { splitmix32 } from "../../src/core/math/rng";
 
 /** A heightfield of smoothed value noise, quantised to levels: land with no ruler in it. */
@@ -255,5 +255,21 @@ describe("ruled land", () => {
     }
     // (about 10 ms alone; the bound leaves room for the other test workers on the machine)
     expect(best).toBeLessThan(100);
+  });
+
+  it("the rims' ruler (D540): plates on the tile grid read straight, noise-shaped uplands do not, and the water's ground is left out", () => {
+    const W = 128;
+    const rnd = splitmix32(5);
+    // plates 16 tiles square on the grid, each at its own level: level near-rectangles
+    const lv = Array.from({ length: 64 }, () => 4 + Math.floor(4 * rnd()));
+    const grid = new Uint8Array(W * W);
+    for (let y = 0; y < W; y++) for (let x = 0; x < W; x++) grid[y * W + x] = lv[(y >> 4) * 8 + (x >> 4)];
+    const none = new Uint8Array(W * W);
+    expect(rimRuler(grid, none, W, W).share).toBeGreaterThan(0.8);
+    expect(rimRuler(noiseLand(W, W, 7), none, W, W).share).toBeLessThan(0.15);
+    // the same grid under water everywhere but a corner: no rim lies far enough from it
+    const wet = new Uint8Array(W * W).fill(1);
+    for (let y = 0; y < 20; y++) for (let x = 0; x < 20; x++) wet[y * W + x] = 0;
+    expect(rimRuler(grid, wet, W, W).sides).toBe(0);
   });
 });

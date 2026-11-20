@@ -2,8 +2,18 @@ name: Playwright browsers
 description: >-
   Installs Playwright's browsers on an Ubuntu runner, cached on Playwright's version. Run it after `npm ci`
   (the install uses the project's own Playwright). On a cache hit only the system libraries are installed.
+  The cache holds the browsers and the system libraries' .deb files (~/.cache/apt-archives, see install-deps.sh), so a
+  hit installs the libraries from disk: only `apt-get update` touches a mirror, and a slow mirror cannot eat the job.
+  A cache entry can't be changed after it is saved, so the key names the libraries too ("debs"); the architecture is in
+  it because the nightly's ARM runner has its own browsers and packages.
   The system libraries come from Ubuntu's archive: install-deps.sh tries three times and, when the runner's first
   mirror does not answer, takes it off the mirror list so apt uses the main archive.
+  The browsers are built for one Ubuntu release, so every job names its image (`ubuntu-24.04`, never
+  `ubuntu-latest`) and the cache key holds the image: on 2026-11-18 `ubuntu-latest` gave ubuntu-26.04 on some runs,
+  where the cached WebKit could not start (libicudata.so.74 missing) and the libraries took minutes to install.
+  Moving to a newer image is one change: the image's name in the workflows, with a Playwright that supports it.
+  The cache is restored before the install and saved straight after it, not in a post step: a post step does not run
+  for a job cancelled at its time limit, so a long job (engines and rust) never saved its entry and missed every run.
 inputs:
   browsers:
     description: Space-separated browsers, for example "chromium" or "chromium firefox webkit".
@@ -18,12 +28,14 @@ runs:
         BROWSERS: ${{ inputs.browsers }}
       run: |
         version=$(node -p "require('./package-lock.json').packages['node_modules/@playwright/test'].version")
-        echo "key=playwright-$RUNNER_OS-$version-${BROWSERS// /-}" >> "$GITHUB_OUTPUT"
-    - name: Cached browsers
+        echo "key=playwright-$RUNNER_OS-${RUNNER_ARCH:-arch}-${ImageOS:-image}-$version-${BROWSERS// /-}-debs" >> "$GITHUB_OUTPUT"
+    - name: Cached browsers and system libraries
       id: cache
-      uses: actions/cache@v4
+      uses: actions/cache/restore@v4
       with:
-        path: ~/.cache/ms-playwright
+        path: |
+          ~/.cache/ms-playwright
+          ~/.cache/apt-archives
         key: ${{ steps.key.outputs.key }}
     - name: Download the browsers and install their system libraries
       if: steps.cache.outputs.cache-hit != 'true'
@@ -33,6 +45,14 @@ runs:
       run: |
         npx playwright install $BROWSERS
         bash "$GITHUB_ACTION_PATH/install-deps.sh" $BROWSERS
+    - name: Save the browsers and system libraries (now, before a later step can time out)
+      if: steps.cache.outputs.cache-hit != 'true'
+      uses: actions/cache/save@v4
+      with:
+        path: |
+          ~/.cache/ms-playwright
+          ~/.cache/apt-archives
+        key: ${{ steps.key.outputs.key }}
     - name: Install the system libraries (the browsers are cached)
       if: steps.cache.outputs.cache-hit == 'true'
       shell: bash

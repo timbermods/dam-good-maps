@@ -470,7 +470,7 @@ export function showcaseSpec(spec: MapSpec, index: number): MapSpec {
 }
 
 /** Whether a ranks before b: the higher score, then the earlier candidate. */
-function before(a: ShowcaseCandidate, b: ShowcaseCandidate): boolean {
+export function ranksBefore(a: Pick<ShowcaseCandidate, "score" | "index">, b: Pick<ShowcaseCandidate, "score" | "index">): boolean {
   return a.score > b.score || (a.score === b.score && a.index < b.index);
 }
 
@@ -480,18 +480,24 @@ function before(a: ShowcaseCandidate, b: ShowcaseCandidate): boolean {
  *  break ties among maps that look alike. */
 export const SHOWCASE_LOOKS = 9.5;
 
+/** The rank a candidate is offered by: its arc, its opening picture's looks weighed by `SHOWCASE_LOOKS`, less one when
+ *  the map misses its theme's promise. */
+export function candidateScore(arc: Arc, looks: number, promise: boolean): number {
+  return arcScore(arc) + SHOWCASE_LOOKS * looks - (promise ? 0 : 1);
+}
+
 /** Scores one generated candidate. */
 export function scoreCandidate(r: GenerateResult, index: number, spec: MapSpec): ShowcaseCandidate {
   const arc = r.report.passed ? arcOf(r) : null;
   const promise = r.outcomes?.promise ?? true;
   const looks = arc ? (looksOf(r)?.looks.score ?? 0) : null;
-  const score = arc ? arcScore(arc) + SHOWCASE_LOOKS * looks! - (promise ? 0 : 1) : -Infinity;
+  const score = arc ? candidateScore(arc, looks!, promise) : -Infinity;
   return { index, variation: spec.variation ?? 0, spec, passed: r.report.passed, arc, looks, score, note: arc ? arcNote(arc) : "It failed a check.", ...(r.name ? { name: r.name } : {}) };
 }
 
 /**
  * Makes the asked map's siblings in order (`showcaseSpec`), scores each by its arc, and keeps the best
- * three that passed every absolute, never two on the same land (the better of two is kept). It yields
+ * three that passed every absolute, never two on the same land or under the same name (the better of two is kept). It yields
  * between candidates, so a worker hears a stop while it runs. Deterministic for the spec and the number of candidates made.
  */
 export async function showcaseSearch(spec: MapSpec, opts: ShowcaseOptions = {}): Promise<ShowcaseResult> {
@@ -511,12 +517,13 @@ export async function showcaseSearch(spec: MapSpec, opts: ShowcaseOptions = {}):
     const r = generate(s);
     const c = scoreCandidate(r, tried, s);
     tried++;
-    // (a sibling on a kept pick's land replaces it when it ranks before it, else is passed over)
-    const twin = c.arc ? best.findIndex((p) => sameLand(p.result.built.heights, r.built.heights)) : -1;
-    if (c.arc && (twin < 0 || before(c, best[twin]))) {
-      if (twin >= 0) best.splice(twin, 1);
+    // (a sibling on a kept pick's land, or under its name, replaces it when it ranks before it, else is passed over: no
+    // two cards on one land, and none under one name)
+    const twins = c.arc ? best.filter((p) => sameLand(p.result.built.heights, r.built.heights) || (!!c.name && p.name === c.name)) : [];
+    if (c.arc && twins.every((p) => ranksBefore(c, p))) {
+      for (const p of twins) best.splice(best.indexOf(p), 1);
       let at = best.length;
-      while (at > 0 && before(c, best[at - 1])) at--;
+      while (at > 0 && ranksBefore(c, best[at - 1])) at--;
       if (at < SHOWCASE_KEEP) {
         best.splice(at, 0, { ...c, result: r });
         if (best.length > SHOWCASE_KEEP) best.pop();

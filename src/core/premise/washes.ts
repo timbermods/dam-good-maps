@@ -5,7 +5,7 @@
 // ground and its ways out, and keep the start the bench it needs; the old bed starts behind the lip of a lake that holds water on day 1.
 
 import { BED_FLOOR } from "../land/genome";
-import { planWashes, startKeepOff, WASHES, type Wash } from "../land/washes";
+import { planWashes, startKeepOff, WASHES, type Wash, type WashInput } from "../land/washes";
 import { hash32 } from "../math/hash";
 import { stream } from "../math/rng";
 import type { PremiseLand } from "./map";
@@ -19,8 +19,9 @@ const FIXED_CLEAR = 3;
 const NICHE_CLEAR = 5;
 
 /** Cut the washes into `land.heights` for a start at `start` that needs `bench` tiles of bench, and add their ramps to
- *  `land.ramps`; the beds cut. */
-export function premiseWashes(plan: PremisePlan, land: PremiseLand, start: { x: number; y: number }, attempt: number, bench: number): Wash[] {
+ *  `land.ramps`; the beds cut. A premise that keeps its washes to one ground (the poisoned floodplain's plain, its old
+ *  channels: `plainMap.ts` `plainWorksOf`) gives it as `within`; none: anywhere. */
+export function premiseWashes(plan: PremisePlan, land: PremiseLand, start: { x: number; y: number }, attempt: number, bench: number, within: WashInput["within"] | null = null): Wash[] {
   const { W, H } = plan;
   const N = W * H;
   const r = land.water.raster;
@@ -61,7 +62,7 @@ export function premiseWashes(plan: PremisePlan, land: PremiseLand, start: { x: 
       lakes.set(r.lake[i], l);
     }
   }
-  const { beds, steps } = planWashes({ W, H, heights: h, surface, lakes: [...lakes.values()], keepOff: off, floor: BED_FLOOR, rng: stream(plan.seed, "washes", attempt), seed: hash32(plan.seed, "washes", attempt), starts: [start], bench });
+  const { beds, steps } = planWashes({ W, H, heights: h, surface, lakes: [...lakes.values()], keepOff: off, floor: BED_FLOOR, rng: stream(plan.seed, "washes", attempt), seed: hash32(plan.seed, "washes", attempt), starts: [start], bench, ...(within ? { within } : {}) });
   // (their natural ramps join the start's ways out in the field: the colony walks into the beds and across them)
   if (steps.length) land.ramps = [...(land.ramps ?? []), ...steps];
   return beds;

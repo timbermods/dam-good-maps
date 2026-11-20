@@ -441,7 +441,10 @@ Maps are grown, not drawn (D108, D208, D209). `generate` (`src/core/gen/generate
 3. **Land.** It grows on a height field from uplift, caprock, erosion and weathering, snapped to the game's levels
    (`land/field.ts`, `levels.ts`). Rivers, lakes, falls and badwater are found in its drainage (`land/hydro.ts`,
    `hazards.ts`, `drainage.ts`); no river is drawn. Intentions are steered, never stamped: a check on the finished map
-   confirms one, and a failed one is dropped, never forced (D138).
+   confirms one, and a failed one is dropped, never forced (D138). Above 128² (the narrower side over 128; not Lake
+   Basin or Islands) the landforms stand at the map's scale and the levels are drawn in rings: long curved level lines
+   round hills, mesas and terraces 30–80 tiles across, Highlands' mesas and Canyon's gorge walled 4–6 levels, every
+   long wall notched by ways through (D547, `land/rings.ts`, `bold.ts`, `plan.ts`, docs/design/uplands.md).
 4. **Features read back** out of the field (`gen/readback.ts`, §19.2): the map's plan, for the analysis and Claude's
    steering, which the editor keeps. The detected features in §7.10 (`derived`) are measurements for labels and names.
 5. **Start and slopes:** the start is picked (`gen/settler.ts`, §5.6) and the slopes derived (§7.5).
@@ -481,6 +484,12 @@ Beavers cannot cross a 1-level step; stairs cost 70 science, and 2+ level cliffs
    join their regions without another.
 3. Beyond 40 tiles, add one slope per region of 400+ tiles toward its lowest neighbour (the next lowest when no slope
    fits there), nearest the start first.
+   Above 128² (uplands round 5, `slopes.ts` `RING_SLOPES`), where the land is drawn in rings of many terraces one
+   level apart (the generator marks it, the field's `ringSlopes`, kept in the project; not on Lake Basin, Islands or a
+   premise's land): the 40 tiles grow with the map's narrower side over 128 (80 at 256²); a tree edge gets one slope per
+   70 pairs of its boundary (up to 4), spread along it; a tree edge the 12-tile spacing would leave without one gets
+   its nearest pair at least 6 tiles from the others; and before step 3, every 400+ region beside the joined ground is
+   joined to it, outward from the start. Every slope still stands on a one-level step.
 4. Leave 1–2 plateaus deliberately unconnected when a set piece asks for it: the "ruins on a plateau need stairs"
    payoff (§9.3).
 5. Target density: 2–6 slopes per 10k tiles on large maps and up to 20 on small ones (official: max-size maps 1.9,
@@ -977,7 +986,7 @@ contamination under 0.05.
 | Id | Rule |
 |---|---|
 | `water.settles` | Steady within 6 game days (D358): volume change under 0.2% and 99.5% of tiles within 0.005 between 128-tick checks. A steady flow off the map is steady (D152); what fails is water that never settles. Only real flow counts (D222, D413): a sealed basin that is only evaporating (a carve's oxbow lake or a Fill: the water round its kept tiles, 4-connected, with no running source's tile and no map-edge tile in it; its tiles that lost water) is left out of both measures, the volume change measured against the rest; the canonical settle stops there (§10). Both validators apply it (`sim/water.ts` `steadyApartFromSealed`, `prototype/watersim.py` `steady_apart_from_sealed`); a `.timber` alone records no sealed basin, so there it changes nothing, and it never changes a generated map. |
-| `water.no_flood` | Wet share ≤ 0.35 (≤ 0.55 for Lake Basin and Any; ≤ 0.70 for Islands, D369; an opened file made with Dam Good Maps keeps its theme's cap, read from its description); official p90 0.40, workshop median 0.27, p90 0.67. The premise-based cap (decisions-pending #33) is dropped with the premises (D278). |
+| `water.no_flood` | Wet share ≤ 0.35 (≤ 0.55 for Lake Basin and Any; ≤ 0.70 for Islands, D369; a generated land whose rivers and lakes alone stand over the line on their pre-fill is drawn again at the land stage, `gen/generate.ts` `FLOOD_LOOK`; an opened file made with Dam Good Maps keeps its theme's cap, read from its description); official p90 0.40, workshop median 0.27, p90 0.67. The premise-based cap (decisions-pending #33) is dropped with the premises (D278). |
 | `water.clean_exists`, `water.clean_reach` | Advisory (D152): clean wet tiles ≥ 2% of the map; a connected body of clean water of 40+ tiles. The start's water is `start.water`'s. |
 | `water.outflow` | Every running source's water reaches an edge or a planned basin: its connected wet region touches a draining map-edge tile (not a walled source tile) or a lake feature. Not applicable without features (imports). |
 | `water.source_in_flow` | Sources start rivers (D171): no WaterSource or BadwaterSource stands where water from another source comes down to it. Emitters whose tiles touch are one group (a sealed mouth, a cluster at a river's head). Water runs down the spill levels, across a flat toward its way out and never back, and all through a pool. A group is inside a flow when a running group's water reaches one of its sources and its own water does not reach that group back. Design class. |

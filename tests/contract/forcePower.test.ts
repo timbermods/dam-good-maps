@@ -53,7 +53,7 @@ beforeAll(async () => {
   // more than its share on seeds 3 and 5; seed 9 since generator 0.10.20's contour edges, D518, D148: on seed 1 the gentlest
   // Slide moves 8,545 levels to Power 100's 28,278, over its 0.3; of seeds 1 to 10 only seed 9 keeps every force's check, the
   // gentlest glacier moving more than its share on the rest but seed 1, and the gentlest Carve on seeds 3, 6 and 8; seed 4
-  // since generator 0.10.27, D(new-leaks): a course's water leaves only by its own way, so the land moved, D148: on seed 9 the
+  // since generator 0.10.27, D532: a course's water leaves only by its own way, so the land moved, D148: on seed 9 the
   // gentlest glacier moves 1,267 levels to Power 100's 3,924, over its quarter; of seeds 1 to 5 only seed 4 keeps every force's
   // check, the gentlest glacier moving more than its share on the rest, the gentlest eruption on seed 1 and Carve on seed 3)
   // (River Valley 128² seed 4, as generator 0.10.27 made it, opens a saved fixture of the land it was written on (D148, the #1163 pattern); the generated land moves with the generator)
@@ -184,12 +184,92 @@ describe("a glacier whose way runs off the map (#1198)", () => {
   }, 120_000);
 });
 
+describe("Craterize's gentlest by a cliff builds nothing up past its rim (D361 (3))", () => {
+  // (a cliff nine levels tall, 3 below and 12 above, struck at Power 0 at its natural Size, 6 across, on the brink, at
+  // its foot and on its top, seeds 0 to 7. Land lower than the crater's own ground gave way to it out past the rim, so
+  // the rim stood whole beside a canyon, by any height: struck on the brink, seed 3 raised the cliff's foot from 3 to
+  // 13, and seed 0 one tile to 17, a pebble building a tower. Now the land below gives way only as far as the rim's own
+  // height, and deeper land keeps its shape, the bowl open over it)
+  const n = 48;
+  const cliff = () => {
+    const m = fixture("plain", n);
+    for (let y = 0; y < n; y++) for (let x = 0; x < n; x++) m.heights[y * n + x] = x < 24 ? 3 : 12;
+    m.entities = [];
+    m.fallen = [];
+    return m;
+  };
+  for (const x of [23, 24, 27])
+    it(`struck at (${x}, 24): no tile rises more than the rim's crest, a level or two`, () => {
+      for (let seed = 0; seed <= 7; seed++) {
+        const m = cliff();
+        const p = impact(m, { ...CRATER_DEFAULTS, power: 0, seed }, { origin: 24 * n + x });
+        let rise = 0;
+        let tiles = 0;
+        for (let i = 0; i < n * n; i++) {
+          rise = Math.max(rise, p.map.heights[i] - m.heights[i]);
+          if (p.map.heights[i] !== m.heights[i]) tiles++;
+        }
+        expect(tiles, `seed ${seed}`).toBeGreaterThanOrEqual(9);
+        expect(rise, `seed ${seed}`).toBeLessThanOrEqual(Math.ceil(p.anatomy.rim) + 1);
+      }
+    });
+});
+
+describe("Craterize's gentlest at a cliff's foot leaves its corners where they stand (D361 (3))", () => {
+  // (Canyon 128² seed 3's ground round (68, 19), as generator 0.10.37 made it, 24 tiles a side, one base-36 digit a
+  // level: the foot of a cliff ten levels tall, its corners notched into it. Struck there at Power 0, the forces' last
+  // step left a corner of the low ground, its neighbours still to settle, free to join the square of the cliff's top
+  // beside it: seeds 0, 3 and 7 raised it 10 or 11 levels. Ground within two levels of a tile's own now settles first)
+  const ROWS = [
+    "555eeeeeeeeeeebbbbbbbbbb",
+    "34eeeeeeeeeeeeeebbbbba99",
+    "34eeeeeeeeeeeeeeebbbba99",
+    "444444eeeeeeeeeeeebbba99",
+    "444444444eeeeeeeeeebbaa9",
+    "4444444444eeeeeeeeeeeeee",
+    "444444444444444eeeeeeeee",
+    "4444444444444444eeeeeeee",
+    "ee4444444444444433eeeeee",
+    "eeeeee444444444333eeeeee",
+    "eeeeee4444444433333eeeee",
+    "eeeeeeee44444333333eeeee",
+    "eeeeeeeeeeeeee333333dddd",
+    "eeeeeeeeebbbbb333333ddcc",
+    "eeeeeeeeeeebbb333333ddcc",
+    "eeeeeeeeeeebbb333333cccc",
+    "beeeeeeeeeddccc333333ccc",
+    "bbeeeeeeeedddcc333333bcc",
+    "bbeeeeeeddddddd333333bbc",
+    "bbbeeeddddddddd333333bbb",
+    "beeeedddddddddd3333333aa",
+    "eeedddddddddddd3333333aa",
+    "bedddeeddccddddd33333333",
+    "bdddeeddccccdddd33333333",
+  ];
+  const n = ROWS.length;
+  it("seeds 0 to 7: no tile rises more than the rim's crest, a level or two", () => {
+    for (let seed = 0; seed <= 7; seed++) {
+      const m = fixture("plain", n);
+      ROWS.forEach((r, y) => [...r].forEach((c, x) => (m.heights[y * n + x] = parseInt(c, 36))));
+      m.entities = [];
+      m.fallen = [];
+      const p = impact(m, { ...CRATER_DEFAULTS, power: 0, seed }, { origin: 12 * n + 12 });
+      let rise = 0;
+      for (let i = 0; i < n * n; i++) rise = Math.max(rise, p.map.heights[i] - m.heights[i]);
+      expect(rise, `seed ${seed}`).toBeLessThanOrEqual(Math.ceil(p.anatomy.rim) + 1);
+    }
+  });
+});
+
 describe("Craterize's gentlest is gentle on any ground: seeds 1 to 10 (D361 (3))", () => {
   // (generator 0.10.16's graded slopes left the gentlest crater 6 to 12 levels deep on seeds 1 to 5, 7, 9 and 10: at
   // Power 0 it still levelled the ground under it toward one level (its rim's ground, nearly all off the map at this Size),
   // a fifth of the way, raising a valley or cutting a ridge by two or three levels, and the forces' last step then
   // dropped the corners of the land's own ridges down their cliffs. Now a crater weaker than its Size replaces the
   // land's relief only as far as its Power, and that step leaves the land's own ground where the force only brushed it)
+  // (generator 0.10.48's River Valley 128² seed 5 left the gentlest crater 6 levels deep: a diagonal ridge six levels tall crossed its edge, its
+  // rows above raised a level and its last row not, so that row stood one tile wide between the two and the last step dropped
+  // its end to the ridge's foot. Such a tile now goes with the ground beside it, D531)
   for (let seed = 1; seed <= 10; seed++)
     it(`seed ${seed}: at its largest Size, Power 0 is gentle but visible, and the change grows with Power`, async () => {
       await open(seed);

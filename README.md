@@ -24,7 +24,8 @@ The generator:
 - **Idea** builds the map around one problem; **None** leaves it to the theme. **Lake stair**
   makes a chain of lakes that step down the map. The map's card names its landmark and what to
   do first.
-- The land and its rivers grow from uplift, erosion and flowing water. **Terrain → Verticality**
+- The land and its rivers grow from uplift, erosion and flowing water. On maps wider than 128
+  tiles both ways, the hills, mesas and terraces grow with the map. **Terrain → Verticality**
   makes it taller and sheerer. From 70 it can rise above level 16, which the game's map editor
   can't edit.
 - Open **Terrain**, **Water**, **Hazards**, **Resources** or **Difficulty** to change the map. Point at
@@ -40,8 +41,9 @@ The generator:
   source. For a peaceful map, set **Badwater** to **No badwater**.
 - The address is the map's link: copy it to share the map. It carries the settings, not your edits.
 - **Save to Timberborn** puts the map straight into the game's custom maps. The first time, pick
-  `Documents\Timberborn\Maps`; after that it is one click (Chrome and Edge). A map with the same
-  name is kept, and the new one gets a number: `dgm-river-valley-7-2.timber`.
+  `Documents\Timberborn\Maps`; after that it is one click (Chrome and Edge). The file takes the
+  map's name. A map with the same name is kept, and the new one gets a number:
+  `Old Loop Lakelands (2).timber`. **File → Save as…** saves it under a name you choose.
 - In other browsers it downloads the `.timber`: move it to `Documents\Timberborn\Maps`.
   **File → Download project** keeps the map for editing later.
 
@@ -207,6 +209,7 @@ npm run gen -- --seeds 1-10 --sizes 96,128,256 --out out/batch
   gallery on a desktop and a phone, and every local investigation map through import, 3D and export.
 - `npm run places` rebuilds the Real places data from the landscape survey's library, checking every
   map. `npm run places -- --check` says whether the committed data matches a fresh run.
+  `--check --shard 2/5` checks only the second of five shares of the places, and the whole set's index.
 - `npm run bench` times generation at 128²; `npm run bench:water` times the water settle at 256².
 - `npm run bench:preview` times the editor's water preview after local edits at 256².
 - `npm run bench:3d` measures the 3D view's build time and frame rate at 256² in Chrome. It opens

@@ -3321,8 +3321,11 @@ impl Crater {
         let tile = clamp(round(y), 0.0, self.h - 1.0) as usize * m.w + clamp(round(x), 0.0, self.w - 1.0) as usize;
         // (the land gives way to the crater's own ground inside the bowl; land that lies lower gives
         // way out past the rim too, so the rim stands whole, two tiles wide, beside a canyon or a lake and
-        // holds its bowl)
-        let mut plane = if (m.heights[tile] as f64) < self.ground(x, y) { 1.0 - smooth((r - 1.0 - 2.6 / self.radius) / 0.25) } else { 1.0 - smooth((r - 0.8) / 0.2) };
+        // holds its bowl. Only as far down as the crater's own relief reaches, its depth and its rim: land
+        // further below, the foot of a cliff a small crater strikes on its brink, keeps its shape, the bowl
+        // open over it and the rim and debris on the land as it lies)
+        let gap = self.ground(x, y) - m.heights[tile] as f64;
+        let mut plane = if gap > 0.0 { (1.0 - smooth((r - 1.0 - 2.6 / self.radius) / 0.25)) * (1.0 - smooth(gap - self.depth - self.rim)) } else { 1.0 - smooth((r - 0.8) / 0.2) };
         let add;
         let own;
         let mut lift = 0.0;
@@ -8093,7 +8096,7 @@ fn glacier_route(m: &Map, s: &GlacierSettings, intent: &Intent, v: &GlacierValle
         let dx = (end.x - start.x) / d;
         let dy = (end.y - start.y) / d;
         let n = len.ceil() as usize;
-        return (0..=n)
+        let route: Vec<Point> = (0..=n)
             .map(|k| {
                 let t = k as f64 / n as f64;
                 let bend = sin(t * std::f64::consts::PI)
@@ -8105,6 +8108,28 @@ fn glacier_route(m: &Map, s: &GlacierSettings, intent: &Intent, v: &GlacierValle
                 }
             })
             .collect();
+        // (a click on or beside the map's edge, where the valley's way down leaves the map at once: the glacier comes
+        // down to the edge there and runs off it, its route the same line the other way, run on straight to the edge.
+        // Headed inland from the edge, its cirque was held to two tiles by the edge and its snout ended inland on
+        // ground no lower than the edge's, so with no way out its floor stood at the valley's bottom and it changed a
+        // handful of tiles at every Power: River Valley 128² seed 5 at (127, 8). Run off the edge, the trough is open
+        // there, as wide as it is anywhere (`glacier_runs_off`), and its floor drains off the map)
+        let gaps = edge_gaps(m.w, m.h, start);
+        let k = (0..4).min_by(|&a, &b| gaps[a].partial_cmp(&gaps[b]).unwrap()).unwrap();
+        if gaps[k] < 3.5 && glacier_runs_off(m.w, m.h, &route).is_none() {
+            let mut out: Vec<Point> = route.into_iter().rev().collect();
+            let across = [(-1.0, 0.0), (0.0, -1.0), (1.0, 0.0), (0.0, 1.0)][k];
+            let mut d = 1.0;
+            while gaps[k] - d > 0.0 {
+                out.push(Point {
+                    x: start.x + across.0 * d,
+                    y: start.y + across.1 * d,
+                });
+                d += 1.0;
+            }
+            return out;
+        }
+        return route;
     }
     if !intent.via.is_empty() {
         let mut stops = vec![start];
@@ -13052,15 +13077,11 @@ fn quake(before: &Map, mut m: Map, s0: &Settings, intent: &Intent, extra: &[u8])
             }
         }
     }
-    // A force always has a visible effect (D356): a Lift that moved nothing, or a Slide that moved
-    // too little to see (fewer than 9 tiles: level ground slid along level ground, as on a plateau or
-    // a plain), splits the ground along the fault, its moving side a level up and the other a level
-    // down, on what the quake left.
-    let unseen = if slide {
-        (0..nn).filter(|&i| m.heights[i] != before.heights[i]).count() < 9
-    } else {
-        m.heights == before.heights
-    };
+    // A force always has a visible effect (D356): a quake that moved too little to see (fewer than 9
+    // tiles: a Slide of level ground along level ground, as on a plateau or a plain, or a Lift on the
+    // map's edge whose raised side lies off the map, leaving only the fault's own few tiles) splits the
+    // ground along the fault, its moving side a level up and the other a level down, on what the quake left.
+    let unseen = (0..nn).filter(|&i| m.heights[i] != before.heights[i]).count() < 9;
     if unseen {
         let base = m.heights.clone();
         let cap = min(22.0, m.ceiling);

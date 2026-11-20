@@ -7,7 +7,7 @@
 // there. The drag is the page's own pointer drag, never the browser's (which carries a file with an
 // image and offered to open it).
 
-import { useEffect, useLayoutEffect, useRef } from "preact/hooks";
+import { useEffect, useLayoutEffect, useRef, useState } from "preact/hooks";
 import { SHELF, shelfTip, type ShelfItem } from "./shelfItems";
 import { tip } from "../ui/Tooltip";
 
@@ -89,6 +89,24 @@ export function Shelf(p: ShelfProps) {
     had.current = !!p.picked;
   }, [p.picked]);
 
+  // a window too short for the list: a soft fade at its foot says more items lie below, drawn by the page itself (a Mac's
+  // overlay scrollbar shows only once the list scrolls), and gone once the foot is reached (as the generator's panel's)
+  const [more, setMore] = useState(false);
+  useEffect(() => {
+    const menu = grid.current?.closest<HTMLElement>(".objects-menu");
+    if (!menu || typeof ResizeObserver === "undefined") return;
+    const look = () => setMore(menu.scrollHeight - menu.scrollTop - menu.clientHeight > 2);
+    look();
+    menu.addEventListener("scroll", look, { passive: true });
+    const watch = new ResizeObserver(look);
+    watch.observe(menu);
+    if (grid.current) watch.observe(grid.current);
+    return () => {
+      menu.removeEventListener("scroll", look);
+      watch.disconnect();
+    };
+  }, []);
+
   function down(e: PointerEvent, it: ShelfItem) {
     swallow.current = false;
     rowTop.current = { id: it.id, top: (e.currentTarget as HTMLElement).getBoundingClientRect().top };
@@ -162,6 +180,7 @@ export function Shelf(p: ShelfProps) {
           );
         })}
       </div>
+      <div class={`shelf-more${more ? " on" : ""}`} aria-hidden="true" />
     </nav>
   );
 }

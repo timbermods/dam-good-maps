@@ -17,8 +17,9 @@ const landOf = (s: MapSpec): PlainLand & { held: boolean } => {
   return r;
 };
 
-// (seed 2 at 128²)
-const s = spec(2, 128);
+// (seed 5 at 128², the map of the quick water and works tests, which step 5 moved off seed 2: its map now holds on its
+// third attempt)
+const s = spec(5, 128);
 const good = landOf(s);
 
 describe("The poisoned floodplain's land", () => {

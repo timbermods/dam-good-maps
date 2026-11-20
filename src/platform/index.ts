@@ -8,6 +8,7 @@ import type { GeneratorApi } from "../worker/generator.worker";
 import type { NaturalizeApi } from "../worker/naturalize.worker";
 import type { ShowcaseMessage, ShowcaseRequest } from "../worker/showcaseApi";
 import type { MapSpec } from "../core/spec/mapspec";
+import { numberedFileName } from "../core/format/fileName";
 import { machineThreads, newWaterBudget, parallelWaterSupported, threadsFor, waterThreadBudget } from "../core/sim/parallelPolicy";
 
 /** workers: module URLs on the website (the artifact build will inline them as blobs). The
@@ -325,20 +326,12 @@ async function nameTaken(folder: FileSystemDirectoryHandle, name: string): Promi
   }
 }
 
-/** "dgm-river-valley-7.timber" -> "dgm-river-valley-7-2.timber" (D345, B10). */
-function withSuffix(name: string, n: number): string {
-  const dot = name.lastIndexOf(".");
-  const stem = dot === -1 ? name : name.slice(0, dot);
-  const ext = dot === -1 ? "" : name.slice(dot);
-  return `${stem}-${n}${ext}`;
-}
-
 /** Never overwrite a map with the same name (D162 amendment, Kyler 2026-09): the first name not
- *  already in the folder, trying "name-2", "name-3" and so on after the plain name. */
+ *  already in the folder, trying "name (2)", "name (3)" and so on after the plain name (D443, amended 2026-11-18). */
 async function freeName(folder: FileSystemDirectoryHandle, name: string): Promise<string> {
   if (!(await nameTaken(folder, name))) return name;
   for (let n = 2; ; n++) {
-    const candidate = withSuffix(name, n);
+    const candidate = numberedFileName(name, n);
     if (!(await nameTaken(folder, candidate))) return candidate;
   }
 }
@@ -427,7 +420,7 @@ export async function chooseSaveFolder(deps: SaveToTimberbornDeps = liveDeps): P
 
 /**
  * Step two, once the map is built: write it into the folder `chooseSaveFolder` found. Never overwrites an
- * existing map: a taken name is saved as "name-2" (then "-3", and so on), reported back as `savedAs`. Other
+ * existing map: a taken name is saved as "name (2)" (then "(3)", and so on), reported back as `savedAs`. Other
  * browsers get the normal download - the same bytes, just not placed in the folder - and so does a failure
  * (a missing folder, the write failing). A cancel or a wrong folder writes nothing.
  */
@@ -455,7 +448,28 @@ export async function saveToTimberborn(bytes: Uint8Array, name: string, deps: Sa
   return saveIntoFolder(await chooseSaveFolder(deps), bytes, name, deps);
 }
 
-export type ChooseMapsFolderResult = { via: "chosen"; folder: string } | { via: "cancelled" } | { via: "wrong-folder"; picked: string } | { via: "failed" };
+/** The name Save to Timberborn would give a file called `name` now, looked up quietly before saving (Save as… shows it
+ *  as the name is typed): `name` itself, or "name (2)" and on when a map of that name is in the remembered Maps folder.
+ *  Null when it can't be known without asking the player: another browser, no folder remembered yet, or a permission
+ *  that would need a prompt (a prompt needs a click; the save itself asks). */
+export async function peekSaveName(name: string, deps: Pick<SaveToTimberbornDeps, "supported" | "freeName"> & { recallQuietly(): Promise<FileSystemDirectoryHandle | null> } = { ...liveDeps, recallQuietly: recallFolderQuietly }): Promise<string | null> {
+  if (!deps.supported()) return null;
+  try {
+    const folder = await deps.recallQuietly();
+    return folder && isMapsFolder(folder.name) ? await deps.freeName(folder, name) : null;
+  } catch {
+    return null;
+  }
+}
+
+/** The remembered Maps folder only if its permission stands without asking. */
+async function recallFolderQuietly(): Promise<FileSystemDirectoryHandle | null> {
+  const handle = await withFolderStore<FileSystemDirectoryHandle | undefined>("readonly", (s) => s.get(FOLDER_KEY) as IDBRequest<FileSystemDirectoryHandle | undefined>);
+  if (!handle) return null;
+  return (await handle.queryPermission?.({ mode: "readwrite" })) === "granted" ? handle : null;
+}
+
+export type ChooseMapsFolderResult ={ via: "chosen"; folder: string } | { via: "cancelled" } | { via: "wrong-folder"; picked: string } | { via: "failed" };
 
 /** File -> "Choose Maps folder...": pick (or change) the remembered folder without saving. A cancel or a folder not
  *  named Maps leaves the previous choice as it was. */

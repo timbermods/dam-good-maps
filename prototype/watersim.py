@@ -41,14 +41,24 @@ DEFAULT_WATER_RULES = "game"   # M9b's switch (D308, D311)
 # direction k: 0 = -y, 1 = -x, 2 = +y, 3 = +x ; OPP[k] is the reverse direction
 DIRS = ((-1, 0), (0, -1), (1, 0), (0, 1))
 OPP = (2, 3, 0, 1)
+_OPP_ROWS = np.array(OPP)[:, None]
+
+
+def _view(p, k, Y, X):
+    """The neighbour in direction k of every tile, read from `p`, a map padded by one tile."""
+    dy, dx = DIRS[k]
+    return p[1 + dy:1 + dy + Y, 1 + dx:1 + dx + X]      # out[y, x] = a[y + dy, x + dx]
 
 
 def _shift(a, k, fill):
     """Value of the neighbour in direction k for every tile (fill outside the map)."""
-    dy, dx = DIRS[k]
     Y, X = a.shape
-    p = np.pad(a, 1, constant_values=fill)
-    return p[1 + dy:1 + dy + Y, 1 + dx:1 + dx + X]      # out[y, x] = a[y + dy, x + dx]
+    return _view(np.pad(a, 1, constant_values=fill), k, Y, X)
+
+
+# the evaporation modifier for each saturation 0..8 (the game's curve; 1 on a dry tile)
+_SAT = np.arange(9)
+_EVAP_MOD = np.where(_SAT == 0, 1.0, 0.0595 * (10 - _SAT) ** 2 + 0.101 * (10 - _SAT) + 0.72)
 
 
 def seq_sum(a) -> float:
@@ -87,6 +97,32 @@ class WaterSim:
                 for k in range(4):
                     if not self.inside[k][y, x]:
                         self.wall[k][y, x] = True
+        # what the substep reads that never changes, worked out once per map, flat (the settle is the
+        # validator's whole cost, D453): each tile's neighbour in direction k (N outside the map), the
+        # neighbour's floor, the spill test's fixed part, the walls, where a partial obstacle can stand
+        # in the neighbour's way and its height, and every emitter's tiles
+        N = Y * X
+        flat = np.arange(N).reshape(Y, X)
+        self._nb = np.stack([np.where(self.inside[k], _shift(flat, k, 0), N) for k in range(4)]).reshape(4, N)
+        Fn = [_shift(self.F, k, 0.0) for k in range(4)]
+        self._Fx = np.append(self.F.reshape(-1), 0.0)       # outside the map: floor 0
+        self._Fn = np.stack(Fn).reshape(4, N)
+        self._spill_at = np.stack([(Fn[k] == self.F) & (self.inside[k] | self.edge_spill) for k in range(4)]).reshape(4, N)
+        self._wall = np.stack(self.wall).reshape(4, N)
+        self._dam_at = self._lim = None
+        if self.dam is not None:
+            lim = np.stack([np.where(self.inside[k], _shift(self.dam, k, -1.0), -1.0) for k in range(4)])
+            at = lim >= 0
+            if self.game:
+                # the game reads it from the higher of the two floors up
+                at &= self.F[None] <= np.stack(Fn)
+            self._dam_at, self._lim = at.reshape(4, N), lim.reshape(4, N)
+        self._src = np.zeros(N, bool)
+        for s in self.sources:
+            for (y, x) in s["tiles"]:
+                self._src[y * X + x] = True
+        self._at = None                                     # the last active tiles and what they read
+        self._Dx, self._Cx, self._fx = np.zeros(N + 1), np.zeros(N + 1), np.zeros((4, N + 1))
         # a seep starts off, as the game's does: it turns on at the first tick only below its restart depth
         self.seep_on = [not s.get("depth_limit") for s in self.sources]
         self.ticks = 0
@@ -94,17 +130,18 @@ class WaterSim:
 
     def _evap_mod(self):
         wet = self.D > 0
-        p = np.pad(wet, 1)
         Y, X = wet.shape
-        cnt = sum(p[1 + dy:1 + dy + Y, 1 + dx:1 + dx + X].astype(int)
+        p = np.zeros((Y + 2, X + 2), np.int8)     # (counts up to 9)
+        p[1:-1, 1:-1] = wet
+        cnt = sum(p[1 + dy:1 + dy + Y, 1 + dx:1 + dx + X]
                   for dy in (-1, 0, 1) for dx in (-1, 0, 1) if dy or dx)
         wn = np.where(wet, 1 + cnt, 0)
+        p[1:-1, 1:-1] = wn
         best = wn.copy()
         for k in range(4):
-            best = np.maximum(best, _shift(wn, k, 0) - 1)
+            best = np.maximum(best, _view(p, k, Y, X) - 1)
         sat = np.where(wet, np.minimum(8, best), 0)
-        mod = np.where(sat == 0, 1.0, 0.0595 * (10 - sat) ** 2 + 0.101 * (10 - sat) + 0.72)
-        return mod, sat
+        return _EVAP_MOD[sat], sat
 
     def _update_seeps(self):
         for i, s in enumerate(self.sources):
@@ -118,58 +155,94 @@ class WaterSim:
             elif d < on:
                 self.seep_on[i] = True
 
+    def _active(self):
+        """The tiles a substep can change, flat: those wet or beside a wet tile, an emitter's, and any
+        still holding contamination or an outflow. Every other tile is dry with dry neighbours, holds
+        no contamination and no outflow, and the substep leaves it so (no flow out of a dry tile and
+        none into it; it evaporates to 0), so it is computed on these alone, with the same arithmetic
+        tile by tile: the same water as computing every tile."""
+        wet = self.D > 0
+        near = wet.copy()
+        near[1:, :] |= wet[:-1, :]
+        near[:-1, :] |= wet[1:, :]
+        near[:, 1:] |= wet[:, :-1]
+        near[:, :-1] |= wet[:, 1:]
+        a = np.flatnonzero(near.reshape(-1) | self._src | (self.C.reshape(-1) != 0) | self.out.reshape(4, -1).any(axis=0))
+        c = self._at
+        if c is None or c[0].size != a.size or not np.array_equal(c[0], a):
+            dam = None
+            if self._dam_at is not None:
+                dam = []
+                for k in range(4):
+                    j = np.flatnonzero(self._dam_at[k, a])
+                    dam.append((j, self._lim[k, a[j]]) if j.size else None)
+            nb = self._nb[:, a]
+            c = self._at = (a, nb, self._Fx[nb], self._Fn[:, a], self._spill_at[:, a], self._wall[:, a], dam)
+        return c
+
     def substep(self, evap_mod, strength_scale=1.0):
-        F, D, C = self.F, self.D, self.C
-        H = F + D
-        f = np.zeros((4,) + D.shape)
-        for k in range(4):
-            Hn = _shift(H, k, 0.0)            # outside the map: floor 0, no water
-            Fn = _shift(F, k, 0.0)
-            Dn = _shift(D, k, 0.0)
-            e = H - Hn
-            prev = KEEP * self.out[k]
-            e_sp = np.where((Dn == 0) & (Fn == F) & (self.inside[k] | self.edge_spill), e - SPILL, e)
-            fk = prev + K * e_sp
-            if self.dam is not None:
-                # a partial obstacle (NaturalDam) in the target tile
-                lim = np.where(self.inside[k], _shift(self.dam, k, -1.0), -1.0)
-                at_dam = (lim >= 0) & (Fn < np.ceil(H))
-                if self.game:
-                    # the game reads it from the higher of the two floors up
-                    at_dam = at_dam & (F <= Fn)
-                hd = H - Fn
-                a = np.clip(np.clip((lim - hd) / 0.1, 0, 1) * np.clip(1 - 2.25 * (H - (F + self.Dold)), 0.5, 2), 0, 1)
-                f_below = 0.995 * prev - 0.02 * a
-                e_d = np.where((hd - lim < 0.1) & (e > 0), e * ((hd - lim) / 0.1), e)
-                f_above = 0.995 * prev + K * e_d
-                fk = np.where(at_dam, np.where(hd < lim, f_below, f_above), fk)
-            blocked = self.wall[k] | (Fn >= H) | (D <= 0)
-            f[k] = np.where(blocked, 0.0, np.maximum(fk, 0.0))
+        if not self.out.flags.c_contiguous:
+            self.out = np.ascontiguousarray(self.out)
+        a, nb, Fnb, Fn, spill_at, wall, dam = self._active()
+        N = self.D.size
+        D, C = self.D, self.C
+        out = self.out.reshape(4, N)
+        Dx, Cx, fx = self._Dx, self._Cx, self._fx
+        Dx[:N] = D.reshape(-1)                  # outside the map: floor 0, no water
+        Cx[:N] = C.reshape(-1)
+        Fa, Da, Ca = self._Fx[a], Dx[a], Cx[a]
+        H = Fa + Da
+        # the four directions at once, row k for direction k
+        Dn = Dx[nb]
+        Hn = Fnb + Dn
+        e = H - Hn
+        prev = KEEP * out[:, a]
+        e_sp = np.where((Dn == 0) & spill_at, e - SPILL, e)
+        fk = prev + K * e_sp
+        for k in range(4 if dam is not None else 0):
+            if dam[k] is None:
+                continue
+            # a partial obstacle (NaturalDam) in the target tile, on the tiles that can meet one
+            j, lim = dam[k]
+            at_dam = Fn[k, j] < np.ceil(H[j])
+            if at_dam.any():
+                j, lim = j[at_dam], lim[at_dam]
+                h, pv, ev = H[j], prev[k, j], e[k, j]
+                hd = h - Fn[k, j]
+                w = np.clip(np.clip((lim - hd) / 0.1, 0, 1) * np.clip(1 - 2.25 * (h - (Fa[j] + self.Dold.reshape(-1)[a[j]])), 0.5, 2), 0, 1)
+                f_below = 0.995 * pv - 0.02 * w
+                e_d = np.where((hd - lim < 0.1) & (ev > 0), ev * ((hd - lim) / 0.1), ev)
+                f_above = 0.995 * pv + K * e_d
+                fk[k, j] = np.where(hd < lim, f_below, f_above)
+        blocked = wall | (Fn >= H) | (Da <= 0)
+        f = np.where(blocked, 0.0, np.maximum(fk, 0.0))
         s = f.sum(axis=0)
         if self.game:
             sd = s * DT
-            over = (s > 0) & (D < sd)
-            scale = np.divide(D, sd, out=np.ones_like(D), where=over)
+            over = (s > 0) & (Da < sd)
+            scale = np.divide(Da, sd, out=np.ones_like(Da), where=over)
         else:
-            scale = np.where(s * DT > D, D / np.maximum(s * DT, 1e-12), 1.0)
+            scale = np.where(s * DT > Da, Da / np.maximum(s * DT, 1e-12), 1.0)
         f *= scale
-        inflow = np.zeros((4,) + D.shape)
-        for k in range(4):
-            inflow[k] = np.where(self.inside[k], _shift(f[OPP[k]], k, 0.0), 0.0)
+        # (nothing flows in from outside the map, or from a tile left out: it is dry)
+        fx[:, a] = f
+        inflow = fx[_OPP_ROWS, nb]
+        fx[:, a] = 0.0
         outsum = f.sum(axis=0)
         insum = inflow.sum(axis=0)
         # contamination moves with the flow as a volume-weighted mix
-        cin = sum(inflow[k] * _shift(C, k, 0.0) for k in range(4))
-        remaining = np.maximum(D - outsum * DT, 0.0)
-        for k in range(4):
-            self.out[k] = np.maximum(0.0, f[k] - BAL * inflow[k])
+        cin = sum(inflow * Cx[nb])
+        remaining = np.maximum(Da - outsum * DT, 0.0)
+        out[:, a] = np.maximum(0.0, f - BAL * inflow)
         self.Dold = D.copy()
-        evap = np.where(D < 0.02, 1e-3, 1e-4) * evap_mod
+        evap = np.where(Da < 0.02, 1e-3, 1e-4) * evap_mod.reshape(-1)[a]
         # (the game: every tile evaporates, a dry one that receives water too)
-        newD = np.maximum(0.0, D + (insum - outsum - (evap if self.game else evap * (D > 0))) * DT)
-        mass = C * remaining + cin * DT
-        self.C = np.where(newD > 1e-9, np.clip(mass / np.maximum(newD, 1e-9), 0, 1), 0.0)
-        self.D = newD
+        newD = np.maximum(0.0, Da + (insum - outsum - (evap if self.game else evap * (Da > 0))) * DT)
+        mass = Ca * remaining + cin * DT
+        self.C = C.copy()
+        self.C.reshape(-1)[a] = np.where(newD > 1e-9, np.clip(mass / np.maximum(newD, 1e-9), 0, 1), 0.0)
+        self.D = D.copy()
+        self.D.reshape(-1)[a] = newD
         # sources add dt*S/N to each of their cells
         for i, src in enumerate(self.sources):
             if not self.seep_on[i]:
@@ -242,7 +315,7 @@ class WaterSim:
         return False
 
     def sat(self):
-        return self._evap_mod()[1]
+        return self._evap_mod()[1].astype(int)
 
 
 def sealed_basins(sim, prev, sealed):

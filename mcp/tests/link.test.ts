@@ -56,7 +56,8 @@ describe("the website's link", () => {
   it("says an opened .timber has no settings to link, not that it was edited", async () => {
     const r = await made({ theme: "riverValley", size: 96, seed: 2 });
     const saved = textOf(await callTool("save", { map: /^Map (map-\d+) /.exec(textOf(r))![1], folder: dir, name: "Opened Timber" }));
-    const timber = /^Saved (\S+\.timber) /m.exec(saved)![1];
+    // (the file takes the map's name as written, spaces kept: D443 amended 2026-11-18)
+    const timber = /^Saved (.+\.timber) \(/m.exec(saved)![1];
     const o = textOf(await callTool("open", { path: timber }));
     expect(o).toContain(`On the website: an opened file has no generator's settings to link; save, then open the .damgoodmaps.json project at ${SITE} with File → Open… or by dropping it on the page.`);
   });

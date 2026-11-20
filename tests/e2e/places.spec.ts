@@ -8,7 +8,7 @@ import { createHash } from "node:crypto";
 import { mkdirSync, readFileSync } from "node:fs";
 import { expect, test, type Page } from "@playwright/test";
 import { holdRandomSeed, openEditor, openFileMenu, openYourMaps, waitForEditor, topDown } from "./open";
-import { namedFile } from "../../src/core/gen/pack";
+import { mapFileName } from "../../src/core/format/fileName";
 import { decodePlaceFile, galleryIndex, placeTimber, type PlaceIndex, type PlaceIndexEntry } from "../../src/core/places/place";
 
 const DIR = "public/real-places";
@@ -96,7 +96,7 @@ test("the gallery lists every place, filters them and downloads Node's file", as
   const download = page.waitForEvent("download");
   await page.getByRole("button", { name: `Download ${SMALL.name}` }).click();
   const d = await download;
-  expect(d.suggestedFilename()).toBe(namedFile(SMALL.name));
+  expect(d.suggestedFilename()).toBe(mapFileName(SMALL.name));
   const bytes = new Uint8Array(readFileSync(await d.path()));
   expect(sha256(bytes)).toBe(sha256(expected.bytes));
   expect(sha256(bytes)).toBe(SMALL.sha256);
@@ -111,7 +111,7 @@ test("Node and Chromium build the same file for a place of each size", async ({ 
     const e = INDEX.places.filter((p) => p.size === size).at(-1)!;
     const web = await page.evaluate((id) => window.dgmPlaces!.build(id), e.id);
     const n = node(e);
-    expect(web.fileName, e.id).toBe(namedFile(e.name));
+    expect(web.fileName, e.id).toBe(mapFileName(e.name));
     expect(web.bytes, e.id).toBe(n.bytes.length);
     expect(web.sha256, e.id).toBe(sha256(n.bytes));
     expect(web.sha256, e.id).toBe(e.sha256);
@@ -136,7 +136,7 @@ test("Refine opens the place in the editor, and it exports unchanged as the same
   const download = page.waitForEvent("download", { timeout: 120_000 });
   await (await openFileMenu(page)).getByRole("menuitem", { name: "Download .timber" }).click();
   const d = await download;
-  expect(d.suggestedFilename()).toBe(namedFile(SMALL.name));
+  expect(d.suggestedFilename()).toBe(mapFileName(SMALL.name));
   expect(sha256(new Uint8Array(readFileSync(await d.path())))).toBe(SMALL.sha256);
   expect(errors).toEqual([]);
 });

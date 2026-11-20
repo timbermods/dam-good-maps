@@ -1,7 +1,7 @@
 // The map's name is renamed in place, in the header's title (Kyler, 2026-10-03; D443): a click on the title shows a
 // field at exactly the same place and size; Enter or leaving saves through the core, with no undo step; Esc puts the
 // old name back; a blank name is refused in the core's own words, said in the title's second line, and the field
-// stays. The renamed map downloads as dgm-<name>.timber.
+// stays. The renamed map downloads under its name as written (D443, amended 2026-11-18), "Beaver Bend.timber".
 // Its maps are saved (`openSaved`): the page's own map of each fragment, as generator 0.10.26 made it.
 
 import { expect, test, type Locator } from "@playwright/test";
@@ -69,11 +69,11 @@ test("the title renames the map in place: Enter saves with no undo step, a blank
   await expect(page.getByRole("toolbar", { name: "Edit" }).getByRole("button", { name: "Undo (Ctrl+Z)" })).toBeDisabled();
   await expect(facts).toHaveText("Seed 13 · 96×96");
 
-  // the renamed map downloads as dgm-<name>.timber
+  // the renamed map downloads under its name as written (dgm-beaver-bend.timber until 2026-11-18, D148)
   await expectReady(page);
   const download = page.waitForEvent("download");
   await (await openFileMenu(page)).getByRole("menuitem", { name: "Download .timber" }).click();
-  expect((await download).suggestedFilename()).toBe("dgm-beaver-bend.timber");
+  expect((await download).suggestedFilename()).toBe("Beaver Bend.timber");
 
   // a blank name is refused in the core's words, in the second line, and the field stays open for another try
   await page.locator(".editor-title h1 button.title-button").click();

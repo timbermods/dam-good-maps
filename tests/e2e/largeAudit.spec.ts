@@ -15,10 +15,20 @@ const sourcesOnMap = (page: Page) =>
     return out;
   });
 
-/** A fault painted along the row through a tile, `reach` tiles each side, and the force kept. */
+/** A fault painted through a tile, `reach` tiles each side, and the force kept: along its row, or along its column when
+ *  the row would run off the land. A Lift moves nothing at a fault's tips (quake.ts), so a tile on the map's edge (a
+ *  river's inflow) must lie mid-fault, not at the end of a row cut short by the edge. */
 async function fault(page: Page, [x, y]: [number, number], reach: number) {
-  const a = await page.evaluate(([px, py]) => window.dgmEditor!.tileToClient(px, py), [Math.max(1, x - reach), y] as [number, number]);
-  const b = await page.evaluate(([px, py]) => window.dgmEditor!.tileToClient(px, py), [x + reach, y] as [number, number]);
+  const [W, H] = await page.evaluate(() => {
+    const m = window.dgm3d!.renderer.mapState()!;
+    return [m.W, m.H] as [number, number];
+  });
+  const row = x - reach >= 1 && x + reach <= W - 2;
+  const ends: [number, number][] = row
+    ? [[x - reach, y], [x + reach, y]]
+    : [[x, Math.max(1, y - reach)], [x, Math.min(H - 2, y + reach)]];
+  const a = await page.evaluate(([px, py]) => window.dgmEditor!.tileToClient(px, py), ends[0]);
+  const b = await page.evaluate(([px, py]) => window.dgmEditor!.tileToClient(px, py), ends[1]);
   await page.mouse.move(a.x, a.y);
   await page.mouse.down();
   for (let k = 1; k <= 16; k++) {
@@ -51,6 +61,8 @@ test("a force that removed sources says how many, with Undo; with Ride it says n
   await expect(row.getByRole("group", { name: "Sources" }).getByRole("button", { name: "Clear" })).toHaveAttribute("aria-pressed", "true");
   const sources = await sourcesOnMap(page);
   expect(sources.length).toBeGreaterThan(0);
+  // (on this map every source is the main river's inflow on the east edge: `fault` lays its line along the edge, so the
+  // source lies mid-fault where the ground moves)
   const spot = sources.at(-1)!;
   const n0 = (await labels(page)).length;
 

@@ -2,15 +2,22 @@
 // holding every target (analysis/easyStart.ts `EASY_START`), each a row of the generate profile's checks.
 
 import { describe, expect, it } from "vitest";
-import { EASY_START, easyShortfall, easyStartMeasures, easyTargets } from "../../src/core/analysis/easyStart";
+import { EASY_LAND, EASY_START, easyShortfall, easyStartMeasures, easyTargets } from "../../src/core/analysis/easyStart";
 import { decodeProject, encodeProject, generatedDocument } from "../../src/core/doc/document";
 import { MapSession } from "../../src/core/doc/session";
+import { startEntity } from "../../src/core/features/build";
+import type { StartFeature } from "../../src/core/features/schema";
+import { fromBase64 } from "../../src/core/format/base64";
+import { entityJson, type EntitySpec } from "../../src/core/format/entities";
 import { surfaceOf } from "../../src/core/format/world";
 import { generate } from "../../src/core/gen/generate";
+import { planResources } from "../../src/core/gen/resources";
 import { showcaseSpec } from "../../src/core/gen/showcase";
 import { cutLevel, pondWater, shapeEasyStart } from "../../src/core/land/easyStart";
+import { runsToTiles } from "../../src/core/math/grid";
 import { stream } from "../../src/core/math/rng";
 import { mapObjects } from "../../src/core/sim/model";
+import { canonicalSettle } from "../../src/core/sim/prefill";
 import { decodeSpecFragment, encodeSpecFragment, makeSpec } from "../../src/core/spec/mapspec";
 import { validateMap } from "../../src/core/validate/checks";
 
@@ -99,11 +106,11 @@ describe("Easy start's ground (land/easyStart.ts)", () => {
     const { h, depth, water } = valley();
     const p = { x: 34, y: 30, level: h[30 * W + 34] };
     expect(p.level).toBe(7);
-    const j = pondWater(h, W, H, depth, water, p);
+    const j = pondWater(h, W, H, { depth, water }, p);
     expect(j).toBeGreaterThanOrEqual(0);
-    const cut = cutLevel(h, depth, water, j);
+    const cut = cutLevel(h, { depth, water }, j);
     expect(cut).toBe(5);
-    const s = shapeEasyStart(h, W, H, p, depth, water, stream(1, "easy-start-test"))!;
+    const s = shapeEasyStart(h, W, H, p, { depth, water }, stream(1, "easy-start-test"))!;
     expect(s).not.toBeNull();
     // the clearing a level above the cut, the start's 5×5 on it
     expect(s.level).toBe(cut + 1);
@@ -132,8 +139,8 @@ describe("Easy start's ground (land/easyStart.ts)", () => {
     for (let i = 0; i < W * H; i++) if (!water[i]) h[i] += 4;
     const p = { x: 34, y: 30, level: h[30 * W + 34] };
     const before = h.slice();
-    expect(pondWater(h, W, H, depth, water, p)).toBe(-1);
-    expect(shapeEasyStart(h, W, H, p, depth, water, stream(1, "easy-start-test"))).toBeNull();
+    expect(pondWater(h, W, H, { depth, water }, p)).toBe(-1);
+    expect(shapeEasyStart(h, W, H, p, { depth, water }, stream(1, "easy-start-test"))).toBeNull();
     expect(h).toEqual(before);
   });
 
@@ -143,22 +150,105 @@ describe("Easy start's ground (land/easyStart.ts)", () => {
     const { h, depth, water } = valley();
     for (let y = 0; y < H; y += 3) for (let x = 36; x < 48; x += 3) depth[y * W + x] = 0.05;
     const p = { x: 34, y: 30, level: h[30 * W + 34] };
-    expect(pondWater(h, W, H, depth, water, p)).toBeGreaterThanOrEqual(0);
+    expect(pondWater(h, W, H, { depth, water }, p)).toBeGreaterThanOrEqual(0);
     const before = h.slice();
-    expect(shapeEasyStart(h, W, H, p, depth, water, stream(1, "easy-start-test"))).toBeNull();
+    expect(shapeEasyStart(h, W, H, p, { depth, water }, stream(1, "easy-start-test"))).toBeNull();
     expect(h).toEqual(before);
+  });
+
+  it("reads the settled water as it stands: its own surface, thin films as ground, a pond's water deep enough to feed it", () => {
+    // (D453: a place is shaped on the settled water of the kept land. The river settled 0.7 deep, its surface at 5.7:
+    // the plan's reading, which keeps a third of a level over an estimate, gives no cut there; the settled one does,
+    // the clearing a level over the cut and 0.3 over the water)
+    const { h, depth } = valley();
+    for (let i = 0; i < W * H; i++) if (depth[i] > 0) depth[i] = 0.7;
+    const p = { x: 34, y: 30, level: h[30 * W + 34] };
+    const none = new Uint8Array(W * H);
+    expect(pondWater(h, W, H, { depth, water: none }, p)).toBe(-1);
+    const settled = { depth, water: null, settled: true };
+    const j = pondWater(h, W, H, settled, p);
+    expect(j).toBeGreaterThanOrEqual(0);
+    expect(cutLevel(h, settled, j)).toBe(5);
+    // a film on the ground between is ground: the place keeps its pond (the plan's reading takes it for water)
+    for (let y = 0; y < H; y += 3) for (let x = 36; x < 48; x += 3) depth[y * W + x] = 0.03;
+    const g = h.slice();
+    const s = shapeEasyStart(g, W, H, p, settled, stream(1, "easy-start-test"))!;
+    expect(s).not.toBeNull();
+    expect(s.level).toBe(6);
+    expect(s.surface).toBeCloseTo(5.7, 9);
+    // water too shallow to feed a pond is not the water it is joined to
+    for (let i = 0; i < W * H; i++) if (depth[i] === 0.7) depth[i] = 0.2;
+    expect(pondWater(h, W, H, settled, p)).toBe(-1);
+    // (and a planned channel the water left is ground on the settled reading)
+    for (let i = 0; i < W * H; i++) if (depth[i] === 0.2) depth[i] = 0;
+    expect(pondWater(h, W, H, settled, p)).toBe(-1);
   });
 
   it("keeps off the ground another start's shape took, leaving the land as it was", () => {
     const { h, depth, water } = valley();
     const p = { x: 34, y: 30, level: h[30 * W + 34] };
-    const s = shapeEasyStart(h, W, H, p, depth, water, stream(1, "easy-start-test"))!;
+    const s = shapeEasyStart(h, W, H, p, { depth, water }, stream(1, "easy-start-test"))!;
     const taken = new Uint8Array(W * H);
     for (const i of s.area) taken[i] = 1;
     const before = h.slice();
     const q = { x: 34, y: 40, level: h[40 * W + 34] };
-    expect(shapeEasyStart(h, W, H, q, depth, water, stream(2, "easy-start-test"), null, taken)).toBeNull();
+    expect(shapeEasyStart(h, W, H, q, { depth, water }, stream(2, "easy-start-test"), null, taken)).toBeNull();
     expect(h).toEqual(before);
+  });
+});
+
+describe("Easy start's ruins (gen/resources.ts)", () => {
+  // (the long River Valley map of D453: a start on a wide green valley floor had only lone dry tiles on its walk, each
+  // a level of its own; no field of five fitted one, none was placed, and the finished map was refused for its metal)
+  const W = 64;
+  const N = W * W;
+  const fieldOn = (moist: (x: number, y: number) => boolean, taken: readonly [number, number][] = []) => {
+    const heights = new Uint8Array(N).fill(4);
+    const occupied = new Uint8Array(N);
+    for (const [x, y] of taken) occupied[y * W + x] = 1;
+    const g = {
+      W,
+      H: W,
+      heights,
+      water: new Float64Array(N),
+      moisture: Float64Array.from({ length: N }, (_, i) => (moist(i % W, Math.floor(i / W)) ? 1 : 0)),
+      soilContamination: new Float64Array(N),
+      occupied,
+      start: { x: 32, y: 32 },
+      entities: [],
+    };
+    const spec = makeSpec({ seed: 5, size: { x: W, y: W }, theme: "riverValley" });
+    const field = planResources(spec, g, 0, 0, { protect: null, easy: { safe: new Uint8Array(N).fill(1), bushes: 10, within: 15, ruins: 25 } }).find((f) => f.role === "ruinField/easyStart");
+    return field && field.kind === "ruinField" ? runsToTiles(field.params.area, W).map((i) => ({ x: i % W, y: Math.floor(i / W), moist: g.moisture[i] > 0 })) : null;
+  };
+  // (as the crow flies: no further than the colony walks, on flat open ground)
+  const away = (t: { x: number; y: number }) => Math.hypot(t.x - 32, t.y - 32);
+
+  it("stand on dry ground where the start's walk has room for them", () => {
+    const tiles = fieldOn((x) => x < 32)!;
+    expect(tiles.length).toBeGreaterThanOrEqual(5);
+    expect(tiles.some((t) => !t.moist)).toBe(true);
+  });
+
+  it("stand on the green where the walk has no dry ground, within the walk the target asks", () => {
+    const tiles = fieldOn(() => true)!;
+    expect(tiles).not.toBeNull();
+    expect(tiles.length).toBeGreaterThanOrEqual(5);
+    for (const t of tiles) expect(away(t)).toBeLessThanOrEqual(25);
+  });
+
+  it("stand on the green where the walk's only dry ground is lone tiles no field fits", () => {
+    // (three dry tiles on the walk, each with something standing on the four tiles beside it: no field grows from one)
+    const lone: [number, number][] = [[50, 32], [32, 50], [14, 32]];
+    const dryAt = new Set(lone.map(([x, y]) => y * W + x));
+    const beside = lone.flatMap(([x, y]): [number, number][] => [[x + 1, y], [x - 1, y], [x, y + 1], [x, y - 1]]);
+    const tiles = fieldOn((x, y) => !dryAt.has(y * W + x), beside)!;
+    expect(tiles).not.toBeNull();
+    expect(tiles.length).toBeGreaterThanOrEqual(5);
+    for (const t of tiles) {
+      expect(t.moist).toBe(true);
+      expect(away(t)).toBeLessThanOrEqual(25);
+    }
   });
 });
 
@@ -192,8 +282,121 @@ describe("a generated map with Easy start on", () => {
     expect(m.metal.value).toBeLessThanOrEqual(EASY_START.ruins);
     expect(m.hazards.value).toBe(0);
     expect(m.view.value).toBe(1);
+    // (the start stands on its clearing, whichever water its shape was cut on, D453: below)
+    expect(r.built.start!.z).toBe(r.info.easy!.level);
     // (the map without it has no such rows: the setting changes nothing when off)
     const off = generate(makeSpec({ seed: 2, theme: "any" }), { maxAttempts: 1 });
     expect(off.report.checks.some((c) => c.id.startsWith("start.easy_"))).toBe(false);
+  });
+
+  // (D453, planning's rulings on #1227: no start is accepted or thrown away on the plan's estimate of the water. The
+  // plan's shape is tried as it stands on the land's one settle and kept where it passes every start check: the map
+  // settles once. Where it fails, the place is shaped on the settled water and its land settled once more. Either
+  // way the file's water is the canonical settle of the land the file holds, D455. Lake Basin 128², seeds 2 and 1,
+  // each made on its first attempt, without the 3D forms, whose own water is settled again: a generator change that
+  // moves them takes other seeds, tools/attempts.ts --easy lists each map's `easyOn`. Seed 1 → 9 at 0.10.48, D544'
+  // warp making no cliff, D148: seed 1's start keeps the plan's shape now; of seeds 1–19, 9–11, 13, 15 and 17 are shaped on
+  // the settled water on their first attempt, 9 the first)
+  it("keeps the plan's shape where it holds on the land's one settle, and shapes on the settled water where it does not", () => {
+    const made = (seed: number) => {
+      const spec = makeSpec({ seed, theme: "lakeBasin" });
+      spec.settings.start.easyStart = true;
+      const r = generate(spec, { forms: false });
+      expect(r.report.passed).toBe(true);
+      expect(r.attempts).toBe(1);
+      expect(r.built.start!.z).toBe(r.info.easy!.level);
+      // (the file's water: the settle of its final land, cold from the pre-fill)
+      const again = canonicalSettle(r.built.waterModel);
+      expect(Array.from(again.depth)).toEqual(Array.from(r.built.water));
+      return r;
+    };
+    const kept = made(2);
+    expect(kept.info.easy!.on).toBe("plan");
+    expect(kept.info.settles).toBe(1);
+    const shaped = made(9);
+    const e = shaped.info.easy!;
+    expect(e.on).toBe("settled");
+    expect(shaped.info.settles).toBe(2);
+    // (shaped on the settled water: the water its cut joins stands, on the map's own settled water, where the shape
+    // read it; the clearing is a level over the cut, the cut under that water and the clearing dry over it. Six
+    // maps read it within 0.002 but one, a shallow river whose cut's mouth drew its surface down 0.18: a quarter of
+    // a level holds them all, where the plan's estimate stood a level off as often as not)
+    const surface = shaped.built.heights[e.water] + shaped.built.water[e.water];
+    expect(shaped.built.water[e.water]).toBeGreaterThan(0.05);
+    expect(Math.abs(surface - e.surface)).toBeLessThan(0.25);
+    expect(surface).toBeGreaterThan(e.level - 1);
+    expect(e.level - surface).toBeGreaterThan(0.1);
+  });
+
+  // (D455, the review of #1227: a last attempt that finds no start hands back the map it has, and its field, the
+  // land a session rebuilds from, is the land its file and water hold. The plan's shapes are taken out of the land
+  // before a place is shaped on the settled water; where none is found they are put back. Islands 96², seeds 1 and
+  // 2, end so on their one attempt, a plan's shape taken out: their fields stood 648 and 632 tiles off their land.
+  // Highlands 96² seed 2 finds no start either. Islands seed 1 → 3 at 0.10.47, D544, D148: the moved
+  // land gives seed 1 a start on its one attempt; seed 3 ends at "no start" as seed 2 does)
+  it("hands back, from a last attempt that found no start, the land its file and water hold", () => {
+    for (const [theme, seed] of [["islands", 3], ["islands", 2], ["highlands", 2]] as const) {
+      const spec = makeSpec({ seed, theme, size: { x: 96, y: 96 } });
+      spec.settings.start.easyStart = true;
+      const r = generate(spec, { maxAttempts: 1, forms: false });
+      expect(r.report.passed).toBe(false);
+      expect(r.info.stage).toBe("no start");
+      const field = fromBase64(r.field!.heights);
+      let off = 0;
+      for (let i = 0; i < field.length; i++) if (field[i] !== r.built.heights[i]) off++;
+      expect(off, `${theme} seed ${seed}: tiles of the field off the built land`).toBe(0);
+      expect(field.length).toBe(r.built.heights.length);
+    }
+  });
+
+  // (D453, the long map that took minutes: the read on the start's build found no start, the build stopped before
+  // its resources holding no start entity, so every miss was found only after the objects, the plants and the checks)
+  it("reads the land's and water's targets on the start's build, given the start's entity as the whole build places it", () => {
+    const r = generate(makeSpec({ seed: 3, size: { x: 64, y: 64 }, theme: "riverValley" }), { maxAttempts: 1 });
+    const W = r.spec.size.x;
+    const H = r.spec.size.y;
+    const b = r.built;
+    const start = r.features.find((f): f is StartFeature => f.kind === "start")!;
+    const placed = b.entities.find((e) => e.template === "StartingLocation")!;
+    expect(startEntity(start, b.heights, W)).toEqual(placed);
+    const read = (entities: readonly EntitySpec[]) =>
+      easyStartMeasures({ W, H, heights: b.heights, objects: mapObjects({ entities: entities.map(entityJson) }), water: b.settle, model: b.waterModel, moisture: b.moisture, soilContamination: b.soilContamination, woodNear: Infinity, badtide: false }, easyTargets(W, H), EASY_LAND);
+    // (a build stopped before its resources holds no start entity: there is no start to read)
+    const stopped = b.entities.filter((e) => e !== placed);
+    expect(read(stopped)).toEqual([]);
+    // (with it, the land's and water's rows are read, and only those)
+    expect(read([...stopped, startEntity(start, b.heights, W)]).map((m) => m.id)).toEqual(EASY_LAND.filter((id) => id !== "start.easy_badtide"));
+  });
+
+  it("never plants a map whose start missed one of them", () => {
+    // (Highlands 128², seed 60: its fifth attempt's start misses the room's target. A generator change that moves
+    // this map takes another seed with such an attempt: tools/attempts.ts --easy lists them. Seed 2 → 14 at
+    // 0.10.47, D544, D148: seed 2's land moved and none of its attempts misses one now; seed 8's first
+    // miss comes at its 24th attempt, seed 14's at the fifth. Seed 14 → 60 at 0.10.48, D544 merged with
+    // D534, D148: of Highlands 128² seeds 1–76 over their first 12 attempts only seed 30 (its ninth, the
+    // badtide's day) and seed 60 (its fifth, the room) miss one. Seed 60 → 19 at 0.10.48, D544' warp making no cliff,
+    // D148: of Highlands 128² seeds 1–66 over their first 12 attempts only seed 19 (its ninth, the room) misses one)
+    const spec = makeSpec({ seed: 19, theme: "highlands" });
+    spec.settings.start.easyStart = true;
+    const land = new Set<string>(EASY_LAND);
+    const stages: string[] = [];
+    let missed = 0;
+    class Enough extends Error {}
+    try {
+      generate(spec, {
+        onProgress: (p) => stages.push(p.stage),
+        onAttempt: (a) => {
+          if (!a.passed && land.has(a.failed[0])) {
+            missed++;
+            expect(stages, `attempt ${a.attempt + 1}, ${a.failed[0]}`).not.toContain("objects");
+            throw new Enough();
+          }
+          stages.length = 0;
+        },
+      });
+    } catch (e) {
+      if (!(e instanceof Enough)) throw e;
+    }
+    expect(missed).toBe(1);
   });
 });

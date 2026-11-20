@@ -272,6 +272,9 @@ async function setUp(page: Page, size: Size, hide: boolean) {
     }
     await expect.poll(() => page.evaluate(() => window.dgm3d!.renderer.objectsHidden)).toBe(true);
   }
+  // (the room settled first: Show's sheet closing slides the view, and a slide still on its way took the view back from
+  // the one set here, to the first view's distance, on a small tablet a map too small for the fingers' room, page-six)
+  await still(page);
   await page.evaluate(() => {
     const r = window.dgm3d!.renderer;
     const m = r.mapState()!;
@@ -372,6 +375,19 @@ async function onFlat(page: Page, c: P, clear = 0) {
   expect(await tileAt(page, c)).toMatchObject(t!);
   return t as { x: number; y: number };
 }
+
+/** While a press is on: whether a phone upright's readout starts above Cancel's foot (its lines reach under Cancel there),
+ *  and how many of the readout's lines cross Cancel's box. */
+const underCancel = (page: Page) =>
+  page.evaluate(() => {
+    const c = document.querySelector(".press-cancel")!.getBoundingClientRect();
+    const lines = [...document.querySelectorAll(".bottom-left-stack > *")].map((e) => e.getBoundingClientRect()).filter((r) => r.width > 0 && r.height > 0);
+    const upright = document.documentElement.dataset.phone === "upright";
+    return {
+      startsAbove: upright && lines.some((r) => r.top < c.bottom),
+      crossing: lines.filter((r) => r.left < c.right && r.right > c.left && r.top < c.bottom && r.bottom > c.top).length,
+    };
+  });
 
 /** Pick an object from the shelf (on a phone, from the objects' sheet, which closes to one row). */
 async function pickObject(page: Page, name: string) {
@@ -555,6 +571,9 @@ for (const size of SIZES) {
       expect(await lit(page)).toEqual(await tileAt2(aimOf(a)));
       expect(await lit(page)).not.toEqual(await tileAt2(a));
       await expect(page.locator(".finger-aim")).toBeVisible();
+      // Cancel, at the view's top while the press is on, is clear of the tile's readout: on a phone upright the readout's
+      // lines reach across the view's top, so there they start under it
+      expect(await underCancel(page), "the readout under Cancel").toEqual({ startsAbove: false, crossing: 0 });
       await fingers.drag({ 1: b });
       const there = await tileAt2(aimOf(b));
       expect(await lit(page)).toEqual(there);

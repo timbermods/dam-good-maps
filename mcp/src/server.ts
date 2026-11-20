@@ -307,7 +307,7 @@ export const TOOLS: Tool[] = [
     description: [
       "Save the map for Timberborn: the .timber map and its .damgoodmaps.json project, side by side.",
       `The default folder is Timberborn's Maps folder (${mapsFolder()}). Save makes the Maps folder if it is missing, but refuses if the folder that holds it (${dirname(mapsFolder())}) is missing: then give folder. A folder that you give is used as it is and must exist.`,
-      "A generated map that keeps its own name is saved as dgm-<theme>-<seed>. A map with another name is saved as dgm- and its name in lower case with hyphens. Save never writes over a file: if the name is taken, it adds -2, -3 and so on.",
+      "The files take the map's name as it is written, case and spaces kept: only \\ / : * ? \" < > | and dots or spaces at the ends are replaced. Save never writes over a file: if the name is taken, it adds (2), (3) and so on after the name, as in Old Loop Lakelands (2).",
       "Save refuses a map with a problem that stops saving. Run check first.",
     ].join(" "),
     inputSchema: {

@@ -40,7 +40,7 @@ import { stream, type Rng } from "../math/rng";
 import { drainage } from "./drainage";
 import { BED_FLOOR, type Genome } from "./genome";
 import { sinDet, TWO_PI } from "../math/detmath";
-import { distanceFrom, MinHeap, N4 } from "../math/grid";
+import { distanceFrom, MinHeap, N4, N8 } from "../math/grid";
 import { DIRS8 } from "./num";
 import { mapShape } from "./shape";
 import { clamp } from "../math/clamp";
@@ -67,6 +67,15 @@ export interface Hydro {
   falls: { x: number; y: number; drop: number; river: string }[];
   arms: Arm[];
   flowTotal: number;
+  /** Courses traced to a course beside them (ruled water, `BESIDE`): none, the plan is as it was without the joins. */
+  joined?: number;
+  /** The rivers the joins touched (ruled water): each course joined to one beside it, the course it joined, the course a
+   *  head refused for running beside it from its head would have run beside, and every course traced after such a head
+   *  (another head took its place, so they stand where dev's plan had others); `generate.ts` plans a land again without
+   *  the joins only when its refusal names or touches one of them. */
+  joinedRivers?: string[];
+  /** The tributaries wound as gorges for running deep under a wall (`deepStretch`), not for their planned cut. */
+  deepWound?: number;
 }
 
 export interface HydroOptions {
@@ -76,6 +85,9 @@ export interface HydroOptions {
   /** River Valley's default trunk looked for again (`planHydro`): its water may enter by every edge
    *  but the downstream ones, and leaves by those alone. */
   across?: boolean;
+  /** False: no course joins one beside it (ruled water, `BESIDE`), the plan as it was before; `generate.ts` plans so
+   *  again when a joined plan's land is refused. */
+  joins?: boolean;
 }
 
 /** The share of the map the planned courses aim to bring within the story's reach (`STORY_REACH`,
@@ -87,6 +99,9 @@ const REACH_WANT = 0.45;
  *  water; the soil's reach from the planned courses (`moistCost`, the game's moisture of a river's bank less a little);
  *  and the share of the map the courses aim to bring within it. */
 const REACH_HEADS = 2;
+/** Ruled water (planning's ruling of 2026-11-15): a course within `near` tiles of one already traced for `run` cells
+ *  joins it there, never running side by side with it (`planHydroSingle`'s trace). */
+export const BESIDE = { near: 12, run: 16 } as const;
 const MOIST_REACH = 10;
 const WIDE_WANT = 0.5;
 
@@ -311,12 +326,75 @@ function resample(p: Point[], step: number): Point[] {
 // --------------------------------------------------------------------------------- meanders (M9a)
 
 /** How a river's course wanders: its amplitude in tiles (the most its course moves off the valley's
- *  line), its wavelength, and how much its channel's width varies. */
+ *  line), its wavelength, how much its channel's width varies, and how many tiles at each end its swing
+ *  grows from nothing over (7 unless given). */
 export interface Wander {
   amp: number;
   minAmp: number;
   cell: number;
   widthVar: number;
+  taper?: number;
+}
+
+/** A course cut this many levels or more under its banks, its floor reaching under `GORGE_FLOOR` tiles beside its
+ *  channel, is a gorge: its walls stand at its water (`gorgeWander`). */
+export const GORGE_CUT = 3;
+export const GORGE_FLOOR = 3;
+
+/** A gorge's wander on a map under 128²: its wavelength and its ends' taper drawn at the map's scale, the narrower
+ *  side's ratio to 128, never under half (D542). A river's meander is drawn for the width of its channel,
+ *  at a 128²'s scale (`wanderOf`, 16 to 40 tiles); on a 48² map a gorge cut six levels under its banks held under two
+ *  bends over its whole course and ran 22 tiles in a straight 45° trench 3 wide with sheer walls, read as drawn with a
+ *  ruler (Highlands 48² seed 3). A course cut a level or two, or with a broad floor between its channel and its walls,
+ *  is left as it is: its walls do not stand at its water. 128² and up keep their wander. */
+export function gorgeWander(wv: Wander, W: number, H: number): Wander {
+  const side = Math.min(W, H);
+  if (side >= 128) return wv;
+  const f = Math.max(0.5, side / 128);
+  return { ...wv, cell: wv.cell * f, taper: Math.round(7 * f) };
+}
+
+/** The longest stretch of a course, in tiles, along which its bed would run more than `GORGE_CUT` levels under the higher
+ *  of its banks just past its floor: its floor (a level over its bed) under a wall of `GORGE_CUT` or more
+ *  (D543). A tributary's planned cut is a level or two under the lowest ground beside it, but where it runs
+ *  down a terrace's edge or through a rise its bed follows the lowest ground upstream, and the wall on its high side
+ *  stands at its water: Canyon 48² seed 18's spring tributary, cut a level, ran 13 tiles under a plateau's wall four
+ *  and five levels high, 16.3 tiles of it straight. Its bed as the carve will set it, from the land before any channel
+ *  (the lowest ground within 1.6 tiles of its channel, less its cut, never rising downstream); each bank the highest
+ *  ground one to two tiles past its floor. */
+export function deepStretch(path: Point[], h: Uint8Array, W: number, H: number, half: number, floorHalf: number, cut: number): number {
+  const pts = resample(path, 1);
+  const n = pts.length;
+  const at = (x: number, y: number) => h[Math.round(clamp(y, 0, H - 1)) * W + Math.round(clamp(x, 0, W - 1))];
+  const R = half + 1.6;
+  let run = Infinity;
+  let len = 0;
+  let best = 0;
+  for (let k = 0; k < n; k++) {
+    const [px, py] = pts[k];
+    let ring = Infinity;
+    for (let y = Math.max(0, Math.floor(py - R)); y <= Math.min(H - 1, Math.ceil(py + R)); y++)
+      for (let x = Math.max(0, Math.floor(px - R)); x <= Math.min(W - 1, Math.ceil(px + R)); x++) {
+        const d2 = (x - px) * (x - px) + (y - py) * (y - py);
+        if (d2 >= half * half && d2 <= R * R && h[y * W + x] < ring) ring = h[y * W + x];
+      }
+    if (ring < Infinity) run = Math.min(run, ring - cut);
+    if (!(px >= 0 && py >= 0 && px <= W - 1 && py <= H - 1) || run === Infinity) {
+      len = 0;
+      continue;
+    }
+    const a = pts[Math.max(0, k - 3)];
+    const b = pts[Math.min(n - 1, k + 3)];
+    const dx = b[0] - a[0];
+    const dy = b[1] - a[1];
+    const l = portable.sqrt(dx * dx + dy * dy) || 1;
+    let bank = 0;
+    for (const sg of [-1, 1])
+      for (let t = half + floorHalf + 1; t <= half + floorHalf + 2; t++) bank = Math.max(bank, at(px - (sg * dy * t) / l, py + (sg * dx * t) / l));
+    len = bank - Math.max(BED_FLOOR, run) > GORGE_CUT ? len + 1 : 0;
+    best = Math.max(best, len);
+  }
+  return best;
 }
 
 /** A river's wander from the genome: rivers wander more where the genome's water wanders more (the
@@ -394,7 +472,7 @@ export function meanderPath(path: Point[], h: Uint8Array, W: number, H: number, 
     }
     sm[k] = s / c;
   }
-  const taper = Math.min(7, Math.floor(n / 4));
+  const taper = Math.min(wv.taper ?? 7, Math.floor(n / 4));
   const out: Point[] = [];
   for (let k = 0; k < n; k++) {
     const e = Math.min(k, n - 1 - k);
@@ -486,7 +564,9 @@ function deltaCourse(from: Point, to: Point, E: Float64Array, W: number, H: numb
     if (i === goal) break;
     const x = i % W, y = Math.floor(i / W);
     const forward = axis === 0 ? x : y;
-    for (const [dx, dy] of DIRS8) {
+    // (ruled water: the eight neighbours on the grid; `DIRS8`'s unit vectors made every diagonal a fractional tile that
+    // was never taken, so an arm went by rows and columns alone, in long straight legs)
+    for (const [dx, dy] of N8) {
       const xx = x + dx, yy = y + dy;
       if (xx < 0 || yy < 0 || xx >= W || yy >= H) continue;
       const j = yy * W + xx;
@@ -615,6 +695,94 @@ function planHydroSingle(E: Float64Array, h: Uint8Array, g: Genome, seed: number
     if (!up.includes("north")) d = Math.min(d, H - 1 - y);
     return d;
   };
+  // (ruled water) the traced courses' nearest tile within `BESIDE.near`, by a flood from them, made again as courses are
+  // added
+  let besideFor = -1;
+  const besideSrc = new Int32Array(N);
+  const besideField = (): Int32Array => {
+    if (besideFor === heads.length) return besideSrc;
+    besideFor = heads.length;
+    besideSrc.fill(-1);
+    const q: number[] = [];
+    for (let i = 0; i < N; i++) if (owner[i] >= 0) { besideSrc[i] = i; q.push(i); }
+    const R2 = BESIDE.near * BESIDE.near;
+    for (let k = 0; k < q.length; k++) {
+      const i = q[k];
+      const x = i % W, y = (i - x) / W;
+      const s = besideSrc[i];
+      const sx = s % W, sy = (s - sx) / W;
+      for (const [dx, dy] of N8) {
+        const xx = x + dx, yy = y + dy;
+        if (xx < 0 || yy < 0 || xx >= W || yy >= H) continue;
+        const j = yy * W + xx;
+        if (besideSrc[j] >= 0 || (xx - sx) * (xx - sx) + (yy - sy) * (yy - sy) > R2) continue;
+        besideSrc[j] = s;
+        q.push(j);
+      }
+    }
+    return besideSrc;
+  };
+  /** A course's cells that run beside a traced course (within `BESIDE.near` for `BESIDE.run` cells or more) end where
+   *  that stretch begins, joined to its nearest tile by a straight link that never climbs: the new cells and the course
+   *  joined; undefined when it runs beside none (or no link holds), null when it runs beside one from its head. */
+  const besideJoin = (cells: number[]): { cells: number[]; joins: number } | null | undefined => {
+    const src = besideField();
+    // (the last cell is the course it joins, or the edge)
+    const end = owner[cells[cells.length - 1]] >= 0 ? cells.length - 1 : cells.length;
+    // (beside on one plain, round 3: the nearest course and the ground between it and a cell rise at most a level over the
+    // cell. Two courses a ridge parts each keep their own valley: they are not drawn lines, and joined over it, or refused
+    // when the head stood within 12 tiles of the other, the valley stood dry; River Valley 9's first map lost its badwater's
+    // place to one, 1 → 4 attempts)
+    const onPlain = (c: number): boolean => {
+      const o = src[c];
+      if (o < 0 || h[o] > h[c] + 1) return false;
+      const cx = c % W, cy = (c - cx) / W;
+      const ox = o % W, oy = (o - ox) / W;
+      const steps = Math.max(Math.abs(ox - cx), Math.abs(oy - cy));
+      for (let t = 1; t < steps; t++) if (h[Math.round(cy + ((oy - cy) * t) / steps) * W + Math.round(cx + ((ox - cx) * t) / steps)] > h[c] + 1) return false;
+      return true;
+    };
+    let q0 = -1;
+    for (let q = 0, run = 0; q < end; q++) {
+      run = onPlain(cells[q]) ? run + 1 : 0;
+      if (run >= BESIDE.run) { q0 = q - run + 1; break; }
+    }
+    if (q0 < 0) return undefined;
+    if (q0 === 0) return null;
+    for (let q = 10; q < q0; q++) if (borderDist(cells[q]) < 4) return undefined;
+    for (let q = q0; q < Math.min(end, q0 + BESIDE.run); q++) {
+      const c = cells[q];
+      // (the course kept and the tile joined stand 4 tiles off the map's edge too, as the link does and as a course's
+      // middle must: its last cells, spared for a course that ends by the edge, ended beside it here, and a tributary
+      // run down the edge into an inflow's mouth let the inflow's water back out by its edge; River Valley 256² seed 1's
+      // first map refused, 1 → 3 attempts)
+      if (q >= 10 && borderDist(c) < 4) return undefined;
+      const o = src[c];
+      const top = h[c];
+      if (h[o] > top) continue;
+      const cx = c % W, cy = (c - cx) / W;
+      const ox = o % W, oy = (o - ox) / W;
+      const steps = Math.max(Math.abs(ox - cx), Math.abs(oy - cy));
+      const link: number[] = [];
+      let at = o;
+      let ok = true;
+      for (let t = 1; t < steps; t++) {
+        const i = Math.round(cy + ((oy - cy) * t) / steps) * W + Math.round(cx + ((ox - cx) * t) / steps);
+        // (a course met on the way is the one joined)
+        if (owner[i] >= 0) { at = i; break; }
+        if (h[i] > top || borderDist(i) < 4) { ok = false; break; }
+        if (link[link.length - 1] !== i) link.push(i);
+      }
+      if (!ok || borderDist(at) < 4) continue;
+      return { cells: [...cells.slice(0, q + 1), ...link, at], joins: owner[at] };
+    }
+    return undefined;
+  };
+  // (ruled water: the courses joined to one beside them, and the heads refused for running beside one from the head)
+  let joined = 0;
+  let refused = 0;
+  const touched = new Set<number>();
+  let lostAt = Infinity;
   const trace = (hd: Head, alongUp = false, mustJoin = natural && heads.length > 0): boolean => {
     if (heads.length >= maxHeads) return false;
     const k = heads.length;
@@ -639,34 +807,61 @@ function planHydroSingle(E: Float64Array, h: Uint8Array, g: Genome, seed: number
       c = dr.rcv[c];
     }
     if (cells.length < (alongUp ? 8 : 12)) return false;
-    // A default valley trunk crosses the land; a short corner course cannot stand for it.
-    if (natural && g.theme === "riverValley" && !g.hydro.exactInflows && !g.hydro.noInflows && !g.intentions.includes("upper-lower") && heads.length === 0) {
-      if (hd.kind !== "edge") return false;
-      let x0 = W, y0 = H, x1 = 0, y1 = 0;
-      for (const i of cells) { const x = i % W, y = Math.floor(i / W); x0 = Math.min(x0, x); x1 = Math.max(x1, x); y0 = Math.min(y0, y); y1 = Math.max(y1, y); }
-      if (Math.max(x1 - x0, y1 - y0) < 0.5 * side) return false;
+    const take = (cells: number[], joins: number, toSea: boolean): boolean => {
+      // A default valley trunk crosses the land; a short corner course cannot stand for it.
+      if (natural && g.theme === "riverValley" && !g.hydro.exactInflows && !g.hydro.noInflows && !g.intentions.includes("upper-lower") && heads.length === 0) {
+        if (hd.kind !== "edge") return false;
+        let x0 = W, y0 = H, x1 = 0, y1 = 0;
+        for (const i of cells) { const x = i % W, y = Math.floor(i / W); x0 = Math.min(x0, x); x1 = Math.max(x1, x); y0 = Math.min(y0, y); y1 = Math.max(y1, y); }
+        if (Math.max(x1 - x0, y1 - y0) < 0.5 * side) return false;
+      }
+      if (mustJoin && (joins < 0 || cells.length < minTributary)) return false;
+      // M9b: a head below the spill of its own way down (a low point of an edge behind a ridge, or a
+      // spring below the rim of a hollow on its way) would have its channel cut up through the rise,
+      // and the water beyond would stand higher than where it begins: it could never flow that way
+      // (an inflow's water runs back out by the edge beside its mouth)
+      // (D357: down a long map a head may stand a level under the rise ahead of it, which its channel cuts through:
+      // the land falls the length of the map a level in a few dozen tiles, and a level's bump a few tiles in
+      // stopped every inflow at its edge, so the long map had no long river)
+      const rise = lengthwise ? 1 : 0;
+      if (drH && (dr.filled[hd.cell] - Er[hd.cell] > 0.5 + rise || drH.filled[hd.cell] > h[hd.cell] + rise)) return false;
+      // (a hollow on the way fills to its spill: above the head, its water would stand over the head)
+      if (spillAll) for (const c of cells) if (spillAll[c] > h[hd.cell] + rise) return false;
+      // (the Rivers setting's relaxed search: a shorter path, and one along an upstream edge, which
+      // does not drain)
+      for (let q = 10; q < cells.length - 10; q++) if ((alongUp ? drainDist(cells[q]) : borderDist(cells[q])) < 4) return false;
+      // (M9b: an inflow heads inland from its mouth, never along its edge first)
+      if (natural && hd.kind === "edge") for (let q = 1; q <= Math.min(8, cells.length - 1); q++) if (borderDist(cells[q]) < q >> 1) return false;
+      heads.push(hd);
+      for (const i of cells) if (owner[i] < 0) owner[i] = k;
+      traced.push({ k, head: hd, cells, joins, toSea });
+      return true;
+    };
+    // (ruled water, planning's ruling of 2026-11-15: a course that runs beside one already traced, within `BESIDE.near`
+    // tiles of it for `BESIDE.run` cells, joins it where that stretch begins, so the streams on one plain gather as a
+    // land's do; River Valley 256² seed 9's three springs ran side by side down its floor like drawn lines)
+    // (never on a sea's map, whose islands drain to the sea as dev's do: planning, 2026-11-15, D534 round 3)
+    if (natural && !g.seaLayout && heads.length > 0 && opts.joins !== false) {
+      const met = besideJoin(cells);
+      if (met === null) {
+        refused++;
+        const o = besideSrc[cells[0]];
+        if (o >= 0 && owner[o] >= 0) touched.add(owner[o]);
+        lostAt = Math.min(lostAt, k);
+        return false;
+      }
+      // (a join the course's own rules refuse, a tributary cut under its length or a link along the edge, leaves the course
+      // as it ran: refused for the join, the head was lost and another taken in its place, and on Any 256² seed 6 one
+      // between the two systems led the second's water out by the first's edge, a leak; dev's first map refused, 2 → 4
+      // attempts)
+      if (met && take(met.cells, met.joins, false)) {
+        joined++;
+        touched.add(k);
+        touched.add(met.joins);
+        return true;
+      }
     }
-    if (mustJoin && (joins < 0 || cells.length < minTributary)) return false;
-    // M9b: a head below the spill of its own way down (a low point of an edge behind a ridge, or a
-    // spring below the rim of a hollow on its way) would have its channel cut up through the rise,
-    // and the water beyond would stand higher than where it begins: it could never flow that way
-    // (an inflow's water runs back out by the edge beside its mouth)
-    // (D357: down a long map a head may stand a level under the rise ahead of it, which its channel cuts through:
-    // the land falls the length of the map a level in a few dozen tiles, and a level's bump a few tiles in
-    // stopped every inflow at its edge, so the long map had no long river)
-    const rise = lengthwise ? 1 : 0;
-    if (drH && (dr.filled[hd.cell] - Er[hd.cell] > 0.5 + rise || drH.filled[hd.cell] > h[hd.cell] + rise)) return false;
-    // (a hollow on the way fills to its spill: above the head, its water would stand over the head)
-    if (spillAll) for (const c of cells) if (spillAll[c] > h[hd.cell] + rise) return false;
-    // (the Rivers setting's relaxed search: a shorter path, and one along an upstream edge, which
-    // does not drain)
-    for (let q = 10; q < cells.length - 10; q++) if ((alongUp ? drainDist(cells[q]) : borderDist(cells[q])) < 4) return false;
-    // (M9b: an inflow heads inland from its mouth, never along its edge first)
-    if (natural && hd.kind === "edge") for (let q = 1; q <= Math.min(8, cells.length - 1); q++) if (borderDist(cells[q]) < q >> 1) return false;
-    heads.push(hd);
-    for (const i of cells) if (owner[i] < 0) owner[i] = k;
-    traced.push({ k, head: hd, cells, joins, toSea });
-    return true;
+    return take(cells, joins, toSea);
   };
   // edge inflows: low points of the upstream edges with long paths inland. When the player set the
   // Rivers setting, that many rivers enter (PLAN §5.3): if the first search finds too few, shorter
@@ -743,7 +938,7 @@ function planHydroSingle(E: Float64Array, h: Uint8Array, g: Genome, seed: number
     for (let y = 12; y < H - 12; y++)
       for (let x = 12; x < W - 12; x++) {
         const i = y * W + x;
-        if (downLen[i] < 0.35 * side || owner[i] >= 0) continue;
+        if (downLen[i] < 0.35 * side || owner[i] >= 0 || g.dryTops?.[i]) continue;
         if (joinable && (!joinable.reach[i] || joinable.len[i] < minTributary)) continue;
         cands.push([E[i] + 0.01 * downLen[i] + 3 * rng.float(), i]);
       }
@@ -788,7 +983,7 @@ function planHydroSingle(E: Float64Array, h: Uint8Array, g: Genome, seed: number
       for (let y = 12; y < H - 12; y++)
         for (let x = 12; x < W - 12; x++) {
           const i = y * W + x;
-          if (dist[i] <= reach || downLen[i] < longWay || owner[i] >= 0) continue;
+          if (dist[i] <= reach || downLen[i] < longWay || owner[i] >= 0 || g.dryTops?.[i]) continue;
           if (heads.some((hd) => Math.abs((hd.cell % W) - x) + Math.abs(Math.floor(hd.cell / W) - y) < 26)) continue;
           if (joinable.reach[i] && joinable.len[i] >= minTributary) far.push([dist[i] + 0.01 * downLen[i], i]);
           else apart.push([dist[i] + 0.01 * downLen[i], i]);
@@ -905,8 +1100,14 @@ function planHydroSingle(E: Float64Array, h: Uint8Array, g: Genome, seed: number
   let mainK = 0;
   for (let k = 1; k < heads.length; k++) if (heads[k].flow > heads[mainK].flow) mainK = k;
   const roleOf = (k: number) => (natural && k === mainK ? "river/main" : heads[k].kind === "edge" ? `river/inflow/${k}` : `river/spring/${k}`);
+  // the main river cuts deeper than its tributaries: their valleys hang above it; the bigger rivers cut deeper and clear
+  // wider floors (canyons)
+  const hanging = Math.round(g.hanging);
+  const cutOf = (k: number, flow: number) => 1 + (flow >= 1.2 ? Math.round(g.hydro.incise) : 0) + (k === mainK ? hanging : 0);
+  const floorOf = (flow: number) => (flow >= 1.2 ? g.hydro.floor : g.hydro.floor * 0.3);
   const courses: Point[][] = [];
   const wanders: (Wander | null)[] = [];
+  let deepWound = 0;
   for (const tr of traced) {
     const hd = tr.head;
     const cells = tr.cells;
@@ -940,7 +1141,16 @@ function planHydroSingle(E: Float64Array, h: Uint8Array, g: Genome, seed: number
           return [Math.round((lx + (1 - pull) * (px - lx)) * 100) / 100, Math.round((ly + (1 - pull) * (py - ly)) * 100) / 100] as Point;
         });
     }
-    const wv = natural ? wanderOf(g, widthFor(hd.flow)) : null;
+    // (a gorge winds at the map's own scale: `gorgeWander`; a course but the main river whose bed runs deep under a wall
+    // for half its gorge's wavelength or more is one, whatever its planned cut, D543, unless Canyon's promise
+    // was missed on this land with one wound so: such a tributary is often the canyon itself, in a slot a few tiles wide,
+    // and its bends carry it and its floor out through the slot's thinner wall, Canyon 48² seed 18)
+    const wv0 = natural ? wanderOf(g, widthFor(hd.flow)) : null;
+    const gw = wv0 && floorOf(hd.flow) < GORGE_FLOOR ? gorgeWander(wv0, W, H) : null;
+    const byCut = !!gw && gw !== wv0 && cutOf(tr.k, hd.flow) >= GORGE_CUT;
+    const deep = !!gw && gw !== wv0 && !byCut && !g.hydro.tributariesKept && tr.k !== mainK && deepStretch(path, h, W, H, widthFor(hd.flow) / 2, floorOf(hd.flow), cutOf(tr.k, hd.flow)) >= gw.cell / 2;
+    if (deep) deepWound++;
+    const wv = byCut || deep ? gw : wv0;
     if (wv) {
       if (tr.joins >= 0) {
         // the joined river's course is final: end on its nearest point
@@ -970,7 +1180,8 @@ function planHydroSingle(E: Float64Array, h: Uint8Array, g: Genome, seed: number
   //      its level. Only ground is taken away; none is raised (D111).
   {
     const tr = stream(seed, "trough", attempt);
-    let n = Math.floor(g.troughs + tr.float());
+    // (a gorge drains, uplands round 3: no valley lake deepened in a planned gorge)
+    let n = g.plan?.kind === "gorge" ? 0 : Math.floor(g.troughs + tr.float());
     const scale = side / 128;
     /** Deepen the stretch a0–a1 of a traced river's valley, `reach` tiles either side. */
     const deepen = (t: (typeof traced)[number], a0: number, a1: number, reach: number, level: number): void => {
@@ -1034,7 +1245,7 @@ function planHydroSingle(E: Float64Array, h: Uint8Array, g: Genome, seed: number
     };
     // M9b ("lakes step down the valley", D274): a chain of valley lakes down the main river, each
     // stretch ending a level or more below the last, from its own random stream
-    const chain = natural ? (g.hydro.chainLakes ?? 0) : 0;
+    const chain = natural && g.plan?.kind !== "gorge" ? (g.hydro.chainLakes ?? 0) : 0;
     const main = traced.find((t) => t.k === mainK);
     if (chain > 0 && main) {
       const cr = stream(seed, "chain-lakes", attempt);
@@ -1111,23 +1322,99 @@ function planHydroSingle(E: Float64Array, h: Uint8Array, g: Genome, seed: number
     }
     return q;
   };
+  // A course's hollows, read once (D453). A long valley is one hollow, and every sample of a river through it flooded
+  // it again, each time once for every level its way out was cut down by: 30 million tiles a plan at 512 × 128, ten
+  // times what a square map of that area floods, for the same answer each time. Within one course's profile the
+  // ground stays as it is, so what a flood gives depends only on where it starts and the level it stays below: each is
+  // kept and handed out again, in the same order, and what the first flood is read for (its size, its lowest tile) is
+  // kept for the whole hollow. `newCourse` forgets them all: the course before it cut the ground.
+  const kept = new Map<number, number[]>();
+  const keptFlood = (from: number, below: number): number[] => {
+    const key = Number.isInteger(below) && below >= 0 && below < 4096 ? from * 4096 + below : -1;
+    let tiles = key >= 0 ? kept.get(key) : undefined;
+    if (!tiles) {
+      tiles = flood(from, below);
+      if (key >= 0) kept.set(key, tiles);
+    }
+    return tiles;
+  };
+  /** A hollow as its first flood found it: the level it stood below, its size, its lowest ground, how many tiles
+   *  stand that low and the one that does when it is the only one. */
+  const basins: { below: number; size: number; low: number; lows: number; only: number }[] = [];
+  const basinOf = new Int32Array(N).fill(-1);
+  const newCourse = (): void => {
+    kept.clear();
+    basins.length = 0;
+    basinOf.fill(-1);
+  };
+  /** The first tile at the hollow's lowest level, in the order a flood from `from` reaches them (the tile the
+   *  hollow is cut down to): the flood, stopped there. */
+  const firstLow = (from: number, below: number, low: number): number => {
+    if (h[from] === low) return from;
+    const seen = new Uint8Array(N);
+    const q = [from];
+    seen[from] = 1;
+    for (let k = 0; k < q.length; k++) {
+      const i = q[k];
+      const x = i % W;
+      const y = (i - x) / W;
+      for (const [dx, dy] of N4) {
+        const xx = x + dx;
+        const yy = y + dy;
+        if (xx < 0 || yy < 0 || xx >= W || yy >= H) continue;
+        const j = yy * W + xx;
+        if (seen[j] || h[j] >= below) continue;
+        if (h[j] === low) return j;
+        seen[j] = 1;
+        q.push(j);
+      }
+    }
+    return from;
+  };
   const hollow = (seedCell: number, maxSill = Infinity): { tiles: number[]; sill: number } | null => {
     if (!(depth[seedCell] > 0)) return null;
     let sill = lv.filled[seedCell];
-    let tiles = flood(seedCell, sill);
     // cut the outlet down until the lake fits the budget, and (M9b) until it stands below where its
     // river begins (`maxSill`)
     // (round 6, D432: an island sea is the map's water, not a lake of the budget: cut to it, a sea a
     // setting's lean had put over the budget drained to its floor)
     const sea = !!seaAt?.[seedCell];
-    while (((tiles.length > budget && !sea) || sill > maxSill) && sill > 1) {
-      sill--;
-      const lowest = tiles.reduce((m, i) => (h[i] < h[m] ? i : m), tiles[0]);
-      if (h[lowest] >= sill) return null;
-      tiles = flood(lowest, sill);
+    const cutMore = (size: number) => ((size > budget && !sea) || sill > maxSill) && sill > 1;
+    // (the hollow's first flood, or what the one before it from this hollow found)
+    let basin = basinOf[seedCell] >= 0 && basins[basinOf[seedCell]].below === sill ? basins[basinOf[seedCell]] : null;
+    let tiles: number[] | null = null;
+    let lowest = -1;
+    if (!basin) {
+      tiles = keptFlood(seedCell, sill);
+      lowest = tiles.reduce((m, i) => (h[i] < h[m] ? i : m), tiles[0]);
+      // (a seed standing at the level or over it is in its own flood only: such a flood is no other tile's)
+      if (h[seedCell] < sill) {
+        const low = h[lowest];
+        let lows = 0;
+        for (const i of tiles) if (h[i] === low) lows++;
+        basin = { below: sill, size: tiles.length, low, lows, only: lows === 1 ? lowest : -1 };
+        for (const i of tiles) basinOf[i] = basins.length;
+        basins.push(basin);
+      }
     }
-    if (sill > maxSill || tiles.length < 6) return null;
-    return { tiles, sill };
+    const size = basin ? basin.size : tiles!.length;
+    if (!cutMore(size)) {
+      if (sill > maxSill || size < 6) return null;
+      return { tiles: tiles ?? keptFlood(seedCell, sill), sill };
+    }
+    if (lowest < 0) lowest = basin!.only >= 0 ? basin!.only : firstLow(seedCell, sill, basin!.low);
+    // (every flood from here on starts at that lowest tile, so it stays the lowest and the first of each; a level
+    // still over `maxSill` is cut down whatever its flood would hold, so it is not flooded)
+    let cut: number[] = [];
+    for (;;) {
+      sill--;
+      if (h[lowest] >= sill) return null;
+      if (sill > maxSill && sill > 1) continue;
+      cut = keptFlood(lowest, sill);
+      if (!cutMore(cut.length)) break;
+    }
+    if (sill > maxSill || cut.length < 6) return null;
+    return { tiles: cut, sill };
   };
 
   /** The bed along a path, sampled every tile of arc: never rising, `cut` levels below the lowest
@@ -1135,6 +1422,10 @@ function planHydroSingle(E: Float64Array, h: Uint8Array, g: Genome, seed: number
   const profileOf = (path: Point[], width: number, cut: number, withLakes: boolean, rid: string, half: (s: number, L: number) => number, startBed = Infinity, endBed = -Infinity, maxSill = Infinity, floorOthers = false) => {
     // An intentional plugged lake keeps its impoundment; it is a distinct water feature.
     const valleyMain = g.theme === "riverValley" && !g.intentions.includes("plug-lake") && rid === featureId(seed, "river", "river/main");
+    // (uplands round 3: a gorge drains: the trunk's bed grades down through its gorge to where it leaves the map, and
+    // no hollow on its course holds a lake there)
+    const gorgeMain = g.plan?.kind === "gorge" && rid === featureId(seed, "river", "river/main");
+    if (withLakes) newCourse();
     const st = stamp(path, W, H, Math.ceil(width / 2 + g.hydro.floor * 1.5 + 3 + (natural ? width * 0.15 : 0)));
     const L = arcLength(path);
     const n = Math.max(2, Math.ceil(L));
@@ -1142,14 +1433,20 @@ function planHydroSingle(E: Float64Array, h: Uint8Array, g: Genome, seed: number
     const lakeAt = new Uint8Array(n + 1);
     let run = startBed;
     let inLake = -1;
+    let onSill = false;
+    // (round 6b step 3: the lake a river last left, on a land with a rock sill)
+    let leftLake = -1;
     /** Whether a lake's water, standing at its sill, would spill out of the river's channel
      *  upstream of sample `j`: where the backwater reaches (the bed below the sill), the ground
      *  round the channel lower than the sill, outside the lake, drains away lower than it (to an
      *  edge, or a lower hollow). The river's water could not rise to fill the lake; it is no lake of
      *  this river's (M9b: its course stood dry through a hollow above its bed). */
+    const spillSets = new Map<number[], Set<number>>();
     const spillsUpstream = (lk: { tiles: number[]; sill: number }, j: number): boolean => {
       if (!natural) return false;
-      const inIt = new Set(lk.tiles);
+      // (a hollow's tiles are the same list each time it is read on this course, `keptFlood`)
+      let inIt = spillSets.get(lk.tiles);
+      if (!inIt) spillSets.set(lk.tiles, (inIt = new Set(lk.tiles)));
       for (let q = j - 1; q >= 0 && prof[q] < lk.sill; q--) {
         const t = ringAt[q];
         if (t >= 0 && !inIt.has(t) && lakeOf[t] < 0 && h[t] < lk.sill && lv.filled[t] < lk.sill) return true;
@@ -1203,7 +1500,7 @@ function planHydroSingle(E: Float64Array, h: Uint8Array, g: Genome, seed: number
           }
         }
       if (!Number.isFinite(ring)) ring = Number.isFinite(run) ? run + 1 : h[Math.max(0, Math.min(N - 1, ci))] + 1;
-      if (withLakes && isIn && depth[ci] > 0 && lakeOf[ci] < 0 && inLake < 0) {
+      if (withLakes && !gorgeMain && isIn && depth[ci] > 0 && lakeOf[ci] < 0 && inLake < 0) {
         // A flat valley's trunk stays below its upstream bed when it crosses a hollow.
         const lk = hollow(ci, valleyMain ? Math.min(maxSill, run + 1) : maxSill);
         // (a hollow too big for the budget is cut down to its lowest part: the same lake again)
@@ -1219,20 +1516,32 @@ function planHydroSingle(E: Float64Array, h: Uint8Array, g: Genome, seed: number
             lakeOf[i] = id;
             water[i] = 2;
           }
-          lakes.push({ tiles: lk.tiles, outletBed: lk.sill - 1, river: rid });
+          // (its own list: the kept flood's stays as it was read)
+          lakes.push({ tiles: lk.tiles.slice(), outletBed: lk.sill - 1, river: rid });
           inLake = id;
         }
       }
+      // (round 6b step 3: on a land with a rock sill, a river that leaves its lake over a bar or a spit and comes back
+      // into it is in it again: it cuts no channel through its own lake's floor, which would drain it)
+      if (g.rockSill && inLake < 0 && leftLake >= 0 && isIn && lakeOf[ci] === leftLake) inLake = leftLake;
       if (inLake >= 0 && isIn && lakeOf[ci] === inLake) {
-        prof[j] = Math.min(run, lakes[inLake].outletBed);
+        // (round 6b: on a land with a rock sill a river entrenched under its lake's level cuts no channel through the
+        // lake's floor and its sill: its bed there is the lake's outlet)
+        prof[j] = g.rockSill ? lakes[inLake].outletBed : Math.min(run, lakes[inLake].outletBed);
         lakeAt[j] = 1;
         continue;
       }
       if (inLake >= 0) {
-        run = valleyMain ? Math.min(run, lakes[inLake].outletBed) : lakes[inLake].outletBed;
+        // (a land with a rock sill: the river leaves over the sill at the outlet's bed, whatever its bed upstream)
+        run = valleyMain && !g.rockSill ? Math.min(run, lakes[inLake].outletBed) : lakes[inLake].outletBed;
+        leftLake = inLake;
         inLake = -1;
+        onSill = !!g.rockSill;
       }
-      run = Math.min(run, ring - cut, floorRing - 1, beside);
+      // (uplands round 6b: a lake held by a rock sill, Highlands' valley's, `Genome.rockSill`: its river leaves over the
+      // sill at the outlet's bed and cuts down only past it, where it falls)
+      onSill = onSill && isIn && !!g.rockSill?.[ci];
+      if (!onSill) run = Math.min(run, ring - cut, floorRing - 1, beside);
       if (run < endBed) run = endBed;
       // (never below the beds' floor, item 47: a river there runs shallower)
       if (run < BED_FLOOR) run = BED_FLOOR;
@@ -1292,8 +1601,6 @@ function planHydroSingle(E: Float64Array, h: Uint8Array, g: Genome, seed: number
     }
   };
 
-  // the main river cuts deeper than its tributaries: their valleys hang above it
-  const hanging = Math.round(g.hanging);
   const exits = new Map<string, { path: Point[]; prof: Float64Array; L: number; n: number; width: number; half: (s: number, L: number) => number }>();
   // (each river's pools that held, by station: planned standing water a level under the reach below)
   const poolsOf = new Map<string, Set<number>>();
@@ -1385,10 +1692,8 @@ function planHydroSingle(E: Float64Array, h: Uint8Array, g: Genome, seed: number
       return q === hd.flow ? width : widthFor(q);
     };
     const half = (s: number, L: number) => halfWidthAt(widthAt(s), wv, ws, s, L);
-    // canyons: the bigger rivers cut deeper and clear wider floors
-    const big = hd.flow >= 1.2;
-    const cut = 1 + (big ? Math.round(g.hydro.incise) : 0) + (tr.k === mainK ? hanging : 0);
-    const floorHalf = big ? g.hydro.floor : g.hydro.floor * 0.3;
+    const cut = cutOf(tr.k, hd.flow);
+    const floorHalf = floorOf(hd.flow);
     // (M9b: a lake on the course stands below where the river begins, the mouth's banks or the
     // spring: its water reaches back up the channel, and above that it would run out by the edge
     // beside the mouth, or drown the spring)
@@ -2116,7 +2421,7 @@ function planHydroSingle(E: Float64Array, h: Uint8Array, g: Genome, seed: number
     };
     for (const r of rivers) lowerFrom(r, 0, Infinity, 0);
   }
-  return { rivers, water, lakes, falls, arms, flowTotal };
+  return { rivers, water, lakes, falls, arms, flowTotal, joined: joined + refused, joinedRivers: [...heads.keys()].filter((k) => touched.has(k) || k >= lostAt).map((k) => featureId(seed, "river", roleOf(k))).filter((id) => rivers.some((r) => r.id === id)), ...(deepWound ? { deepWound } : {}) };
 }
 
 /** River Valley tries two courses around a drawn cliff and retains the stronger split.

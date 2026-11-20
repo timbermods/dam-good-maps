@@ -34,14 +34,22 @@ describe("renaming a map (D443)", () => {
     const b = decodeProject(s.project());
     expect(b.meta.name).toBe("Beaver Bend");
     expect({ ...b, meta: { ...b.meta, name: a.meta.name } }).toEqual(a);
-    expect(documentFileName(b)).toBe("dgm-beaver-bend.damgoodmaps.json");
+    // (named by the map's name as written, D443 amended 2026-11-18; it was dgm-beaver-bend before, D148)
+    expect(documentFileName(b)).toBe("Beaver Bend.damgoodmaps.json");
   });
 
-  it("the .timber file's name follows a rename; a generated map keeps its seed name until then", () => {
+  it("the .timber file's name is the map's name: its generated one, then the one it is renamed to", () => {
     const s = open();
-    expect(s.exportTimberName()).toMatch(/^dgm-.*-7\.timber$/);
+    expect(s.exportTimberName()).toBe(`${s.meta.name}.timber`);
     s.setName("Beaver Bend");
-    expect(s.exportTimberName()).toBe("dgm-beaver-bend.timber");
+    expect(s.exportTimberName()).toBe("Beaver Bend.timber");
+  });
+
+  it("refuses a name that leaves nothing to name its files by, and keeps the old one", () => {
+    const s = open();
+    const was = s.meta.name;
+    for (const n of ["???", " ... ", "<|>"]) expect(s.setName(n).ok, n).toBe(false);
+    expect(s.meta.name).toBe(was);
   });
 
   it("Your maps' entry takes the stored name on the next save, given beside the project (never unzipped from it)", async () => {
@@ -68,5 +76,28 @@ describe("renaming a map (D443)", () => {
     const raw = JSON.parse(strFromU8(gunzipSync(encodeProject(s.document))));
     delete raw.meta.name;
     expect(decodeProject(gzipSync(strToU8(JSON.stringify(raw)))).meta.name).toBe(was);
+  });
+
+  it("a hand-made project whose name makes no file name opens with the name it had, as an empty one does", () => {
+    const s = open();
+    const was = s.meta.name;
+    const raw = JSON.parse(strFromU8(gunzipSync(encodeProject(s.document))));
+    // (what is left of each is nothing a file can be called, D443: the same rule Rename and Save as apply)
+    for (const bad of ["???", " ... ", "<|>", ".timber", "‮‬‏", 7, null]) {
+      raw.meta.name = bad;
+      expect(decodeProject(gzipSync(strToU8(JSON.stringify(raw)))).meta.name, String(bad)).toBe(was);
+    }
+  });
+
+  it("a name the app could have written comes through a project unchanged, byte for byte (D455)", () => {
+    const s = open();
+    // (every name here passes `setName`, so the app can save it; the stored name is the trimmed one)
+    for (const name of ["Old Loop Lakelands", "Drumheller (Alberta)", "Émile's dam", "ビーバーの谷", "CON", "Lake.timber.", "A‮B", "Lakes: North/South", "x".repeat(300), " Padded "]) {
+      expect(s.setName(name).ok, name).toBe(true);
+      const bytes = s.project(9);
+      const opened = decodeProject(bytes);
+      expect(opened.meta.name).toBe(s.meta.name);
+      expect(Buffer.compare(Buffer.from(encodeProject(opened)), Buffer.from(bytes)), name).toBe(0);
+    }
   });
 });

@@ -35,7 +35,7 @@ import { analyze } from "../analysis/rust/bridge";
 import { MinHeap } from "../math/grid";
 import { keptSeeds, withoutUnfed } from "./fed";
 import { canonicalStackRun, settledAgain, type StackSettle } from "./stackWater";
-import { sealedTiles, SettleRun, SPILL, WaterSim, type SettleResult, type WaterModel, type WaterSimOptions, type WaterState } from "./water";
+import { sealedTiles, SettleRun, SPILL, WaterSim, type SettleResult, type SettleWatch, type WaterModel, type WaterSimOptions, type WaterState } from "./water";
 
 /** Spill level of every tile: the lowest level water standing there can drain at, through the map
  *  edge (Barnes' priority flood). Edge tiles that emit water are walled off from the edge and are
@@ -279,6 +279,17 @@ export function canonicalSettle(m: WaterModel, opts: WaterSimOptions = {}, from?
   return r;
 }
 
+/** `canonicalSettle`'s water, watched at every check (D539): the same settle, ended early and
+ *  `stopped` when `watch` says the water plainly won't settle. Null where it can't be watched (terrain above terrain,
+ *  or a batch job's native backend), for the caller to settle as ever. */
+export function watchedSettle(m: WaterModel, watch: SettleWatch): CanonicalWater | null {
+  if (m.stacked || canonicalBackend) return null;
+  const run = canonicalRun(m, {}, null, watch);
+  let r = run.advance(Infinity);
+  while (!r) r = run.advance(Infinity);
+  return r;
+}
+
 /** Where `canonicalSettle` runs after its pre-fill in a batch job (tools/rust/native-water.ts: the whole
  *  settle in the native Rust water, PLAN §20 D381), else null: here, the settle below round the Rust water
  *  in WebAssembly. Both give the same bytes (tools/rust/water-identity.ts checks it in CI). */
@@ -293,13 +304,13 @@ export function setCanonicalBackend(backend: ((m: WaterModel, start: WaterState,
  *  worker runs it between answers to the page, and drops it when a newer edit arrives. The result
  *  equals `canonicalSettle`'s. `from`, the map's last canonical settle, may answer a stacked model at
  *  once (`stackedRun`). */
-export function canonicalRun(m: WaterModel, opts: WaterSimOptions = {}, from?: SettledFrom | null): { advance(ticks: number): CanonicalWater | null; free?(): void; readonly ticks: number; readonly maxTicks: number } {
+export function canonicalRun(m: WaterModel, opts: WaterSimOptions = {}, from?: SettledFrom | null, watch?: SettleWatch): { advance(ticks: number): CanonicalWater | null; free?(): void; readonly ticks: number; readonly maxTicks: number } {
   // terrain above terrain settles in the stacked engine; a heightfield (no `stacked`) below, as ever
   if (m.stacked) return stackedRun(m, from);
   const start = prefill(m);
   let sim = new WaterSim(m, start, opts);
   const sealed = sealedTiles(m);
-  let run = new SettleRun(sim, { sealed });
+  let run = new SettleRun(sim, { sealed, ...(watch ? { watch } : {}) });
   let maxTicks = run.maxTicks;
   // once the water has settled, its unfed water is taken away and the water settles on from there,
   // at most DRAIN_DAYS more (D385, D387 (2))
@@ -314,13 +325,19 @@ export function canonicalRun(m: WaterModel, opts: WaterSimOptions = {}, from?: S
         const r = run.advance(left);
         left -= sim.ticks - t0;
         if (!r) return null;
+        // (a watch ended it, D539: the water as it stands, never a canonical settle)
+        if (r.stopped) {
+          done = { ...r, depth: sim.D.slice(), contamination: sim.C.slice(), sat: new Uint8Array(m.W * m.H) };
+          sim.dispose();
+          return done;
+        }
         if (drainNext) {
           drainNext = false;
           const next = withoutUnfed(m, sim, opts);
           if (next) {
             sim.dispose();
             sim = next;
-            run = new SettleRun(sim, { sealed, maxDays: DRAIN_DAYS });
+            run = new SettleRun(sim, { sealed, maxDays: DRAIN_DAYS, ...(watch ? { watch } : {}) });
             maxTicks = sim.ticks + run.maxTicks;
             if (left > 0) continue;
             return null;

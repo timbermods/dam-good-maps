@@ -49,8 +49,11 @@ describe.each([
 // A Lift is a landform, not a block (the force audit's findings 1 and 12): along a 44-tile fault at Power 60 the
 // raised side moves most at the fault and fades within 20 tiles, nothing moves past the fault's tips, and the other
 // side keeps its ground but for a trough at the scarp's foot, 1 to 2 levels deep, no wider than 6 tiles.
+// (Highlands seed 4242 → 1 at 0.10.47, D544, D148: on seed 4242's new land an UndergroundRuins stands at
+// (79, 64), straddling the fault, and rides the raised side whole, so its footprint (75–79, 60–63) rises 4 levels on the
+// down side, as objects ride; seeds 1, 2 and 3 pass, seed 1 the first.)
 describe.each([
-  ["highlands", 4242],
+  ["highlands", 1],
   ["riverValley", 1],
 ] as [ThemeId, number][])("a Lift fades from its fault on %s", (theme, seed) => {
   const s = MapSession.fromGenerated(generate(makeSpec({ seed, theme, size: { x: W, y: W } })));
@@ -93,6 +96,31 @@ describe.each([
         expect(rise[14]).toBeGreaterThan(0);
         expect(rise[LIFT_REACH]).toBe(0);
       });
+});
+
+// A Lift on the map's edge with its raised side off the map still shows (D356): the Nightly's forceEverywhere found
+// a 12-tile fault along column 127 at Power 10 that raised only the 4 or 5 tiles on the fault itself, which passed
+// as seen because a Lift's fallback fired only when nothing changed at all, where a Slide's fires below 9 tiles.
+describe.each([
+  ["canyon", 5],
+  ["islands", 5],
+  ["highlands", 3],
+] as [ThemeId, number][])("a Lift on the map's edge shows on %s", (theme, seed) => {
+  const s = MapSession.fromGenerated(generate(makeSpec({ seed, theme, size: { x: W, y: W } })));
+  const base = fullForceMapOf(s.built, { rockLayers: [], lava: null, down: new Map(), usedIds: new Set() });
+  for (const [P, Q] of [
+    [{ x: W - 1, y: 40 }, { x: W - 1, y: 52 }],
+    [{ x: 0, y: 70 }, { x: 0, y: 82 }],
+    [{ x: 50, y: 0 }, { x: 62, y: 0 }],
+  ])
+    for (const power of [0, 10])
+      for (const side of [1, -1] as const)
+        it(`(${P.x}, ${P.y})–(${Q.x}, ${Q.y}) at Power ${power}, side ${side}: at least 9 tiles change`, () => {
+          const p = quake(snapshotMap(base), { ...QUAKE_DEFAULTS, mode: "lift", power }, { path: [P, Q], side });
+          let changed = 0;
+          for (let i = 0; i < p.map.heights.length; i++) if (p.map.heights[i] !== base.heights[i]) changed++;
+          expect(changed).toBeGreaterThanOrEqual(9);
+        });
 });
 
 describe("the margin and the travel", () => {

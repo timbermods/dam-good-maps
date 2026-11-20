@@ -15,7 +15,8 @@ import { gunzipSync, strFromU8 } from "fflate";
 import { bush, ruin, startingLocation, tree, waterSource, type EntitySpec, type TreeSpecies } from "../format/entities";
 import { writeTimber, type TimberFile } from "../format/timber";
 import { entityId } from "../features/ids";
-import { namedFile, timberFileOf, worldOf } from "../gen/pack";
+import { timberFileOf, worldOf } from "../gen/pack";
+import { mapFileName } from "../format/fileName";
 import { soilContamination } from "../sim/contamination";
 import { moistureBarrier, waterModel, type MapObject } from "../sim/model";
 import { moisture } from "../sim/moisture";
@@ -156,7 +157,7 @@ export function decodeTiles(gaps: readonly number[]): number[] {
 
 /** The .timber's file name: the game shows it as the map's name. */
 export function placeFileName(p: Pick<PlaceData, "name">): string {
-  return namedFile(p.name);
+  return mapFileName(p.name);
 }
 
 /** The map's in-game description: what it is, that it is not a replica, and its credits. */

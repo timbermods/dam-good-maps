@@ -8,10 +8,9 @@ import { describe, expect, it } from "vitest";
 import { edgeWalls, EDGE_SHARE } from "../../src/core/analysis/edges";
 import type { EditOp } from "../../src/core/doc/ops";
 import { tilesToRuns } from "../../src/core/math/grid";
-import { makeSpec } from "../../src/core/spec/mapspec";
-import { runGenerate } from "../../src/worker/api";
 import * as ed from "../../src/worker/session";
 import type { CheckItem } from "../../src/worker/session";
+import { fixtureInEditor } from "../fixtureEditor";
 
 const W = 64;
 
@@ -34,8 +33,11 @@ describe("an edge wall on an edited map (D323)", () => {
     // (seed 2 since generator 0.10.21's look round (D518: the land's long straight steps jog, the dead stands read the dry land as the checks do), D148: seed 1's map has an outer row with inside land at level 14 beside the wall; of seeds 1–5 the test passes on 2, 3 and 4, seed 2 the first)
     // (seed 2 → 1 at 0.10.29 (#1186), D148: the disc's land (the weathering's disc of the square's area, the washes' brush and swing) gives seed 2 an outer row with inside land at level 14
     // beside the wall, as seed 4 has; seeds 1 and 3, the nearest, have none)
-    await runGenerate(makeSpec({ seed: 1, theme: "riverValley", size: { x: W, y: W } }));
-    ed.refine();
+    // (the test needs land with no west row whose land inside stands at level 14 beside the wall, so the fix, which lowers
+    // only the tiles two or more levels over the land inside, leaves every outer tile at or under it: River Valley 64² seed
+    // 2's saved land, D148, so a land change does not move it; generated live at generator 0.10.30, D536, seed 1's
+    // land has such a row, as the saved seed 1 has; of the saved seeds 1–5, 2, 3 and 4 hold)
+    fixtureInEditor("riverValley", W, 2);
     // the generated map has none (D151)
     expect(wallItem((await ed.backgroundCheck())!.check.warnings)).toBeUndefined();
     const before = ed.sessionView().info.history.filter((h) => h.applied).length;

@@ -11,7 +11,7 @@ import { carveChannel, channelBounds, type ChannelPlan } from "../route";
 import type { Edge, Feature, LakeFeature, LandformFeature, RiverFeature, StartFeature } from "../schema";
 import { boundsOf, clipRect, type BuildTarget, type Rect } from "../target";
 import { forceBounds, isForce, type ForceResultParams } from "../../forces/op";
-import { applyBrush, brushBounds, brushHard, brushReadsNeighbours, type BrushParams, type Pressed } from "./brush";
+import { applyBrush, brushBounds, brushKeepsOwn, brushReadsNeighbours, type BrushParams, type Pressed } from "./brush";
 import { blockBounds, blockTileBits, blockTileMask, type BlocksParams } from "../../terrain/blocks";
 import { isPlainMask, plainMask, reshapeTop, surfaceOfMask, topRunFloor, type ColumnTerrain } from "../../terrain/runs";
 import { wantedCount } from "../../water/sourceGroups";
@@ -500,7 +500,7 @@ export function applySculpt(s: SculptEdit, t: BuildTarget, keep?: (i: number) =>
   if (isBrush(s.params)) {
     const b = brushBounds(s.params, W, t.H);
     if (!b || !t.touchesRegion(b)) return null;
-    const was = brushHard(s.params) ? heights.slice() : null;
+    const was = brushKeepsOwn(s.params) ? heights.slice() : null;
     // kept sources' ground (D322, item 31): as the map shows it, and the integrity pass leaves it
     if (s.params.sources === "keep") keepShownGround(s.params.keep ?? [], heights, W, t.H, t.protectedMask, t.channel, shown?.candidate ?? (() => true), shown?.cap, (i) => t.inRegion(i), shown?.outside ?? null);
     // Naturalize weathers whatever the player paints (D368 (8)): a force's result, a stroke's exact
@@ -519,8 +519,8 @@ export function applySculpt(s: SculptEdit, t: BuildTarget, keep?: (i: number) =>
         heights[i] = Math.min(Math.max(heights[i], lo), hi);
         t.protectedMask[i] = 1;
       }
-    // a precise or target stroke's tiles stay as it left them: the integrity pass leaves them out (a
-    // one-tile pit stays a pit, D193, D322)
+    // a precise, target or working area's stroke's tiles stay as it left them: the integrity pass leaves them out (a
+    // one-tile pit stays a pit, D193, D322; a working area's feathered edge holds, D254)
     if (was) for (let y = b.y0; y <= b.y1; y++) for (let x: number = b.x0; x <= b.x1; x++) {
       const i = y * W + x;
       if (heights[i] !== was[i] && t.inRegion(i)) t.protectedMask[i] = 1;

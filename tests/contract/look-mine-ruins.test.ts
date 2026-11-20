@@ -92,7 +92,7 @@ import * as ed from "../../src/worker/session";
 // `ca3cf458…` before generator 0.10.25 (the Lake Basin water settings, D527): the version in the file alone, D148);
 // `e59d652e…` before generator 0.10.26's ruins to within a column (D527: its last field gives back the columns it grew past
 // the scrap asked: its ruins moved, D148);
-// `7084a1df…` before generator 0.10.27, D(new-leaks): a course's water leaves only by its own way, so its land is new: made
+// `7084a1df…` before generator 0.10.27, D532: a course's water leaves only by its own way, so its land is new: made
 // on its first attempt instead of its third, every check passing, D148);
 // `4a6c66b0…` before generator 0.10.29 (#1186): not the version alone (at 0.10.27 the branch gives `93e7ebed…`): the
 // weathering's disc of the square's area and the washes' brush and swing move its land, made on its first attempt, every
@@ -101,7 +101,41 @@ import * as ed from "../../src/worker/session";
 // buttes, cones and knolls are a sixth wider, and the dead stands' floor pass: not the version alone, at 0.10.29's version the
 // branch gives `0ce281af…`, D148); `841215d6…` before generator 0.10.37's version alone (the Nightly of 2026-11-16: with the
 // version set back to 0.10.36 the branch gives it byte for byte, D148)
-const LIVE_SHA = "64928c3753d64b6fe6cae7c58aae420ab99fbdde7c8783bf90d35690b52c0d51";
+// and generator 0.10.38's dead-stand cap: not the version alone; the cap holds every stand to D516's 60 in its floor pass,
+// its crowding pass and its joins, its old oaks counted, and moves this map's stands (`9bd38788…` with the floor pass's
+// cap alone, the version alone over 0.10.37's `64928c37…`), the map still passing its checks, D148
+// and generator 0.10.39 over the cap: `7006d8e4…` before it, the version alone (D540 moves a premise's plates, never a
+// theme's land), on the land the cap (#1213, merged in
+// from dev) gives; against this branch's own pin before the merge (`9bd38788…`, the floor pass's cap alone) it moved by land too, D148
+// and generator 0.10.40's version alone (#1225, small maps at their own scale, which a 128² map never reaches), D148
+// and generator 0.10.42's version alone (#1227, Easy start shaped on the settled water, which a map without Easy start never
+// reaches): with the version set back to 0.10.40 the branch gives `a7d8de7f…` byte for byte, D148
+// and generator 0.10.43's version alone (D542, a gorge winding at a small map's scale, which a 128² map never
+// reaches; #1236 merged after #1227): `424ccea0…` before it,
+// and dev with its version set to 0.10.43 gives this branch's bytes, D148
+// and generator 0.10.44's version alone (D543: a tributary deep under a wall winds at a small map's scale, which a
+// 128² map never reaches, and a gorge arch found along its gorge's heading, which this map never grows):
+// `d452eb0a…` before it, and dev with its version set to 0.10.44 gives this branch's bytes, D148
+// and generator 0.10.46's gullies and sea steps (D536, D533) on #1240's land: `d6709d0d…` before them, not the
+// version alone (with the version set back to 0.10.44 the merged code gives `920ac6af…`): its pits' gullies move its land, the
+// map made on its second attempt, every check passing; the gorge follow-ups do not reach it, so this is the bytes the branch
+// gave before #1240 merged in, D148
+// and generator 0.10.47's version alone (the merge of #1162's ruled water, D534, with #1195 at 0.10.46, which moves none
+// of this map): with the version set back to 0.10.46 the merge gives `0a7daa74…` byte for byte, D148
+// and generator 0.10.48, the merge of D544 with D534: the warp moves this map's land (`65319d88…` on the
+// branch at 0.10.47, `8d38367a…` on dev at 0.10.47), the map made on its first attempt, every check passing, D148;
+// and D544' warp making no cliff (`8bfdb897…` before it), the map made on its first attempt and passing, D148;
+// and generator 0.10.49's version alone (D547, which moves no map at 128²): with the version set back to 0.10.48 the
+// branch gives `524a9cec…` byte for byte, D148
+// and generator 0.10.50's version alone (D545, which keeps this map's start): with the version set back to 0.10.49
+// the branch gives `1557cad0…` byte for byte, D148
+// and generator 0.10.51's version alone (D530's flood refusal, which moves no map of 168 at 128²–256²): with the version set
+// back to 0.10.50 the branch gives `5247e4c8…` byte for byte, D148
+// and generator 0.10.52's version alone (D545 round 3, which keeps this map's start): with the version set back to
+// 0.10.51 the branch gives `1d4cdee1…` byte for byte, D148
+// and generator 0.10.53's version alone (D547 Highlands stands up, which keeps this River Valley map): with the version set
+// back to 0.10.52 the branch gives `66ac2da8…` byte for byte, D148
+const LIVE_SHA = "6b7fc1715cfbb4ae52f1935d0e7f7fc25ed2021f20d51a767bea5e2b5b17bcde";
 const spec = () => makeSpec({ seed: 4242, size: { x: 128, y: 128 }, theme: "riverValley", designedFor: "normal" });
 
 describe("mine sites and ruins, models of our own", () => {

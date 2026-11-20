@@ -190,3 +190,44 @@ big arch from above and straight down): `docs/sheets/3d-generation-1-natural.jpg
 - The 3D view shows the forms from outside; seeing into a cave and under an arch is the view's (step 2).
 - The other processes of step 4 (tunnels, sky bridges, cliff paths, underground rivers, collapses), cave starts, and the
   probe batch (T1–T7) come later.
+
+## The forms in the first camera (measured, not built; planning, #236, 2026-11-20)
+
+84 maps at 256², Normal, 7 themes × seeds 1–12, generator 0.10.52. A form is seen when its opening faces (air under rock
+beside open air, above the water) are turned to the camera, in the frame, and reached by a voxel ray from the eye
+(agrees with `analysis/picture.ts` on 691 of 700 pairs). Frames: the game's opening zoom (about 38 × 42 tiles); zoom 6
+with the form within 60 tiles of the start ("near"); zoom 6 at any distance.
+
+**A form at all** (2+ faces seen). "Could" grows one form in the near frame facing the camera, kept only where the
+build and its checks keep it: same start, no Easy row lost, only its own columns changed.
+
+| theme | forms | now: opening / near / any | could: near / opening |
+|---|---|---|---|
+| any | 47 | 2 / 4 / 6 | 11 / 2 |
+| riverValley | 34 | 0 / 4 / 5 | 12 / 0 |
+| canyon | 47 | 0 / 2 / 7 | 11 / 3 |
+| highlands | 39 | 0 / 1 / 1 | 8 / 2 |
+| lakeBasin | 27 | 0 / 2 / 5 | 4 / 0 |
+| delta | 38 | 1 / 2 / 3 | 6 / 1 |
+| islands | 34 | 0 / 2 / 5 | 12 / 0 |
+| **all** | **266** | **3 / 17 / 32** | **64 / 8** |
+
+**At landmark size** (a seen opening of 400 px² or more at zoom 6 in 800 × 450). "Steered" moves one form the map
+already keeps into the near frame, the other forms identical.
+
+| theme | anywhere now | near now | steered, sizes as drawn | steered, at the rules' maxima |
+|---|---|---|---|---|
+| any | 0 | 0 | 1 | 4 |
+| riverValley | 0 | 0 | 0 | 2 |
+| canyon | 0 | 0 | 2 | 6 |
+| highlands | 0 | 0 | 0 | 2 |
+| lakeBasin / delta / islands | 0 | 0 | 0 | 0 |
+| **all** | **0** | **0** | **3** | **14** |
+
+- The largest opening now is 358 px². Only the cliff overhang ever clears (start overhang 349, spring cave 144, rock arch
+  92 at the maxima): a cave mouth or arch window is about 20 faces against the 40 the bar needs.
+- Of the 70 that do not clear: 35 have an overhang in view under the bar (the size rule limits them), 17 keep no form,
+  16 have no site in the near frame, 2 only small kinds. 49 of the 56 maps that keep an overhang have a seen site near
+  the start: the land lacks a big enough form, not a cliff.
+- **Ruling:** not built; forms3d's rules stay. The forms are seen up close and on the card picture (`heroView.ts`
+  `formSights`). A great form goes on D493's landmark list for Canyon, Highlands and Any (D280).

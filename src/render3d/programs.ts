@@ -64,6 +64,9 @@ export interface ProgramsHost {
   changed(): void;
 }
 
+/** A program never compiled (asked for while the context is gone). */
+const NOT_YET: Program = { isReady: () => false };
+
 const POLL_MS = 16;
 /** How many programs compiled ahead are sent to the browser at once. */
 export const WARM_IN_FLIGHT = 2;
@@ -176,6 +179,19 @@ export class Programs {
     return this.wanted.size === 0;
   }
 
+  /** The context was lost and is back: three.js compiles every program again, so none compiled here is known any more.
+   *  A define waiting for its program is set at once (compiled at the next frame that draws it), the programs queued
+   *  ahead are dropped, and everyone waiting is told. */
+  restart(): void {
+    for (const [mat, want] of [...this.wanted]) this.apply(mat, want);
+    this.entries = new WeakMap();
+    this.queue = [];
+    this.inFlight.clear();
+    const waiting = this.waiters;
+    this.waiters = [];
+    for (const w of waiting) w.done();
+  }
+
   dispose(): void {
     this.disposed = true;
     clearTimeout(this.timer);
@@ -204,6 +220,11 @@ export class Programs {
     });
   }
 
+  /** The context is gone, until `restart`. */
+  private get lost(): boolean {
+    return this.host.gl.getContext().isContextLost();
+  }
+
   private isReady(e: Entry): boolean {
     if (!e.ready) e.ready = e.programs.every((p) => p.isReady());
     return e.ready;
@@ -218,6 +239,8 @@ export class Programs {
   /** The material's program with these defines, its compile sent if it was not: the material takes them for the
    *  length of a compile with an object it draws (or a stand-in), then has its own back, so nothing drawn changes. */
   private compile(mat: ShaderMaterial, d: Defines): Entry {
+    // (nothing is compiled on a context that is gone: `restart` when it is back)
+    if (this.lost) return { programs: [NOT_YET], ready: false };
     const known = this.known(mat);
     const key = signature(d);
     const had = known.get(key);
@@ -276,6 +299,7 @@ export class Programs {
   /** Make each switch whose program is ready (its compile sent at once if it was not), send the next programs to
    *  compile ahead while no switch waits, and tell those waiting for them. */
   private tick(): void {
+    if (this.lost) return;
     let made = false;
     for (const [mat, want] of [...this.wanted]) {
       if (this.isReady(this.compile(mat, want))) {

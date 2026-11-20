@@ -12,6 +12,7 @@ import { join } from "node:path";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { decodeProject } from "../../src/core/doc/document";
 import { MapSession } from "../../src/core/doc/session";
+import { mapFileName } from "../../src/core/format/fileName";
 import { jobOf, setMostJobs, setWaitMs } from "../src/jobs";
 import { generate } from "../../src/core/gen/generate";
 import { closeAll, exportFiles, mapOf, specOf } from "../src/maps";
@@ -70,8 +71,11 @@ describe("the Dam Good Maps MCP server", () => {
     // (seed 6 for seed 7 since generator 0.10.16's ground with grade, D148: seed 7's first water source now stands west of
     // another in its row, so the drag a tile east is refused; seed 6's first is at the west edge, a column of three;
     // seed 2 since the later D518 mends moved the land, D148: seed 6's first source stands at the east edge now (X 95), so the drag a tile
-    // east leaves the map; of seeds 1 to 14 only seeds 2, 7 and 11 have a first source at the west edge, and seed 2's, at X 0 · Y 67, is the first)
-    const made = await make({ theme: "riverValley", size: 96, seed: 2 });
+    // east leaves the map; of seeds 1 to 14 only seeds 2, 7 and 11 have a first source at the west edge, and seed 2's, at X 0 · Y 67, is the first
+    // seed 6 for seed 2 at 0.10.47, D544, D148: seed 2's first source now stands at X 0 · Y 64 with a slope a tile east, so the
+    // drag is refused; of seeds 1 to 14 only seeds 6 and 11 now have a first source at the west edge with ground a tile east that takes it, and
+    // seed 6's, at X 0 · Y 23, is the first)
+    const made = await make({ theme: "riverValley", size: 96, seed: 6 });
     const g = made.result;
     expect(g.isError, textOf(g)).toBeFalsy();
     expect(made.calls).toBeGreaterThan(1);
@@ -80,7 +84,7 @@ describe("the Dam Good Maps MCP server", () => {
     expect(textOf(await call("wait", { map: "map-1" }))).toMatch(/^Map map-1 \(generated in /);
     // the map made in the worker is the map made on this thread, byte for byte
     {
-      const r = generate(specOf({ theme: "riverValley", size: 96, seed: 2 }).spec);
+      const r = generate(specOf({ theme: "riverValley", size: 96, seed: 6 }).spec);
       const here = MapSession.fromGenerated(r, r.file);
       const a = exportFiles(here);
       const b = exportFiles(mapOf("map-1"));
@@ -132,7 +136,9 @@ describe("the Dam Good Maps MCP server", () => {
     const saved = await call("save", { map: "map-1", folder: dir });
     expect(saved.isError, textOf(saved)).toBeFalsy();
     const files = readdirSync(dir).sort();
-    expect(files).toEqual(["dgm-river-valley-2.damgoodmaps.json", "dgm-river-valley-2.timber"]);
+    // (named by the map's own name, D443 amended 2026-11-18; dgm-river-valley-2 before, D148)
+    const stem = mapFileName(s.meta.name).replace(/[.]timber$/, "");
+    expect(files).toEqual([`${stem}.damgoodmaps.json`, `${stem}.timber`]);
     const timber = readFileSync(join(dir, files[1]));
     const project = readFileSync(join(dir, files[0]));
     // the bytes are the core's export of the same project: the project opened afresh and exported as the page does
@@ -144,7 +150,7 @@ describe("the Dam Good Maps MCP server", () => {
     expect(Buffer.compare(project, Buffer.from(s.project(9)))).toBe(0);
     // a second save never overwrites: it takes the next free name
     await call("save", { map: "map-1", folder: dir });
-    expect(readdirSync(dir).sort()).toContain("dgm-river-valley-2-2.timber");
+    expect(readdirSync(dir).sort()).toContain(`${stem} (2).timber`);
     // open, then save: the same bytes
     const opened = await call("open", { path: join(dir, files[0]) });
     expect(opened.isError, textOf(opened)).toBeFalsy();

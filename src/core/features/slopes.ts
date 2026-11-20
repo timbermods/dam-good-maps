@@ -16,6 +16,10 @@
 //      edges (its steps are "joined by slopes", PLAN §19.2) and, on an edited import, the ground the
 //      edits changed.
 // 4.   Beyond that, every region of 400+ tiles gets one slope toward its lowest neighbour.
+// Above 128² (uplands round 5, `RING_SLOPES`, `SlopeRules.ringed`: the generator's ringed land, not Lake Basin's,
+// Islands' or a premise's) the land is drawn in rings of many terraces one level apart: the core
+// grows with the map, a long step of the tree gets a slope per 70 tiles spread along it, a step the spacing rule
+// leaves bare still gets one, and every 400+ region beside the joined ground is joined to it before rule 4.
 // Slopes that already stand (a set piece's own stairs, an import's own slopes) join their regions
 // without another slope. A generated map's natural ramps (M9a, decisions-pending #62) get a slope on
 // every step that still stands, before anything else, wherever they are: a ramp is a staircase the
@@ -50,6 +54,9 @@ export interface SlopeRules {
   /** A brush's walkable ground (D204's ramped rim, a walkable smooth): its steps are joined by
    *  slopes wherever it is, not only where the start's ground reaches it. */
   walkTargets?: Uint8Array | null;
+  /** Ringed land above 128² (uplands round 5): the ringed land's rules (`RING_SLOPES`); the generator sets it
+   *  for the themes drawn in rings, never for Lake Basin, Islands or a premise's land. */
+  ringed?: boolean;
 }
 
 /** Nothing stands within this Chebyshev distance of the start's centre, slopes included (PLAN §7.7);
@@ -99,6 +106,14 @@ export const SLOPE_RULES: SlopeRules = { core: 40, bigRegion: 400 };
 const SPACING = 12;
 /** A boundary this long gets a second slope. */
 const LONG = 60;
+/** Above 128² (uplands round 5): the land is drawn in long rings, terraces of 1,000–2,000 tiles one level apart where
+ *  the older land had a few large flats, so the rules grow with the map's narrower side over 128 (`s`): the core's
+ *  reach by `s`; a step of the tree gets one slope per `every` tiles of its boundary, spread along it (at least
+ *  `apart` of its length between them), and where the spacing rule leaves a step no place, its nearest pair at least
+ *  `close` from every other slope; and from the joined ground outward, every region of rule 4's size beside a joined one
+ *  is joined to it (the terraces joined to their neighbours), before rule 4. Every one stands on a step of one level,
+ *  as every slope does. */
+export const RING_SLOPES = { every: 70, most: 4, apart: 0.5, close: 6 } as const;
 
 /** What `placeSlopes` reads of the ground alone: its level regions, the boundary pairs between regions
  *  one level apart (key low·R + high -> [lowTile, dx, dy][]) and each region's neighbours that way,
@@ -188,7 +203,23 @@ export function placeSlopes(h: Uint8Array, W: number, H: number, start: { x: num
   const joined = (r: number) => find(r) === find(root);
 
   const placed: PlacedSlope[] = [];
-  const used: [number, number][] = [];
+  // the slopes placed, by square of `SPACING` tiles: a slope nearer a tile than `SPACING` (Manhattan) stands in its
+  // square or one of the eight round it, so the spacing rules read only those (above 128² hundreds of slopes stand,
+  // and every candidate of every step read them all)
+  const cellsW = Math.ceil(W / SPACING);
+  const cells: number[][] = Array.from({ length: cellsW * Math.ceil(H / SPACING) }, () => []);
+  const use = (x: number, y: number) => cells[Math.floor(y / SPACING) * cellsW + Math.floor(x / SPACING)].push(x, y);
+  /** Whether a slope placed stands nearer (x, y) than `r` (Manhattan, `r` at most `SPACING`). */
+  const usedNear = (x: number, y: number, r: number): boolean => {
+    const cx = Math.floor(x / SPACING);
+    const cy = Math.floor(y / SPACING);
+    for (let gy = Math.max(0, cy - 1); gy <= cy + 1 && gy * SPACING < H; gy++)
+      for (let gx = Math.max(0, cx - 1); gx <= cx + 1 && gx < cellsW; gx++) {
+        const cell = cells[gy * cellsW + gx];
+        for (let k = 0; k < cell.length; k += 2) if (Math.abs(x - cell[k]) + Math.abs(y - cell[k + 1]) < r) return true;
+      }
+    return false;
+  };
   const occ = occupied.slice();
   // the ramps' steps first: a slope on each step whose ground still steps as the ramp cut it (the
   // high tile one level up, the tile behind the low one level with it), joining its regions
@@ -203,7 +234,7 @@ export function placeSlopes(h: Uint8Array, W: number, H: number, start: { x: num
     if (bx < 0 || by < 0 || bx >= W || by >= H || h[by * W + bx] !== h[lo] || occ[lo] || occ[by * W + bx]) continue;
     placed.push({ x, y, z: h[lo], orientation: orientationForHigh(dx, dy) });
     occ[lo] = 1;
-    used.push([x, y]);
+    use(x, y);
     const a = labels[lo];
     const b = labels[hi];
     linked[a].push(b);
@@ -212,7 +243,15 @@ export function placeSlopes(h: Uint8Array, W: number, H: number, start: { x: num
   // steps from each tile to the nearest river tile (4-neighbour), for the slopes out of the start's
   // region: integers only, so every browser places the same slopes
   const toWater = rules.water && rules.water.some((v) => v === 1) ? stepsFrom(rules.water, W, H) : null;
+  // above 128², the ringed land's rules (`RING_SLOPES`)
+  const scale = Math.min(W, H) / 128;
+  const ringed = !!rules.ringed && scale > 1;
+  const core = ringed ? Math.round(rules.core * scale) : rules.core;
   const tryPlace = (cand: [number, number, number][], extra: boolean, towardWater = false): number => {
+    if (ringed) return tryPlaceRing(cand, towardWater);
+    return tryPlaceOld(cand, extra, towardWater);
+  };
+  const tryPlaceOld = (cand: [number, number, number][], extra: boolean, towardWater = false): number => {
     const scored = cand
       .map((c) => {
         const x = c[0] % W;
@@ -230,20 +269,64 @@ export function placeSlopes(h: Uint8Array, W: number, H: number, start: { x: num
       if (lx < 0 || lx >= W || ly < 0 || ly >= H) continue;
       const li = ly * W + lx;
       if (occ[i] || occ[li] || h[li] !== h[i]) continue;
-      if (used.some(([ux, uy]) => Math.abs(x - ux) + Math.abs(y - uy) < SPACING)) continue;
+      if (usedNear(x, y, SPACING)) continue;
       placed.push({ x, y, z: h[i], orientation: orientationForHigh(dx, dy) });
       occ[i] = 1;
-      used.push([x, y]);
+      use(x, y);
       n++;
       if (n >= (extra ? 2 : 1)) break;
     }
     return n;
   };
+  // the ringed land's: one slope per `every` tiles of the step, spread along it; a step the spacing rule would leave
+  // without one still gets its nearest pair `close` from the others
+  const tryPlaceRing = (cand: [number, number, number][], towardWater: boolean): number => {
+    const scored = cand
+      .map((c) => {
+        const x = c[0] % W;
+        const y = (c[0] - x) / W;
+        const d2 = portable.pow(x - start.x, 2) + portable.pow(y - start.y, 2);
+        const toward = towardWater && toWater ? Math.max(Math.abs(x - start.x), Math.abs(y - start.y)) + toWater[c[0]] : 0;
+        return { c, x, y, d2, toward };
+      })
+      .sort((p, q) => p.toward - q.toward || p.d2 - q.d2 || p.c[0] - q.c[0] || p.c[1] - q.c[1] || p.c[2] - q.c[2]);
+    const want = Math.min(RING_SLOPES.most, 1 + Math.floor(cand.length / RING_SLOPES.every));
+    const apart = Math.max(SPACING, Math.floor((RING_SLOPES.apart * cand.length) / want));
+    const own: [number, number][] = [];
+    const fits = (i: number, li: number) => !occ[i] && !occ[li] && h[li] === h[i];
+    const put = (x: number, y: number, i: number, dx: number, dy: number) => {
+      placed.push({ x, y, z: h[i], orientation: orientationForHigh(dx, dy) });
+      occ[i] = 1;
+      use(x, y);
+      own.push([x, y]);
+    };
+    for (const { c, x, y } of scored) {
+      const [i, dx, dy] = c;
+      const lx = x - dx;
+      const ly = y - dy;
+      if (lx < 0 || lx >= W || ly < 0 || ly >= H || !fits(i, ly * W + lx)) continue;
+      if (usedNear(x, y, SPACING)) continue;
+      if (own.some(([ux, uy]) => Math.abs(x - ux) + Math.abs(y - uy) < apart)) continue;
+      put(x, y, i, dx, dy);
+      if (own.length >= want) break;
+    }
+    if (own.length) return own.length;
+    for (const { c, x, y } of scored) {
+      const [i, dx, dy] = c;
+      const lx = x - dx;
+      const ly = y - dy;
+      if (lx < 0 || lx >= W || ly < 0 || ly >= H || !fits(i, ly * W + lx)) continue;
+      if (usedNear(x, y, RING_SLOPES.close)) continue;
+      put(x, y, i, dx, dy);
+      return 1;
+    }
+    return 0;
+  };
   const inCore = (cand: [number, number, number][]) =>
     cand.filter(([i]) => {
       const x = i % W;
       const y = (i - x) / W;
-      return Math.max(Math.abs(x - start.x), Math.abs(y - start.y)) <= rules.core;
+      return Math.max(Math.abs(x - start.x), Math.abs(y - start.y)) <= core;
     });
 
   // 3. the tree from the start's region, through the core; standing slopes join for free
@@ -322,6 +405,23 @@ export function placeSlopes(h: Uint8Array, W: number, H: number, start: { x: num
       const d = Math.max(Math.abs(x - start.x), Math.abs(y - start.y));
       if (d < dist[labels[i]]) dist[labels[i]] = d;
     }
+    // above 128², the terraces joined to their neighbours: from the joined ground outward, nearest the start first,
+    // every region of rule 4's size beside a joined one
+    if (ringed) {
+      const queue: number[] = [];
+      for (let r = 0; r < R; r++) if (joined(r)) queue.push(r);
+      queue.sort((a, b) => dist[a] - dist[b] || a - b);
+      for (let q = 0; q < queue.length; q++) {
+        const r = queue[q];
+        for (const n of [...linked[r], ...adj[r]]) {
+          if (joined(n) || size[n] < rules.bigRegion) continue;
+          const cand = linked[r].includes(n) ? null : between(r, n);
+          if (cand && !tryPlace(cand, false)) continue;
+          union(root, n);
+          queue.push(n);
+        }
+      }
+    }
     const big: number[] = [];
     for (let r = 0; r < R; r++) if (size[r] >= rules.bigRegion) big.push(r);
     big.sort((a, b) => dist[a] - dist[b] || a - b);
@@ -342,9 +442,25 @@ export function placeSlopes(h: Uint8Array, W: number, H: number, start: { x: num
   return placed;
 }
 
+/** The last river mask `stepsFrom` read and its steps (the settler reads the slopes of many starts toward one river,
+ *  D545). Read only. */
+let lastSteps: { mask: Uint8Array; W: number; H: number; d: Int32Array } | null = null;
+
 /** 4-neighbour steps from every tile to the nearest set tile of `mask` (a large number where none
  *  is reachable). */
 function stepsFrom(mask: Uint8Array, W: number, H: number): Int32Array {
+  const last = lastSteps;
+  if (last && last.W === W && last.H === H && last.mask.length === mask.length) {
+    let same = true;
+    for (let i = 0; i < mask.length && same; i++) if (last.mask[i] !== mask[i]) same = false;
+    if (same) return last.d;
+  }
+  const d = stepsOf(mask, W, H);
+  lastSteps = { mask: mask.slice(), W, H, d };
+  return d;
+}
+
+function stepsOf(mask: Uint8Array, W: number, H: number): Int32Array {
   const N = W * H;
   const d = new Int32Array(N).fill(1 << 20);
   const queue = new Int32Array(N);

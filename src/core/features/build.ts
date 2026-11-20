@@ -143,6 +143,9 @@ export interface GeneratedField {
    *  soil was moist and contaminated as generated, which its trees and bushes keep (they stay as
    *  generated). A source the player places afterwards stays and runs. */
   dry?: { moist: Uint8Array; poisoned: Uint8Array };
+  /** Ringed land above 128² (uplands round 5): the derived slopes follow the ringed land's rules
+   *  (features/slopes.ts `RING_SLOPES`). */
+  ringSlopes?: boolean;
 }
 
 /** What a regeneration kept of the previous generation inside locked regions (EDITOR_PLAN §3). */
@@ -302,6 +305,13 @@ export class SettleCache {
     return hit.water;
   }
 
+  /** A settle ended early (D539) takes the place its result would have taken, so the older settles
+   *  leave the cache as they did; nothing finds it. */
+  spend(): void {
+    this.last.unshift({ model: { W: -1, H: -1 } as WaterModel, emitters: "", water: null as unknown as CanonicalWater });
+    if (this.last.length > SettleCache.SIZE) this.last.length = SettleCache.SIZE;
+  }
+
   set(m: WaterModel, water: CanonicalWater): void {
     this.last.unshift({ model: { ...m, floor: m.floor.slice(), dam: m.dam ? m.dam.slice() : null }, emitters: JSON.stringify(m.emitters), water });
     if (this.last.length > SettleCache.SIZE) this.last.length = SettleCache.SIZE;
@@ -431,6 +441,16 @@ export interface BuildCache {
 const isTerrainKind = (f: Feature) => f.kind === "landform" || f.kind === "setPiece" || f.kind === "lake" || f.kind === "river" || f.kind === "start";
 
 // ------------------------------------------------------------------------------------ entry points
+
+/** The start's entity as a build places it (step 12, after the resources): what reads the start on a build stopped
+ *  before its resources (`stopBeforeResources`), whose entities hold none, adds this one. */
+export function startEntity(start: StartFeature, heights: ArrayLike<number>, W: number): EntitySpec {
+  const [cx, cy] = start.params.position;
+  const o = start.params.orientation;
+  const [x, y] = coordinatesForMinCorner(3, 3, cx - 1, cy - 1, o);
+  // (under a roof, at its level: a cave's floor, the ground under a ledge, D491)
+  return startingLocation({ id: entityId(start.id, "StartingLocation", 0), owner: start.id, x, y, z: start.params.z ?? heights[cy * W + cx], orientation: o, player: start.params.player });
+}
 
 export function build(spec: MapSpec, features: readonly Feature[], opts: BuildOptions = {}): BuildResult {
   return buildMap({ W: spec.size.x, H: spec.size.y, seed: spec.seed, features }, opts);
@@ -1044,8 +1064,8 @@ function run(input: BuildInput, prevResult: BuildResult | null, opts: BuildOptio
       targets.key += `|${walk ? "walk" : "ramp"}:${paramsKey(p)}`;
     }
     const ramps = input.field?.ramps ?? null;
-    rules = { ...SLOPE_RULES, targets: targets.mask, links, water: terrain.channel, ...(ramps?.length ? { ramps } : {}), ...(walkTargets ? { walkTargets } : {}) };
-    slopesKey = `${slopeStart.x},${slopeStart.y}|${targets.key}|${JSON.stringify(links)}|${ramps?.length ? JSON.stringify(ramps) : ""}`;
+    rules = { ...SLOPE_RULES, targets: targets.mask, links, water: terrain.channel, ...(ramps?.length ? { ramps } : {}), ...(walkTargets ? { walkTargets } : {}), ...(input.field?.ringSlopes ? { ringed: true } : {}) };
+    slopesKey = `${slopeStart.x},${slopeStart.y}|${targets.key}|${JSON.stringify(links)}|${ramps?.length ? JSON.stringify(ramps) : ""}${input.field?.ringSlopes ? "|ringed" : ""}`;
   }
   // the player's own forests, berry patches and ruin fields keep their tiles: no derived slope
   // takes one (PLAN §7.0: nothing the generator derives touches the player's placements)
@@ -1432,13 +1452,7 @@ function run(input: BuildInput, prevResult: BuildResult | null, opts: BuildOptio
   entities.push(...storedResources, ...resourceEntities, ...lateBase.start);
 
   // 12. the start entity
-  if (start) {
-    const [cx, cy] = start.params.position;
-    const o = start.params.orientation;
-    const [x, y] = coordinatesForMinCorner(3, 3, cx - 1, cy - 1, o);
-    // (under a roof, at its level: a cave's floor, the ground under a ledge, D491)
-    entities.push(startingLocation({ id: entityId(start.id, "StartingLocation", 0), owner: start.id, x, y, z: start.params.z ?? heights[cy * W + cx], orientation: o, player: start.params.player }));
-  }
+  if (start) entities.push(startEntity(start, heights, W));
 
   // 13. the second pass of entity edits, on what only exists now
   //    (the generation's kept resources a force carried land where it put them: what holds that

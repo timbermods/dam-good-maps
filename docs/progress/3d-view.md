@@ -763,6 +763,13 @@ Two plain pieces for the Block tool, only drawn or plain data; the page's interf
   drawn, and `setSlice` redraws them. The area brush's `BlockGhost` is unchanged. `renderer.blocksDrawn` gives the counts
   (tests). Capture (valid add, valid remove, refused remove, and the dark look, 1920×1080 frames):
   `docs/sheets/block-tool-preview.jpg`.
+- **The preview stays until the land answers** (D488 audit, `fix/hero-forms`): `useBlockTool.ts` `commit` used to clear
+  it as the click went, and on a 256² map the land came 255–301 ms later, so for a quarter second or more the click
+  showed nothing. It is now cleared once: in the edit's answer, in the same task the queue draws the new land in (the
+  queue's `shown` runs before its `answer`), else by a refusal (which then asks again and shows the core's line) or an
+  edit that never reached its answer (`run`'s end: a resize, a force running), which asks again for the face under
+  the pointer, so its preview is back without a move. A question the pointer asks meanwhile is answered on the land as it still is.
+  `tests/e2e/blockTool.spec.ts` records the renderer's calls through a click: the preview's clear comes after the land.
 
 ## Item 1: the masks from the worker (built, `feature/3d-view-worker-masks`)
 
@@ -1138,6 +1145,45 @@ Two plain pieces for the Block tool, only drawn or plain data; the page's interf
   60° camera looks down on its roof, the shelter under it out of sight, as in the game. Exposure and size hide
   nothing else.
 - **Captures:** `docs/sheets/hero-ruins.jpg` (`tools/capture-hero.ts`, real Chrome on the GPU).
+- **The card shows the map's rock arch (D488 audit, `fix/hero-forms`):** the sight camera (`sightCamera`) weighs the
+  land's arches (`formSights`, from the column masks, each looked through along `seeThrough`'s best heading) beside
+  the opening's landmark, each at 26 to 48 tiles with clear air to it. An arch's frame is kept only where it scores by
+  the looks score within 0.1 of the landmark's (`LOOKS_GIVE`), or on a map with no landmark frame within 0.05 of the
+  whole map's picture (`WHOLE_GIVE`; `heroCamera`, cast at the arches' 64 × 36 so the two are judged alike; only where an arch
+  frame exists), and shows 1.5% or more of rock above air; the frame
+  worth most (`pictureValue`: looks, plus rock seen above air, more for air seen through it) wins.
+- **Only an arch, never an overhang or a cave (planning, #236):** the first cut also framed overhangs and cave mouths,
+  and River Valley 2's card became a dark cliff face filling the frame. Planning's bar, a form counted by its seen
+  opening (400 px² of an 800 × 450 frame, the forms measure's), cannot tell them apart at the card's distance: at 26
+  to 48 tiles every opening clears it many times over (Highlands 12's arch 31 times, River Valley 2's overhang 55),
+  and the overhang shows more opening than the arch. An arch is seen through to the land beyond and reads as one; an
+  overhang's or a cave's opening is a dark band under a cliff face.
+- **An arch against the whole map (planning, #236):** with arches only, a map with no landmark frame let any arch take
+  the card, and Delta 8 and Islands 1 lost their theme: a slot in a cliff in place of the delta's channels and the
+  islands. The arch is now weighed against the whole map's picture there, with half the landmark's allowance
+  (`WHOLE_GIVE` 0.05): the whole map already shows the theme, and Delta 11's arch, 0.09 under it, hid the delta's
+  channels as Delta 8's had. Across the 84 maps at 256² Normal (7 themes × seeds 1–12, generator 0.10.51), 9 cards
+  change against dev 9a6523d8: 3 to a rock arch (looks, arch against landmark or whole map: Highlands 1 1.15 / 1.00,
+  Highlands 6 0.93 / 0.93, Highlands 12 0.99 / 1.03) and 6 to another frame of their landmark, the backdrop now
+  counted behind the crowns (Any 2, River Valley 9, Canyon 4, Highlands 2 and 10, Lake Basin 11). Any 3 (1.05 /
+  1.32), Highlands 7 (0.97 / 1.05, its other two arches lower), Delta 8 (0.98 / 1.08), Delta 11 (1.11 / 1.19) and
+  Islands 1 (0.32 / 1.21) keep the whole map; River Valley 2 is on dev's frame. The cast (`castPicture`) now says where a ray
+  met still beneath rock or came out from under it (`under`), at no cost to the generator's kind, depth and tile.
+  Frames are screened at 64 × 36 and only the winner is cast again at full size (`framePasses`), every cast from the
+  land prepared once per card (`preparePicture`: each tile's top, crown and water, shared by all the casts).
+- **The backdrop check sees what the drawn frame shows:** a tree's crown was a solid box to the cast, so the sky
+  behind a crown at the map's edge counted as land; the drawn crown is sparse and shows that sky. The cast marks those
+  pixels (`veiled`) and `voidShare` counts them. Highlands 256 seed 12's card had passed at 4.8% void (5.7% with the
+  veiled crowns) and drew about 8% sky; a further 2 points come from the map's far rim, drawn as sky where the cast
+  meets its edge water, not chased since the new frame shows none.
+- **The four maps' cards, generator 0.10.51** (before → after): Highlands 12, a bare plateau and its two springs from 45
+  tiles with 8% sky → the rock arch over its lake from 26 tiles, no sky; River Valley 2, a wooded slope above the
+  river, unchanged after the arch-only rule; Canyon 1 (ruins and river) and Any 6 (falls and river) unchanged, the same
+  camera. Sheets: `C:\dgm-showcase\hero-forms\sheet.jpg` (the first cut), `C:\dgm-showcase\hero-forms2\sheet.jpg`
+  (arch-only), `C:\dgm-showcase\hero-forms3\sheet.jpg` (arches weighed against the whole map),
+  `C:\dgm-showcase\hero-forms4\sheet.jpg` (`WHOLE_GIVE` 0.05).
+- **Where it falls short:** a map whose best 3D form is an overhang or a cave never shows it on its card; an arch
+  ranked below the six largest mouths (`FORMS_MOST`) is not looked at.
 
 ## Seeing the land behind objects (`feature/object-fade`)
 
@@ -4493,6 +4539,44 @@ pale stone, cracked, shaded where its ivy hangs over them; ours were flat beige 
 - **Sheet** (local only): `C:\dgm-showcase\objects\close\ruin-wall-sheet.png`, the game's cave frame and the branch in
   both looks, the ruins cropped (game | before | branch, both looks), the game's band beside our layer, and the shade
   under the ivy.
+
+## The seasons on maps with caves and overhangs (D133, D250, D242 as amended; `feat/cave-seasons`)
+
+A held Drought or Badtide day drew no withered plant on any map with caves or overhangs (`session.ts` `stackedMap`), so
+the seasons were missing on every generated map with a spring cave, an overhang or an arch (D488 (1)), the maps
+Showcase offers: on River Valley 256² seed 2 no plant of its 1,764 withered on a drought's day 20; 1,612 do now.
+
+- **Each plant on its own ground:** a plant on a run top below its tile's top (a cave's floor, a ledge under a roof)
+  reads that run top's moisture and contamination, a plant on the top reads the tile's (`core/sim/withering.ts`
+  `plantGround`; the game's timers as on a heightfield: 1.1 × `DaysToDieDry` dry, two days contaminated, dead for good,
+  succulents exempt from dry). The renderer's `runSoil.ts` `objectSoilAt` uses the same rule, so the dying form (D242)
+  already read the run top's soil of the held day, which carries `runs` on these maps; nothing changed there.
+- **Plant identity:** the worker names a dead plant by its cell, level × W × H + tile (`witheredCells`; the `withered`
+  event and a day's `withered` carry cells), and the renderer marks the plant whose `z` and tile match
+  (`setWithered`), so of two plants on one tile, one on the roof and one in the cave below, only the one that died is
+  drawn dead. `Forest.setState` works per object already.
+- **Off the session worker:** a cave map's day soil (every column's water, every run top) is worked out in the soil
+  worker as a heightfield's is (`daySoil.ts`: `stackedSoil` on the day's column water and the soil's objects), byte for
+  byte the soil the session worked out before (checked on 8 days of both hazards at 256²); it was 45 to 80 ms a day on
+  the session worker. The day is sent first and its withered plants after it; a press stops the work until idle.
+- **Timing** (River Valley 256² seed 2, Chrome, RTX 2070 SUPER; a cheap worker call every 10 ms measures what an edit
+  would wait for): Drought, day 20 typed from day 9: the day in 0.8 s, its 1,612 withered plants 0.57 s after it, the
+  worker's slowest answer meanwhile 17 ms (median 3 ms). Badtide from its button right after opening: day 8 in 23.9 s
+  (the stacked engine simulating its days, unchanged here), its 1,086 withered plants 0.83 s after it. Stepping back to
+  a day whose soil is kept sends its list with the day (11 ms in Node). The same withering on the session worker, as
+  first built, held it up to 81 ms a day.
+- **Tests:** `tests/unit/withering.test.ts` (a plant on a cave's floor by its run top, two plants on one tile, each way);
+  `tests/contract/sessionWithering.test.ts` (a built cave map: a badtide kills the birch on the cave's floor and not the
+  pine on the roof above it, on one tile; a press holds the work back); `caveImport.test.ts`'s held day updated (D148).
+- **Generated maps place no plant under a roof** (`land/forms3d.ts` grows forms only where no plant stands), so on them
+  the change is that every plant withers at all; plants under a roof come from the shelf (D491) or an import.
+- **Sheet** (local only): `C:\dgm-showcase\seasons-caves\sheet.png`, River Valley 256² seed 2 (generator 0.10.37) with
+  ten plants set from the shelf on the ledge under the overhang at (91–93, 121–126), level 11 under a roof at 15, and on
+  the spring cave's floor at level 4: Day 0, 0 of 1,764 withered (3 under roofs dying); Drought day 20,
+  1,612 withered, all 10 under roofs; Badtide day 8, 1,086 withered, the 10 under roofs dying, none dead; and the ledge
+  close on drought day 20.
+- **Falls short:** a Badtide held on a fresh 256² cave map takes about 24 s to simulate its 8 days on the stacked
+  engine before the day shows (the background works them out once Kyler is idle; not this change's).
 
 ## The rest of the step (next parts)
 

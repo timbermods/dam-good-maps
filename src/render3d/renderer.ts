@@ -18,6 +18,8 @@
 // drawn with the High materials, chosen automatically where it runs smoothly and falling back to
 // Standard where it doesn't (high/fallback.ts); the light look where the browser draws in software.
 // The Standard materials are never changed by High: switching swaps the materials the meshes use.
+// A context the browser takes away (a GPU reset, a phone short of memory) is waited for and drawn again in
+// Standard, held for the session (`loseContext`, `restoreContext`).
 //
 // Controls: left drag orbits (pans in the top-down view), right drag pans, the wheel zooms. On the
 // focused canvas: W A S D or the arrows pan, Q and E turn, + and − zoom (F is the brush's resize,
@@ -446,7 +448,7 @@ function askSoftwareRendering(): boolean {
   }
 }
 
-/** Test hooks for the look (tests/e2e/look-high.spec.ts), set before the view is made: `gpu`
+/** Test hooks for the look (tests/e2e/look-high-shared.ts, for look-high.spec.ts and look-high-scenes.spec.ts), set before the view is made: `gpu`
  *  treats a browser drawing in software as if it had a GPU (CI's has none), so the High look and its
  *  fallback can be tried there; `limits` replaces the fallback's limits (fewer frames to wait);
  *  `cost` reports every frame as costing that many milliseconds (`simulateFrameCost`). */
@@ -613,6 +615,10 @@ export class MapRenderer {
   private frameEnd = 0;
   private resize: ResizeObserver;
   private disposed = false;
+  /** The browser has taken the view's WebGL context away and not given it back yet (`loseContext`). */
+  private lost = false;
+  /** The view's context was taken away (true) or given back and drawn again in Standard (false). */
+  onLost: ((lost: boolean) => void) | null = null;
   /** The press being dragged; a finger's (touch.ts) carries its press, a tap with the resting tool replaying it. */
   private drag: { kind: "orbit" | "pan" | "tool"; x: number; y: number; id: number; moved: number; button: number; touch?: PointerEvent } | null = null;
   /** The fingers on the view and the camera's gesture (touch.ts, #1074). */
@@ -694,9 +700,10 @@ export class MapRenderer {
   private casters: Float32Array | null | undefined = undefined;
   /** Every object's casters, the hidden and faded ones too (`casters` is what casts now: `castersNow`). */
   private allCasters: Float32Array | null = null;
-  /** The tiles of the plants a held weather day has surely killed (the High look's visible seasons, D250), the objects as
+  /** The cells (level × W × H + tile) of the plants a held weather day has surely killed (the High look's visible seasons,
+   *  D250), the objects as
    *  drawn with them dead (for the shadows), and how many plants that is; the map's own plants are never changed. */
-  private withered: Int32Array | null = null;
+  private withered: Set<number> | null = null;
   private drawnObjects: EntityView | null = null;
   private witheredCount = 0;
   /** How many living plants are drawn dying now (the ground as shown: core/sim/withering.ts `dyingCause`). */
@@ -802,6 +809,9 @@ export class MapRenderer {
     }
     this.resize = new ResizeObserver(() => this.fit());
     this.resize.observe(canvas);
+    // (after three.js's own listeners, made with the context: its state is made again before `restoreContext` runs)
+    this.on(canvas, "webglcontextlost", (e) => this.loseContext(e));
+    this.on(canvas, "webglcontextrestored", () => this.restoreContext());
     this.fit();
     if (!this.still && !this.recording) this.bindInput();
     if (!this.software) {
@@ -1352,9 +1362,55 @@ export class MapRenderer {
     this.requestRender();
   }
 
+  /** Whether the browser has taken the view's context away and not given it back yet. */
+  get contextLost(): boolean {
+    return this.lost;
+  }
+
+  /** The browser took the view's context away (a GPU reset, a phone short of memory, too many contexts): nothing is
+   *  drawn until it is given back, which preventing the default asks for (three.js asks too). The view's own
+   *  `forceContextLoss` when it closes never comes here: its listeners are gone first. */
+  private loseContext(e: Event): void {
+    e.preventDefault();
+    if (this.disposed) return;
+    this.lost = true;
+    cancelAnimationFrame(this.frame);
+    this.frame = 0;
+    clearTimeout(this.breath);
+    this.breath = 0;
+    clearTimeout(this.animTimer);
+    this.animTimer = 0;
+    clearTimeout(this.probeTimer);
+    this.onLost?.(true);
+  }
+
+  /** The context is back. three.js has made its own state again (its listener runs first) and uploads the map's
+   *  geometry, textures and programs from their copies at the next frame; what lived only on the GPU is made here: the
+   *  patterns drawn into a target, the screen's copies behind the water and the bloom's targets, the timer queries.
+   *  The view then draws in Standard, held for the session (High's load may be what lost it), the player's saved
+   *  choice kept. */
+  private restoreContext(): void {
+    if (this.disposed || !this.lost) return;
+    this.lost = false;
+    this.patterns.dispose();
+    this.patterns = drawPatterns(this.gl, !this.software);
+    this.uniforms.patternTex.value = this.patterns.texture;
+    this.refraction.contextLost();
+    this.bloom?.dispose();
+    this.bloom = null;
+    this.costTimer = null;
+    this.timer = null;
+    this.programs.restart();
+    this.holdTier("standard");
+    this.requestRender();
+    this.onLost?.(false);
+  }
+
   /** Draw with the High materials, High's lower-cost tier, or the Standard ones. */
   private applyLook(tier: Tier): void {
     if (this.software) return;
+    // (nothing new is set up on a context that is gone: the look is decided when it is back, restoreContext)
+    if (this.lost) return;
     if (!this.highProgramsReady(tier)) return;
     this.lookWaiting = null;
     if (tier !== "standard" && !this.high) {
@@ -2693,12 +2749,13 @@ export class MapRenderer {
     this.requestRender();
   }
 
-  /** The plants a held drought or badtide day has surely killed (the worker's `withered`, core/sim/withering.ts), by tile, or
-   *  null to put them back: drawn dead in every look, as the game shows them whatever its quality (D242 and D250 as
+  /** The plants a held drought or badtide day has surely killed (the worker's `withered`, core/sim/withering.ts), by cell
+   *  (each plant's level × W × H + its tile: of two plants on one tile, one on the top and one in a cave below, only the
+   *  one named), or null to put them back: drawn dead in every look, as the game shows them whatever its quality (D242 and D250 as
    *  amended 2026-10-29); the map's own plants stay as they are. In High plants change state in place, so stepping from day
    *  to day costs a layout; Standard's and the light look's objects are drawn again, the batches that did not change kept. */
-  setWithered(tiles: Int32Array | null): void {
-    this.withered = tiles;
+  setWithered(cells: Int32Array | null): void {
+    this.withered = cells?.length ? new Set(cells) : null;
     this.applyWithered();
   }
 
@@ -2730,12 +2787,8 @@ export class MapRenderer {
   private witheredView(e: EntityView): { view: EntityView; count: number; dying: number } {
     const m = this.map;
     if (!m) return { view: e, count: 0, dying: 0 };
-    const tiles = this.withered;
-    let dead: Uint8Array | null = null;
-    if (tiles?.length) {
-      dead = new Uint8Array(m.W * m.H);
-      for (const t of tiles) dead[t] = 1;
-    }
+    const N = m.W * m.H;
+    const dead = this.withered;
     // (the soil the objects are drawn by: a provisional soil without its run tops keeps the last drawn, as the ruins do)
     const soil = this.objectSoil();
     const sw = m.surface;
@@ -2749,13 +2802,13 @@ export class MapRenderer {
       const y = e.y[k];
       if (!rule[e.template[k]] || e.flags[k] & DEAD || x < 0 || y < 0 || x >= m.W || y >= m.H) continue;
       const i = y * m.W + x;
-      if (dead?.[i]) {
+      const z = e.z[k];
+      if (dead?.has(z * N + i)) {
         flags ??= e.flags.slice();
         flags[k] |= DEAD;
         count++;
         continue;
       }
-      const z = e.z[k];
       const ground = soil ? objectSoilAt(soil, m.W, x, y, z) : null;
       if (!ground) continue;
       const above = sw ? Math.max(waterAboveBase(z, sw.floor[i], sw.depth[i]), lower?.get(z * m.W * m.H + i) ?? 0) : 0;
@@ -4480,7 +4533,7 @@ export class MapRenderer {
   // --------------------------------------------------------------------------------- rendering
 
   requestRender(): void {
-    if (this.frame || this.breath || this.disposed) return;
+    if (this.frame || this.breath || this.disposed || this.lost) return;
     // (a browser drawing slowly, frame after frame (software drawing: about 0.4 s a frame, 2 s on two cores), gets a
     // breath as long as its frame before the next: else frames run back to back and every turn of the page's own work,
     // a force's next steps, its keep, a click, waits a whole frame, so a force that plays in 2 s takes 24 s (D453); a
@@ -4505,7 +4558,8 @@ export class MapRenderer {
   }
 
   renderNow(): void {
-    if (this.disposed) return;
+    // (what changes meanwhile waits for the context: the land's and the water's queues are drawn when it is back)
+    if (this.disposed || this.lost) return;
     this.framesDrawn++;
     // (the water chunks the land queues are drained below, in this frame: `layeredWaterNear`)
     this.landInFrame = true;

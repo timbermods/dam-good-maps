@@ -191,9 +191,24 @@ test("a click adds a block onto the face, Shift removes it, a drag paints a plan
   expect(await edits(page)).toBe(edits0);
   expect(await height(page, px, py)).toBe(h);
 
-  // the click adds it
+  // the click adds it; its preview stays drawn until the land answers, cleared in the same task the new land is drawn
+  // in (D488 audit: cleared at the press, the click showed nothing for a quarter second on a 256² map)
+  await page.evaluate(() => {
+    const r = window.dgm3d!.renderer as unknown as Record<string, (...a: unknown[]) => unknown>;
+    const log: string[] = [];
+    (window as unknown as { blockLog: string[] }).blockLog = log;
+    const show = r.showBlocks.bind(r);
+    r.showBlocks = (s: unknown) => (log.push(s ? "show" : "clear"), show(s));
+    for (const k of ["updateTerrain", "updateTerrainRect"]) {
+      const f = r[k].bind(r);
+      r[k] = (...a: unknown[]) => (log.push("land"), f(...a));
+    }
+  });
   await click(page, px, py, h - 1, "+z");
   expect(await height(page, px, py)).toBe(h + 1);
+  const log = await page.evaluate(() => (window as unknown as { blockLog: string[] }).blockLog);
+  expect(log.indexOf("land"), "the click's land drawn").toBeGreaterThanOrEqual(0);
+  expect(log.indexOf("clear"), `the preview cleared only once the land came (${log.join(" ")})`).toBeGreaterThan(log.indexOf("land"));
 
   // Shift turns the same face's click into a remove: the Action shows it, the preview takes the block
   const p = await face(page, px, py, h, "+z");

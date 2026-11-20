@@ -144,7 +144,7 @@ namespace DGMCompanion
                 return;
             }
             string name = Path.GetFileNameWithoutExtension(_mapPath);
-            // The app never overwrites a map: saving it again makes a new file ("name-2"), so the newest save
+            // The app never overwrites a map: saving it again makes a new file ("name (2)"), so the newest save
             // of the map is looked for in the folder, not only the file this game started on.
             ReloadOffer offer = MapFileWatch.Check(_mapPath, _stamp);
             switch (offer.Change)

@@ -312,7 +312,7 @@ export function planExtras(inp: ExtrasInput): MapObjectFeature[] {
   for (let k = 0, made = 0; made < beltsWant && k < beltsWant + 10; k++) {
     // in front of a relic or a field first; then anywhere on dry ground
     const tgt = targets.length && k < beltsWant + 3 ? targets[k % targets.length] : null;
-    const belt = thornBelt(rng, tgt?.tiles ?? null, { W, H, h, sd, blocked, water: b.water, near: inp.spec.settings.start.easyStart === true ? EASY_THORNS : THORNS_NEAR });
+    const belt = thornBelt(rng, tgt?.tiles ?? null, { W, H, h, sd, blocked, water: b.water, near: inp.spec.settings.start.easyStart === true || inp.spec.designedFor === "easy" ? EASY_THORNS : THORNS_NEAR });
     if (!belt) continue;
     const { id: fid, role } = id("thornBelt", made);
     out.push({ id: fid, kind: "mapObject", origin: "generated", role, locked: false, params: { kind: "thornBelt", placement: { area: tilesToRuns(belt, W) } } });
@@ -322,7 +322,10 @@ export function planExtras(inp: ExtrasInput): MapObjectFeature[] {
   return out;
 }
 
-/** How near the start's middle a thorn may stand: 22 tiles, and beyond Easy start's 30 for one (D495). */
+/** How near the start's middle a thorn may stand: 22 tiles, and beyond Easy start's 30 where Easy start is on (D495)
+ *  and on every map Designed for Easy, Easy start on or off (uplands round 6b step 5: the checks run Easy's rows only
+ *  with Easy start on, the round's measures on every map, and Highlands Easy 256² seed 1's belt in front of a relic stood
+ *  27–30 tiles from its start). */
 const THORNS_NEAR = 22;
 const EASY_THORNS = 31;
 

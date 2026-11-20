@@ -1,7 +1,8 @@
 // What the generator worker returns to the page: everything the preview, the map card and the
 // downloads need, with the big arrays as typed arrays (transferred, not copied).
 
-import { encodeProject, projectFileName, generatedDocument } from "../core/doc/document";
+import { encodeProject, generatedDocument } from "../core/doc/document";
+import { mapFileName, mapProjectFileName } from "../core/format/fileName";
 import { isSapling } from "../core/analysis/wood";
 import { componentsOf } from "../core/format/entities";
 import { JsonFloat, num, type JsonObject } from "../core/format/json";
@@ -173,9 +174,9 @@ export async function responseOf(r: ResponseInput): Promise<GenerateResponse> {
     passed: r.passed,
     attempts: r.attempts,
     timber: r.timber,
-    timberName: fileName(r.spec, lastSeedWord),
+    timberName: mapFileName(r.name ?? mapName(r.spec)),
     project: r.project,
-    projectName: projectFileName(r.spec, lastSeedWord),
+    projectName: mapProjectFileName(r.name ?? mapName(r.spec)),
     name: r.name ?? mapName(r.spec),
     premise: r.premise ?? description(r.spec),
     sha256: r.timber.length ? await sha256(r.timber) : "",

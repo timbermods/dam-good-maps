@@ -37,10 +37,13 @@
 //    wider steps between higher walls: a steep slope is a cliff with ledges, never a stair. A cliff
 //    the force made by intent (a jump in its surface) stays where it is, whole.
 // 3. No one-tile pillar, pit, ridge, trench or lone block: the same rule, a pit or a trench filling to
-//    the ground beside it.
+//    the ground beside it. A tile no square reaches joins ground within two levels of its own before any
+//    further off: the corner of a cliff's foot waits for the low ground beside it to settle and never
+//    climbs to the cliff's top.
 //
 // The land's own narrow ground stays where the force changes the ground by a level or less: the tidying
-// never drops a brink, or the corner of a ridge, the force only brushed down its cliff.
+// never drops a brink, or the corner of a ridge, the force only brushed down its cliff; where it cannot stand
+// where it stood without being one tile wide, it goes with the ground beside it within two levels.
 //
 // Ground the force did not change is never touched except right beside ground it did (a sliver left
 // between the two would be a fault of the force). Integers, comparisons and the planner's own rounding
@@ -237,25 +240,27 @@ pub(super) fn whole(surface: &[f64], ground: &[f64], before: &[u8], w: usize, h:
     // (a corner put back where the force put it goes with the ground of its level the force only brushed
     // round it, which the tidying may have moved by less, so it stands in a square; and it stays only
     // where that leaves nothing one tile wide that the tidying had left at least two wide: else that
-    // ground goes back where it stood, or the corner alone does, or failing that it keeps what the
-    // tidying gave it. The land's own ground one tile wide, standing where it stood, counts for none of
-    // this: the tidying may widen a ledge at the foot of a cliff by dropping the corner of the ridge
-    // above it, but the ledge was one tile wide before the force, and the corner goes back)
+    // ground goes back where it stood, or the corner alone does, or it takes the level of the ground
+    // beside it within two levels of where it stood. Failing all of these it still never falls the cliff
+    // (D531): it stands on the first of those levels that puts it in a square, else where
+    // it stood, and the ground beside it that this leaves one tile wide joins ground within two levels of
+    // where that stood, where it can. The
+    // land's own ground one tile wide, standing where it stood, counts for none of this: the tidying may
+    // widen a ledge at the foot of a cliff by dropping the corner of the ridge above it, but the ledge was
+    // one tile wide before the force, and the corner goes back)
     let tidied = land.clone();
-    let narrowed = |land: &[u8], tiles: &[usize]| {
-        tiles.iter().any(|&i| {
-            let (x, y) = (i % w, i / w);
-            let mut any = false;
-            for ny in y.saturating_sub(1)..=(y + 1).min(h - 1) {
-                for nx in x.saturating_sub(1)..=(x + 1).min(w - 1) {
-                    let j = ny * w + nx;
-                    let own = land[j] == before[j] && !wide(before, w, h, nx, ny);
-                    any = any || (wide(&tidied, w, h, nx, ny) && !wide(land, w, h, nx, ny) && !own);
-                }
-            }
-            any
-        })
+    // (ground the tidying had left at least two tiles wide that the land leaves one tile wide)
+    let lost = |land: &[u8], j: usize| {
+        let (x, y) = (j % w, j / w);
+        let own = land[j] == before[j] && !wide(before, w, h, x, y);
+        wide(&tidied, w, h, x, y) && !wide(land, w, h, x, y) && !own
     };
+    let round = |i: usize| {
+        let (x, y) = (i % w, i / w);
+        (y.saturating_sub(1)..=(y + 1).min(h - 1)).flat_map(move |ny| (x.saturating_sub(1)..=(x + 1).min(w - 1)).map(move |nx| ny * w + nx))
+    };
+    let narrowed = |land: &[u8], tiles: &[usize]| tiles.iter().any(|&i| round(i).any(|j| lost(land, j)));
+    let mut loose = vec![];
     for &(i, square) in &back {
         if !square {
             continue;
@@ -296,8 +301,79 @@ pub(super) fn whole(surface: &[f64], ground: &[f64], before: &[u8], w: usize, h:
             land[j] = was[n];
         }
         land[i] = before[i];
-        if narrowed(&land, &[i]) {
-            land[i] = was[0];
+        if !narrowed(&land, &[i]) {
+            continue;
+        }
+        // (or the level of the ground beside it within two levels of where it stood, the nearest to where
+        // the force put it: it moves with that ground. The end of a ridge's diagonal row on a crater's edge,
+        // its row above raised a level and itself not, stood one tile wide between the two, and the tidying
+        // dropped it the cliff's height)
+        let mut beside: Vec<u8> = [(-1i64, 0i64), (1, 0), (0, -1), (0, 1)]
+            .iter()
+            .filter_map(|&(dx, dy)| {
+                let (nx, ny) = (x0 + dx, y0 + dy);
+                (nx >= 0 && ny >= 0 && nx < w as i64 && ny < h as i64).then(|| land[ny as usize * w + nx as usize])
+            })
+            .filter(|&l| l != before[i] && (l as i32 - before[i] as i32).abs() <= 2)
+            .collect();
+        beside.sort_by_key(|&l| ((l as i32 - rounded[i] as i32).abs(), (l as i32 - before[i] as i32).abs(), l));
+        beside.dedup();
+        if beside.iter().any(|&l| {
+            land[i] = l;
+            !narrowed(&land, &[i])
+        }) {
+            continue;
+        }
+        // (failing all of these it still never falls the cliff: a plateau's corner on a diagonal brink, the
+        // force lowering the ground at its foot a level so that ground stood one tile wide, was dropped to
+        // it, twelve levels, to widen it)
+        let (x, y) = (x0 as usize, y0 as usize);
+        land[i] = beside
+            .iter()
+            .copied()
+            .find(|&l| {
+                land[i] = l;
+                in_square(&land, w, h, x, y)
+            })
+            .unwrap_or(before[i]);
+        loose.extend(round(i).filter(|&j| lost(&land, j)));
+    }
+    // (the ground beside such a corner that it leaves one tile wide joins the ground beside it within two
+    // levels of where it stood, the nearest to its own, where that leaves it two tiles wide; else it stays as
+    // it is. Never further: settled as the last odd tiles are, a tile of it fell five levels. The tiles put
+    // back stay)
+    let mut put = vec![false; w * h];
+    for &(i, _) in &back {
+        put[i] = true;
+    }
+    for _ in 0..3 {
+        let mut moved = false;
+        for &j in &loose {
+            let (x, y) = (j % w, j / w);
+            if !free[j] || put[j] || wide(&land, w, h, x, y) {
+                continue;
+            }
+            let mut levels: Vec<u8> = [(-1i64, 0i64), (1, 0), (0, -1), (0, 1)]
+                .iter()
+                .filter_map(|&(dx, dy)| {
+                    let (nx, ny) = (x as i64 + dx, y as i64 + dy);
+                    (nx >= 0 && ny >= 0 && nx < w as i64 && ny < h as i64).then(|| land[ny as usize * w + nx as usize])
+                })
+                .filter(|&l| l != land[j] && (l as i32 - before[j] as i32).abs() <= 2)
+                .collect();
+            levels.sort_by_key(|&l| ((l as i32 - land[j] as i32).abs(), l));
+            let was = land[j];
+            if levels.into_iter().any(|l| {
+                land[j] = l;
+                wide(&land, w, h, x, y)
+            }) {
+                moved = true;
+            } else {
+                land[j] = was;
+            }
+        }
+        if !moved {
+            break;
         }
     }
     land
@@ -461,6 +537,9 @@ fn squares(heights: &mut [u8], w: usize, h: usize, free: &[bool]) -> bool {
     // The tiles no square reached. Each joins a level that three settled tiles of one of its squares
     // share (the nearest to its own, so it stands in a square there); where none does, a ring of
     // them at a time joins the ground beside it (a trench fills from its sides, then stands in squares).
+    // Ground within two levels of a tile's own settles first: a level further off is joined only when no
+    // tile left can join a nearer one, so the corner of a cliff's foot whose low ground is still to
+    // settle waits for it and never climbs to the cliff's top.
     let mut left: Vec<u32> = (0..w * h).filter(|&i| land[i] == UNSET).map(|i| i as u32).collect();
     let any = !left.is_empty();
     let mut joined: Vec<(u32, u16)> = vec![];
@@ -469,6 +548,7 @@ fn squares(heights: &mut [u8], w: usize, h: usize, free: &[bool]) -> bool {
         _ => Some(to),
     };
     let mut ring = false;
+    let mut further = false;
     while !left.is_empty() {
         joined.clear();
         for &i in &left {
@@ -480,10 +560,13 @@ fn squares(heights: &mut [u8], w: usize, h: usize, free: &[bool]) -> bool {
                 if nx < 0 || ny < 0 || nx >= w as i64 || ny >= h as i64 { UNSET } else { land[ny as usize * w + nx as usize] }
             };
             let mut best = None;
+            let far = |g: u16| (g as i32 - own as i32).abs() > 2;
             if ring {
+                // (from the ground within two levels of its own where there is any)
+                let near = [(-1i64, 0i64), (1, 0), (0, -1), (0, 1)].iter().any(|&(dx, dy)| at(dx, dy) != UNSET && !far(at(dx, dy)));
                 for (dx, dy) in [(-1i64, 0i64), (1, 0), (0, -1), (0, 1)] {
                     let g = at(dx, dy);
-                    if g != UNSET {
+                    if g != UNSET && !(near && far(g)) {
                         best = match best {
                             // (the lowest that is no lower than itself, else the highest)
                             Some(b) if (b >= own && (g < own || g >= b)) || (b < own && g < b) => Some(b),
@@ -494,11 +577,10 @@ fn squares(heights: &mut [u8], w: usize, h: usize, free: &[bool]) -> bool {
             } else {
                 // (a tile that touches settled ground within two levels of its own never joins ground
                 // further off: the brink of a cliff stays on the cliff's top)
-                let far = |g: u16| (g as i32 - own as i32).abs() > 2;
                 let held = [(-1i64, 0i64), (1, 0), (0, -1), (0, 1)].iter().any(|&(dx, dy)| at(dx, dy) != UNSET && !far(at(dx, dy)));
                 for (dx, dy) in [(-1i64, -1i64), (1, -1), (-1, 1), (1, 1)] {
                     let (a, b, c) = (at(dx, 0), at(0, dy), at(dx, dy));
-                    if a != UNSET && a == b && b == c && !(held && far(a)) {
+                    if a != UNSET && a == b && b == c && !((held || !further) && far(a)) {
                         best = nearer(a, best, own);
                     }
                 }
@@ -508,6 +590,10 @@ fn squares(heights: &mut [u8], w: usize, h: usize, free: &[bool]) -> bool {
             }
         }
         if joined.is_empty() {
+            if !ring && !further {
+                further = true;
+                continue;
+            }
             if ring {
                 // (nothing settled beside them: they keep their levels)
                 for &i in &left {
@@ -519,6 +605,7 @@ fn squares(heights: &mut [u8], w: usize, h: usize, free: &[bool]) -> bool {
             continue;
         }
         ring = false;
+        further = false;
         for &(i, to) in &joined {
             land[i as usize] = to;
         }
@@ -737,6 +824,73 @@ mod tests {
             let land = whole(&surface, &ground, &before, W, W, 40.0, seed, 27.0);
             for i in 0..W * W {
                 assert!((land[i] as i32 - before[i] as i32).abs() <= 2, "seed {seed}, {},{}: {} from {}", i % W, i / W, land[i], before[i]);
+            }
+        }
+    }
+    #[test]
+    fn the_end_of_a_ridges_row_on_a_craters_edge_stays() {
+        // (River Valley 128 seed 5, generator 0.10.48, under the gentlest Craterize at its largest Size: a
+        // diagonal ridge six levels over the ground round it, the crater's edge across it, its rows above
+        // raised a level and its last row not; that row stood one tile wide between the two, and the
+        // tidying dropped its end, 9, to the ground at its foot, 3)
+        let rows: [[u8; 11]; 9] = [
+            [9, 9, 3, 3, 3, 3, 3, 3, 3, 7, 7],
+            [3, 9, 9, 9, 3, 3, 3, 3, 3, 5, 5],
+            [3, 9, 9, 9, 9, 3, 3, 3, 3, 5, 5],
+            [3, 3, 9, 9, 9, 9, 3, 3, 3, 5, 5],
+            [3, 3, 9, 9, 9, 9, 9, 3, 5, 5, 5],
+            [3, 3, 3, 3, 3, 3, 3, 3, 3, 5, 5],
+            [9, 3, 3, 3, 3, 3, 3, 3, 3, 3, 5],
+            [3, 3, 3, 3, 3, 5, 5, 3, 3, 3, 5],
+            [3, 3, 3, 9, 9, 5, 5, 5, 3, 3, 3],
+        ];
+        let at = |x: usize, y: usize| (rows[y.clamp(20, 28) - 20][x.clamp(20, 30) - 20], y.clamp(20, 28) < 24);
+        let before: Vec<u8> = (0..W * W).map(|i| at(i % W, i / W).0).collect();
+        let surface: Vec<f64> = (0..W * W).map(|i| { let (l, raised) = at(i % W, i / W); l as f64 + if raised { 1.0 } else { 0.0 } }).collect();
+        let ground: Vec<f64> = before.iter().map(|&l| l as f64).collect();
+        for seed in [0.0, 4.0, 9.0] {
+            let land = whole(&surface, &ground, &before, W, W, 40.0, seed, 27.0);
+            for i in 0..W * W {
+                assert!((land[i] as i32 - before[i] as i32).abs() <= 2, "seed {seed}, {},{}: {} from {}", i % W, i / W, land[i], before[i]);
+            }
+        }
+    }
+    #[test]
+    fn a_plateaus_corner_never_falls_to_widen_its_foot() {
+        // (River Valley 96 seed 4, generator 0.10.48, under the gentlest Craterize at its largest Size: a
+        // plateau twelve levels over the ground at its foot, its brink a diagonal stair; the force raised
+        // the plateau a level and lowered the foot a level, leaving the foot's ground at 4 one tile wide, and
+        // the tidying dropped a corner of the brink, 16, to 4 to widen it)
+        let before: [[u8; 11]; 9] = [
+            [16, 16, 16, 16, 16, 16, 16, 16, 4, 4, 4],
+            [16, 16, 16, 16, 16, 16, 16, 4, 4, 4, 4],
+            [16, 16, 16, 16, 16, 16, 16, 4, 4, 4, 4],
+            [16, 16, 16, 16, 16, 16, 16, 4, 4, 4, 4],
+            [16, 15, 16, 16, 16, 16, 4, 4, 4, 4, 3],
+            [15, 15, 15, 15, 16, 4, 4, 4, 4, 3, 3],
+            [15, 15, 15, 15, 15, 4, 4, 4, 4, 4, 3],
+            [15, 15, 15, 15, 15, 4, 4, 4, 4, 4, 4],
+            [15, 15, 15, 15, 15, 15, 4, 4, 4, 4, 4],
+        ];
+        let surface: [[u8; 11]; 9] = [
+            [17, 17, 17, 17, 17, 17, 17, 17, 4, 4, 4],
+            [17, 17, 17, 17, 17, 17, 17, 4, 4, 4, 4],
+            [17, 17, 17, 17, 17, 17, 16, 4, 4, 4, 4],
+            [17, 17, 17, 17, 17, 16, 16, 4, 4, 4, 3],
+            [17, 16, 17, 17, 16, 16, 4, 4, 4, 3, 2],
+            [16, 16, 16, 15, 16, 4, 4, 3, 3, 2, 2],
+            [16, 16, 15, 15, 15, 4, 3, 3, 3, 3, 2],
+            [16, 15, 15, 15, 15, 3, 3, 3, 3, 3, 3],
+            [15, 15, 15, 15, 14, 14, 3, 3, 3, 3, 3],
+        ];
+        let at = |rows: &[[u8; 11]; 9], i: usize| rows[(i / W).clamp(20, 28) - 20][(i % W).clamp(20, 30) - 20];
+        let old: Vec<u8> = (0..W * W).map(|i| at(&before, i)).collect();
+        let shaped: Vec<f64> = (0..W * W).map(|i| at(&surface, i) as f64).collect();
+        let ground: Vec<f64> = old.iter().map(|&l| l as f64).collect();
+        for seed in [0.0, 4.0, 9.0] {
+            let land = whole(&shaped, &ground, &old, W, W, 40.0, seed, 27.0);
+            for i in 0..W * W {
+                assert!((land[i] as i32 - old[i] as i32).abs() <= 2, "seed {seed}, {},{}: {} from {}", i % W, i / W, land[i], old[i]);
             }
         }
     }

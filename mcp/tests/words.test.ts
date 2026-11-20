@@ -9,6 +9,8 @@ import { join } from "node:path";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import opsSchema from "../../src/core/doc/ops.schema.json" with { type: "json" };
 import { naturalSize } from "../../src/core/forces/craterize";
+import { mapFileName } from "../../src/core/format/fileName";
+import { INTENTION_TABLE, offeredThemes } from "../../src/core/land/intentionTable";
 import { closeAll, generateMap, mapOf, MOST_OPEN, WHERE_MOST } from "../src/maps";
 import { callTool, TOOLS } from "../src/server";
 
@@ -101,11 +103,26 @@ describe("the MCP server's words", () => {
       return textOf(r);
     };
     // the example in generate's description, as it stands there, gives its intention (under-cliff on River Valley: 12 of
-    // 12 in the intention table); Canyon 128, seed 1 is offered it (4 of 12) and misses (re-pin both if the generator
-    // moves, D148; the example's seed 3 for 1 since generator 0.10.29, D148: the land 0.10.29 gives (the weathering's disc
-    // of the square's area, the washes' brush and swing) moved seed 1's start off its cliff; seeds 3, 5 and 6 of 1–6 give it)
+    // 12 in the intention table; the example's seed 3 for 1 since generator 0.10.29, D148: the land 0.10.29 gives (the
+    // weathering's disc of the square's area, the washes' brush and swing) moved seed 1's start off its cliff; seeds 3, 5
+    // and 6 of 1–6 give it). The miss is read from the table by a rule, so the table's next move cannot make it stale
+    // (D148, generator 0.10.47: under-cliff left Canyon, 4 → 3 of 12, for Delta; this test asked it on Canyon 128 seed 1):
+    // the theme the table offers it for with the fewest maps it emerged on, and the first of the table's seeds where it
+    // does not emerge there (one more map at most than the table counts it emerging on)
     const example = JSON.parse(/(\{"theme": "riverValley"[^}]*\})/.exec(TOOLS.find((t) => t.name === "generate")!.description!)![1]);
-    const [hit, miss] = await Promise.all([made(example), made({ theme: "canyon", size: 128, seed: 1, intentions: ["under-cliff"] })]);
+    const counts = INTENTION_TABLE.counts["under-cliff"];
+    const rare = offeredThemes("under-cliff").reduce((a, b) => (counts[b] < counts[a] ? b : a));
+    expect(counts[rare]).toBeLessThan(INTENTION_TABLE.seeds.length);
+    const hit = await made(example);
+    let miss = "";
+    for (const seed of INTENTION_TABLE.seeds) {
+      const text = await made({ theme: rare, size: INTENTION_TABLE.side, seed, intentions: ["under-cliff"] });
+      if (/^- under-cliff \(asked for\): did not emerge/m.test(text)) {
+        miss = text;
+        break;
+      }
+    }
+    expect(miss, `under-cliff emerged on every seed of ${rare}`).not.toBe("");
     expect(hit).toMatch(/^- under-cliff \(asked for\): emerged/m);
     expect(hit).not.toContain("did not emerge. The map is made");
     // drawn intentions are not marked
@@ -143,12 +160,13 @@ describe("the MCP server's words", () => {
             expect(v.length, `${row.id} ${key}`).toBeLessThanOrEqual(WHERE_MOST);
             if (v.length === WHERE_MOST) expect(row.where[`${key}Total`] ?? WHERE_MOST).toBeGreaterThanOrEqual(WHERE_MOST);
           }
-      // save: a generated map with its own name keeps the seed's file name; another name names the files
+      // save: the files take the map's name as written, its own or another (D443 amended 2026-11-18; until then
+      // dgm-river-valley-2 and dgm-hollow-test, D148)
       const own = s.meta.name;
       expect((await callTool("save", { map: handle, folder: dir, name: own })).isError).toBeFalsy();
-      expect(readdirSync(dir)).toContain("dgm-river-valley-2.timber");
+      expect(readdirSync(dir)).toContain(mapFileName(own));
       await callTool("save", { map: handle, folder: dir, name: "Hollow Test" });
-      expect(readdirSync(dir)).toContain("dgm-hollow-test.timber");
+      expect(readdirSync(dir)).toContain("Hollow Test.timber");
       // a map no longer open: the refusal says why and what to do
       for (let k2 = 0; k2 < MOST_OPEN; k2++) generateMap({ theme: "riverValley", size: 48, seed: k2 + 1 });
       const gone = await callTool("describe", { map: handle });

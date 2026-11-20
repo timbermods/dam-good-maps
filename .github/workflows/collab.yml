@@ -54,7 +54,7 @@ concurrency:
 
 jobs:
   connection:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 45
     steps:
       - uses: actions/checkout@v7
@@ -72,8 +72,9 @@ jobs:
       - run: npm ci --prefix collab-worker
       - run: npm run typecheck --prefix collab-worker
       - run: npx vitest run --project quick tests/unit/collab
-      - name: Install Chromium and Firefox for Playwright
-        run: npx playwright install --with-deps chromium firefox
+      - uses: ./.github/actions/playwright
+        with:
+          browsers: chromium firefox
       - name: Connection test
         run: npx playwright test -c playwright.collab.config.ts
       - uses: actions/upload-artifact@v7

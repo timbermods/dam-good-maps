@@ -4,7 +4,7 @@
 // and the open map brought back on the next visit.
 
 import { expect, test, type Page } from "@playwright/test";
-import { centreOn, generateButton, openEditor, openFileMenu, openSection, openYourMaps, pick, waitForEditor, topDown } from "./open";
+import { centreOn, generateButton, openEditor, openFileMenu, openSection, openYourMaps, pick, shownName, waitForEditor, topDown } from "./open";
 import { toolInHand, toolPutAway } from "./helpers";
 
 async function drag(page: Page, from: [number, number], to: [number, number]) {
@@ -23,7 +23,9 @@ const info = (page: Page) => page.evaluate(() => window.dgmEditor!.info());
 test("open → edit → Generate replaces the map without asking and Your maps keeps the edits → a reload brings the open map back", async ({ page }) => {
   const errors: string[] = [];
   page.on("pageerror", (e) => errors.push(String(e)));
-  // (seed 4263 on 0.8.1's maps, D148: the edited 4262's checks show a thing to look at, or its spring
+  // (seed 4264 on 0.10.48's maps, D148: 4263 itself is ready to play, but edited it shows two things to look at, the
+  // start moved two tiles west within 2 tiles of water and a geothermal field within 2 tiles of water;
+  // seed 4263 on 0.8.1's maps, D148: the edited 4262's checks show a thing to look at, or its spring
   // beside the river is refused, since the badwater ditches follow the land; seed 4262 on M9b's maps,
   // D148: the edited 4261 shows a geothermal field within 2 tiles of water, a
   // thing to look at; seed 4261 since D333, D148: on 4254's map the start moved two tiles west has little wood and
@@ -32,7 +34,7 @@ test("open → edit → Generate replaces the map without asking and Your maps k
   // a level above the river's outlet, and the spring below flooded it)
   // (a generated map's name is its own since M9b, from its standout, D278: the editor keeps it)
   // refine: the editor opens the generated map in 3D
-  await openEditor(page, "s=4263&z=96&d=n&t=riverValley");
+  await openEditor(page, "s=4264&z=96&d=n&t=riverValley");
   await expect(page.getByRole("heading", { name: (await info(page)).name })).toBeVisible();
   expect((await page.evaluate(() => window.dgm3d!.renderer.info())).triangles).toBeGreaterThan(0);
   await topDown(page);
@@ -151,7 +153,8 @@ test("open → edit → Generate replaces the map without asking and Your maps k
   await expect(page.getByRole("button", { name: /^Checks: Ready to play/ })).toBeVisible({ timeout: 60_000 });
   const download = page.waitForEvent("download");
   await (await openFileMenu(page)).getByRole("menuitem", { name: "Download .timber" }).click();
-  expect((await download).suggestedFilename()).toBe("dgm-river-valley-4263.timber");
+  // (named by the map's name as the header shows it, D443 amended 2026-11-18; it was dgm-river-valley-4263, D148)
+  expect((await download).suggestedFilename()).toBe(`${await shownName(page)}.timber`);
   await expect(page.getByRole("status").filter({ hasText: /Move the file to/ })).toBeVisible();
 
   // Generate over the edited map asks nothing and makes a new map (edits never replay onto new land, D336);
