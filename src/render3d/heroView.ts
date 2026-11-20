@@ -221,6 +221,10 @@ export const FORM_LEAST = 0.015;
  *  measure fitted to the eye, D506) than the landmark's and still take the card from it: a form is shown where the
  *  picture is no worse to the eye for it, never in place of a better one (Any 6's falls and river, D488 audit). */
 export const LOOKS_GIVE = 0.1;
+/** How much less an arch's frame may score by the looks score than the whole map's picture (\`heroCamera\`), on a map
+ *  with no landmark frame, and still take the card from it: less than \`LOOKS_GIVE\`, since the whole map already
+ *  shows the map's theme (Delta 11's arch, 0.09 under its whole map, hid the delta's channels as Delta 8's had). */
+export const WHOLE_GIVE = 0.05;
 /** The forms looked at, the largest mouths first (each a few pictures cast). */
 const FORMS_MOST = 6;
 /** A form's mouth, at least: faces of air beneath rock open to the sky beside it. */
@@ -478,7 +482,7 @@ export function sightFrames(view: MapView, land: PictureLand, prep: PreparedPict
  *  - **each rock arch** (`formSights`' arches, looked through; never an overhang or a cave: `sightFrames`), at the
  *    frame's middle, from `ARCH_PITCHES` × `FORM_DISTANCES`, seen beneath its rock over `FORM_LEAST` of the frame or
  *    more, and scoring by the looks score alone no more than `LOOKS_GIVE` under the landmark's frame, or, on a map with
- *    no landmark frame, under the whole map's (`heroCamera`, its picture cast at the arches' `SCREEN` size so the two
+ *    no landmark frame, no more than `WHOLE_GIVE` under the whole map's (`heroCamera`, its picture cast at the arches' `SCREEN` size so the two
  *    are judged alike): an arch never takes the card from a picture that shows the map's theme better (Delta 8's
  *    channels and Islands 1's islands had given way to a slot in a cliff).
  *  Every frame shows no more than `SIGHT_VOID` of the backdrop; of one sight's frames the nearest wins (the sight
@@ -487,9 +491,9 @@ export function sightFrames(view: MapView, land: PictureLand, prep: PreparedPict
 export function sightCamera(view: MapView, land: PictureLand, prep: PreparedPicture = preparePicture(land), whole: () => SightCam = () => wholeMap(view, prep)): SightCam | null {
   const { landmark, forms } = sightFrames(view, land, prep);
   // (a form's frame only where it looks as good as the landmark's, or the whole map's where there is no landmark,
-  // within `LOOKS_GIVE`; the best first, the landmark before a form as good; each checked again on the full picture,
+  // within `LOOKS_GIVE`, or `WHOLE_GIVE` of the whole map's; the best first, the landmark before a form as good; each checked again on the full picture,
   // the next taken where that shows more of the backdrop, or less beneath rock, than the screening did)
-  const least = landmark ? landmark.looks - LOOKS_GIVE : forms.length ? looksScore(castPicture(prep, sightCast(whole()), SCREEN)).score - LOOKS_GIVE : -Infinity;
+  const least = landmark ? landmark.looks - LOOKS_GIVE : forms.length ? looksScore(castPicture(prep, sightCast(whole()), SCREEN)).score - WHOLE_GIVE : -Infinity;
   const all = [...(landmark ? [landmark] : []), ...forms.map((f) => f.frame).filter((f) => f.looks >= least)].map((f, k) => ({ f, k })).sort((a, b) => b.f.value - a.f.value || a.k - b.k);
   for (const { f } of all) if (framePasses(prep, f.c, f.least)) return f.c;
   return null;

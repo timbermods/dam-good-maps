@@ -1148,8 +1148,8 @@ Two plain pieces for the Block tool, only drawn or plain data; the page's interf
 - **The card shows the map's rock arch (D488 audit, `fix/hero-forms`):** the sight camera (`sightCamera`) weighs the
   land's arches (`formSights`, from the column masks, each looked through along `seeThrough`'s best heading) beside
   the opening's landmark, each at 26 to 48 tiles with clear air to it. An arch's frame is kept only where it scores by
-  the looks score within 0.1 of the landmark's (`LOOKS_GIVE`), or on a map with no landmark frame within 0.1 of the
-  whole map's picture (`heroCamera`, cast at the arches' 64 × 36 so the two are judged alike; only where an arch
+  the looks score within 0.1 of the landmark's (`LOOKS_GIVE`), or on a map with no landmark frame within 0.05 of the
+  whole map's picture (`WHOLE_GIVE`; `heroCamera`, cast at the arches' 64 × 36 so the two are judged alike; only where an arch
   frame exists), and shows 1.5% or more of rock above air; the frame
   worth most (`pictureValue`: looks, plus rock seen above air, more for air seen through it) wins.
 - **Only an arch, never an overhang or a cave (planning, #236):** the first cut also framed overhangs and cave mouths,
@@ -1160,12 +1160,14 @@ Two plain pieces for the Block tool, only drawn or plain data; the page's interf
   overhang's or a cave's opening is a dark band under a cliff face.
 - **An arch against the whole map (planning, #236):** with arches only, a map with no landmark frame let any arch take
   the card, and Delta 8 and Islands 1 lost their theme: a slot in a cliff in place of the delta's channels and the
-  islands. The arch is now weighed against the whole map's picture there. Across the 84 maps at 256² Normal (7
-  themes × seeds 1–12, generator 0.10.51), 11 cards change against dev 9a6523d8: 5 to a rock arch (looks, arch
-  against landmark or whole map: Highlands 1 1.15 / 1.00, Highlands 6 0.93 / 0.93, Highlands 7 0.97 / 1.05,
-  Highlands 12 0.99 / 1.03, Delta 11 1.11 / 1.19) and 6 to another frame of their landmark, the backdrop now counted
-  behind the crowns (Any 2, River Valley 9, Canyon 4, Highlands 2 and 10, Lake Basin 11). Any 3 (1.05 / 1.32),
-  Delta 8 (0.98 / 1.08) and Islands 1 (0.32 / 1.21) keep the whole map; River Valley 2 is on dev's frame. The cast (`castPicture`) now says where a ray
+  islands. The arch is now weighed against the whole map's picture there, with half the landmark's allowance
+  (`WHOLE_GIVE` 0.05): the whole map already shows the theme, and Delta 11's arch, 0.09 under it, hid the delta's
+  channels as Delta 8's had. Across the 84 maps at 256² Normal (7 themes × seeds 1–12, generator 0.10.51), 9 cards
+  change against dev 9a6523d8: 3 to a rock arch (looks, arch against landmark or whole map: Highlands 1 1.15 / 1.00,
+  Highlands 6 0.93 / 0.93, Highlands 12 0.99 / 1.03) and 6 to another frame of their landmark, the backdrop now
+  counted behind the crowns (Any 2, River Valley 9, Canyon 4, Highlands 2 and 10, Lake Basin 11). Any 3 (1.05 /
+  1.32), Highlands 7 (0.97 / 1.05, its other two arches lower), Delta 8 (0.98 / 1.08), Delta 11 (1.11 / 1.19) and
+  Islands 1 (0.32 / 1.21) keep the whole map; River Valley 2 is on dev's frame. The cast (`castPicture`) now says where a ray
   met still beneath rock or came out from under it (`under`), at no cost to the generator's kind, depth and tile.
   Frames are screened at 64 × 36 and only the winner is cast again at full size (`framePasses`), every cast from the
   land prepared once per card (`preparePicture`: each tile's top, crown and water, shared by all the casts).
@@ -1178,7 +1180,8 @@ Two plain pieces for the Block tool, only drawn or plain data; the page's interf
   tiles with 8% sky → the rock arch over its lake from 26 tiles, no sky; River Valley 2, a wooded slope above the
   river, unchanged after the arch-only rule; Canyon 1 (ruins and river) and Any 6 (falls and river) unchanged, the same
   camera. Sheets: `C:\dgm-showcase\hero-forms\sheet.jpg` (the first cut), `C:\dgm-showcase\hero-forms2\sheet.jpg`
-  (arch-only), `C:\dgm-showcase\hero-forms3\sheet.jpg` (arches weighed against the whole map).
+  (arch-only), `C:\dgm-showcase\hero-forms3\sheet.jpg` (arches weighed against the whole map),
+  `C:\dgm-showcase\hero-forms4\sheet.jpg` (`WHOLE_GIVE` 0.05).
 - **Where it falls short:** a map whose best 3D form is an overhang or a cave never shows it on its card; an arch
   ranked below the six largest mouths (`FORMS_MOST`) is not looked at.
 

@@ -2300,7 +2300,7 @@ checks dot counts; every other row is information under Good to know, worded as 
     shows at most 5% backdrop, the best of those by the looks score; beside it the land's rock arches (`formSights`: each
     seen through along its best heading, 26 to 48 tiles off, with no rock between the eye and it; never an overhang
     or a cave, whose opening is a dark band under a cliff face at the card's size), each kept where its frame looks
-    within 0.1 of the landmark's (on a map with no landmark frame, of the whole map's picture below), shows at least
+    within 0.1 of the landmark's (on a map with no landmark frame, within 0.05 of the whole map's picture below), shows at least
     1.5% of rock above air and passes the backdrop check, the frame worth
     most (looks plus rock seen above air, more for air seen through) winning. Backdrop counts the sky behind a tree's crown too (`castPicture`'s `veiled`), the
     sky the drawn crown does not hide. A map with no start, or no landmark or arch frame that passes,
