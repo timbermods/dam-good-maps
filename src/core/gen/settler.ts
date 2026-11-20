@@ -11,7 +11,10 @@
 // moist ground its wood will grow on, `startWorth`) rank the places. Room comes first (D545):
 // the places with Easy's room that keep every Easy row today's ranking's place keeps, else those with
 // at least that place's room; the seed chooses among the best few of them, kept 20 tiles apart, whose
-// worth stands within `VALUE_MARGIN` of the worthiest, so starts differ as much as the land does.
+// worth stands within `VALUE_MARGIN` of the worthiest, so starts differ as much as the land does. Where
+// the place drawn shows less of the map than `FRAME_FULL` in its opening frame (`landInFrame`), those
+// that keep every Easy row it keeps are drawn from again weighed by their frames, so a start does not
+// sit hard against the map's edge.
 // The chosen place is turned for the game's opening camera (D493, analysis/opening.ts): among the
 // orientations whose door is on level ground, the one whose opening frame best holds a landmark (else
 // falls, open water, relief), the door nearest the water breaking ties.
@@ -62,6 +65,10 @@ export const BANK_FOOT = 800;
 /** How much more of the opening frame a start among the good few must show of the map to be taken over the one drawn
  *  (D506: a start near a corner frames mostly void; `landInFrame`). */
 export const FRAME_GAIN = 0.05;
+/** The share of the opening frame (`landInFrame`) a start chosen for its room shows before it is weighed by its frame,
+ *  and that counts whole when it is (D545 round 4): a start 32 tiles or more from a 256² map's edge shows about 0.94,
+ *  one hard against it 0.7. */
+export const FRAME_FULL = 0.9;
 
 /** How much longer a start chosen for its room may walk to its water than the place the pick would choose by its
  *  score alone (D545), in tiles. */
@@ -553,7 +560,7 @@ export function pickStart(
     for (const [bx, by] of opts.badwater ?? []) d = Math.min(d, (bx - x) * (bx - x) + (by - y) * (by - y));
     return d;
   };
-  type Cand = { i: number; score: number; scoreRoom: number; kind: string; walk: number; mid: number; levelled: boolean; droughtOk?: boolean; intent: number; sameLevel: boolean; worth: number; room: number; inside: number; moist: number; /** squared */ bad: number; read?: boolean; fit?: boolean };
+  type Cand = { i: number; score: number; scoreRoom: number; kind: string; walk: number; mid: number; levelled: boolean; droughtOk?: boolean; intent: number; sameLevel: boolean; worth: number; room: number; inside: number; moist: number; /** squared */ bad: number; read?: boolean; fit?: boolean; frame?: number };
   const cands: Cand[] = [];
   // first pass: level ground as it is; second pass (when the first finds nothing): a 5×5 within a
   // level of the center is levelled, as a player would level a spot for the district center
@@ -741,13 +748,30 @@ export function pickStart(
     const ty = (t.i - tx) / W;
     return near ? (tx - near.x) * (tx - near.x) + (ty - near.y) * (ty - near.y) : 0;
   };
-  const drawn = (top: Cand[], byRoom: boolean): { c: Cand; good: Cand[] } => {
+  // turned for the game's opening camera (D493)
+  const turned = (t: Cand): Orientation => {
+    const tx = t.i % W;
+    const ty = (t.i - tx) / W;
+    return bestTurn(openingLand(), tx, ty, h[t.i], levelDoorTurns(h, W, H, tx, ty, h[t.i]), dWet)!;
+  };
+  // (how much of a place's opening frame shows the map, D507's `landInFrame` at the turn it would take; read for the
+  // room lists' best few alone)
+  const frameOf = (t: Cand): number => (t.frame ??= landInFrame(W, H, { x: t.i % W, y: Math.floor(t.i / W), z: h[t.i], orientation: turned(t) }));
+  const drawn = (top: Cand[], byRoom: boolean, framed = false): { c: Cand; good: Cand[] } => {
     const key = byRoom ? "scoreRoom" : "score";
-    const near0 = top.filter((t) => t[key] >= 0.7 * top[0][key]);
+    // (framed, D545 round 4: each place's score and worth weighed by its frame, `FRAME_FULL` or more counting whole; a
+    // score under zero is weighed the other way, so a frame short of the map never raises it)
+    const weigh = (t: Cand, v: number): number => {
+      if (!framed) return v;
+      const f = Math.min(1, frameOf(t) / FRAME_FULL);
+      return v >= 0 ? v * f : v / f;
+    };
+    const lead = framed ? top.reduce((a, t) => (weigh(t, t[key]) > weigh(a, a[key]) ? t : a)) : top[0];
+    const near0 = top.filter((t) => weigh(t, t[key]) >= 0.7 * weigh(lead, lead[key]));
     // (a best score under zero, a start intention pulling hard against every place: the best alone)
-    if (!near0.length) near0.push(top[0]);
-    const worthiest = Math.max(...near0.map((t) => t.worth));
-    const good = byRoom ? near0.filter((t) => t.worth >= worthiest - VALUE_MARGIN) : near0;
+    if (!near0.length) near0.push(lead);
+    const worthiest = Math.max(...near0.map((t) => weigh(t, t.worth)));
+    const good = byRoom ? near0.filter((t) => weigh(t, t.worth) >= worthiest - VALUE_MARGIN) : near0;
     let c = good[Math.floor(u * good.length)];
     if (near) for (const t of good) if (d2(t) < d2(c) || (d2(t) === d2(c) && t.i < c.i)) c = t;
     return { c, good };
@@ -763,10 +787,13 @@ export function pickStart(
   u = rng.float();
   const c0 = drawn(top0, false).c;
   if (roomFirst && !c0.read) read(c0);
-  const walkMost = Math.min(c0.mid + WALK_SPARE, c0.mid <= ask.water ? Math.max(c0.mid, ask.water - 0.5) : Infinity);
-  const badLeast = c0.bad >= ask.badwaterSource * ask.badwaterSource ? Math.min(c0.bad, (ask.badwaterSource + 5) * (ask.badwaterSource + 5)) : 0;
-  const woodLeast = Math.min(c0.moist, woodGround);
-  const keeps = (t: Cand) => t.mid <= walkMost && t.bad >= badLeast && t.moist >= woodLeast;
+  const keepsOf = (p: Cand): ((t: Cand) => boolean) => {
+    const walkMost = Math.min(p.mid + WALK_SPARE, p.mid <= ask.water ? Math.max(p.mid, ask.water - 0.5) : Infinity);
+    const badLeast = p.bad >= ask.badwaterSource * ask.badwaterSource ? Math.min(p.bad, (ask.badwaterSource + 5) * (ask.badwaterSource + 5)) : 0;
+    const woodLeast = Math.min(p.moist, woodGround);
+    return (t: Cand) => t.mid <= walkMost && t.bad >= badLeast && t.moist >= woodLeast;
+  };
+  const keeps = keepsOf(c0);
   // room first: the places with Easy's room (the start well inside it) that keep those rows; where none has, those that
   // keep them with at least the room of the place the pick before would choose (that place among them)
   let top = roomFirst ? topOf(cands.filter((t) => keeps(t) && t.room >= ask.room && t.inside >= ask.insideShare), "scoreRoom", keeps) : [];
@@ -774,15 +801,20 @@ export function pickStart(
   // (without room first, or past the 40 places read over the slopes, the first list's best few)
   const first = !top.length;
   if (first) top = top0;
-  const pick = drawn(top, !first);
+  let pick = drawn(top, !first);
+  // the frame, with room first (D545 round 4, planning on #236): where the place drawn shows less of the map than
+  // `FRAME_FULL` (a start hard against the map's edge frames part void), the best few that keep every Easy row it keeps
+  // (the rows the pick reads, as for the first place, and Easy's room) are drawn from again with each one's score and
+  // worth weighed by its frame, and the place that draw gives is taken where its frame shows `FRAME_GAIN` more
+  if (!first && frameOf(pick.c) < FRAME_FULL) {
+    const b = pick.c;
+    const keepsB = keepsOf(b);
+    const roomed = (t: Cand) => t.room >= ask.room && t.inside >= ask.insideShare;
+    const framed = drawn(top.filter((t) => keepsB(t) && (!roomed(b) || roomed(t))), true, true);
+    if (frameOf(framed.c) >= frameOf(b) + FRAME_GAIN) pick = framed;
+  }
   const good = pick.good;
   let c = pick.c;
-  // turned for the game's opening camera (D493)
-  const turned = (t: (typeof good)[number]): Orientation => {
-    const tx = t.i % W;
-    const ty = (t.i - tx) / W;
-    return bestTurn(openingLand(), tx, ty, h[t.i], levelDoorTurns(h, W, H, tx, ty, h[t.i]), dWet)!;
-  };
   let orientation = turned(c);
   // the frame (D507): among the good few, all of which keep the start's rules, the one whose opening frame shows
   // clearly more of the map than the one drawn (a start near a corner frames mostly the void past the edge), never at
