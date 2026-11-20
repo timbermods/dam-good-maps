@@ -88,10 +88,22 @@ export function openingPicture(land: PictureLand, start: OpeningStart, opts: { w
   return castPicture(land, { eye: cam.eye, look: cam.look, right: cam.right, sinP: SIN_P, cosP: COS_P, tanH: TAN_H, tanV: TAN_V }, opts);
 }
 
-/** The picture of `land` from any camera (the map's own picture's framing, render3d/heroView.ts, as the opening's). */
-export function castPicture(land: PictureLand, camera: PictureCamera, opts: { w?: number; h?: number } = {}): OpeningPicture {
-  const w = opts.w ?? PICTURE_W;
-  const h = opts.h ?? PICTURE_H;
+/** `land` made ready to cast from: each tile's top, crown and water, set up once for any number of cameras
+ *  (`castPicture` takes it in place of the land; render3d/heroView.ts screens many frames of one map). The land must
+ *  not change while it is used. */
+export interface PreparedPicture {
+  readonly prepared: true;
+  readonly land: PictureLand;
+  readonly top: Int16Array;
+  readonly crown: Int16Array;
+  readonly wetAt: Uint8Array;
+  readonly zTop: number;
+  readonly cols: (i: number, f: (floor: number, surface: number, c: number) => boolean) => boolean;
+  readonly solid: (i: number, z: number) => boolean;
+}
+
+/** `land`'s per-tile setup for `castPicture`, done once. */
+export function preparePicture(land: PictureLand): PreparedPicture {
   const { W, H, heights } = land;
   const N = W * H;
   const mask = land.mask ?? null;
@@ -140,6 +152,16 @@ export function castPicture(land: PictureLand, camera: PictureCamera, opts: { w?
   }
   zTop += 1;
   const solid = mask ? (i: number, z: number) => z >= 0 && z < 32 && ((mask[i] >>> z) & 1) === 1 : (i: number, z: number) => z < heights[i];
+  return { prepared: true, land, top, crown, wetAt, zTop, cols, solid };
+}
+
+/** The picture of `land` from any camera (the map's own picture's framing, render3d/heroView.ts, as the opening's);
+ *  `land` may be prepared once (`preparePicture`) for many cameras. */
+export function castPicture(from: PictureLand | PreparedPicture, camera: PictureCamera, opts: { w?: number; h?: number } = {}): OpeningPicture {
+  const w = opts.w ?? PICTURE_W;
+  const h = opts.h ?? PICTURE_H;
+  const { land, top, crown, wetAt, zTop, cols, solid } = "prepared" in from ? from : preparePicture(from);
+  const { W, H } = land;
   const [ex, ey, ez] = camera.eye;
   const [lx, ly] = camera.look;
   const [rx, ry] = camera.right;

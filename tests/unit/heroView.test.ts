@@ -4,7 +4,7 @@
 
 import { describe, expect, it } from "vitest";
 import { OPENING } from "../../src/core/analysis/opening";
-import { castPicture, PIXEL } from "../../src/core/analysis/picture";
+import { castPicture, PIXEL, preparePicture } from "../../src/core/analysis/picture";
 import { formSights, FORM_LEAST, framePasses, heroCamera, heroScene, pictureLand, pictureValue, SIGHT_VOID, sightCamera, sightCast, sightFrames, voidShare } from "../../src/render3d/heroView";
 import type { PictureLand } from "../../src/core/analysis/picture";
 import { sunOfYaw, sunVector } from "../../src/render3d/light";
@@ -284,11 +284,12 @@ describe("the map's picture on its 3D forms and within the map (D488 audit)", ()
     const land = pictureLand(v);
     const f = sightFrames(v, land);
     expect(f.landmark, "level ground has no landmark").toBeNull();
-    expect(f.forms.length).toBeGreaterThanOrEqual(2);
-    // the arch, seen through to the land beyond, is worth more than the shelter's shade
-    const arch = f.forms.find((g) => g.form.arch)!;
+    // only the arch is framed, seen through to the land beyond: the overhang's shelter, a dark band under its cliff at
+    // the card's size, never takes the card
+    expect(formSights(land).some((g) => !g.arch)).toBe(true);
+    expect(f.forms.map((g) => g.form.arch)).toEqual([true]);
+    const arch = f.forms[0];
     expect(arch.frame.through).toBeGreaterThan(0);
-    for (const g of f.forms) if (!g.form.arch) expect(arch.frame.value).toBeGreaterThan(g.frame.value);
     const c = sightCamera(v, land)!;
     expect(c).toEqual(arch.frame.c);
     expect(framePasses(land, c, FORM_LEAST)).toBe(true);
@@ -332,5 +333,17 @@ describe("the map's picture on its 3D forms and within the map (D488 audit)", ()
     expect(voids / pic.kind.length).toBeLessThanOrEqual(SIGHT_VOID);
     expect(voidShare(pic)).toBeGreaterThan(SIGHT_VOID);
     expect(framePasses(land, c, 0)).toBe(false);
+  });
+
+  it("casts the same picture from the land prepared once as from the land itself", () => {
+    const v = formsMap();
+    const land = pictureLand(v);
+    const prep = preparePicture(land);
+    for (const c of [sightCamera(v, land)!, { x: 30, y: 60, level: 4, distance: 40, pitch: 0.6, yaw: 2.2 }]) {
+      const a = castPicture(land, sightCast(c));
+      const b = castPicture(prep, sightCast(c));
+      for (const k of ["kind", "depth", "tile", "under", "veiled"] as const) expect(Buffer.from(b[k].buffer).equals(Buffer.from(a[k].buffer)), k).toBe(true);
+    }
+    expect(sightCamera(v, land, prep)).toEqual(sightCamera(v, land));
   });
 });

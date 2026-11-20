@@ -2297,12 +2297,12 @@ checks dot counts; every other row is information under Good to know, worded as 
     `sightCamera`): the landmark the start's opening frame holds, as the landmark intention reads it (`analysis/opening.ts`
     `openingSight`: a standing form 8+ over its ring, else a fall of 6+; a premise's landmark fall is placed in that
     frame), seen from the colony's side, 30° or 40° down, 45 to 85 tiles off, the nearest frame that holds its top and
-    shows at most 5% backdrop, the best of those by the looks score; beside it the land's 3D forms (`formSights`: an
-    arch seen through along its best heading, a cave mouth or overhang from its open side, 26 to 48 tiles off, with no
-    rock between the eye and the form), each kept where its frame looks within 0.1 of the landmark's, shows at least
-    1.5% of rock above air and passes the backdrop check, the frame worth most (looks plus rock seen above air, more
-    for air seen through) winning. Backdrop counts the sky behind a tree's crown too (`castPicture`'s `veiled`), the
-    sky the drawn crown does not hide. A map with no start, or no landmark or form frame that passes,
+    shows at most 5% backdrop, the best of those by the looks score; beside it the land's rock arches (`formSights`: each
+    seen through along its best heading, 26 to 48 tiles off, with no rock between the eye and it; never an overhang
+    or a cave, whose opening is a dark band under a cliff face at the card's size), each kept where its frame looks
+    within 0.1 of the landmark's, shows at least 1.5% of rock above air and passes the backdrop check, the frame worth
+    most (looks plus rock seen above air, more for air seen through) winning. Backdrop counts the sky behind a tree's crown too (`castPicture`'s `veiled`), the
+    sky the drawn crown does not hide. A map with no start, or no landmark or arch frame that passes,
     keeps the game's own map thumbnail camera
     (`ThumbnailCameraDefaultPositionProvider`; `render3d/heroView.ts` `heroCamera`: 40° down, face-on, the game camera's
     35° field of view, turned to the start's orientation (north without a start), centred on the land and pulled back

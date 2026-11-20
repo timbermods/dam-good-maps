@@ -327,7 +327,11 @@ export function useBlockTool(ed: Ed): BlockSlice {
       },
     ).finally(() => {
       renderer.current?.blockEditSent(false);
+      // (an edit that never reached its answer, a resize or a force running: its preview cleared, the face under the
+      // pointer is asked about again, so the preview is back without a move)
+      if (!shown) return;
       landed();
+      refresh();
     });
   }
 

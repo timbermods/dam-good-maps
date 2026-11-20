@@ -3,8 +3,8 @@
 //
 // - **The camera** frames the map's sight where it has one (showcase gap 10, `sightCamera`: the landmark the start's
 //   opening frame holds, seen from the colony's side, close enough to read at the picker's size, or one of the map's
-//   3D forms, an arch looked through or a cave or an overhang looked into, where its picture looks as good; D488
-//   audit: no card showed one). Otherwise it
+//   rock arches, looked through, where its picture looks as good; D488 audit: no card showed one; an overhang or a
+//   cave never: its opening is a dark band under a cliff face at the card's size). Otherwise it
 //   frames the map (amended 2026-11-07, showcase craft's look gap 2: the game's opening camera, centred
 //   on a start near an edge, showed the backdrop past the map in half its frame). It is the game's own map thumbnail
 //   camera (`ThumbnailCameraDefaultPositionProvider`: 40° down, face-on, the game camera's 35° field of view), turned
@@ -22,7 +22,7 @@
 //   the water, the objects; the starting location is hidden (`StartingLocationThumbnailRenderingListener`).
 
 import { OPENING, openingSight, prepareOpening } from "../core/analysis/opening";
-import { castPicture, looksScore, PIXEL, type OpeningPicture, type PictureCamera, type PictureLand } from "../core/analysis/picture";
+import { castPicture, looksScore, PIXEL, preparePicture, type OpeningPicture, type PictureCamera, type PictureLand, type PreparedPicture } from "../core/analysis/picture";
 import { bestHeading, readsThrough, SEE_HEADINGS, seeThrough, underRock } from "../core/analysis/seeThrough";
 import { fallsOf } from "../core/analysis/vertical";
 import { ORIENTATIONS, startMiddleTile } from "../core/format/footprints";
@@ -48,7 +48,7 @@ const deg = (d: number) => (d * Math.PI) / 180;
  *  map, where the frame has room to slide with no backdrop showing, it takes the best of `SLIDES` places by the looks
  *  score of `land`'s picture from each (`pictureLand`), the map's middle where they score the same. In tile terms:
  *  `x`, `y` the point looked at (tile x, tile y), `level` its height. */
-export function heroCamera(W: number, H: number, heights: ArrayLike<number>, orientation: number, land: PictureLand | null = null): { x: number; y: number; level: number; distance: number; pitch: number; yaw: number } {
+export function heroCamera(W: number, H: number, heights: ArrayLike<number>, orientation: number, land: PictureLand | PreparedPicture | null = null): { x: number; y: number; level: number; distance: number; pitch: number; yaw: number } {
   let sum = 0;
   for (let i = 0; i < W * H; i++) sum += heights[i];
   const level = W * H ? sum / (W * H) : 0;
@@ -82,15 +82,16 @@ const lookedAt = (W: number, H: number, o: number, s: number): [number, number] 
 /** Of `SLIDES` places along the map from `lo` to `hi` (and its middle), the one whose picture from the camera scores
  *  best by the looks score among those that show no more of the backdrop past the map than the middle does; ties keep
  *  the place nearest the middle. */
-function slide(land: PictureLand, o: number, level: number, d: number, p: number, tanH: number, tanV: number, lo: number, hi: number, middle: number): number {
+function slide(land: PictureLand | PreparedPicture, o: number, level: number, d: number, p: number, tanH: number, tanV: number, lo: number, hi: number, middle: number): number {
   if (!(hi - lo > 1)) return middle;
   const a = (o * Math.PI) / 2;
   const look: [number, number] = [Math.round(Math.sin(a)), Math.round(Math.cos(a))];
   const right: [number, number] = [look[1], -look[0]];
   const sinP = Math.sin(p);
   const cosP = Math.cos(p);
+  const { W, H } = "prepared" in land ? land.land : land;
   const judge = (s: number) => {
-    const [x, y] = lookedAt(land.W, land.H, o, s);
+    const [x, y] = lookedAt(W, H, o, s);
     const eye: [number, number, number] = [x - look[0] * d * cosP, y - look[1] * d * cosP, level + d * sinP];
     const pic = castPicture(land, { eye, look, right, sinP, cosP, tanH, tanV });
     let empty = 0;
@@ -198,10 +199,8 @@ type SightCam = { x: number; y: number; level: number; distance: number; pitch: 
 const SIGHT_PITCHES = [30, 40] as const;
 const SIGHT_DISTANCES = [45, 65, 85] as const;
 const SIGHT_BACKS = [0, 12] as const;
-/** A 3D form's camera, nearer (a form is a few tiles across, a landmark tens): into a mouth low (25° looks under a roof
- *  two or more deep), through an arch at the angles it was found to read through at (analysis/seeThrough.ts: 30°
- *  and 45°). */
-const MOUTH_PITCHES = [25, 35] as const;
+/** An arch's camera, nearer (a form is a few tiles across, a landmark tens): through it at the angles it was found to
+ *  read through at (analysis/seeThrough.ts: 30° and 45°). */
 const ARCH_PITCHES = [30, 45] as const;
 const FORM_DISTANCES = [26, 36, 48] as const;
 /** The frames are judged on pictures of a fifth of the full one's rays (`SCREEN`: a few dozen frames are tried, each
@@ -422,7 +421,7 @@ export interface SightFrame {
  *  `pitches` × `distances` × `backs` (tiles the point looked at steps back along the look): those `keep` lets by
  *  (where the sight shows in the frame) that show no more than `SIGHT_VOID` of the backdrop and something beneath rock
  *  over `least` of the frame or more; of them the nearest, the best by `pictureValue` among those as near. */
-function bestFrame(land: PictureLand, at: [number, number, number], look: [number, number], pitches: readonly number[], distances: readonly number[], backs: readonly number[], least: number, keep: (eye: [number, number, number], p: number) => boolean): SightFrame | null {
+function bestFrame(prep: PreparedPicture, at: [number, number, number], look: [number, number], pitches: readonly number[], distances: readonly number[], backs: readonly number[], least: number, keep: (eye: [number, number, number], p: number) => boolean): SightFrame | null {
   const [lx, ly] = look;
   const right: [number, number] = [ly, -lx];
   const tanV = Math.tan(deg(OPENING.fov / 2));
@@ -440,7 +439,7 @@ function bestFrame(land: PictureLand, at: [number, number, number], look: [numbe
         const ty = at[1] - ly * back;
         const eye: [number, number, number] = [tx - lx * d * cosP, ty - ly * d * cosP, at[2] + d * sinP];
         if (!keep(eye, p)) continue;
-        const pic = castPicture(land, { eye, look, right, sinP, cosP, tanH, tanV }, SCREEN);
+        const pic = castPicture(prep, { eye, look, right, sinP, cosP, tanH, tanV }, SCREEN);
         if (voidShare(pic) > SIGHT_VOID) continue;
         const v = pictureValue(pic);
         if (v.under < least) continue;
@@ -450,46 +449,52 @@ function bestFrame(land: PictureLand, at: [number, number, number], look: [numbe
   return best;
 }
 
-/** Every sight's best frame (`sightCamera`): the landmark's first (null when it has none that passes), then each 3D
- *  form's that has one. */
-export function sightFrames(view: MapView, land: PictureLand): { landmark: SightFrame | null; forms: { form: FormSight; frame: SightFrame }[] } {
+/** Every sight's best frame (`sightCamera`): the landmark's first (null when it has none that passes), then each
+ *  arch's that has one. Only an arch is framed: at the card's 26 to 48 tiles every form's opening is large (each
+ *  clears the forms measure's 400 px² of an 800 × 450 frame many times over, and River Valley 2's overhang shows more
+ *  of its opening than Highlands 12's arch), so its size cannot tell a form that reads from one that does not; an
+ *  arch is seen through to the land beyond and reads as one, where an overhang's or a cave's opening is a dark band
+ *  under a cliff face (planning, #236). Overhangs and caves never take the card. `prep`: `land` prepared once
+ *  (`preparePicture`) for the many pictures cast. */
+export function sightFrames(view: MapView, land: PictureLand, prep: PreparedPicture = preparePicture(land)): { landmark: SightFrame | null; forms: { form: FormSight; frame: SightFrame }[] } {
   const s = startOf(view.entities);
   if (!s) return { landmark: null, forms: [] };
   const forms: { form: FormSight; frame: SightFrame }[] = [];
   for (const f of formSights(land)) {
+    if (!f.arch) continue;
     // (the form in sight of the eye: nothing between them but air, one ray before the picture's)
-    const frame = bestFrame(land, [f.x, f.y, f.z], f.look, f.arch ? ARCH_PITCHES : MOUTH_PITCHES, FORM_DISTANCES, [0], FORM_LEAST, (eye) => clearTo(land, eye, [f.x, f.y, f.z]));
+    const frame = bestFrame(prep, [f.x, f.y, f.z], f.look, ARCH_PITCHES, FORM_DISTANCES, [0], FORM_LEAST, (eye) => clearTo(land, eye, [f.x, f.y, f.z]));
     if (frame) forms.push({ form: f, frame });
   }
-  return { landmark: landmarkFrame(view, land, s), forms };
+  return { landmark: landmarkFrame(view, land, prep, s), forms };
 }
 
-/** The picture's camera on the map's sight (showcase gap 10): the best by `pictureValue` (the looks score, and the 3D
- *  forms the frame shows beneath their rock and through it) of
+/** The picture's camera on the map's sight (showcase gap 10): the best by `pictureValue` (the looks score, and the
+ *  arch the frame shows beneath its rock and through it) of
  *  - **the landmark** the opening frame holds, as the landmark intention reads it (core `analysis/opening.ts`
  *    `openingSight`: a standing form, else a fall of 6+), seen from the colony's side (the camera looks from the
  *    start's middle toward it), its middle height at the frame's middle, from `SIGHT_PITCHES` × `SIGHT_DISTANCES` ×
  *    `SIGHT_BACKS`, holding the sight's top;
- *  - **each 3D form** (`formSights`: an arch looked through, a cave's mouth or an overhang looked into), at the frame's
- *    middle, from `ARCH_PITCHES` or `MOUTH_PITCHES` × `FORM_DISTANCES`, seen beneath its rock over `FORM_LEAST` of the
- *    frame or more, and scoring by the looks score alone no more than `LOOKS_GIVE` under the landmark's frame.
+ *  - **each rock arch** (`formSights`' arches, looked through; never an overhang or a cave: `sightFrames`), at the
+ *    frame's middle, from `ARCH_PITCHES` × `FORM_DISTANCES`, seen beneath its rock over `FORM_LEAST` of the frame or
+ *    more, and scoring by the looks score alone no more than `LOOKS_GIVE` under the landmark's frame.
  *  Every frame shows no more than `SIGHT_VOID` of the backdrop; of one sight's frames the nearest wins (the sight
  *  largest), the best among those as near. Null when the map has no start, or no frame passes: the whole-map camera
  *  then. */
-export function sightCamera(view: MapView, land: PictureLand): SightCam | null {
-  const { landmark, forms } = sightFrames(view, land);
+export function sightCamera(view: MapView, land: PictureLand, prep: PreparedPicture = preparePicture(land)): SightCam | null {
+  const { landmark, forms } = sightFrames(view, land, prep);
   // (a form's frame only where it looks as good as the landmark's, within `LOOKS_GIVE`; the best first, the landmark
   // before a form as good; each checked again on the full picture, the next taken where that shows more of the
   // backdrop, or less beneath rock, than the screening did)
   const least = landmark ? landmark.looks - LOOKS_GIVE : -Infinity;
   const all = [...(landmark ? [landmark] : []), ...forms.map((f) => f.frame).filter((f) => f.looks >= least)].map((f, k) => ({ f, k })).sort((a, b) => b.f.value - a.f.value || a.k - b.k);
-  for (const { f } of all) if (framePasses(land, f.c, f.least)) return f.c;
+  for (const { f } of all) if (framePasses(prep, f.c, f.least)) return f.c;
   return null;
 }
 
 /** Whether the full picture from `c` shows no more than `SIGHT_VOID` of the backdrop and `least` or more beneath
  *  rock. */
-export function framePasses(land: PictureLand, c: SightCam, least: number): boolean {
+export function framePasses(land: PictureLand | PreparedPicture, c: SightCam, least: number): boolean {
   const pic = castPicture(land, sightCast(c));
   return voidShare(pic) <= SIGHT_VOID && pictureValue(pic).under >= least;
 }
@@ -505,7 +510,7 @@ export function sightCast(c: SightCam): PictureCamera {
 }
 
 /** The landmark's frame (`sightCamera`), or null. */
-function landmarkFrame(view: MapView, land: PictureLand, s: { x: number; y: number; z: number; o: number }): SightFrame | null {
+function landmarkFrame(view: MapView, land: PictureLand, prep: PreparedPicture, s: { x: number; y: number; z: number; o: number }): SightFrame | null {
   const { W, H, heights } = view;
   const orientation = ORIENTATIONS[s.o];
   const [sx, sy] = startMiddleTile({ x: s.x, y: s.y, z: s.z, orientation });
@@ -541,7 +546,7 @@ function landmarkFrame(view: MapView, land: PictureLand, s: { x: number; y: numb
     const v = (ahead * sinP + dz * cosP) / (zc * tanV);
     return !(Math.abs(u) > 0.85 || v > 0.85 || v < -0.7);
   };
-  return bestFrame(land, [sight.x + 0.5, sight.y + 0.5, sight.z - sight.stand / 2], [lx, ly], SIGHT_PITCHES, SIGHT_DISTANCES, SIGHT_BACKS, 0, keep);
+  return bestFrame(prep, [sight.x + 0.5, sight.y + 0.5, sight.z - sight.stand / 2], [lx, ly], SIGHT_PITCHES, SIGHT_DISTANCES, SIGHT_BACKS, 0, keep);
 }
 
 /** What the picture draws (the map, its start hidden) and the camera it draws it from: on the map's sight where it
@@ -550,7 +555,9 @@ export function heroScene(view: MapView): { view: MapView; camera: HeroCamera } 
   const { W, H } = view;
   const s = startOf(view.entities);
   const land = pictureLand(view);
-  const c = sightCamera(view, land) ?? heroCamera(W, H, view.heights, s ? s.o : 0, land);
+  // (the land's per-tile setup made once for every picture cast in choosing the frame)
+  const prep = preparePicture(land);
+  const c = sightCamera(view, land, prep) ?? heroCamera(W, H, view.heights, s ? s.o : 0, prep);
   const camera: HeroCamera = { yaw: c.yaw, pitch: c.pitch, distance: c.distance, target: [c.x, c.level, -c.y], fov: OPENING.fov };
   return { view: { ...view, entities: withoutStart(view.entities) }, camera };
 }
