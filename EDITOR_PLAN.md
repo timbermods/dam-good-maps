@@ -2270,7 +2270,7 @@ checks dot counts; every other row is information under Good to know, worded as 
     whose source its maker removed) is the map's own, a stored lake like a Fill (`features/build.ts`
     `importedWater`), so the live water and the export keep it alike and the game evaporates it in its own time;
     Remove unfed water can still take it. D420 is unchanged for generated maps and Real places.
-  - **Speed:** after an edit the preview re-settles from its previous state (the warm start, `sim/preview.ts`: only the tiles whose floor, dam or emitters changed and the dry tiles within 2 tiles of them start again; a wet tile beside the edit keeps its water and momentum, so a flowing river carries on as it ran, D(new-preview)); the target is ≤ 2 s for a local edit
+  - **Speed:** after an edit the preview re-settles from its previous state (the warm start, `sim/preview.ts`: only the tiles whose floor, dam or emitters changed and the dry tiles within 2 tiles of them start again; a wet tile beside the edit keeps its water and momentum, so a flowing river carries on as it ran, D538); the target is ≤ 2 s for a local edit
     on 256² (measured 1.3–1.4 s in Chrome on the slowest themes, at most 1.75 s in Node, D99). A full re-settle
     runs in the background with progress, past the first game day while the water still moves, up to the canonical
     settle's days (`PREVIEW_JOB_DAYS`), so the dot leaving "Settling…" means it. Speed belongs to the day strip alone (D268; §5).

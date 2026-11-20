@@ -7,7 +7,7 @@
 // every tile whose ground and water objects the edit left alone and that was wet or lies away from
 // the edit, and takes the canonical pre-fill on the rest: the ground an edit changed, the tiles of
 // emitters that are new or changed, and the dry tiles near them (WARM_MARGIN). A wet tile beside the
-// edit keeps its water and momentum (D(new-preview)), but only where a source, a stored lake or the
+// edit keeps its water and momentum (D538), but only where a source, a stored lake or the
 // water kept away from the edit reaches it (D385): restarting a stretch of flowing river left a
 // step in its surface with no momentum, which sloshed on past the cap. Then the exact simulation
 // runs until the edit's water has found its level: checked every 64 ticks, two checks in a row find the
@@ -302,7 +302,7 @@ export function warmStart(from: WarmState, next: WaterModel): { state: WaterStat
   const edited = editedTiles(from.model, next);
   if (!edited) return { state: init, out: null, seeds: null };
   // (the tiles that start again: those the edit changed, and the dry tiles round them; a wet tile round
-  // them whose floor, dam and emitters the edit left alone keeps its water and its momentum, D(new-preview):
+  // them whose floor, dam and emitters the edit left alone keeps its water and its momentum, D538:
   // restarting a stretch of flowing river with the pre-fill's depth and no momentum left a step in its
   // surface that sloshed on past the preview's cap)
   // (such a tile is not a seed: like the restarted tiles it keeps its water only where a running

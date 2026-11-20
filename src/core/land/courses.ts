@@ -159,7 +159,7 @@ export function drownedHeads(h: ArrayLike<number>, W: number, H: number, rivers:
 
 /** The level no tile of an inflow's own edge is lowered below by the later steps (the second edge relax and the
  *  basins' outlets): a level over the highest water standing on its course, read when its
- *  course is planned (D(sea-steps)). A sea or lake a course from an edge ends in stands below every tile of that
+ *  course is planned (D533). A sea or lake a course from an edge ends in stands below every tile of that
  *  edge that drained it no lower then; lowered under it, the sea's water would leave beside the mouth instead,
  *  a tie with its own way out at best. Only the edge's two rows the edge relax reshapes, never a mouth's own
  *  tiles; no tile is raised. */

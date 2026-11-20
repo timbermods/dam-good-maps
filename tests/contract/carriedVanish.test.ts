@@ -32,7 +32,7 @@ function slide(path: { x: number; y: number }[], side: 1 | -1, power: number): v
 
 /** Highlands 64², seed 2: twelve Pines planted in a row on dry free ground, (33..44, 27). (D148: D518's mends moved the
  *  land; on seed 1 the row's Slide is no longer kept, seed 2 carries the row as before. Row 27 stays: generator
- *  0.10.27's move (dev, D(new-leaks)) followed the generator's land; the fixture keeps 0.10.25's, where this holds.) */
+ *  0.10.27's move (dev, D532) followed the generator's land; the fixture keeps 0.10.25's, where this holds.) */
 async function planted(): Promise<void> {
   // (a fixture since generator 0.10.29, D148: the land these cases were written on, tests/fixtures/projects, so the weathering's reach moving the generator's land moves nothing here)
   fixtureInEditor("highlands", W, 2);

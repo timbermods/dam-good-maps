@@ -35,7 +35,7 @@ describe("an edge wall on an edited map (D323)", () => {
     // beside the wall, as seed 4 has; seeds 1 and 3, the nearest, have none)
     // (the test needs land with no west row whose land inside stands at level 14 beside the wall, so the fix, which lowers
     // only the tiles two or more levels over the land inside, leaves every outer tile at or under it: River Valley 64² seed
-    // 2's saved land, D148, so a land change does not move it; generated live at generator 0.10.30, D(new-ditch), seed 1's
+    // 2's saved land, D148, so a land change does not move it; generated live at generator 0.10.30, D536, seed 1's
     // land has such a row, as the saved seed 1 has; of the saved seeds 1–5, 2, 3 and 4 hold)
     fixtureInEditor("riverValley", W, 2);
     // the generated map has none (D151)

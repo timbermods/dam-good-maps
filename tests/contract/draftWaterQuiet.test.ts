@@ -61,7 +61,7 @@ describe("a stroke's water after a force (D244's measurements)", () => {
   // passes, `fails` comes off. On 0.8.1's maps (D148) seed 1's lake fills in 3.1 days and settles, so the
   // problem is gone there; it still shows on seed 7 (still filling at the four-day cap), where it is kept. On generator
   // 0.10.16's ground with grade (D148) seed 7's lake fills in 3.67 days and settles; it shows again on seed 1 (and on 6, 10,
-  // 13, 17, 19 and 20 of seeds 1–20), where it is kept. Since generator 0.10.30 (D(new-ditch), D148) seed 1's land as
+  // 13, 17, 19 and 20 of seeds 1–20), where it is kept. Since generator 0.10.30 (D536, D148) seed 1's land as
   // generated settles; the case stays on seed 1's land as 0.10.29 made it, saved (scenario-lakeBasin-96-1-v0.10.29), where
   // the lake still fills at the cap, so a land change no longer moves it.
   it.fails("Lake Basin seed 1: its lake still fills at the four-day preview cap, so it never ends settled", () => fillsFromDry(1, "v0.10.29"));

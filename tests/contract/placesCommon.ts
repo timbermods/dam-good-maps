@@ -78,7 +78,7 @@ export const PLACES_BELOW_THE_FLOOR = new Set([
   "kenai-aialik-bay",
 ]);
 
-/** No place is offered without pumpable water within 20 tiles' walk of its start (D(new-films), planning's rulings on
+/** No place is offered without pumpable water within 20 tiles' walk of its start (D537, planning's rulings on
  *  #1201, 2026-11-16 and 2026-11-17): by `startPool`'s rule (src/core/places/spring.ts), the nearest water a pump on a
  *  shore the start walks to draws from with the first pump, in a body that stands as a pool, not a thin sheet. A start
  *  with no water in reach is withheld (tools/real-places.ts prints each with what was tried: Glencoe, Ngorongoro, and
@@ -95,7 +95,7 @@ export const PLACES_BELOW_THE_FLOOR = new Set([
  *  of these starts now reach none (Dinaric Karst Plitvice and Mount Taranaki joined the
  *  list then). With the edges open (D151) a start whose land offers a spot with water moved there,
  *  and one that had water on the sealed land got a spring by it (tools/real-places.ts). Real places
- *  2 gives the rest their water (D300) and empties the list: since D(new-films) a start with no water in reach is not
+ *  2 gives the rest their water (D300) and empties the list: since D537 a start with no water in reach is not
  *  offered (tools/real-places.ts withholds it, printed with what was tried), so the list is empty. */
 export const PLACES_START_WITHOUT_FED_WATER = new Set<string>([]);
 

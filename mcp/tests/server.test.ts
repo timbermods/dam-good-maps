@@ -72,7 +72,7 @@ describe("the Dam Good Maps MCP server", () => {
     // another in its row, so the drag a tile east is refused; seed 6's first is at the west edge, a column of three;
     // seed 2 since the later D518 mends moved the land, D148: seed 6's first source stands at the east edge now (X 95), so the drag a tile
     // east leaves the map; of seeds 1 to 14 only seeds 2, 7 and 11 have a first source at the west edge, and seed 2's, at X 0 · Y 67, is the first
-    // seed 6 for seed 2 at 0.10.47, D(terrace-edges), D148: seed 2's first source now stands at X 0 · Y 64 with a slope a tile east, so the
+    // seed 6 for seed 2 at 0.10.47, D544, D148: seed 2's first source now stands at X 0 · Y 64 with a slope a tile east, so the
     // drag is refused; of seeds 1 to 14 only seeds 6 and 11 now have a first source at the west edge with ground a tile east that takes it, and
     // seed 6's, at X 0 · Y 23, is the first)
     const made = await make({ theme: "riverValley", size: 96, seed: 6 });

@@ -1,7 +1,7 @@
 // What you see is what you get (PERFECT): after an edit beside a flowing stream, the editor's water preview
 // (the warm start and its settle, sim/preview.ts) ends where the full canonical settle does. The warm start
 // starts again only the tiles whose floor, dam or emitters the edit changed, and the dry tiles round them; a
-// wet tile round them keeps its water and its momentum (D(new-preview), planning's ruling of 2026-11-15).
+// wet tile round them keeps its water and its momentum (D538, planning's ruling of 2026-11-15).
 // Starting a stretch of flowing river again with the pre-fill's depth and no momentum left a step in its
 // surface that sloshed on past the preview's four-day cap: River Valley 96² seed 9 at generator 0.10.23, an
 // Underground Ruins at 34,31, read 0.793 at 41,50 where the settle gives 0.657.
@@ -102,7 +102,7 @@ const nearWater = (d: Float32Array, tiles: number[]) =>
 const place = (template: string, x: number, y: number) => () => ed.applyTool({ tool: "entity", template, x, y, orientation: "Cw0" }, ID).ok;
 const sculpt = (mode: "raise" | "lower", x: number, y: number) => () => ed.apply({ op: "sculpt", params: { mode, cells: [[y, x, x]], amount: 1 } } as never).ok;
 
-describe("the preview after an edit beside a stream ends where the canonical settle does (D(new-preview))", () => {
+describe("the preview after an edit beside a stream ends where the canonical settle does (D538)", () => {
   it("on a fast river with a fall, built here: a placement's levelling, a one-tile raise and a one-tile dig", () => {
     stream();
     const before = snap();

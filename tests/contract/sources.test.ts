@@ -181,7 +181,7 @@ describe("a source placed by hand in the editor (D184: sources go anywhere)", ()
     // generator 0.10.16's ground with grade, D148: on seed 2's map, as on seed 3's, the extra water now leaves no storage
     // near the start that the storage check finds; seed 1's saved land since generator 0.10.30, D148: the test
     // needs a river tile 25 tiles or more from the start, free of any source, where the extra water leaves the storage the
-    // checks find as it was; generated live, the gullies, D(new-ditch), moved the land: at 0.10.28 seed 1's first such tile held
+    // checks find as it was; generated live, the gullies, D536, moved the land: at 0.10.28 seed 1's first such tile held
     // a source of its own, and at 0.10.30 seed 2's extra water leaves no storage the storage check finds; the saved land keeps
     // it from moving again)
     const s = fixtureSession("riverValley", 96, 1);

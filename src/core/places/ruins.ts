@@ -1,4 +1,4 @@
-// A real place's ruin fields, laid along its land as the generator lays its own (D518's look round, D(new-ruins)):
+// A real place's ruin fields, laid along its land as the generator lays its own (D518's look round, D535):
 // the survey stood its columns in ruled 5×5 squares; a place's fields now come from the generator's own laying
 // (`resources/baseline.ts` `planRuinFields` with `follow`), each a ragged band along its level's rim (a contour, a
 // bench's edge, a mesa's dry rim, a shore), with gaps, on the land's levels with its tile-scale speckle taken out
@@ -114,7 +114,7 @@ export function fieldLevels(heights: ArrayLike<number>, W: number, H: number): U
   return out;
 }
 
-/** The ruin fields ruled square (the measure D(new-ruins) holds every place to): each group of ruin tiles joined side
+/** The ruin fields ruled square (the measure D535 holds every place to): each group of ruin tiles joined side
  *  by side, `least` or more, that fills its bounding box exactly with both sides 3 tiles or more, as its box
  *  [x, y, width, height]. */
 export function ruledRuinFields(tiles: readonly number[], W: number, least = 9): [number, number, number, number][] {

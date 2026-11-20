@@ -2,7 +2,7 @@
 // (c)): its longest run along a row or a column, and its longest even 45° stair, counted as item (b)
 // counts a level's stair edge (the tiles on one diagonal line). The planner never walks a ditch whose
 // run is over 4 or whose stair reaches 6, so neither a dug slot nor a ruled diagonal comes back
-// (D(new-ditch)); and a ditch's bed widened beside its route (`channelTiles`' `side`).
+// (D536); and a ditch's bed widened beside its route (`channelTiles`' `side`).
 
 import { describe, expect, it } from "vitest";
 import { abreastRun, ditchRuns } from "../../src/core/land/hazards";
@@ -67,7 +67,7 @@ describe("a ditch's widened bed", () => {
   });
 });
 
-// planning's ruling of 2026-11-15, rule 2 (D(new-ditch)): no gully stays within 6 tiles of other water or another gully
+// planning's ruling of 2026-11-15, rule 2 (D536): no gully stays within 6 tiles of other water or another gully
 // for 20 tiles or more, but for its last 6 before it joins
 describe("a gully running abreast", () => {
   const river = (i: number) => i % W === 30;

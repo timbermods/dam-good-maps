@@ -29,7 +29,7 @@ function areaAt(s: MapSession, at?: { x: number; y: number }): { runs: [number, 
   return { runs, inside: areaDepth(runs, W, W), x, y };
 }
 
-// (seed 3 → 2 at 0.10.47, D(terrace-edges), D148: the 21 × 21 area on seed 3's new land is flat, so Smooth changes nothing
+// (seed 3 → 2 at 0.10.47, D544, D148: the 21 × 21 area on seed 3's new land is flat, so Smooth changes nothing
 // in it; of seeds 1–10 the area on 3, 1, 7 and 9 gives Smooth nothing to ease, and seed 2 is the first where every brush
 // changes land, Smooth 14 tiles)
 function session(seed = 2, theme: "riverValley" | "canyon" = "riverValley"): MapSession {
