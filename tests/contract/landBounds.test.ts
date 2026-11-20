@@ -47,11 +47,10 @@ const spec = (theme: ThemeId, size: number, seed: number, badwaterDistance?: num
 
 describe("the shown land's bounds (#236)", () => {
   it("above 128², a shown land failing the same way three times in a row ends its round, and is never dropped within it", () => {
-    // (Highlands 136², badwater distance 60, seed 12 → 27 at 0.10.53, uplands round 6b step 5 (the badwater kept from the
-    // valley and the start's view, the notches as gullies), D148: seed 12 passes on its first attempt; of seeds 12–30 only 27 ends
-    // a round (twice), passing the whole test; seed 11 → 12 at 0.10.52, uplands round 6b step 4 (the mesas' walls from the floor,
-    // one spring), D148: seed 11 passes with no round ended by the bound; of seeds 12–30 only 12 ends a round, passing the whole
-    // test; seed 30 → 11 at 0.10.49, D547: the land above 128² drawn in rings, D148: seed
+    // (Highlands 136², badwater distance 60, seed 11 → 67 at 0.10.52, D545 round 3 (the pick reads its walks over the
+    // build's slopes), D148: seed 11 passes on its 14th attempt with no round ended by the bound; of seeds 1–72 only 64 and 67 end
+    // a round, each passing the whole test;
+    // seed 30 → 11 at 0.10.49, D547: the land above 128² drawn in rings, D148: seed
     // 30 passes on its 11th attempt with no round ended by the bound; of seeds 1–18 only 11 ends a round, passing the whole test;
     // seed 14 → 28 at 0.10.48, D544's reach scaled up above 128² (6.2 tiles
     // at 136²), D148: seed 14 passes on its 26th attempt with no round ended by the bound; of seeds 1–48 only 28 (twice), 30 and
@@ -78,7 +77,7 @@ describe("the shown land's bounds (#236)", () => {
     // ends; seed 4 for generator 0.10.7, whose first shown land's start was within 60 tiles of its badwater on every
     // attempt, until D504's springs toward the far land changed its land: its shown land now fails once and passes, D148; of
     // seeds 1–8, 1 and 5 end a round; seed 15 for 1 since generator 0.10.20's contour edges, D518, D148: seed 1's attempts now fail as drawn lands, never three alike on a shown one, so no round ends by the bound, and of seeds 1–60 only 15, 19, 26, 30, 32, 43, 51, 54 and 57 end one)
-    const { steps, passed } = traced(spec("highlands", 136, 27, 60));
+    const { steps, passed } = traced(spec("highlands", 136, 67, 60));
     expect(passed).toBe(true);
     const at = JSON.stringify(steps);
     let ended = 0;

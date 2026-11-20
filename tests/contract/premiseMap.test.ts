@@ -91,8 +91,10 @@ import { decodeSpecFragment, encodeSpecFragment, makeSpec, type MapSpec } from "
 // the branch gives `238e0be0…` byte for byte, D148
 // and generator 0.10.51's version alone (D530's flood refusal, which moves no map of 168 at 128²–256²): with the version set
 // back to 0.10.50 the branch gives `4ef44283…` byte for byte, D148
-// and generator 0.10.53's version alone (uplands round 6b, Highlands stands up; it moves no map at 128² and none but Highlands):
-// with the version set back to 0.10.51 the branch gives `f7cce149…` byte for byte, D148
+// and generator 0.10.52's version alone (D545 round 3, which keeps this map's start): with the version set back to
+// 0.10.51 the branch gives `f7cce149…` byte for byte, D148
+// and generator 0.10.53's version alone (D547 Highlands stands up, which keeps this River Valley map): with the version set
+// back to 0.10.52 the branch gives `dc8f9a8d…` byte for byte, D148
 const SHA = "7b35dbf3e26a635d9b607bbf9ef8cf1fd55bab59b949f8795a2b0d08c5a0ea40";
 
 // (a Hard map whose start lake parts as it falls: the single analytic reading stood 0.32 over the run there, PR #1040;
