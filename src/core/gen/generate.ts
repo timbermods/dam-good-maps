@@ -2145,6 +2145,9 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
   // (room first on the settled water only, D(pick-start): on the water the hydrology planned the start is the guess
   // the badwater hollows keep away from, ranked as before)
   let onPlan = true;
+  // (on the settled water, the rivers' channel the build lays: the pick reads its walks over the slopes the build
+  // places, toward it, D(pick-start))
+  let slopeWater: Uint8Array | null = null;
   // (the badwater sources' hollows dug, for the Easy badwater row a start chosen for its room keeps: D(pick-start))
   const badHollows = (): [number, number][] => bad.features.flatMap((f) => (f.kind === "setPiece" && f.params.kind === "badwaterBasin" ? [(f.params.request as { at: [number, number] }).at] : []));
   const pickOn = (D: ArrayLike<number>, C: ArrayLike<number>, M: ArrayLike<number>, salt: number, avoid: Uint8Array | null, weight: number, near: { x: number; y: number } | null, reusePlanned: boolean): StartPick | null => {
@@ -2169,7 +2172,7 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
     const lengthwise = mapShape(W, H).long;
     const prefer = lengthwise ? (x: number, y: number, L: number, w: number) => intended(x, y, L, w) + SHAPE_PULL * startAlong(spec.theme, x, y, W, H) : intended;
     const rng = stream(seed, "settler2", attempt, salt);
-    return pickStart(h, W, H, { depth: D, contamination: C, moisture: M }, hy, g.settler, rng, stageRule, { prepared, avoid, kept, drought: policy, prefer, foot, minFoot, footWant, moistWalk: { min: moistWant }, room, bench, benchMin, storage, near, level: allowLevel, roomFirst: !onPlan, badwater: badHollows(), ...(ease >= 2 ? { levelReach: Math.min(3, 1 + Math.floor(ease / 2)) } : {}), ...(ease >= 3 ? { margin: Math.max(5, Math.round(Math.min(W, H) * 0.08)) } : {}), ...(ease >= 1 ? { waterExact: true } : {}), ...(stageEasy ? { easy: stageEasy } : {}), ...(ringSlopes ? { ringSlopes } : {}) });
+    return pickStart(h, W, H, { depth: D, contamination: C, moisture: M }, hy, g.settler, rng, stageRule, { prepared, avoid, kept, drought: policy, prefer, foot, minFoot, footWant, moistWalk: { min: moistWant }, room, bench, benchMin, storage, near, level: allowLevel, roomFirst: !onPlan, badwater: badHollows(), slopeWater, ...(ease >= 2 ? { levelReach: Math.min(3, 1 + Math.floor(ease / 2)) } : {}), ...(ease >= 3 ? { margin: Math.max(5, Math.round(Math.min(W, H) * 0.08)) } : {}), ...(ease >= 1 ? { waterExact: true } : {}), ...(stageEasy ? { easy: stageEasy } : {}), ...(ringSlopes ? { ringSlopes } : {}) });
   };
   const levelStart = (p: StartPick) => {
     if (!p.levelled) return;
@@ -3138,6 +3141,7 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
   //      badwater distance from their water and soil (start.badwater: a target the settler aims for)
   const badWithin = spec.settings.hazards.badwaterDistance;
   onPlan = false;
+  slopeWater = b1.channel;
   const beyondBad = (b: BuildResult): Uint8Array => {
     const m = new Uint8Array(N);
     let any = false;
@@ -3222,7 +3226,7 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
   // settled water a tile further off fails it, its pump's shore on the settled water, walked from its
   // middle over the slopes the build derives, is within the aim too, or it is passed over before its
   // water is settled)
-  const servedOnB1 = (q: StartPick): boolean => rule >= 7 || startWalks(h, W, H, b1.water, b1.contamination, b1.moisture, q.x, q.y, rule, false, ringSlopes).water <= aim;
+  const servedOnB1 = (q: StartPick): boolean => rule >= 7 || startWalks(h, W, H, b1.water, b1.contamination, b1.moisture, q.x, q.y, rule, false, ringSlopes, b1.channel).water <= aim;
   // (Easy start, D495, D453: the start's clearing and pond on the settled water. The water the land was planned with
   // is an estimate, a level off the water that settles as often as not. So the plan's shapes are tried first as they
   // stand, on the land's own settle (`easyStartOn`): a place whose shape passes every start check is the start, and
