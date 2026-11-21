@@ -30,7 +30,7 @@ import { hash32 } from "../math/hash";
 import { sinDet, TWO_PI } from "../math/detmath";
 import { formDist, pseudoAngle, type RingForm } from "./rings";
 import { DIRS8 } from "./num";
-import { distanceFrom } from "../math/grid";
+import { distanceFrom, N4 } from "../math/grid";
 
 /** The golden share of a turn, (√5 − 1) / 2: steps by it from one seed to the next never come back near one another. */
 const GOLDEN = 0.6180339887498949;
@@ -491,6 +491,58 @@ export function standBadKeep(valley: Uint8Array, join: Uint8Array | null, W: num
   const keep = new Uint8Array(N);
   for (let i = 0; i < N; i++) if (db[i] < view || benchView?.[i] || (dc[i] <= STAND.badBeside && !(dj && dj[i] <= STAND.badJoin))) keep[i] = 1;
   return keep;
+}
+
+/** Whether a badwater source's water strays on a land that stands up (round 6c, round 3): its water as the settle starts
+ *  from it, run from the source's tiles `from` onto every tile it can reach at or below its own spill level (`spill`,
+ *  `sim/prefill.ts` `flowThrough`: down the land and level across standing water). True when that reaches water (`fill`,
+ *  the pre-fill's depth) the start's views take in (`view`). Seed 11's joined the main river where it stood level with
+ *  the lake: the water the settle starts from carried its badwater back up into the lake, and the settle left it in the
+ *  lake's still corners under the start's eye. */
+export function badStrays(spill: ArrayLike<number>, fill: ArrayLike<number>, W: number, H: number, from: readonly number[], view: Uint8Array | null): boolean {
+  if (!view) return false;
+  const seen = new Uint8Array(W * H);
+  const queue: number[] = [];
+  for (const i of from) if (!seen[i]) (seen[i] = 1), queue.push(i);
+  for (let k = 0; k < queue.length; k++) {
+    const c = queue[k];
+    if (fill[c] > 0.05 && view[c]) return true;
+    const x = c % W;
+    const y = (c - x) / W;
+    for (const [dx, dy] of N4) {
+      const xx = x + dx;
+      const yy = y + dy;
+      if (xx < 0 || yy < 0 || xx >= W || yy >= H) continue;
+      const n = yy * W + xx;
+      if (seen[n] || spill[n] > spill[c]) continue;
+      seen[n] = 1;
+      queue.push(n);
+    }
+  }
+  return false;
+}
+
+/** The ground a badwater hollow's water would stray from (`badStrays` turned round): every tile from which water can
+ *  run down or level, on the spill levels `spill`, into water (`fill`) the start's views take in (`view`). */
+export function badCatch(spill: ArrayLike<number>, fill: ArrayLike<number>, W: number, H: number, view: Uint8Array): Uint8Array {
+  const out = new Uint8Array(W * H);
+  const queue: number[] = [];
+  for (let i = 0; i < W * H; i++) if (fill[i] > 0.05 && view[i]) (out[i] = 1), queue.push(i);
+  for (let k = 0; k < queue.length; k++) {
+    const c = queue[k];
+    const x = c % W;
+    const y = (c - x) / W;
+    for (const [dx, dy] of N4) {
+      const xx = x + dx;
+      const yy = y + dy;
+      if (xx < 0 || yy < 0 || xx >= W || yy >= H) continue;
+      const n = yy * W + xx;
+      if (out[n] || spill[n] < spill[c]) continue;
+      out[n] = 1;
+      queue.push(n);
+    }
+  }
+  return out;
 }
 
 /** The field the water is planned on, sunk in the valley below all the land round it, falling along the channel

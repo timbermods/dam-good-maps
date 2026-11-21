@@ -58,7 +58,7 @@ import { makeField } from "../land/field";
 import { shapeLakeBasin } from "../land/lakeBasin";
 import { shapeCanyon } from "../land/canyon";
 import { shapeHighlands } from "../land/highlands";
-import { lowerValley, STAND, standBadKeep, standsUp, standValley } from "../land/bold";
+import { badCatch, badStrays, lowerValley, STAND, standBadKeep, standsUp, standValley } from "../land/bold";
 import { BED_FLOOR, drawGenome, leanGenome, ownScaleFor, UPLANDS_BASE_PATH, type Genome } from "../land/genome";
 import { joinReach, mainWater, planBadwater, standingTheme, type Hazards } from "../land/hazards";
 import { besideCourses, blockedCourses, courseCells, inflowEdges, closeBackEdges, closeSideEdges, drownedHeads, sealedMouths } from "../land/courses";
@@ -2919,6 +2919,8 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
       // (a land that stands up keeps its badwater `STAND.badFar` tiles from the plan's start, the opening view's own
       // scale whatever the map's side: the view pulled back reaches about that far to each side, and the start is
       // turned from what lies past it, gen/settler.ts `badView`; round 6b step 5. Lake Basin above 128² as well, round 7c)
+      // (the water the start's views take in: the bench's and the plan's start's opening view, which no badwater may reach)
+      let seenView: Uint8Array | null = g.benchView ?? null;
       if (guess && (g.standValley || g.basinWarp)) {
         const far = new Uint8Array(N);
         // (Lake Basin's start, chosen again on the settled water, moves further from the plan's than a valley's: its
@@ -2933,6 +2935,15 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
         // disk every turn of the start saw a pit, Highlands 192² seed 1)
         const view = openingFrame({ x: guess.x, y: guess.y, z: h[guess.y * W + guess.x], orientation: guess.orientation }, W, H, { heights: h }).mask;
         badAsk.keepOff = orMask(orMask(badAsk.keepOff, far), view);
+        seenView = orMask(seenView, view);
+      }
+      // (round 6c, round 3: and off the ground whose water, as the settle starts from it, runs or stands level into the
+      // water those views take in, read on the land before any hollow is dug: there a hollow's badwater would stray,
+      // `bold.ts` `badStrays`)
+      if (guess && badAsk.count > 0 && g.standValley && seenView) {
+        const bw0 = build([...rivers], "water");
+        const m0 = waterModel(W, H, bw0.heights, mapObjects({ entities: bw0.entities.map(entityJson) }));
+        badAsk.keepOff = orMask(badAsk.keepOff, badCatch(spillLevels(m0), prefill(m0).depth, W, H, seenView));
       }
       if (guess && badAsk.count > 0) bad = badAt(est, guess, 0);
       // (and the sources are read on the pre-fill, the water the settle starts from, before the land
@@ -2951,6 +2962,20 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
         const pf = prefill(model);
         const fill = pf.depth;
         const reached = sourcesInFlowOwners({ ...bw, waterModel: model, water: fill } as BuildResult);
+        // (round 6c, round 3: on a land that stands up a badwater source is kept only where its water, as the settle starts
+        // from it, reaches no water the start's views take in (`bold.ts` `badStrays`); one that strays is planned again off
+        // where it was, as one another's water reaches)
+        if (g.standValley) {
+          const spill = spillLevels(model);
+          const bads = model.emitters.filter((e) => e.contamination > 0 && e.cells.length);
+          for (const f of bad.features) {
+            if (f.kind !== "setPiece" || reached.has(f.id) || !bads.length) continue;
+            const p = f.params.plan as { x: number; y: number };
+            const off = (e: (typeof bads)[number]) => Math.hypot((e.cells[0] % W) - p.x, Math.floor(e.cells[0] / W) - p.y);
+            const src = bads.reduce((a, e) => (off(e) < off(a) ? e : a));
+            if (badStrays(spill, fill, W, H, src.cells, seenView)) reached.add(f.id);
+          }
+        }
         shownFill = Float64Array.from(fill);
         if (!reached.size) break;
         shownFill = null;
