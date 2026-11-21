@@ -351,6 +351,14 @@ export function planResources(spec: MapSpec, g: Ground, candidate: number, attem
   // to the rest of the map afterwards)
   basePatches(budget.bushes - bushCount - (g.start ? near.bushes : 0), walkKeepOut);
 
+  // (Islands above 128² on Normal, `startFood` `early`, generator 0.10.62: the start's food ground, moist through a
+  // drought within its walk, is held from the map's own groves, which took the headland's shore bench before the start's
+  // top-up reached it; it is given back to the start's own planting, below)
+  const foodHeld: number[] = [];
+  if (!easy && sf?.early && walk) for (let i = 0; i < N; i++) if (free[i] && walk[i] <= sf.within && sf.safe[i] && bushMoist[i]) {
+    free[i] = 0;
+    foodHeld.push(i);
+  }
   // ---- groves: single-species, alive on moist soil and stored dead on dry soil (PLAN §7.7)
   const grove = FOREST.grove[spec.settings.resources.groveSize];
   const mixW = spec.settings.resources.speciesMix;
@@ -502,6 +510,7 @@ export function planResources(spec: MapSpec, g: Ground, candidate: number, attem
   };
   baseGroves(g.start ? near.trees : 0, walkKeepOut);
 
+  for (const i of foodHeld) free[i] = 1;
   // ---- the start's own planting (PLAN §5.6, D85, D164, D227; D252): the map's own groves and
   //      patches come first, and the start rules add only what they leave short of the targets
   //      within the colony's walk, reading the land the way the floor's wood does (D229)
