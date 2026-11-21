@@ -385,6 +385,11 @@ export const EDITOR_TOP = EDITOR_LEVEL;
  *  deepest bed of any water stands at least this many levels above the map's floor, so a player has
  *  room to dig and terraform early. The land's lowest level is a level above it. */
 export const BED_FLOOR = 3;
+/** Lake Basin above 128² (the gated hydro pass, after round 7c): the lake owns the basin's lowest levels. A river
+ *  inside the basin is carved no deeper than this, nor under its hollow's spill where the banks stand over it; the
+ *  big lakes are dug a level, to `BED_FLOOR` at the least; only the river leaving the lake falls to `BED_FLOOR`, graded
+ *  from its last sill to the map's edge (`hydro.ts`). */
+export const BASIN_BED = 4;
 
 /** A map whose narrower side is under this, and whose area is under 128², is drawn at its own scale from the first
  *  round (`DrawOptions.ownScale` "root", #1193; Highlands from the eighth, its promise being height): 96² and up keep a

@@ -48,7 +48,6 @@ import { objectTiles } from "../features/objects";
 import type { Feature, ForestFeature, MapObjectFeature, RiverFeature, StartFeature } from "../features/schema";
 import { writeTimber, type TimberFile } from "../format/timber";
 import { drainage } from "../land/drainage";
-import { HYDRO_DBG } from "../land/hydro";
 import { bedMask, planWashes, startKeepOff, type Wash } from "../land/washes";
 import { WANDER, wanderEdges } from "../land/wander";
 import { EDGE_SHARE, edgeRuleApplies, edgeWalls } from "../analysis/edges";
@@ -156,7 +155,31 @@ function lakesAtSpill(h: Uint8Array, W: number, H: number, hy: Hydro, keep: Uint
       }
     }
     if (!q.length) continue;
-    lakes.push({ ...lk, tiles: q, outletBed: Math.round(filled[q[0]]) - 1 });
+    // (each body of it a lake of its own: its tiles were found from all the planned lake's, and the parts its land holds
+    // apart are lakes apart, each read by its own outline)
+    const mine = new Uint8Array(N);
+    for (const i of q) mine[i] = 1;
+    for (const s0 of q) {
+      if (mine[s0] !== 1) continue;
+      mine[s0] = 2;
+      const part = [s0];
+      for (let k = 0; k < part.length; k++) {
+        const c = part[k];
+        const x = c % W;
+        const y = (c - x) / W;
+        for (const n of [x > 0 ? c - 1 : -1, x < W - 1 ? c + 1 : -1, y > 0 ? c - W : -1, y < H - 1 ? c + W : -1]) {
+          if (n < 0 || mine[n] !== 1) continue;
+          mine[n] = 2;
+          part.push(n);
+        }
+      }
+      // (a pit of a few tiles is no lake: dry land, as a planned lake the land holds no water for)
+      if (part.length < SPILL_LAKE_MIN) {
+        for (const i of part) taken[i] = 0;
+        continue;
+      }
+      lakes.push({ ...lk, tiles: part, outletBed: Math.round(filled[part[0]]) - 1 });
+    }
   }
   for (let i = 0; i < N; i++)
     if (hy.water[i] === 2 && !taken[i]) {
@@ -176,6 +199,12 @@ function lakesAtSpill(h: Uint8Array, W: number, H: number, hy: Hydro, keep: Uint
 /** Lake Basin above 128²: how far its badwater keeps from the plan's start, in tiles (round 7c), half again a land
  *  that stands up's `STAND.badFar`: its start is chosen again on the settled water and moves further. */
 const BASIN_BAD_FAR = 90;
+/** Lake Basin above 128²: the fewest tiles a body of a lake planned at its spill level keeps to be a lake. */
+const SPILL_LAKE_MIN = 6;
+/** Lake Basin above 128², the gated hydro pass: how many levels the lake's floor is dug, and the share of the map a lake
+ *  covers to be the basin's (a bench's pond is not dug). */
+const BASIN_DIG = 1;
+const BASIN_LAKE = 0.01;
 /** Maps (in 100) whose badwater drains where the land takes it, unsteered (D476: on the rest one
  *  badwater course is routed into the theme's main water, as in the game; an aim, never tuned). */
 const OWN_DRAIN = 15;
@@ -1792,6 +1821,13 @@ function planLandStage(land: Land, attempt: number, W: number, H: number, seed: 
   const hy = planHydro(land.E, h, g, seed, W, H, attempt, land.joinsOff ? { joins: false } : {});
   land.joined = (hy.joined ?? 0) > 0;
   land.joinedRivers = new Set(hy.joinedRivers ?? []);
+  // (Lake Basin above 128², the gated hydro pass: the lake owns the basin's lowest level. Its floor is dug `BASIN_DIG`
+  // levels, to the beds' floor at the most, under the rivers inside the basin, which stand at `BASIN_BED` or over)
+  if (g.basinWarp)
+    for (const lk of hy.lakes) {
+      if (lk.tiles.length < BASIN_LAKE * N) continue;
+      for (const i of lk.tiles) h[i] = Math.max(BED_FLOOR, h[i] - BASIN_DIG);
+    }
   // (M9b: the banks beside an inflow's mouth stay as the land has them: lowered to its channel, the
   // water would run out along the edge beside the mouth instead of down its course)
   // (and no tile beside a planned channel is lowered below that channel's water, here or by the
@@ -2160,32 +2196,11 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
     // M9b (D273 (1)): every river's water runs its whole course; a plan where it would spill out
     // before the end (by a lower way beside a lake, or by the edge beside its own mouth, and the rest
     // of its course stood dry) is planned again (the course check runs before the first look)
-    if ((globalThis as any).process?.env?.DGM_TR) console.error(`[tr] a${attempt} flowDir ${g.flowDir} focus ${g.focus.map((v) => v.toFixed(2))} rivers ${hy.rivers.map((r) => r.role + ":" + ("edge" in r.params.entry ? r.params.entry.edge + "@" + JSON.stringify(r.params.path[0]) : "spring@" + JSON.stringify(r.params.path[0])) + "->" + JSON.stringify(r.params.path[r.params.path.length - 1]) + " flow " + r.params.flow.toFixed(2)).join(" | ")} lakes ${hy.lakes.map((l) => l.tiles.length + "@" + l.outletBed).join(",")} blocked ${JSON.stringify(blocked)}`);
     if (blocked.length && attempt < (opts.maxAttempts ?? MAX_ATTEMPTS) - 1) return fail("a river's water leaves its course", null, true, blocked.map((b) => b.id));
     // (and no inflow's head under water held downstream: it backs up to the edge, runs off beside
     // the head's sources and never settles)
     if (attempt < (opts.maxAttempts ?? MAX_ATTEMPTS) - 1) {
-      const drowned = drownedHeads(h, W, H, hy.rivers);
-      if (drowned.length && (globalThis as any).process?.env?.DGM_TR) { const fl = drainage(h, W, H, { eight: false }).filled; console.error(`[tr] a${attempt} drowned ${drowned.map((id) => { const r = hy.rivers.find((q) => q.id === id)!; const [mx, my] = r.params.path[0]; const cx = Math.max(0, Math.min(W - 1, Math.round(mx))), cy = Math.max(0, Math.min(H - 1, Math.round(my))); const p1 = r.params.path[Math.min(r.params.path.length - 1, 6)]; const c1 = Math.round(p1[1]) * W + Math.round(p1[0]); return `${r.role}@[${cx},${cy}] h${h[cy * W + cx]} fill${fl[cy * W + cx].toFixed(1)} in6 h${h[c1]} end ${JSON.stringify(r.params.path[r.params.path.length - 1].map((v) => Math.round(v)))} endh ${h[Math.round(r.params.path[r.params.path.length - 1][1]) * W + Math.round(r.params.path[r.params.path.length - 1][0])]}`; }).join(" ; ")} lakes ${hy.lakes.map((l) => l.tiles.length + "@" + l.outletBed).join(",")}`); }
-      if (drowned.length && (globalThis as any).process?.env?.DGM_TR) {
-        const sealedM = sealedMouths(hy.rivers, W, H); const sealedF = drainage(h, W, H, { eight: false, outlet: (i) => !sealedM[i] }).filled;
-        for (const id of drowned) {
-          const r = hy.rivers.find((q) => q.id === id)!;
-          const [mx, my] = r.params.path[0];
-          const cx = Math.max(0, Math.min(W - 1, Math.round(mx))), cy = Math.max(0, Math.min(H - 1, Math.round(my)));
-          const rows: string[] = [];
-          for (let yy = Math.min(H - 1, cy + 8); yy >= Math.max(0, cy - 8); yy--) {
-            let row = "";
-            for (let xx = Math.max(0, cx - 12); xx <= Math.min(W - 1, cx + 12); xx++) {
-              const c = yy * W + xx;
-              const d = Math.round(sealedF[c] - h[c]);
-              row += (hy.water[c] === 1 ? "-" : hy.water[c] === 2 ? "~" : hy.water[c] === 3 ? "." : " ") + String(h[c]).padStart(2, " ") + (d > 0 ? "+" + d : "  ");
-            }
-            rows.push(row);
-          }
-          console.error(`[tr]   mouth ${r.role} at [${cx},${cy}] (x from ${Math.max(0, cx - 12)}, y from ${Math.min(H - 1, cy + 8)} down; +n = water over it, edges open):` + String.fromCharCode(10) + rows.join(String.fromCharCode(10)));
-        }
-      }
+      const drowned = drownedHeads(h, W, H, hy.rivers, !!g.basinWarp);
       if (drowned.length) return fail("a river's head under a lake", null, true, drowned);
     }
     // the Rivers setting's count, when the player set one: land that holds fewer is drawn again
@@ -2801,7 +2816,6 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
         badAsk.keepOff = orMask(orMask(badAsk.keepOff, far), view);
       }
       if (guess && badAsk.count > 0) bad = badAt(est, guess, 0);
-      if ((globalThis as any).process?.env?.DGM_TR) console.error(`[tr] a${attempt} guess ${guess?.x},${guess?.y} o${guess?.orientation} starts ${JSON.stringify(badAsk.starts)} bad ${bad.features.map((f: any) => f.id + ':' + JSON.stringify(f.params?.at ?? f.params?.center ?? f.params?.path?.[0] ?? Object.keys(f.params ?? {}))).join(' ')}`);
       // (and the sources are read on the pre-fill, the water the settle starts from, before the land
       // is shown: a spring river, or an inflow other than the main river, whose source another's water
       // reaches leaves now; hollows another's water reaches are planned again, off where they were;

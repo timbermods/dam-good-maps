@@ -816,7 +816,6 @@ export function pickStart(
   const keeps = keepsOf(c0);
   // room first: the places with Easy's room (the start well inside it) that keep those rows; where none has, those that
   // keep them with at least the room of the place the pick before would choose (that place among them)
-  if ((globalThis as any).process?.env?.DGM_TR && opts.badViewWide && roomFirst) { const rm = cands.filter((t) => t.room >= ask.room && t.inside >= ask.insideShare); console.error(`[tr] cands ${cands.length} roomed ${rm.length} keeping ${rm.filter((t) => keeps(t)).length} c0 ${c0.i % W},${Math.floor(c0.i / W)} room ${c0.room} mid ${c0.mid} bad ${c0.bad} moist ${c0.moist}; roomed failing: ${rm.slice(0, 400).filter((t) => !keeps(t)).slice(0, 8).map((t) => `${t.i % W},${Math.floor(t.i / W)} r${t.room} mid${t.mid} bad${t.bad} m${t.moist}`).join(' | ')}`); }
   let top = roomFirst ? topOf(cands.filter((t) => keeps(t) && t.room >= ask.room && t.inside >= ask.insideShare), "scoreRoom", keeps) : [];
   if (!top.length && roomFirst) top = topOf(cands.filter((t) => keeps(t) && t.room >= c0.room), "scoreRoom", keeps);
   // (without room first, or past the 40 places read over the slopes, the first list's best few)
@@ -854,7 +853,6 @@ export function pickStart(
       }
     }
   }
-  if ((globalThis as any).process?.env?.DGM_TR && opts.badViewWide) console.error(`[tr] pick ${c.i % W},${Math.floor(c.i / W)} bad ${badTiles.length} seen ${badSeen(c, orientation)} top ${top.map((t) => `${t.i % W},${Math.floor(t.i / W)}:${badSeen(t, turned(t))}`).join(' ')}`);
   if (opts.badViewWide && badTiles.length && badSeen(c, orientation) > 0)
     for (const t of top) {
       if (t === c) continue;
