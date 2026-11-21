@@ -101,7 +101,12 @@ import { decodeSpecFragment, encodeSpecFragment, makeSpec, type MapSpec } from "
 // back to 0.10.54 the branch gives `2dc34c3c…` byte for byte, D148
 // and generator 0.10.56's version alone (the start's first food, which premise maps leave to their own planting): with
 // the version set back to 0.10.55 the branch gives `29e2c9c1…` byte for byte, D148
-const SHA = "b1a5d1d13dfc94f7e68af0faa4cb600ff1bb3c5ec59082e9088de04a185640fa";
+// and generator 0.10.60's version alone (Lake Basin's hydro pass and shore bench, gated to Lake Basin above 128², which
+// premise maps do not take): dev's code with its version set to 0.10.60 gives this pin byte for byte (`b1a5d1d1…` at
+// 0.10.56), D148
+// and generator 0.10.61's version alone (D547's Islands land above 128², which premise maps do not take): with the version
+// set back to 0.10.60 the branch gives `b3f5b992…` byte for byte, D148
+const SHA = "9bd44cd63f58a00b4c15e0fc0d1e433e3fef4f27710adb0d5bc15c19cd02802a";
 
 // (a Hard map whose start lake parts as it falls: the single analytic reading stood 0.32 over the run there, PR #1040;
 // seed 5 for 7 since D518 with dev's ways out by a ramp's line (#1061), D148: seed 7's Hard lake stair holds no plan now

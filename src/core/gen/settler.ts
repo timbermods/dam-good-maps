@@ -163,6 +163,9 @@ export interface SettlerOptions {
    *  (water 0.1+ deep whose contamination is over 0.05, as the settled water holds it), the opening shot choosing among
    *  those; and the frame's swap to another of the good few never to one that shows more. */
   badView?: boolean;
+  /** With `badView` (Lake Basin above 128², round 7c): where each of the good few still shows badwater, the best place of
+   *  the rest of the list drawn from (every one keeps the rows the pick keeps) whose turn shows none. */
+  badViewWide?: boolean;
   /** Islands above 128² (round 8): with `badView`, the start is turned to the view with the least badwater, but never
    *  moved to another place for it: the place, its room and its rows are the pick's own. */
   badTurnOnly?: boolean;
@@ -850,6 +853,16 @@ export function pickStart(
       }
     }
   }
+  if (opts.badViewWide && badTiles.length && badSeen(c, orientation) > 0)
+    for (const t of top) {
+      if (t === c) continue;
+      const o = turned(t);
+      if (badSeen(t, o) === 0) {
+        c = t;
+        orientation = o;
+        break;
+      }
+    }
   // the frame (D507): among the good few, all of which keep the start's rules, the one whose opening frame shows
   // clearly more of the map than the one drawn (a start near a corner frames mostly the void past the edge), never at
   // the cost of its opening shot (a landmark in view first, D493, D502: its shot as `bestTurn` rounds it)

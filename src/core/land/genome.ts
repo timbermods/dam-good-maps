@@ -237,6 +237,12 @@ export interface Genome {
   tiltKind: "linear" | "radial";
   /** Where a radial slope falls to (fractions of the map). */
   focus: [number, number];
+  /** Lake Basin above 128² (round 7b): the radial slope's distance read through a slow warp (`amp` a fraction of the map,
+   *  over `cell` of its narrower side), so its contours are never a compass's rings; and the land rising to a rim on the
+   *  far side from the outlet, `lin` levels' worth as a power `pow` of the way across, and on one side as well (`side`
+   *  ±1, `sideLin`; 0 for none). Past the lake toward the outlet the rise falls no lower than at the lake's own place
+   *  less `lip` levels (round 7c). */
+  basinWarp?: { amp: number; cell: number; lin: number; pow: number; side: number; sideLin: number; lip: number };
   noise: { amp: number; cell: number; octaves: number; warp: number; warpCell: number; ridged: number };
   parts: Part[];
   erosion: { iterations: number; k: number; diffusion: number };
@@ -351,6 +357,8 @@ export interface Genome {
    *  a sea off one edge, a scatter of islands, an island chain, an atoll, or two large islands parted
    *  by a strait; null without a sea. */
   seaLayout?: SeaLayout | null;
+  /** Islands above 128² (`isleSea.ts`, generator 0.10.61): the start's headland and the islands as the land drew them. */
+  isleSea?: { headland: { x: number; y: number; ux: number; uy: number; bx: number; by: number; r: number }; isles: { x: number; y: number; r: number; aspect: number; ux: number; uy: number }[] };
   /** An inland sea in a ring of land (D417, D423: at most one sea map in four); on the others the
    *  rim's broad lobes of mainland reach into the sea and break the land round it. */
   seaRing?: boolean;
@@ -379,6 +387,11 @@ export const EDITOR_TOP = EDITOR_LEVEL;
  *  deepest bed of any water stands at least this many levels above the map's floor, so a player has
  *  room to dig and terraform early. The land's lowest level is a level above it. */
 export const BED_FLOOR = 3;
+/** Lake Basin above 128² (the gated hydro pass, after round 7c): the lake owns the basin's lowest levels. A river
+ *  inside the basin is carved no deeper than this, nor under its hollow's spill where the banks stand over it; the
+ *  big lakes are dug a level, to `BED_FLOOR` at the least; only the river leaving the lake falls to `BED_FLOOR`, graded
+ *  from its last sill to the map's edge (`hydro.ts`). */
+export const BASIN_BED = 4;
 
 /** A map whose narrower side is under this, and whose area is under 128², is drawn at its own scale from the first
  *  round (`DrawOptions.ownScale` "root", #1193; Highlands from the eighth, its promise being height): 96² and up keep a

@@ -17,7 +17,7 @@
 //      edits changed.
 // 4.   Beyond that, every region of 400+ tiles gets one slope toward its lowest neighbour.
 // Above 128² (uplands round 5, `RING_SLOPES`, `SlopeRules.ringed`: the generator's ringed land and, since Islands round 8,
-// an island sea's land, not Lake Basin's or a premise's) the land is drawn in rings of many terraces one level apart: the core
+// an island sea's land, and Lake Basin's since its round 7c; not a premise's) the land is drawn in rings of many terraces one level apart: the core
 // grows with the map, a long step of the tree gets a slope per 70 tiles spread along it, a step the spacing rule
 // leaves bare still gets one, and every 400+ region beside the joined ground is joined to it before rule 4.
 // Slopes that already stand (a set piece's own stairs, an import's own slopes) join their regions
