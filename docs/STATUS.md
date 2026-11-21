@@ -91,17 +91,17 @@ Merge order and owner. A PR merges on its owner's verdict, a fresh reviewer agen
 the owning session may merge it itself (D490). The browser specs and the suites a change needs run on dev after the merge;
 no full run by hand except for a release.
 
-At the close (2026-11-22), one PR is in flight and the rest are parked. The parked PRs stay open; nothing is closed or
+At the release of 2026-11-22, one PR is in flight and the rest are parked. The parked PRs stay open; nothing is closed or
 deleted (planning, #236 7059356767).
 
 | PR | Work | State, and why |
 |---|---|---|
-| #1275 | Islands' land above 128² (`gen/islands-land`, head d300f309, generator 0.10.61) | In flight, `hold` for planning's verdict: the last map change of the close. **TO FILL (Islands):** merged at dev …, or named and parked. |
+| #1275 | Islands' land above 128² (`gen/islands-land`, head d300f309, generator 0.10.61) | In flight, `hold` for planning's verdict: the last map change before the release. **TO FILL (Islands):** merged at dev …, or named and parked. |
 | #1183 | The water tree above 128² | Parked (planning, 2026-11-16): #1162's joins give the same read of each river system, and the tree laid over them doubled leaks (9 → 18). It comes back only as a tree built on the joins. |
 | #1178 | Nightly test: every generator control's move changes the map (D527, fix 5) | `hold`: it merges after #1177, the last of the settings fixes it follows. |
 | #1177 | Starting berries folds into Berries near start (D527, fix 1) | Approved at b9c7e2f0. `hold` until planning's conditions hold: dev's rescue rounds and premises kept, and trees within 3 % (#236 6895067611). |
 | #1170 | Intentions PR 1: offered at 8 of 12, badwater-rich removed (0.10.24) | `hold`: counted on #1145's land before #1145 merged, never re-pinned. It comes back on the new land, with the landmark by design (#236 6996806923). |
-| #1157 | The Gate's dry side: no knobs, no one-tile pits | Approved at 0926cafb, but its quick suite failed there (`test (1/2)`). Not mended, not labelled `hold`. |
+| #1157 | The Gate's dry side: no knobs, no one-tile pits | Approved at 0926cafb, but its quick suite failed there (`test (1/2)`). No session owns it; labelled `hold` (planning, 2026-11-21). |
 | #1127 | The land stage in Rust: the hydrology's hollow flood | `hold`: same bytes, but a gain inside the noise does not pay for a second copy of the hollow flood before the land stage is redesigned (#236 6880377008). It merges if the flood survives that redesign as it is. |
 | #928 | Naturalize: cut banks slump | Draft, `hold`: paused work in progress (usage). It becomes rule 7 when it resumes (D514). |
 | #927 | The first ten cycles as a report | Draft, `hold`: paused work in progress, not yet typechecked or run. |
@@ -109,23 +109,24 @@ deleted (planning, #236 7059356767).
 | #709 | Companion: the first in-game run | `hold`: the companion mod is set aside (ROADMAP). Its last code review asked for changes (the restore is skipped in one case). When it resumes, it recognises our files by a metadata field (#1243's note on the PR). |
 | #672 | 128² maps' water on four threads | Draft, `hold`: speed comes after map quality (D453). It waits for the WebKit thread measure. |
 | #1121 | Dependabot: npm minor and patch (Playwright 1.65.0, vite) | `hold`: Playwright 1.65 needs new browser downloads on the dedicated machine, which wait for Kyler's yes. |
-| #1203 | Dependabot: collab-worker minor and patch (workers-types, wrangler) | Quick checks green, mergeable. A minor and patch bump merges on green CI (D150); planning keeps it open through the close. |
+| #1203 | Dependabot: collab-worker minor and patch (workers-types, wrangler) | Quick checks green, mergeable. A minor and patch bump merges on green CI (D150); planning keeps it open through the release. |
 
 ## Done, and next
 
-The close: the cut-off is Sunday 2026-11-22 18:00Z. What has its reviewer's line and planning's verdict by then ships;
-the rest is named.
+The release of 2026-11-22 ships what dev holds once Islands #1275 merges and dev's runs are green. After it, a release
+follows whenever a round lands; the order of the rounds is in [ROADMAP.md](../ROADMAP.md), "The order of work from the
+release of 2026-11-22" (Kyler, 2026-11-21: no round budgets, no stopping point).
 
 1. **In dev, not yet on `main`:** Lake Basin's hydro pass and shore bench (#1273, merged at dev 5c3694d7, generator
    0.10.60; its Nightly was green). Before Islands lands, dev is ahead of `main` by #1273 alone.
-2. **In flight:** Islands' land above 128² (#1275, `gen/islands-land`, generator 0.10.61), the last map change of the
-   close. **TO FILL (Islands):** merged at dev …, or named.
+2. **In flight:** Islands' land above 128² (#1275, `gen/islands-land`, generator 0.10.61), the last map change before the
+   release. **TO FILL (Islands):** merged at dev …, or named.
 3. **Then:** planning releases dev to `main` once.
 4. **Not shipped, kept as findings branches:** the start's food row where water lasts (`gen/food-row-lasting-water`,
    #1272 closed), Highlands round 6c (`findings/highlands-6c`), Delta round 2 (`findings/delta-1`, #1274 closed), the
    great form (`findings/great-form`), Lake Basin's earlier rounds (`findings/lake-basin-8`, `findings/lake-basin-7c`)
    and Islands' earlier land (`findings/islands-land-11`, `findings/islands-feed`). Each theme's state as released, its
-   shortfall and its next step are in [design/uplands.md](design/uplands.md), "Shortfalls and next steps at the close".
+   shortfall and its next step are in [design/uplands.md](design/uplands.md), "State at the release of 2026-11-22".
 5. **Generator versions never used on dev:** 0.10.57 (the food row where water lasts) and 0.10.59 (Highlands 6c); 0.10.58
    too, which Islands held before it moved to 0.10.61. **TO FILL (Islands):** the version it lands at.
 6. **Not yet played in the game:** Real places' open edges (#493's four places, files in

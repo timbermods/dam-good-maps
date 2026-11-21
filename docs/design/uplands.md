@@ -970,9 +970,9 @@ Lessons for whoever takes the land up again:
   so water that a settle warm from the first one reaches is not the water the project reopens to: the file's water must
   be a cold settle's.
 
-## Shortfalls and next steps at the close (2026-11-22)
+## State at the release of 2026-11-22
 
-Every theme as it is released at the close, and what still falls short. Each entry gives the state as released, the
+Every theme as it is released on 2026-11-22, and what still falls short. Each entry gives the state as released, the
 shortfall, the next step and the findings branch. The findings branches are kept, not merged. The numbers are from the
 #236 posts named in each entry: 256², Normal, unless the entry says otherwise. Entries marked **TO FILL (Islands)** wait
 for the Islands PR (#1275), and are filled in when it lands.
