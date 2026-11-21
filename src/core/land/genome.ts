@@ -65,6 +65,9 @@ export interface Part {
   /** An island sea only: Islands' lip, a tile or two at the map's edge (round 6); else round 5's, 6–10
    *  tiles (`rimKeep`). */
   thinLip?: boolean;
+  /** A ridge only: the share of its height it loses from its far end to its near one (its line's first point), so it
+   *  runs down as a spur does (Lake Basin's plate, above 128²). */
+  fall?: number;
 }
 
 /** A lobe of the rim of land round an island sea (round 4, D417): its middle, as a place round the

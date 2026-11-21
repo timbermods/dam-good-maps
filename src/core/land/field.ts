@@ -135,9 +135,15 @@ function addPart(U: Float64Array, p: Part, seed: number, W: number, H: number, k
     case "ridge":
     case "trough": {
       const line = partLine(p, W, H, seed, k);
+      // (a spur: its height falling toward its near end, read along the line from its first point to its last)
+      const [ax, ay] = line[0];
+      const ex = line[2][0] - ax;
+      const ey = line[2][1] - ay;
+      const len2 = Math.max(1e-9, ex * ex + ey * ey);
       each((x, y, i) => {
         const w = p.extra * (1 + 0.5 * fbm(s, x, y, 16, 2));
-        U[i] += p.height * bump(polyDist(x, y, line) / w) * (1 + 0.5 * fbm(s + 1, x, y, 9, 2));
+        const fall = p.fall ? 1 - p.fall * (1 - clamp(((x - ax) * ex + (y - ay) * ey) / len2, 0, 1)) : 1;
+        U[i] += fall * p.height * bump(polyDist(x, y, line) / w) * (1 + 0.5 * fbm(s + 1, x, y, 9, 2));
       }, around(line, 1.5 * p.extra));
       return;
     }

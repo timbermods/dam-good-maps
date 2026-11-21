@@ -324,7 +324,63 @@ function sidedBasin(g: Genome, side: number, r: ReturnType<typeof stream>): void
     esc.at = [clamp(g.focus[0] - dx * back, 0.1, 0.9), clamp(g.focus[1] - dy * back, 0.1, 0.9)];
     esc.turn = g.flowDir / 8 + 0.5 + r.range(-0.06, 0.06);
   }
+  plateForms(g, side, r);
 }
+
+/** The dry plate's forms (above 128²): out on the open land between the lake and the edge, where it runs widest, a long
+ *  ridge running in toward the lake and two or three broad hills, so the plate reads as land from the whole map. Each bent
+ *  and its width wandering (`field.ts`), never a straight bank; none on the rim's side (its inflows' valleys) or down the
+ *  outlet's; the lake's hollow and the valleys are cut after them. */
+function plateForms(g: Genome, side: number, r: ReturnType<typeof stream>): void {
+  const down = g.flowDir / 8;
+  const off = (a: number, b: number) => Math.abs(((a - b) % 1 + 1.5) % 1 - 0.5);
+  // (the open bearings, widest first: the lake's distance to the edge along each of 24)
+  const open: { b: number; L: number }[] = [];
+  for (let k = 0; k < 24; k++) {
+    const b = k / 24 + r.range(-0.01, 0.01);
+    if (off(b, down) < PLATE.clearOutlet || off(b, down + 0.5) < PLATE.clearRim) continue;
+    const L = toEdge(g.focus, unit(b));
+    if (L >= PLATE.least) open.push({ b, L });
+  }
+  open.sort((p, q) => q.L - p.L || p.b - q.b);
+  const taken: number[] = [];
+  const pick = () => {
+    const o = open.find((c) => taken.every((t) => off(t, c.b) >= PLATE.apart));
+    if (o) taken.push(o.b);
+    return o;
+  };
+  const ridge = pick();
+  if (ridge) {
+    const [vx, vy] = unit(ridge.b);
+    const from = Math.max(PLATE.ridgeFrom * ridge.L, PLATE.clearShore);
+    const to = PLATE.ridgeTo * ridge.L;
+    const mid = (from + to) / 2;
+    g.parts.push({ kind: 'ridge', at: [clamp(g.focus[0] + vx * mid, 0.05, 0.95), clamp(g.focus[1] + vy * mid, 0.05, 0.95)],
+      size: (to - from) * side, height: r.range(PLATE.ridgeHigh[0], PLATE.ridgeHigh[1]), turn: ridge.b + r.range(-0.02, 0.02),
+      extra: side * r.range(PLATE.ridgeWide[0], PLATE.ridgeWide[1]), soft: 0, fall: PLATE.ridgeFall });
+  }
+  const n = r.int(2, 4);
+  for (let k = 0; k < n; k++) {
+    const o = pick();
+    if (!o) break;
+    const [hx, hy] = unit(o.b);
+    const d = Math.max(r.range(PLATE.hillAt[0], PLATE.hillAt[1]) * o.L, PLATE.clearShore + 0.04);
+    g.parts.push({ kind: 'cone', at: [clamp(g.focus[0] + hx * d, 0.05, 0.95), clamp(g.focus[1] + hy * d, 0.05, 0.95)],
+      size: side * r.range(PLATE.hillSize[0], PLATE.hillSize[1]), height: r.range(PLATE.hillHigh[0], PLATE.hillHigh[1]),
+      turn: r.float(), extra: 0, soft: 0 });
+  }
+}
+
+/** The plate's forms: bearings within `clearOutlet` of a turn of the outlet's or `clearRim` of the rim's are not the
+ *  plate; a bearing is open where the edge is `least` of the map or more from the lake; forms stand `apart` turns apart,
+ *  and `clearShore` of the map or more from the lake's middle, so the shore's benches, the start's place, keep their land.
+ *  The ridge runs from `ridgeFrom` to `ridgeTo` of the way out, losing `ridgeFall` of its height toward the lake; a hill
+ *  stands `hillAt` of the way out, `hillSize` of the map across. Heights in the field's units. */
+const PLATE = {
+  clearOutlet: 0.06, clearRim: 0.2, least: 0.45, apart: 0.12, clearShore: 0.34,
+  ridgeFrom: 0.4, ridgeTo: 0.88, ridgeHigh: [18, 22], ridgeWide: [0.05, 0.07], ridgeFall: 0.7,
+  hillAt: [0.55, 0.75], hillSize: [0.09, 0.13], hillHigh: [14, 18],
+} as const;
 
 /** How far from `at` (fractions of the map) along `v` to the map's border. */
 function toEdge(at: readonly [number, number], v: readonly [number, number]): number {
