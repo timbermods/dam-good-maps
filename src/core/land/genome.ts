@@ -324,7 +324,8 @@ export interface Genome {
    *  above the theme's own; 4 and 100 when absent). */
   lakeSpringMax?: number;
   lakeSpringMin?: number;
-  /** Tiles where no spring is drawn (uplands round 6: Highlands' mesa tops, `bold.ts` `standMesas`, kept dry). */
+  /** Tiles where no spring is drawn (uplands round 6: Highlands' mesa tops, `bold.ts` `standMesas`, kept dry; round 6c:
+   *  the massif's top too, and the ground in front of the start's bench, so no stream crosses it). */
   dryTops?: Uint8Array;
   /** Tiles of rock a lake's river crosses at its outlet's bed, cutting down only past them (uplands round 6b:
    *  Highlands' valley's sill, `bold.ts` `standValley`). */

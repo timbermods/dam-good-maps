@@ -950,6 +950,98 @@ planting within Easy's 15 tiles is a rule for every theme's Normal maps.
 **The hash proof**: the 52 maps of the other themes Designed for Normal and of Highlands at 128² and under, this head
 against dev (18a6518a), the version neutralised: 52 of 52 identical.
 
+### Round 6c: Highlands' maps differ from one another (2026-11-21, pushed as findings/highlands-6c: the start's bars failed)
+
+Planning's brief (#236, round 6c) named three shortfalls of 0.10.56's Highlands above 128²: every seed laid the same
+map, the lake in the middle with high ground in a ring round it; the broad tops were blank; and the walls were short,
+land beside a 3+ drop well under the game's 5–9 %. Generator 0.10.59 on the branch, on dev 5cb017b4 (0.10.56). Highlands above 128² only (`bold.ts` `standsUp`): the 20
+maps sampled (every theme at 128² seeds 1–2, the other themes at 256² seed 1) hash as base's, the version aside.
+
+**Measured first** (`.scratch` measures, the game's maps read locally and never copied): the main lake's centre, the
+side its high ground stands on and how lopsided (the resultant of the unit vectors from the lake to the land at or over
+the 85th percentile, 0 a ring, 1 all on one side), land beside a 3+ drop, and the largest dead-flat region above the
+median level. The game's own: lopsidedness 0.3–0.8, 3+ faces 7.5–11.7 % of land, the largest dead-flat top 1–4 %. Base
+(0.10.56) seeds 1–12: every lake within 0.39–0.58 of the map's middle, lopsidedness 0.14–0.75 (a ring on most),
+3+ faces 2.0–3.8 %, the largest flat top 3.7–11.6 %.
+
+**What was built** (`land/bold.ts` `STAND`, `standValley`, `lakeShore`, `standMassif`, `stepOf`, `standMesas`;
+`levels.ts` `snapLevels`).
+- **The bowl off the middle.** Its middle lies 0.1–0.26 of the side from the map's (near the middle on odd seeds, far
+  on even ones, `valley.band`), its way the golden share of a turn on from the seed before (`GOLDEN`, `valley.spread`
+  either way), never more than 0.14 of the side across the water's way (`valley.lat`), the rest laid along it, so
+  both sides of the line keep room and the bowl keeps its distance. Drawn at random, seeds 3 and 4 laid their lakes
+  within a tenth of the map of each other; laid against an edge across the flow, seed 4's start took the narrow side
+  and seed 2's river went round its bowl.
+- **The bench on the side with room** (`lakeShore`): where the map past the lake is broader on one side of the water's
+  line by 0.12 of the side, the bench lies there; else, as before, where the bowl is broader.
+- **The massif** (`standMassif`): the high ground stands on one or two sides of the bowl, across the lake from the
+  bench, turned 0.03–0.11 of a turn (one way on odd seeds, the other on even), and where that side leaves under 0.22 of
+  the map past the bowl, turned toward the side with room (the turns tried one way first on odd seeds, the other on
+  even), never more than a quarter turn off it. On the bench's side of the water's line its front draws back 1.5
+  tiles a tile (`massif.benchPush`), so a turned massif bows away from the bench: seed 2's flank stood six levels over
+  its bench's edge and its start walked 2,243 tiles. Its front is a line
+  0.75–1.05 radii past the bowl's middle, its flanks bowed back, swaying and bayed (20 tiles over 44), so it holds
+  0.14–0.32 of the map. Behind it two tables, the front 4 under the map's top and the back 3 higher, in belts 26 tiles
+  deep bent by a noise; the front table steps up 2 across itself and the back steps down 2 (`stepOf`), so each step
+  stands as a table with its rim dropping all round; dry ravines a table deep, 60–160 tiles long, every ~52 tiles along
+  the front, wander back into it. The floor falls to its lowest at its foot (26 tiles), so its wall stands its whole
+  height, and the floor's rise away from the valley is a quarter as much across from it. The field the water is planned
+  on stands high under it, and no spring is drawn on its top.
+- **The mesas** stand on the massif's side of the bowl or beside it (`mesa.open`), one a butte anywhere but in front of
+  the bench (`mesa.benchCos`, `benchFar`); their tops step down 2 across themselves where round 6 drew an inner ring.
+- **The floor's top bench** steps up 2 across itself (`levels.ts`), and no spring is drawn in front of the bench
+  (`Genome.dryTops`): seed 4's ran across its bench to the lake.
+
+**The maps** (Highlands 256², Normal, seeds 1–12, base 0.10.56 → head; Easy rows and the second badwater count on the
+same seeds made with Easy start; the three measures on the Normal maps; the lake's place a share of the map, +y north):
+
+| seed | attempts | room | reach | Easy rows missed (Easy start) | badwater in view (Normal / Easy start) | moist % | lake x, y; high side (lopsidedness) | 3+ faces % | largest flat top % |
+|---|---|---|---|---|---|---|---|---|---|
+| 1 | 1 → 1 | 490 → 533 | 42,686 → 24,777 | 0 → 0 | 0 / 0 → 0 / 0 | 8.6 → 9.3 | 0.46, 0.61; W (0.14) → 0.42, 0.48; N (0.66) | 3.7 → 4.3 | 9 → 4.5 |
+| 2 | 1 → 2 | 522 → 439 | 45,613 → 5,705 | 0 → 0 | 0 / 106 → 0 / 0 | 7.8 → 13.1 | 0.44, 0.52; S (0.67) → 0.35, 0.65; E (0.47) | 2 → 4.5 | 3.7 → 2.7 |
+| 3 | 1 → 1 | 532 → 503 | 43,003 → 26,029 | 0 → 0 | 0 / 0 → 0 / 0 | 8.1 → 7.5 | 0.39, 0.41; E (0.75) → 0.47, 0.40; W (0.62) | 3.2 → 4.5 | 11.4 → 2.9 |
+| 4 | 1 → 2 | 521 → 418 | 31,006 → 16,287 | 0 → 0 | 0 / 0 → 0 / 0 | 8 → 11.7 | 0.52, 0.50; W (0.14) → 0.30, 0.62; E (0.55) | 3.5 → 4.7 | 11.6 → 2.7 |
+| 5 | 1 → 2 | 545 → 501 | 38,354 → 33,970 | 0 → 0 | 0 / 0 → 0 / 0 | 8.1 → 8.1 | 0.58, 0.52; W (0.24) → 0.68, 0.54; W (0.58) | 3.2 → 4 | 11.2 → 3.1 |
+| 6 | 1 → 1 | 488 → 402 | 39,907 → 30,410 | 0 → 0 | 0 / 0 → 0 / 0 | 12.1 → 9 | 0.52, 0.53; N (0.17) → 0.45, 0.30; E (0.69) | 3.2 → 4 | 8.1 → 2.7 |
+| 7 | 1 → 1 | 530 → 517 | 32,554 → 32,750 | 0 → 0 | 0 / 9 → 0 / 41 | 12.6 → 15.8 | 0.53, 0.52; S (0.66) → 0.45, 0.61; S (0.56) | 3.6 → 4 | 5.2 → 1.3 |
+| 8 | 1 → 1 | 401 → 538 | 2,901 → 29,947 | 0 → 0 | 0 / 9 → 0 / 99 | 10.6 → 10.8 | 0.54, 0.57; S (0.24) → 0.80, 0.51; W (0.73) | 3.5 → 4.4 | 8 → 2.1 |
+| 9 | 1 → 1 | 528 → 492 | 33,816 → 31,126 | 0 → 0 | 0 / 89 → 0 / 0 | 10.6 → 14.5 | 0.53, 0.48; S (0.22) → 0.39, 0.44; E (0.64) | 3.1 → 3.5 | 6.1 → 3.7 |
+| 10 | 1 → 2 | 462 → 511 | 21,405 → 23,337 | 0 → 0 | 0 / 0 → 0 / 0 | 10.7 → 10.2 | 0.48, 0.49; E (0.19) → 0.53, 0.72; S (0.75) | 3.4 → 4.8 | 9.7 → 3 |
+| 11 | 1 → 1 | 457 → 526 | 40,840 → 19,446 | 0 → 0 | 0 / 0 → 0 / 0 | 8.4 → 9.7 | 0.49, 0.50; N (0.37) → 0.60, 0.34; N (0.73) | 2.9 → 4.8 | 5.1 → 2.5 |
+| 12 | 1 → 2 | 464 → 500 | 21,747 → 13,791 | 0 → 0 | 0 / 0 → 0 / 0 | 10.5 → 13.1 | 0.56, 0.56; E (0.10) → 0.29, 0.62; E (0.59) | 3.7 → 4.8 | 7.4 → 2.7 |
+
+**Where it falls short.** Every start passes (24 of 24) and no Easy row is missed, but:
+- **Room** falls more than a tenth under base on seeds 2, 4 and 6 (439, 418, 402 against 522, 521, 488) and on Easy
+  start seed 9 (468 against 532). **Reach** falls under base's floor of 8,721 on seed 2 (5,705; its second land's start
+  stood at level 11 off the bench) and Easy start seed 10 (2,688), and falls on most maps (median about 25,000 against
+  about 36,000): the steps on the floor's top bench and the massif's tables are walls the slopes must join.
+- **Attempts** 12 → 17 on each set of twelve (seeds 1–6: 6 → 9): first lands miss the planned promise (seeds 4, 5;
+  plateaus) or the planned water story (2, 10), or a river leaves its course (12). The land preview's promise read
+  holds on all twelve, so the plan stage reads fewer plateaus than the land alone gives.
+- **CPU** 416.8 → 436.3 s (+4.7 %) and 548.4 → 563.8 s (+2.8 %), from the second attempts.
+- **Moist** rises more than 2 points on seeds 2, 4, 7 and 9 (and 12, +2.6).
+- **Badwater in view** on Easy start seeds 7 and 8, 41 and 99 tiles (base 9 and 9); seeds 2 and 9 lose theirs (106, 89
+  → 0).
+- **Variety** holds on the first lands (the land preview: no two of seeds 1–6 within a tenth of the map with the same
+  side high), but seeds 2 and 4 both took a second land, and those lie 0.06 apart, both high to the east.
+- **Walls** rise from 2.0–3.7 % to 3.5–4.8 % of land beside a 3+ drop, short of the game's 5–9 %: the tops' steps of two
+  levels (a step of one cost the promise its plateaus, every rim with a one-level step failing its drop share) take
+  the place of three-level walls between the massif's tables. **Flat tops** 3.7–11.6 → 1.3–4.5 % (seed 1's 4.5 its
+  floor). **Lopsidedness** 0.10–0.75 → 0.47–0.75, a ring on none.
+
+**Lessons for the next round.**
+- The composition moves the start, and every move cost room somewhere: a lake against an edge across the flow left the
+  bench the narrow side (seed 4) or sent the river round the bowl (seed 2); a massif turned toward room walled the
+  bench's flank (seed 2, six levels); a spring ran across the bench (seed 4). Each is ruled here (`valley.lat`,
+  `lake.benchRoom`, `massif.benchPush`, the springs kept off the bench's front), but they are rules round a bowl drawn
+  first. Draw the start's bench first, on the open side with room, then the lake beside it and the massif across.
+- Relief on a top must stand as tables whose rims drop two or more all round, or the promise loses its plateaus; and
+  relief on the floor the colony walks is walls: keep the floor's steps off the start's walk, or leave the floor to the
+  rings.
+- The variety rules (the golden way, near and far by parity, the turn's side by parity) hold for a seed's first land
+  only; a second land re-draws its jitter and can land where another seed's did, so the attempts matter for variety
+  too.
+
 ## Islands' land above 128², parked (2026-11-20)
 
 Islands above 128² stays on 0.10.48's land (`UPLANDS_BASE_PATH`) with round 8's start (generator 0.10.55). The land

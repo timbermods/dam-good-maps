@@ -32,7 +32,7 @@ import { landRegions } from "../analysis/regions";
 import { integrityLevel } from "../features/raster/terrain";
 import { planBands } from "./plan";
 import { addRingForms, drawRingForms, ringFormRoom } from "./rings";
-import { benchValley, boldGorge, standMesas, standsUp, standValley, STAND } from "./bold";
+import { benchValley, boldGorge, standMassif, standMesas, standsUp, standValley, stepOf, STAND } from "./bold";
 
 /** The rank of every value in [0, 1] (ties broken by index, so it is exact and stable). */
 function ranks(v: Float64Array): Float64Array {
@@ -95,8 +95,14 @@ export function snapLevels(E: Float64Array, g: Genome, seed: number, W: number, 
         // (the floor: the land's rank among the land outside the valley, leaning as the theme leans)
         t = clamp((rk[i] - stand.share) / Math.max(1e-6, 1 - stand.share), 0, 1);
         if (t > 0 && t < 1) t = t / (t + g.hyps.lean * (1 - t));
-        // (rising away from the valley, so the valley lies in a bowl at the map's scale)
-        t = STAND.floor.away * stand.away[i] + (1 - STAND.floor.away) * t;
+        // (rising away from the valley, so the valley lies in a bowl at the map's scale; round 6c: toward the massif's
+        // side, `standMassif`, and little across the bench from it, so the high ground is not a ring)
+        const dx = x - stand.cx;
+        const dy = y - stand.cy;
+        const dd = portable.sqrt(dx * dx + dy * dy);
+        const toward = dd > 0 ? (1 + (dx * stand.mx + dy * stand.my) / dd) / 2 : 0.5;
+        const lo = STAND.massif.floorLo;
+        t = STAND.floor.away * stand.away[i] * (lo + (1 - lo) * toward) + (1 - STAND.floor.away) * t;
         level[i] = g.base + STAND.floor.over + t * STAND.floor.relief + g.terrace.jitter * warpedFbm(js, x, y, 14 * f, 2, 7 * f);
         continue;
       } else {
@@ -124,10 +130,15 @@ export function snapLevels(E: Float64Array, g: Genome, seed: number, W: number, 
       const i = y * W + x;
       const benched = st > 1 && g.terrace.share > 0 && smoothstep((warpedFbm(ts, x, y, g.terrace.cell, 2, g.terrace.cell / 2) + 1) / 2 - (1 - g.terrace.share) + 0.5) > 0.5;
       level[i] = grade(level[i], x, y, benched ? st : 1, phase);
+      // (round 6c: the floor's top bench steps up across itself, as the tops do, `stepOf`: a broad bench away from the
+      // valley stood dead flat over a fifth of the land, seed 1)
+      if (stand && level[i] >= floorTop - 1.5 && stand.m[i] <= 0) level[i] = Math.min(floorTop + 2, level[i] + stepOf(x, y, -stand.my, stand.mx, hash32(seed, "floor-steps", g.variation), Math.min(W, H)));
     }
   // (uplands round 5, the bold family, `bold.ts`: above 128² Highlands' mesas, their walls a steep band of their
   // profile, and the field the water is planned on raised under them; Canyon's gorge two faces with a bench between,
   // and its hollows)
+  // (round 6c: the massif on one or two sides, across the lake from the bench, `bold.ts`)
+  const massif = stand ? standMassif(level, E, W, H, seed, g.variation, stand, g.base + STAND.floor.over, maxLv, hi) : null;
   // (round 6: the valley sunk under the graded floor, then the mesas, `bold.ts`)
   if (stand)
     for (let i = 0; i < N; i++) {
@@ -135,9 +146,25 @@ export function snapLevels(E: Float64Array, g: Genome, seed: number, W: number, 
       if (stand.m[i] > 0 && v < level[i]) level[i] += stand.m[i] * (v - level[i]);
     }
   // (round 6b step 2: the floor stepping down to the valley in rings, `bold.ts` `benchValley`)
-  if (stand) benchValley(level, stand, g.base, W, H, seed);
+  if (stand) benchValley(level, stand, g.base, W, H, seed, massif ? massif.bare : null);
   const mesas = stand ? standMesas(level, E, W, H, seed, g.variation, stand, g.base, maxLv, hi) : null;
   if (mesas) g.dryTops = mesas.tops;
+  if (massif) {
+    if (!g.dryTops) g.dryTops = massif.tops;
+    else for (let i = 0; i < N; i++) if (massif.tops[i]) g.dryTops[i] = 1;
+  }
+  // (round 6c: no spring in front of the start's bench, as no mesa stands there, `STAND.mesa.benchCos`, `benchFar`:
+  // seed 4's spring ran across its bench to the lake, and the start took the narrow side, room 275)
+  if (stand) {
+    if (!g.dryTops) g.dryTops = new Uint8Array(N);
+    for (let y = 0; y < H; y++)
+      for (let x = 0; x < W; x++) {
+        const dx = x - stand.cx;
+        const dy = y - stand.cy;
+        const dd = portable.sqrt(dx * dx + dy * dy);
+        if (dd > 0 && dd < STAND.mesa.benchFar * stand.r && (dx * stand.bx + dy * stand.by) / dd > STAND.mesa.benchCos) g.dryTops[y * W + x] = 1;
+      }
+  }
   if (stand) g.rockSill = stand.sill;
   if (stand) g.standValley = Uint8Array.from(stand.m, (m, i) => (m >= 0.5 ? (stand.bowl[i] === 1 ? 1 : 2) : 0));
   const keepRims = mesas ? mesas.skip : null;
