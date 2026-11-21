@@ -92,6 +92,7 @@ import { planPlug } from "./plug";
 import { badwaterBudget } from "../resources/badwater";
 import { finalChecks, finalCtx, foundIntention, settlerView, type IntentionResult } from "./intentions";
 import { caveStream, checkForm, formsWanted, growOn, streamCrossesLake } from "./forms3d";
+import { greatFormOn, growGreatOn } from "./greatForm";
 import { bareShare, DEAD_STANDS } from "./deadStands";
 import { description, toTimberFile } from "./pack";
 import { outcomesOf, PROMISES, promiseSides, type Outcomes } from "./outcomes";
@@ -4106,6 +4107,50 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
       }
       for (const p of plans) records.push({ id: p.id, ok: false, note: `${p.note}; not kept after two builds`, outcome: "dropped" });
       intentions = [...intentions, ...records];
+    }
+  }
+  // ---- the great form (D493's list of landmarks in the colony's view, gen/greatForm.ts): on Canyon and Any above
+  //      128², the tall cliff the opening view looks at worn deep at its foot, after the other forms (their draws and
+  //      places are as before), then built and checked again as they are: kept only where every check, intention and
+  //      outcome the map had still holds and its roof reads, else dropped and recorded (D138)
+  if (passed && opts.forms !== false && greatFormOn(specIn)) {
+    const was = caves ? caves.mask : Uint32Array.from(h, (z) => plainMask(z));
+    const grown = growGreatOn(built, features, was, stream(seed, "great-form", attempt));
+    if (typeof grown === "string") intentions = [...intentions, { id: "great-overhang", ok: false, note: grown, outcome: "dropped" }];
+    else {
+      const { plan } = grown;
+      const emerged = intentions.filter((x) => x.ok && x.id in INTENTION_TEXT).map((x) => x.id as IntentionId);
+      const before = outcomesOf({ spec: shown, built, features, intentions }).score;
+      const failing = new Set(v.report.checks.filter((c) => !c.ok).map((c) => c.id));
+      const cavesWas = caves;
+      const hWas = h.slice();
+      caves = new ColumnTerrain(W, H, grown.mask);
+      h.set(caves.heights());
+      const b3 = build(features, null);
+      const check = checkForm(plan, b3, null);
+      const file3 = check.ok ? toTimberFile(spec, b3) : null;
+      const v3 = file3 ? validateMap(file3, { profile: "generate", spec, features, water: { model: b3.waterModel, settled: b3.settle }, dropped: b3.dropped ?? 0, ...(easyCheck ? { easyStart: { ...easyCheck, ...easyDay(b3) } } : {}) }) : null;
+      const holds =
+        !!v3 &&
+        v3.report.passed &&
+        v3.report.checks.every((c) => c.ok || failing.has(c.id)) &&
+        !b3.dropped &&
+        (b3.settle.settled || !built.settle.settled) &&
+        !tooStraight(straightness(W, H, b3.water, { channels: ditches })) &&
+        (g.tall || maxOf(b3.heights) <= 16) &&
+        emerged.every((id) => checkIntention(id, finalCtx(b3, hy)).ok) &&
+        outcomesOf({ spec: shown, built: b3, features, intentions }).score >= before;
+      const xy = (i: number): [number, number] => [i % W, Math.floor(i / W)];
+      if (holds) {
+        built = b3;
+        file = file3!;
+        v = v3!;
+        intentions = [...intentions, { id: "great-overhang", ok: true, note: `${plan.note}; ${check.note}`, ...(check.say ? { say: check.say } : {}), at: xy(plan.at), from: xy(plan.from), outcome: "emerged" }];
+      } else {
+        caves = cavesWas;
+        h.set(hWas);
+        intentions = [...intentions, { id: "great-overhang", ok: false, note: `${plan.note}; ${!check.ok ? check.note : "the map's checks did not hold with it"}`, outcome: "dropped" }];
+      }
     }
   }
   // (a spring's source the game would not keep, left out of its row on a map with caves, is noted as a

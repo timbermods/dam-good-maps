@@ -230,5 +230,12 @@ export function checkForm(form: FormPlan, built: BuildResult, owner: string | nu
       const ok = shelters(d) && form.tiles.every((i) => mask[i] !== plainMask(built.heights[i]));
       return { ok, note: `its roof ${most} tiles deep over ${d.size} tiles`, ...(ok ? { say: `A cliff overhangs the ground at its foot, its rock reaching ${most} tiles out over it.` } : {}) };
     }
+    case "great-overhang": {
+      const d = roofDepths(mask, W, H, form.tiles);
+      let most = 0;
+      for (const v of d.values()) most = Math.max(most, v);
+      const ok = shelters(d) && form.tiles.every((i) => mask[i] !== plainMask(built.heights[i]));
+      return { ok, note: `its roof ${most} tiles deep over ${d.size} tiles`, ...(ok ? { say: `In the colony's view a tall cliff is worn deep at its foot, its rock reaching ${most} tiles out over a shelter along ${form.length ?? d.size} tiles of its face.` } : {}) };
+    }
   }
 }

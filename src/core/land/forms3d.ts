@@ -38,7 +38,8 @@ import type { Rng } from "../math/rng";
 import { plainMask, TERRAIN_LAYERS } from "../terrain/runs";
 import { unsupportedVoxels } from "../terrain/support";
 
-export const FORMS = ["spring-cave", "start-overhang", "gorge-arch", "rock-arch", "cliff-overhang"] as const;
+// (the great form, D493's landmark in the colony's view, is worn by its own pass after the others: land/greatForm.ts)
+export const FORMS = ["spring-cave", "start-overhang", "gorge-arch", "rock-arch", "cliff-overhang", "great-overhang"] as const;
 export type FormId = (typeof FORMS)[number];
 
 /** The outcome in a player's words (D138 (1)). */
@@ -48,6 +49,7 @@ export const FORM_TEXT: Record<FormId, string> = {
   "gorge-arch": "A natural arch spans a gorge, the river running under it.",
   "rock-arch": "A natural arch is worn through the rock, the land beyond seen under it.",
   "cliff-overhang": "A cliff overhangs the ground at its foot, a shelter under the rock.",
+  "great-overhang": "A tall cliff in the colony's view is worn deep at its foot, a great shelter under the rock.",
 };
 
 export interface FormsInput {
@@ -96,6 +98,8 @@ export interface FormPlan {
   flow?: number;
   /** An arch worn through rock: over water or dry ground. */
   over?: "water" | "land";
+  /** The great form: the face tiles worn. */
+  length?: number;
   /** Its measures, for the record. */
   note: string;
 }
@@ -130,7 +134,7 @@ export function growForms(inp: FormsInput, want: FormsWanted, rng: Rng): Forms {
     let got = 0;
     let why = "no place";
     if (n > 0) {
-      const grown = id === "spring-cave" ? springCaves(ctx, n) : id === "start-overhang" ? startOverhang(ctx) : id === "gorge-arch" ? gorgeArches(ctx, n) : id === "rock-arch" ? rockArches(ctx, n) : cliffOverhangs(ctx, n);
+      const grown = id === "spring-cave" ? springCaves(ctx, n) : id === "start-overhang" ? startOverhang(ctx) : id === "gorge-arch" ? gorgeArches(ctx, n) : id === "rock-arch" ? rockArches(ctx, n) : id === "cliff-overhang" ? cliffOverhangs(ctx, n) : { forms: [], why: "worn by its own pass" };
       for (const f of grown.forms) {
         forms.push(f);
         got++;

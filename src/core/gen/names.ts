@@ -50,6 +50,7 @@ const TITLES: Record<IntentionId | FormId, string[]> = {
   "start-overhang": ["Overhang {land}", "Under the Ledge {land}", "Rock Shelter {land}", "Sheltering Rock {land}", "Overhang Camp {land}", "Hanging Rock {land}", "Shelter Rock {land}", "Ledge Camp {land}"],
   "gorge-arch": ["Stone Arch {land}", "Natural Bridge {land}", "Arch Gorge {land}", "Bridge Rock {land}", "The Arch", "Span {land}", "Arch Crossing {land}", "Rock Bridge {land}"],
   "rock-arch": ["Arch Rock {land}", "Window Rock {land}", "Stone Window {land}", "Natural Arch {land}", "The Window", "Keyhole {land}", "Eye of the Rock", "Arch Point {land}"],
+  "great-overhang": ["Great Overhang {land}", "Hollow Cliff {land}", "The Great Shelter", "Brow of {land}", "Deep Eave {land}", "Shadow Wall {land}", "The Overhang", "Sheltering Cliff {land}"],
   "cliff-overhang": ["Hanging Cliff {land}", "Undercut {land}", "Brow Rock {land}", "Overhang Cliffs", "Cliff Brow {land}", "Leaning Cliff {land}", "Cliff Eave {land}", "Shelf Rock {land}"],
 };
 
