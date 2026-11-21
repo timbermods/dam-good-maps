@@ -1,5 +1,5 @@
-// Painting objects by brush (PLAN §20 D235, completed by D338): trees, bushes, succulents, a mix of woods, ruin
-// fields and thorn patches, planned from the tiles a drag covers. Pure and deterministic: the page plans the
+// Painting objects by brush (PLAN §20 D235, completed by D338, D548): trees, bushes, succulents, a mix of woods,
+// ruins and thorn patches, planned from the tiles a drag covers. Pure and deterministic: the page plans the
 // ghost it shows before the button comes up with these functions on its own copy of the map, the same plan
 // becomes the operations of one undo step, and the tests read the same plan against the generator's and the
 // official maps' numbers.
@@ -8,27 +8,23 @@
 //   toward the middle of the stroke, ragged at its edge). Painting over what is there fills the gaps up to
 //   the density: what already stands counts toward it, and nothing is ever stacked. Trees and succulents
 //   take an age: Grown (the default), or Mixed, the generator's own share of saplings.
-// - A ruin field is grown as the generator grows one (`resources/baseline.ts` planRuinFields): a blob of one
-//   level (`growBlob`, compactness 2) with about 4–10% gaps (`punchHoles`), the columns' storeys, models and
-//   turns from `ruinColumns` (the official shares of `calibrated.ts`), in fields of the calibrated size for
-//   the map (`density("ruin_field_columns")`), a tile apart. A large stroke makes several fields.
+// - Ruins land as trees do (D548): scattered over the free tiles by the density, filling the gaps, never stacked,
+//   each column at the Height asked (Same) or from 1 up to it (Mixed), its model and turn mixed by its tile.
 // - A thorn patch is shaped as the official maps' are (docs/FINDINGS.md "Thorns"): a blotchy blob of about 7 tiles
 //   (3 to 13 in the middle half of the maps' patches), stretched about twice as long as wide, filling about
 //   0.6 of its box, in any direction; a stroke makes as many as its area holds at its density.
-// - One click (or the smallest size) is never a field or a patch: it places exactly one object (the shelf's own
-//   placement).
+// - One click (or the smallest size) is never a patch: it places exactly one object (the shelf's own placement).
 
 import { ORIENTATIONS, type Orientation } from "../format/footprints";
-import { bush, ruin, tree, type TreeSpecies } from "../format/entities";
+import { bush, ruin, RUIN_VARIANTS, tree, type TreeSpecies } from "../format/entities";
 import { plainOf, type JsonValue } from "../format/json";
 import { hash32, tileHash01 } from "../math/hash";
 import * as portable from "../math/portable";
 import { stream, type Rng } from "../math/rng";
-import { ruinColumns } from "../resources/baseline";
-import { growBlob, punchHoles } from "./blobs";
-import { density, FOREST, OFFICIAL_LAYOUT, RUINS } from "./calibrated";
+import { growBlob } from "./blobs";
+import { FOREST } from "./calibrated";
 
-import type { PaintAge, PaintKind } from "../doc/paintParams";
+import { RUIN_HEIGHT, type PaintAge, type PaintKind, type RuinHeights } from "../doc/paintParams";
 export type { PaintKind };
 
 /** Tree age: Grown (the default) or Mixed, a natural blend of grown trees and saplings. */
@@ -178,117 +174,21 @@ export function planScatter(g: PaintGround, kind: "trees" | "bushes" | "succulen
 
 // ---------------------------------------------------------------------------------------- ruins
 
-export interface RuinFieldPlan {
-  tiles: number[];
-  storeys: number[];
-  variants: string[];
-  orientations: Orientation[];
-}
-
-/** The 8-connected tiles of `allowed` on the seed's level, from the seed. */
-function levelComponent(g: PaintGround, allowed: Uint8Array, seed: number): number[] {
-  const { W, H, heights } = g;
-  const level = heights[seed];
-  const seen = new Set<number>([seed]);
-  const queue = [seed];
-  for (let head = 0; head < queue.length; head++) {
-    const i = queue[head];
+/** The plan of a ruin stroke (D548): scattered as trees are (`scatterTiles`: `density` of the free tiles, the ruins
+ *  standing there counting toward it, never stacked), each column `height` levels tall (Same) or from 1 up to it by its
+ *  tile (Mixed), its model and turn mixed by its tile. */
+export function planRuins(g: PaintGround, o: ScatterOptions, height: number, heights: RuinHeights): PlannedObject[] {
+  const { W } = g;
+  const tall = hash32(o.seed, "ruin", "height");
+  const look = hash32(o.seed, "ruin", "look");
+  return scatterTiles(g, o).map((i) => {
     const x = i % W;
     const y = (i - x) / W;
-    for (let dy = -1; dy <= 1; dy++)
-      for (let dx = -1; dx <= 1; dx++) {
-        const nx = x + dx;
-        const ny = y + dy;
-        if ((!dx && !dy) || nx < 0 || ny < 0 || nx >= W || ny >= H) continue;
-        const j = ny * W + nx;
-        if (seen.has(j) || !allowed[j] || heights[j] !== level) continue;
-        seen.add(j);
-        queue.push(j);
-      }
-  }
-  return queue;
-}
-
-/** The share of a field's ground its columns fill: the official fields' 0.56 of their box, over the ellipse
- *  the generator draws round a blob (`planRuinFields`: 0.85 of it). */
-const FIELD_FILL_OF_AREA = OFFICIAL_LAYOUT.fieldFill * 0.85;
-
-const FIELD_AXES: readonly (readonly [number, number])[] = [
-  [1, 0],
-  [0.7071067811865476, 0.7071067811865476],
-  [0, 1],
-  [-0.7071067811865476, 0.7071067811865476],
-];
-
-/** Ruin fields for a stroke, grown as the generator grows them (`resources/baseline.ts` `planRuinFields`): each
- *  on one level, a blob of the calibrated field size grown over an ellipse of a random stretch and direction
- *  round its seed, with the official gaps punched in, a tile of moat between fields. `densityShare` scales how
- *  much of the stroke's ground the fields cover (1: the share the generator's fields cover of theirs). */
-export function planRuinFields(g: PaintGround, region: readonly number[], densityShare: number, seed: number): RuinFieldPlan[] {
-  const { W, H } = g;
-  const rng = stream(seed, "paint", "ruins");
-  const allowed = new Uint8Array(W * H);
-  let free = 0;
-  for (const i of region) if (i >= 0 && i < W * H && g.free[i] && !allowed[i]) (allowed[i] = 1, free++);
-  const median = density("ruin_field_columns", W * H);
-  let left = Math.round(free * FIELD_FILL_OF_AREA * Math.max(0, Math.min(1, densityShare)));
-  const out: RuinFieldPlan[] = [];
-  for (let tries = 0; tries < 60 && left >= 3; tries++) {
-    const cands: number[] = [];
-    for (const i of region) if (allowed[i]) cands.push(i);
-    if (!cands.length) break;
-    const start = cands[rng.int(0, cands.length)];
-    const comp = levelComponent(g, allowed, start);
-    const tallness = Math.round(rng.range(-1, 1) * 1000) / 1000;
-    let size = Math.floor(rng.logNormal(median, 0.35));
-    size = Math.max(12, Math.min(Math.round(2.2 * median), size));
-    size = Math.min(size, left, Math.max(3, Math.floor(comp.length * 0.9)));
-    if (size < 3) {
-      allowed[start] = 0;
-      continue;
-    }
-    // the field's ground: an ellipse of the size over the official fill, of a random stretch and direction
-    const aspect = 1 + rng.float();
-    const [ax, ay] = FIELD_AXES[rng.int(0, 4)];
-    const area = size / FIELD_FILL_OF_AREA;
-    const major = portable.sqrt((area * aspect) / Math.PI);
-    const minor = portable.sqrt(area / (aspect * Math.PI));
-    const sx = start % W;
-    const sy = (start - sx) / W;
-    const ground = new Uint8Array(W * H);
-    for (const i of comp) {
-      const dx = (i % W) - sx;
-      const dy = Math.floor(i / W) - sy;
-      const u = (dx * ax + dy * ay) / major;
-      const v = (-dx * ay + dy * ax) / minor;
-      if (u * u + v * v <= 1) ground[i] = 1;
-    }
-    ground[start] = 1;
-    const holes = 0.04 + 0.06 * rng.float();
-    let tiles = growBlob(rng, ground, W, H, start, Math.floor(size / (1 - holes)), RUINS.compactness);
-    if (tiles.length < Math.min(3, size)) {
-      allowed[start] = 0;
-      continue;
-    }
-    tiles = punchHoles(rng, tiles, W, holes);
-    const cols = ruinColumns(tiles, W, stream(seed, "paint", "heights", out.length), tallness);
-    out.push({ tiles, storeys: cols.storeys, variants: cols.variants, orientations: cols.orientations });
-    left -= tiles.length;
-    // a tile of moat keeps the fields apart
-    for (const i of tiles) {
-      const x = i % W;
-      const y = (i - x) / W;
-      for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) if (x + dx >= 0 && y + dy >= 0 && x + dx < W && y + dy < H) allowed[(y + dy) * W + x + dx] = 0;
-    }
-  }
-  return out;
-}
-
-export function planRuins(g: PaintGround, region: readonly number[], densityShare: number, seed: number): PlannedObject[] {
-  const out: PlannedObject[] = [];
-  for (const f of planRuinFields(g, region, densityShare, seed))
-    f.tiles.forEach((tile, k) => out.push({ tile, template: `RuinColumnH${f.storeys[k]}`, orientation: f.orientations[k], components: ruinComponents(f.storeys[k], f.variants[k]) }));
-  return out;
+    const h = heights === "mixed" ? 1 + Math.min(height - 1, Math.floor(tileHash01(tall, x, y) * height)) : height;
+    const variant = RUIN_VARIANTS[Math.floor(tileHash01(look, x, y) * RUIN_VARIANTS.length) % RUIN_VARIANTS.length];
+    const orientation = ORIENTATIONS[Math.floor(tileHash01(look, y, x) * ORIENTATIONS.length) % ORIENTATIONS.length];
+    return { tile: i, template: `RuinColumnH${h}`, orientation, components: ruinComponents(h, variant) };
+  });
 }
 
 // ---------------------------------------------------------------------------------------- thorns
@@ -381,13 +281,16 @@ export interface PaintRequest {
   density: number;
   age: Age;
   seed: number;
-  /** Same-kind plants standing in the region already (scatter). */
+  /** Same-kind plants (or ruins) standing in the region already (scatter). */
   existing: number;
+  /** Ruins: the columns' height and whether it is every column's or the tallest's (D548). */
+  height?: number;
+  heights?: RuinHeights;
 }
 
 /** What a stroke will place. */
 export function planPaint(g: PaintGround, r: PaintRequest): PlannedObject[] {
-  if (r.kind === "ruins") return planRuins(g, r.region, r.density, r.seed);
+  if (r.kind === "ruins") return planRuins(g, { region: r.region, density: r.density, seed: r.seed, existing: r.existing }, r.height ?? RUIN_HEIGHT.default, r.heights ?? "same");
   if (r.kind === "thorns") return planThorns(g, r.region, r.density, r.seed);
   return planScatter(g, r.kind, r.template, r.age, { region: r.region, density: r.density, seed: r.seed, existing: r.existing });
 }

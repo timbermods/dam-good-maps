@@ -66,8 +66,6 @@ The map document and its edit engine: a generation plus an ordered log of edit o
   rim made whole a level over the lake with one notch at its level, or refused naming the rim's lowest gap),
   `applyDrawnLake` (one Select step) and the `lake` operation's check (`drawnLakeProblem`); `lakeLimits.ts` holds its
   limits. Not `lakeLevel.ts`, which sets an existing lake's level.
-- `ruinLine.ts`: the ruin line (the Ruin dragged): `planRuinLine` (piers evenly along a line, their tops at one level,
-  gaps by the seed; a `placeEntity` each) and `applyRuinLine` (one step); `ruinLineLimits.ts` holds its limits.
 - `ridge.ts`: the ridge, high ground along a line: `planRidge` (a surface with a wandering crest, a steep side and
   broad benches, a few crags, made land by the forces' `levels::whole` through their Wasm, `levelsInRust`; a source's
   ground, a cave's or a top over the ceiling refused saying where), `applyRidge` (one Select step) and the `ridge`
@@ -79,4 +77,4 @@ The map document and its edit engine: a generation plus an ordered log of edit o
 
 **Tests**: `tests/contract/` (document, ops, bake, import, projects, storedMap, views, sourcesUnderEdits, editor, waterEdits; properties is heavy). Old project files live in `tests/fixtures/projects/`. Run `npx vitest run tests/contract/ops.test.ts`.
 
-**Map-editor object parity (D337–D339)**: `objectOps.ts` gives defaults, component patches, options and marker notes; `placing.ts` plans player placement; `paint.ts` plans explicit scatter placement, recorded as literal entities in one undo step. `blast.ts` answers `blastInfo` and `explosionAfter` without changing the session. Terrain brushes and forces never invoke these placement paths. Partial option changes are validated against the resulting components, with a one-line refusal. Historical no-component BadwaterSource operations keep strength 1; new planned placement writes the game default 3 explicitly.
+**Map-editor object parity (D337–D339)**: `objectOps.ts` gives defaults, component patches, options and marker notes; `placing.ts` plans player placement; `paint.ts` plans explicit scatter placement (trees, bushes, succulents, woods, thorn patches, and ruins as trees are, at one Height or mixed up to it: D548, `paintParams.ts` `RUIN_HEIGHT`), recorded as literal entities in one undo step. `blast.ts` answers `blastInfo` and `explosionAfter` without changing the session. Terrain brushes and forces never invoke these placement paths. Partial option changes are validated against the resulting components, with a one-line refusal. Historical no-component BadwaterSource operations keep strength 1; new planned placement writes the game default 3 explicitly.
