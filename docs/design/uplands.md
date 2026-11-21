@@ -950,17 +950,41 @@ planting within Easy's 15 tiles is a rule for every theme's Normal maps.
 **The hash proof**: the 52 maps of the other themes Designed for Normal and of Highlands at 128² and under, this head
 against dev (18a6518a), the version neutralised: 52 of 52 identical.
 
-## Islands' land above 128², parked (2026-11-20)
+## Islands' land above 128² (2026-11-21, generator 0.10.61)
 
-Islands above 128² stays on 0.10.48's land (`UPLANDS_BASE_PATH`) with round 8's start (generator 0.10.55). The land
-rounds after it were prototypes, not merged: round 9 (the land graded from a low, shallower sea, reverted), round 10
-(the game's island map's numbers drawn in the genome) and round 11 (the start's bench first, then the mainland, then the
-islands as its way out), on `findings/islands-land-11`; and a sea feed (rivers raised to a typical Hard drought's loss),
-on `findings/islands-feed`, which fell short: on seeds 2 and 4 the wet season's end stayed short of settled, seed 2's sea
-stood 0.18 higher, and the start moved on seeds 1, 4 and 5. The sea's step-down over Hard cycles that the feed was for is
-in STATUS ("Known finding" under `ruins-in-view-done`): run on, the sea levels off on seeds 2 and 4 as a sheet about
-1 m deep that empties each drought, and the start's water stops returning, so this land is the next item after the
-start's first food.
+Islands above 128² (a map whose narrower side is over 128 and that is not long) no longer draws 0.10.48's land: planning's
+design of 2026-11-21, the start's ground first, is drawn in levels by `land/isleSea.ts` (rounds 9–11 drew an island big
+enough to live on and never converged; this round turns that round). A mainland frames the sea on every side, its shore
+bending in bays and headlands by 15–25 % of the basin's half-width; the start stands on a headland of the mainland reaching
+into the sea a third of the way to the basin's middle, water on two or three sides and an island in view; 8–12 islands of
+unlike sizes, none in the basin's middle, each a strait of 6 tiles or more from all other land; the mainland and every
+island rise in one-level steps with benches 3–6 tiles deep and relief on their tops. The sea's bed is one level under its
+spill level, drawn so before anything is placed (planning's sea-bed design, carried into the land); the sea leaves by one
+strait to the map's edge, away from the headland, and no spring rises and no river enters within 100 tiles of the exit or
+on the headland. The map's three outer rows stand a level over the mainland inside them: seed 9's river first ran along a
+flat top to two edges, which are sinks, and its sea stood a 0.13 sheet at every Hard wet season's end. The start is picked
+on the headland first (`generate.ts` `headStart`), ranked there as anywhere, and the badwater keeps 105 tiles off the
+headland's bench.
+
+Measured on Islands 256² seeds 1–12 against dev 5cb017b4 (0.10.56), base and branch run side by side, starts first.
+Normal: every start passes, all twelve on the headland at level 8; reach 2,652–23,077 → 18,036–30,953; room 780–9,986 →
+1,694–4,498; badwater in the opening view 0 on all twelve (dev 48, 20, 128, 69 on seeds 1, 2, 3, 5); attempts 46 → 29;
+CPU 990 → 805 s. Easy start: every map passes, no Easy row lost on any map, attempts 44 → 35, CPU 1,697 → 1,398 s; the
+opening view's badwater 0 on eleven and 12 tiles on seed 1 (dev 0 there, 69–168 on seven others). Land: 8–11 islands of
+100 tiles or more, none in the basin's middle; no mesas; cliffs of three levels or more on islands only on seeds 3 (6) and
+8 (1). The sea (one level under its spill everywhere, the start's water counted as pumpable clean tiles a pump on a
+shore within 20 tiles' walk reaches): at every Hard wet season's end the start's water is its settled count on all twelve
+(13–43 tiles); the sea's p50 at the wet season's end is within 0.03 of its settled depth on ten, 0.92 of 1.20 on seed 10
+and 0.45 of 1.11 on seed 6, whose river mouth is 55 tiles from the exit (the rest 100–310; seed 7's mouth was not found
+on the sea). Hard droughts empty the sea, as before. Normal never empties: its droughts end at p50 0.68–0.76 and the
+9-day drought at 0.58–0.65. Extreme (report only): every drought empties the sea; wet ends 0.35–1.37, the start's water
+its settled count each time. The 84 default maps (seven themes, seeds 1–6, 96² and 128²) hash as dev's.
+
+The start's food row (40 lasting bushes within 15 tiles' walk, as Easy's row scores it) is short on four of twelve
+(seeds 2, 4, 7 and 10: 18, 10, 21, 23; dev short on 6 and 12): only the shore bench one level over the sea's spill stays
+moist through a Normal drought, and the start's bench a level above it never does (seed 4: 11 tiles of the shore bench
+within the walk, 445 of the start's bench, none moist through the drought). A start on the sea's shore passes the row
+only where its walk takes in enough of the shore bench.
 
 Lessons for whoever takes the land up again:
 - **River mouths stay away from the sea's exit.** On seed 4 the main river's mouth is 22 tiles from the exit, and its
