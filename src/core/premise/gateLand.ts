@@ -44,6 +44,7 @@ import { CREST_VARIES, gateOf, onLocal, onMap, rangeAt, sideOf, spineLocal, turn
 import { ruledLand } from "../validate/ruledLand";
 import { STAIR_LONGEST, stairsOf, wallFoot } from "./gateMeasures";
 import { RISE_RUINS } from "./life";
+import { mendFlat } from "./gateFlat";
 
 /** The range's shape across it: the spine read through a warp of `warp` tiles (noise `warpCell` across), its half-widths
  *  wandering by `width` of themselves, knobs of `knob` levels on the crest, spurs and gullies of `spur` of the width,
@@ -643,7 +644,7 @@ function rangeBandOf(plan: PremisePlan, w: StageWater): Uint8Array {
 }
 
 /** Stage 2 of a gate plan: the whole map's ground round stage 1's water. */
-export function gateRelief(plan: PremisePlan, w: StageWater, style?: ReliefStyle, notes: string[] = [], marks: { rise?: Point } = {}): Uint8Array {
+export function gateRelief(plan: PremisePlan, w: StageWater, style?: ReliefStyle, notes: string[] = [], marks: { rise?: Point; riseR?: number } = {}): Uint8Array {
   const g = gateOf(plan);
   if (!g) return reliefBetween(plan, w, style);
   const { W, H } = plan;
@@ -694,7 +695,10 @@ export function gateRelief(plan: PremisePlan, w: StageWater, style?: ReliefStyle
     }
   }
   const rise = bs.marks.find((mk) => mk.kind === "rise");
-  if (rise) marks.rise = onMap(T, [rise.u, rise.v]);
+  if (rise) {
+    marks.rise = onMap(T, [rise.u, rise.v]);
+    marks.riseR = rise.r;
+  }
   const veil = plan.links.find((l) => l.id === g.veil)!;
   const lipU = veil.fall!.lip.map((p) => onLocal(T, [p[0] + 0.5, p[1] + 0.5])[0]);
   const [lu0, lu1] = [Math.min(...lipU) - 0.5, Math.max(...lipU) + 0.5];
@@ -1064,7 +1068,7 @@ export function mendFlood(plan: PremisePlan, w: StageWater, h: Uint8Array, most 
  *  niche cut into it and the works' own ground (`layWorks`), for `premiseMap`. */
 export function gateLand(plan: PremisePlan, water: StageWater, style?: ReliefStyle): PremiseLand {
   const notes: string[] = [];
-  const marks: { rise?: Point } = {};
+  const marks: { rise?: Point; riseR?: number } = {};
   const heights = gateRelief(plan, water, style, notes, marks);
   const niches = badwaterNiches(plan, water, heights, notes);
   // (the niche is cut beside the Low River's gorge past the spur; where it opens a way out at the megadam's water, the
@@ -1104,8 +1108,37 @@ export function gateLand(plan: PremisePlan, water: StageWater, style?: ReliefSty
   if (jogs) notes.push(`${jogs} tile${jogs === 1 ? "" : "s"} raised where a stair ran straight`);
   const pits = fillPits(plan, water, heights);
   if (pits) notes.push(`${pits} tile${pits === 1 ? "" : "s"} of hollow by the water raised to its brim`);
+  // no knobs and no pits on the dry side (planning's look verdict of 2026-11-15 on round 5: lone blocks two levels or
+  // more over the playa, read as dropped cubes, and one-tile pits): `gateFlat.ts` `mendFlat` on the basin's ground
+  const flat = mendFlat(heights, plan.W, plan.H, dryFlat(plan, water, niches, marks), seedOf(plan, "gate", "flat"));
+  if (flat.gone + flat.lowered + flat.aproned + flat.filled)
+    notes.push(`On the dry side ${flat.gone} knob${flat.gone === 1 ? "" : "s"} taken away, ${flat.lowered} lowered, ${flat.aproned} given an apron, ${flat.filled} pit${flat.filled === 1 ? "" : "s"} filled`);
   return { water, heights, niches, laid, notes, ...(marks.rise ? { ruinsAt: [Math.floor(marks.rise[0]), Math.floor(marks.rise[1])] as [number, number] } : {}) };
 }
+
+/** The ground `mendFlat` mends: the basin's side of the range, off the range's own ground (`rangeBand`), stage 1's
+ *  water, beds and fixed ground, the badwater's niche and the ground round it (`NICHE_CLEAR` of its corner, as the
+ *  flood's mend leaves it), and the rise that carries the ruins with the ground round it (`RISE_STANDS.ring`). */
+export function dryFlat(plan: PremisePlan, water: StageWater, niches: Record<string, [number, number]>, marks: { rise?: Point; riseR?: number }): Uint8Array {
+  const { W, H } = plan;
+  const r = water.raster;
+  const { zone } = gateZones(plan);
+  const band = rangeBand(plan, water);
+  const own = new Uint8Array(W * H);
+  const reach = (marks.riseR ?? 0) + RISE_STANDS.ring + 1;
+  const near = Object.values(niches);
+  for (let i = 0; i < own.length; i++) {
+    if (zone[i] !== 2 || band[i] || r.fixed[i] || r.lake[i] || r.channel[i] || r.pool[i] || r.crest[i]) continue;
+    const x = i % W;
+    const y = (i - x) / W;
+    if (marks.rise && hypot(x + 0.5 - marks.rise[0], y + 0.5 - marks.rise[1]) <= reach) continue;
+    if (near.some(([nx, ny]) => Math.abs(x - nx) <= NICHE_CLEAR && Math.abs(y - ny) <= NICHE_CLEAR)) continue;
+    own[i] = 1;
+  }
+  return own;
+}
+/** How far round the badwater's niche's corner `dryFlat` leaves the ground as it is, tiles. */
+const NICHE_CLEAR = 4;
 
 /** A straight stair's break (`breakStairs`): each `every` tiles along it (seeded, from the last break, on the first
  *  tiles that can take one), `len` tiles of its lower tread rise a level, its riser stepping back a tile there (or, by the water, its
