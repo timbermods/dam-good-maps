@@ -52,18 +52,16 @@ export interface IsleSeaLand {
   /** The exit's tiles on the map's edge. */
   exit: number[];
   /** Ground no spring rises on: within `SPRING_OFF` of the exit (a clean inflow's mouth beside the exit sends its water
-   *  straight out over it before the sea fills, the sea-bed measure's seeds 2 and 4), the start's headland, and the frame's
-   *  rim (`RIM`). */
+   *  straight out over it before the sea fills, the sea-bed measure's seeds 2 and 4), and the start's headland. */
   dry: Uint8Array;
 }
 
-/** The frame's rim: within the first of these tiles of the map's edge the mainland stands two levels over its run, within
- *  the second one level (their lines wandering by 3 tiles), where it is `RIM_WATER` tiles or more from the water; no spring
- *  rises within the second. */
-const RIM = [6, 12] as const;
+/** The frame's lip: the map's outer `LIP` rows stand a level over the land inside them where the mainland is `LIP_WATER`
+ *  tiles or more from the water (`relaxEdges` keeps a rise to the edge). */
+const LIP = 3;
+const LIP_WATER = 8;
 /** The highest level the land stands at (a map without Tall stands no ground above 16). */
 const TOP = 16;
-const RIM_WATER = 8;
 
 /** The nearest a spring rises to the sea's exit, tiles (the sea-bed measure: seed 6's sources 107 tiles off refilled
  *  its sea by the wet season's fifth day; seed 4's, at the exit, lost 2,400 blocks a day over it). */
@@ -242,9 +240,7 @@ export function isleSeaLand(seed: number, variation: number, W: number, H: numbe
   const sHill = ns("hill");
   const hill = (x: number, y: number, d: number, amp: number) => amp * Math.max(0, fbm(sHill, x, y, 64, 3) + 0.25) * Math.min(1, d / 14);
   const [b0, b1] = ISLE_SEA.bench;
-  // (the mainland's benches up to its tops, and the frame's rim two more, never over the game's height a map may stand
-  // to without Tall, `TOP`: `terrain.max_height`)
-  const mainSteps = 5 + Math.floor(2 * rng.float());
+  const mainSteps = 6 + Math.floor(3 * rng.float());
   const isleSteps = isles.map((q) => Math.max(1, Math.min(5, Math.round(q.r / 7))) + (rng.float() < 0.4 ? 1 : 0));
   for (let y = 0; y < H; y++)
     for (let x = 0; x < W; x++) {
@@ -269,13 +265,12 @@ export function isleSeaLand(seed: number, variation: number, W: number, H: numbe
         // (round the headland's root the mainland stands at its level at least, so no hollow runs down to it)
         if (fromHead[i] < 14 && fromWater[i] > fromHead[i] + 1) lv = Math.max(lv, 1);
         if (lv >= mainSteps && top > 0.1) lv = mainSteps + 1;
-        // (the frame's rim: the land rises a level, then another, toward the map's edge, its lines wandering, so no river
-        // on the mainland's top runs off the map's edge, which is a sink (D350): the sea-bed measure's lesson, the sea's
-        // only way out is its exit; Islands 256² seed 9's river ran along a flat top to two edges and its sea never refilled
-        // in a Hard wet season)
-        const e = Math.min(x, y, W - 1 - x, H - 1 - y) + 3 * fbm(sBench + 5, x, y, 20, 2);
-        if (d >= RIM_WATER) lv += e < RIM[0] ? 2 : e < RIM[1] ? 1 : 0;
-        lv = Math.min(lv, TOP - S - 1);
+        // (the frame's lip: the map's three outer rows a level over the land inside them, so no river on the mainland's
+        // top runs off the map's edge, which is a sink (D350): the sea's only way out is its exit; Islands 256² seed 9's
+        // river ran along a flat top to two edges and its sea never refilled in a Hard wet season. A level, never two, so
+        // no edge wall, D151; under the game's height a map stands to without Tall, `TOP`)
+        lv = Math.min(lv, TOP - S - 2);
+        if (d >= LIP_WATER && Math.min(x, y, W - 1 - x, H - 1 - y) < LIP) lv++;
       }
       h[i] = S + 1 + Math.max(0, lv);
     }
@@ -325,7 +320,7 @@ export function isleSeaLand(seed: number, variation: number, W: number, H: numbe
   for (let i = 0; i < N; i++) {
     const x = i % W;
     const y = (i - x) / W;
-    if ((exit.length && portable.hypot(x - mx, y - my) < SPRING_OFF) || portable.hypot(x - bx, y - by) < 2.2 * hw + 0.6 * reach || Math.min(x, y, W - 1 - x, H - 1 - y) < RIM[1]) dryM[i] = 1;
+    if ((exit.length && portable.hypot(x - mx, y - my) < SPRING_OFF) || portable.hypot(x - bx, y - by) < 2.2 * hw + 0.6 * reach) dryM[i] = 1;
   }
   return { h, E, spill: S, headland: { x: hx, y: hy, ux: -dx0, uy: -dy0, bx, by, r: hw }, isles, exit, dry: dryM };
 }

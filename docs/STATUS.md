@@ -14,7 +14,10 @@ game launch until he lifts it. The page session is stopped (worktree `DamGoodMap
 
 ## Released
 
-Latest: `ruins-in-view-done` (2026-11-20, PR #1268): dev cc351e38 released into `main` at 9ca0997e, generator 0.10.53 →
+Latest: `ruin-brush-done` (2026-11-21 13:15Z, PR #1271): dev 5cb017b4 released into `main` at f389ec6d, generator 0.10.55 →
+0.10.56: the start's first food on every map (#1269) and the ruin brush painting ruins as trees land, their height asked
+(D548, #1270). The live check passed and the site answered 200; recorded on #57.
+Before it: `ruins-in-view-done` (2026-11-20, PR #1268): dev cc351e38 released into `main` at 9ca0997e, generator 0.10.53 →
 0.10.55: a stand of the map's own ruins in the opening view (#1266) and Islands' start above 128² walking its island, its
 berries topped up to Easy's food row (#1267). The live check passed and the preview was republished; recorded on #57.
 Known finding: Islands 256² steps its sea down over typical Hard cycles (6.5 days wet, 22.5 dry; the sea's depth at
