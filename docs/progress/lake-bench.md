@@ -3,21 +3,24 @@
 Lake Basin above 128²: the start takes the shore bench (`gen/generate.ts` `shoreBench`). The bars are planning's of
 2026-11-21 18:05Z, on Lake Basin 256² seeds 1–12, Normal and Easy start, against #1273's head (7fb9e08f).
 
-## Round 8
+## Round 9
 
-On Normal the start's place holds 150 tiles within 14 that stay moist through the drought (`BASIN_FOOD`). Easy start
-is round 7's, unchanged.
+On Normal the start's place holds 150 tiles within 14 that stay moist through the drought (`BASIN_FOOD`, round 8). On
+Easy start the lake is read half a level over its spill for the clearing (`BASIN_HEAD`; the clearings had flooded) and
+a clearing short of the bench's floor is given back on the plan's water.
 
 | Bar | Normal | Easy start | Head |
 |---|---|---|---|
 | The start on the bench | 12/12 | 12/12 | (none) |
 | Food row, 40+ berries within 15 tiles | 12/12 (44–47) | 12/12 | Normal 6/12 |
-| Room 400+ | 12/12 (473–520) | 12/12 (486–560) | 12/12 |
+| Room 400+ | 12/12 (473–520) | 12/12 (528–572) | 12/12 |
 | Reach 8,721+ | 12/12 (lowest s6: 16,146) | 12/12 (lowest s5: 17,776) | 12/12 |
 | Badwater in view | 0 | 0 | 0 |
-| Attempts, seeds 1–6 / 7–12 | 9 / 9 | 15 / 9 | Normal 9 / 9, Easy 10 / 12 |
-| CPU s, seeds 1–6 / 7–12 | 287.2 / 326.9 | 512.9 / 508.1 | Normal 262.0 / 298.9, Easy 503.4 / 513.6 |
+| Attempts, seeds 1–6 / 7–12 | 9 / 9 | 12 / 9 | Normal 9 / 9, Easy 10 / 12 |
+| CPU s, seeds 1–6 / 7–12 | 287.2 / 326.9 | 430.8 / 478.1 | Normal 262.0 / 298.9, Easy 503.4 / 513.6 |
 
 Reach falls but stays over the bar on Normal s5 (17,876 to 17,459) and s12 (29,595 to 23,872; round 6's 10,954), and on
-Easy s4, s7, s11 and s12 (29,141 to 19,246).
-Easy s2 and s4 retry for no start on the settled water.
+Easy s7 (33,783 to 33,257), s11 (36,517 to 35,361) and s12 (29,141 to 23,160).
+Easy s2 takes 6 attempts against the head's 3: its third and fifth lands hold no Easy clearing on the bench.
+Normal's CPU is over the head's because seeds 4 and 7 now keep a spring cave (terrain above terrain settles in the
+stacked engine, about 14 s a map); the bench's own work is under a second.

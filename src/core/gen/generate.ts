@@ -392,6 +392,9 @@ const BASIN_BAD_FAR = 90;
 /** Lake Basin above 128² on Normal: the dry tiles within 14 of its start that stay moist through the rule's drought
  *  (`SettlerOptions.foodLeast`): room for its food row's berries. Seed 2's shore held 39 against the row's 40. */
 const BASIN_FOOD = 150;
+/** Lake Basin above 128²: how far over its planned surface (its spill) a lake is read as it settles, for an Easy
+ *  start's clearing, in levels. */
+const BASIN_HEAD = 0.5;
 /** Lake Basin above 128²: the fewest tiles a body of a lake planned at its spill level keeps to be a lake. */
 const SPILL_LAKE_MIN = 6;
 /** Lake Basin above 128²: its shore bench (`shoreBench`): how far from the map's edge its middle keeps (a share of the
@@ -2852,6 +2855,16 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
     // (Easy start, D495: the places planned on this water have their water at the pond's distance, room for the
     // clearing and water a pond can be joined to)
     // (a pond keeps off a river's head, whose sources its water must not reach, D171)
+    // (Lake Basin above 128²: its lake settles over its spill, the water running out over the sill, by as much as
+    // half a level; an Easy start's clearing is cut from its lakes' surface that much higher, so it stands dry on the
+    // settled water. Easy start 256² seeds 2 and 4: the plan's clearings stood at the spill's level and flooded)
+    const basinHead = (D: Float64Array): Float64Array => {
+      if (!g.basinWarp) return D;
+      const o = D.slice();
+      for (const l of hy.lakes) for (const i of l.tiles) if (o[i] > 0) o[i] += BASIN_HEAD;
+      return o;
+    };
+    const heldEasy = easyT ? basinHead(held) : held;
     if (easyT) {
       pondOff = new Uint8Array(N);
       for (const r of hy.rivers) {
@@ -2865,7 +2878,7 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
       }
       const off = pondOff;
       stageRule = EASY_PLAN_RULE;
-      stageEasy = { band: [POND_WATER.lo - 2, POND_WATER.hi - 2], room: Math.round((380 * easyT.room) / 400), pond: (x, y, level) => pondWater(h, W, H, { depth: held, water: hy.water }, { x, y, level }, off) >= 0 };
+      stageEasy = { band: [POND_WATER.lo - 2, POND_WATER.hi - 2], room: Math.round((380 * easyT.room) / 400), pond: (x, y, level) => pondWater(h, W, H, { depth: heldEasy, water: hy.water }, { x, y, level }, off) >= 0 };
     }
     // (on a shown land, a place that needs no levelling: no ground is levelled after it was shown)
     allowLevel = !from;
@@ -2886,8 +2899,15 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
     const easyShape = easyT
       ? (p: StartPick): { at: StartPick } | null => {
           const was = h.slice();
-          const s = shapeEasyStart(h, W, H, p, { depth: startWater, water: hy.water }, stream(seed, "easy-start", attempt, p.x, p.y), pondOff, easyTaken);
+          const ew = startWater === held ? heldEasy : basinHead(startWater);
+          const s = shapeEasyStart(h, W, H, p, { depth: ew, water: hy.water }, stream(seed, "easy-start", attempt, p.x, p.y), pondOff, easyTaken);
           if (!s) return null;
+          // (Lake Basin above 128²: a clearing whose bench, D515, is short on the plan's water is given back now, not
+          // after the settle: Easy start 256² seed 2's stood at 489–533 tiles, under the bench's floor)
+          if (g.basinWarp && benchMin && startBench(h, Uint8Array.from(ew, (d) => (d > WET ? 1 : 0)), null, W, H, p) < benchMin) {
+            h.set(was);
+            return null;
+          }
           const tiles = s.area.filter((i) => h[i] !== was[i]);
           planShapes.push({ x: p.x, y: p.y, shape: s, tiles: Int32Array.from(tiles), old: Uint8Array.from(tiles, (i) => was[i]), cut: Uint8Array.from(tiles, (i) => h[i]) });
           if (easyTaken) for (const i of s.area) easyTaken[i] = 1;
