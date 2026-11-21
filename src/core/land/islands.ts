@@ -10,6 +10,7 @@
 import { edgeSpill } from "./drainage";
 import * as portable from "../math/portable";
 import { N4 } from "../math/grid";
+import { fbm } from "../math/noise";
 
 /** Dry land (over `S`), labelled by 4-connected mass, and which masses touch the map's edge (the
  *  shore holding the sea; D432: on an open map the sea reaches the edge and the shore is several). */
@@ -277,4 +278,59 @@ export function holdSeaLip(h: Uint8Array, W: number, H: number): number {
     if (h[t] < lip && h[t] > lip - 2) set(t, lip - 2);
   }
   return n;
+}
+
+/** Islands above 128² (round 9, ThousandIslands' own row): the sea is shallow and low on the map, `ISLE_GRADE.sea`
+ *  its level, its floor a level under it; the land over it stands taller, each level over the sea `ISLE_GRADE.stretch`
+ *  levels (the first kept one), to `ISLE_GRADE.most` at the most, and rises from its shore no faster than
+ *  `ISLE_GRADE.grade` levels a tile (the distance from the sea warped by a noise `ISLE_GRADE.warp` tiles deep), so its
+ *  flanks are graded, never cliffs over the water. The sea's spill keeps its place: a tile at the old sea's level
+ *  stands at the new one's. Returns whether the land was graded (a land without a sea is left). */
+export const ISLE_GRADE = { sea: 5, floor: 4, stretch: 2.5, most: 11, grade: 0.22, inland: 10, steeper: 0.3, warp: 3 } as const;
+export function gradeIsles(h: Uint8Array, W: number, H: number, seed: number): boolean {
+  const N = W * H;
+  const S = seaLevel(h, W, H);
+  if (S < 0) return false;
+  const G = ISLE_GRADE;
+  const dist = new Int32Array(N).fill(-1);
+  const q: number[] = [];
+  for (let i = 0; i < N; i++) if (h[i] <= S) { dist[i] = 0; q.push(i); }
+  for (let k = 0; k < q.length; k++) {
+    const c = q[k];
+    const x = c % W;
+    const y = (c - x) / W;
+    for (const [dx, dy] of N4) {
+      const xx = x + dx;
+      const yy = y + dy;
+      if (xx < 0 || yy < 0 || xx >= W || yy >= H) continue;
+      const j = yy * W + xx;
+      if (dist[j] < 0) {
+        dist[j] = dist[c] + 1;
+        q.push(j);
+      }
+    }
+  }
+  for (let i = 0; i < N; i++) {
+    const r = h[i] - S;
+    if (r <= 0) {
+      h[i] = Math.max(G.sea + r, G.sea - G.floor);
+      continue;
+    }
+    const x = i % W;
+    const y = (i - x) / W;
+    const d = Math.max(1, dist[i] + G.warp * fbm(seed, x, y, 9, 2));
+    const cap = 1 + Math.floor(G.grade * d + G.steeper * Math.max(0, d - G.inland));
+    h[i] = G.sea + Math.min(G.most, cap, 1 + Math.round(G.stretch * (r - 1)));
+  }
+  // (the lip's shelf, as `holdSeaLip` lays it: the row inside the two edge rows a level under them at least, the next
+  // two under, so the edge's relaxing keeps the lip over the shallower sea)
+  const at = (e: number, p: number, d: number) => (e === 0 ? d * W + p : e === 1 ? (H - 1 - d) * W + p : e === 2 ? p * W + d : p * W + (W - 1 - d));
+  for (let e = 0; e < 4; e++)
+    for (let p = 0; p < (e < 2 ? W : H); p++) {
+      const L = Math.max(h[at(e, p, 0)], h[at(e, p, 1)]);
+      if (h[at(e, p, 2)] >= L) continue;
+      h[at(e, p, 2)] = L - 1;
+      if (h[at(e, p, 3)] < L) h[at(e, p, 3)] = L - 2;
+    }
+  return true;
 }
