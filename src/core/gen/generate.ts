@@ -98,7 +98,7 @@ import { outcomesOf, PROMISES, promiseSides, type Outcomes } from "./outcomes";
 import { mapSays, mapWords, type PlayFacts } from "./names";
 import { FIRST_FOOD, nearStartTargets, planResources, type ResourceConstraints } from "./resources";
 import { planRuinStories } from "./ruinStories";
-import { DROUGHT, REACH_MIN, RESERVE, reservoirNeeded, RUIN_HEIGHT_SHARES } from "./calibrated";
+import { DROUGHT, FIRST_FOOD_DROUGHT_DAYS, REACH_MIN, RESERVE, reservoirNeeded, RUIN_HEIGHT_SHARES } from "./calibrated";
 import { gameSoil } from "../sim/soil";
 import { DAYS_TO_DIE_DRY } from "../sim/withering";
 import { resourceBudget, ruinColumns, ruinRagged } from "../resources/baseline";
@@ -3923,19 +3923,26 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
   // row on that ground, `startFood`, planted last; an island sea above 128² on Normal, Islands round 8, before the
   // start's groves, `early`, as it did, so the slopes it adds, moving the patches the planting draws, never cost the
   // start its food. On Normal the rule's drought is that drought: its ground is the one `droughtGround` read)
+  // (D(food-lasting-water), generator 0.10.57: the first food planted last stands on the ground a typical Normal drought
+  // leaves moist, `FIRST_FOOD_DROUGHT_DAYS`, the water below its spill level that outlasts what that drought evaporates;
+  // the longest drought's last two days took a shallow lake's whole shore from Lake Basin 96² s4's start. On Hard it stands
+  // where Hard's own drought leaves the ground moist too, `keep`. Easy start's and Islands' early top-ups keep the
+  // longest Normal drought's ground: they come before the groves, whose trees would move)
   const foodT = easyT ? null : easyTargets(W, H);
   const isleEarly = islesUp && spec.designedFor === "normal";
+  const droughtSoil = (b: BuildResult, days: number): Float64Array => {
+    const kept = droughtStorage(b.waterModel, b.water, days);
+    const cd = new Float64Array(N);
+    for (let i = 0; i < N; i++) if (kept[i] > 0) cd[i] = b.contamination[i];
+    return gameSoil(W, H, b.heights, kept, cd, mapObjects({ entities: b.entities.map(entityJson) })).moisture;
+  };
+  const moistOn = (md: ArrayLike<number>) => Uint8Array.from(md, (v) => (v > 0 ? 1 : 0));
   const easyFood = (b: BuildResult & { droughtMoisture?: Float64Array }): { easy?: { safe: Uint8Array; bushes: number; within: number; ruins: number }; startFood?: ResourceConstraints["startFood"] } => {
-    let md: Float64Array | undefined = !easyT && spec.designedFor === "normal" ? b.droughtMoisture : undefined;
-    if (!md) {
-      const kept = droughtStorage(b.waterModel, b.water, DROUGHT.normal.days);
-      const cd = new Float64Array(N);
-      for (let i = 0; i < N; i++) if (kept[i] > 0) cd[i] = b.contamination[i];
-      md = gameSoil(W, H, b.heights, kept, cd, mapObjects({ entities: b.entities.map(entityJson) })).moisture;
-    }
-    const safe = Uint8Array.from(md, (v) => (v > 0 ? 1 : 0));
-    if (!easyT) return { startFood: { safe, bushes: Math.ceil(1.1 * foodT!.bushes), within: foodT!.bushesWithin, ...(isleEarly ? { early: true } : {}) } };
-    return { easy: { safe, bushes: Math.ceil(1.3 * easyT.bushes), within: easyT.bushesWithin, ruins: easyT.ruins } };
+    if (easyT) return { easy: { safe: moistOn(droughtSoil(b, DROUGHT.normal.days)), bushes: Math.ceil(1.3 * easyT.bushes), within: easyT.bushesWithin, ruins: easyT.ruins } };
+    const food = { bushes: Math.ceil(1.1 * foodT!.bushes), within: foodT!.bushesWithin };
+    if (isleEarly) return { startFood: { safe: moistOn(b.droughtMoisture ?? droughtSoil(b, DROUGHT.normal.days)), ...food, early: true } };
+    const keep = droughtDays > DROUGHT.normal.days && b.droughtMoisture ? moistOn(b.droughtMoisture) : undefined;
+    return { startFood: { safe: moistOn(droughtSoil(b, FIRST_FOOD_DROUGHT_DAYS)), ...food, ...(keep ? { keep } : {}) } };
   };
   const baseGround = droughtGround(base);
   const resources = [...rise.filter((f) => f.kind === "ruinField"), ...planResources(spec, baseGround, 0, attempt, { turn: (layout.find((f) => f.kind === "start") as StartFeature | undefined)?.params.orientation, standBeyond: g.intentions.includes("two-ways") ? TWO_WAYS_REACH : 0, protect: keepOff, scrapPlaced, woodLean: (opts.ease ?? 0) >= 1, ...(info.washes ? { beds: bedMask(info.washes, N) } : {}), ...easyFood(baseGround) }, sites)];

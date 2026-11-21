@@ -1,7 +1,7 @@
 // Calibrated targets (PLAN §4, §5): the TypeScript side of prototype/calibrated.py. The numbers come
 // from investigation/calibration.json; tests/contract/calibrated.test.ts asserts the two agree.
 
-import { hazardDays } from "../sim/weather";
+import { HAZARD_DAYS, hazardDays } from "../sim/weather";
 import * as portable from "../math/portable";
 
 /** Official size-class medians, interpolated in log(area) (PLAN §5 "size-aware"). The resource rows
@@ -149,6 +149,13 @@ export const DROUGHT = {
   normal: { days: hazardDays("normal", "drought"), colony: 50 },
   hard: { days: hazardDays("hard", "drought"), colony: 50 },
 } as const;
+
+/** The drought the start's first food is planted to outlast (D(food-lasting-water), generator 0.10.57): a typical
+ *  Normal drought once droughts have grown to full strength, the middle of the game's 5–9 days (`HAZARD_DAYS`), 7.
+ *  The ground the checks' drought model (`droughtStorage`: water below its spill level stays, less what its surface
+ *  evaporates) leaves moist after it is the ground the game's played drought leaves moist; a shallow lake's shore that
+ *  the longest drought's last two days dry still feeds its bushes, which die only after 9 days dry (× 0.9–1.1). */
+export const FIRST_FOOD_DROUGHT_DAYS = (HAZARD_DAYS.normal.drought[0] + HAZARD_DAYS.normal.drought[1]) / 2;
 
 export function reservoirNeeded(d: keyof typeof DROUGHT): number {
   const { days, colony } = DROUGHT[d];

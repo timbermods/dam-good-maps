@@ -63,11 +63,12 @@ export interface ResourceConstraints {
    *  small ruin field the colony walks to within `ruins` tiles' walk (scrap at hand). */
   easy?: { safe: Uint8Array; bushes: number; within: number; ruins: number };
   /** The start's first food (generator 0.10.56, every map without Easy start): the start's berries topped up to at
-   *  least `bushes` within `within` tiles' walk on ground that stays moist through a Normal drought (`safe`), Easy's
-   *  food row and a tenth more, planted last on the ground everything else left (`FIRST_FOOD`), so every other plant
-   *  keeps its draws and its place. `early`: Islands above 128² on Normal (round 8), whose top-up comes before the
-   *  start's groves, as Easy's does. */
-  startFood?: { safe: Uint8Array; bushes: number; within: number; early?: boolean };
+   *  least `bushes` within `within` tiles' walk on ground that stays moist through a typical Normal drought (`safe`,
+   *  `FIRST_FOOD_DROUGHT_DAYS`, D(food-lasting-water)), Easy's food row and a tenth more, planted last on the ground
+   *  everything else left (`FIRST_FOOD`), so every other plant keeps its draws and its place; on Hard only where Hard's
+   *  own drought leaves the ground moist too (`keep`). `early`: Islands above 128² on Normal (round 8), whose top-up
+   *  comes before the start's groves, as Easy's does, on the longest Normal drought's ground (`safe`). */
+  startFood?: { safe: Uint8Array; bushes: number; within: number; early?: boolean; keep?: Uint8Array };
   /** The start's turn (its door's orientation): the game's first camera is turned by it (D493). */
   turn?: Orientation;
   /** The stand in the opening view keeps more than this many straight tiles from the start's middle, measured as the
@@ -987,12 +988,13 @@ export function planResources(spec: MapSpec, g: Ground, candidate: number, attem
 
   // ---- the start's first food (generator 0.10.56, planning's rule of 2026-11-20): on every map without Easy start,
   //      what the planting above left short of Easy's food row (`startFood`: its count and a tenth more, living bushes
-  //      within its 15 tiles' walk on ground that stays moist through a Normal drought, PERFECT's berries for an Iron
+  //      within its 15 tiles' walk on ground that stays moist through a typical Normal drought, 7 days, the water below
+  //      its spill level that outlasts what the drought evaporates, D(food-lasting-water); PERFECT's berries for an Iron
   //      Teeth start) is planted now, last, on the ground everything else left: so the start's wood, ruins and every
   //      other plant keep their draws and their place, and only bushes are added. They grow only where the ground
-  //      already grows them (moist, free, past the start's yard, and moist through the map's own drought where that is
-  //      longer), round water first, a few patches as the land lets; nothing is watered for them, and where that ground
-  //      runs out the row stays short. Islands above 128² on Normal tops up before its groves (`early`, above).
+  //      already grows them (moist, free, past the start's yard, and on Hard moist through Hard's drought too, `keep`),
+  //      round water first, a few patches as the land lets; nothing is watered for them, and where that ground runs out
+  //      the row stays short. Islands above 128² on Normal tops up before its groves (`early`, above).
   if (!easy && sf && !sf.early && walk && g.start) {
     const row = new Uint8Array(N);
     for (let i = 0; i < N; i++) if (walk[i] <= sf.within && sf.safe[i] && moist[i]) row[i] = 1;
@@ -1000,8 +1002,8 @@ export function planResources(spec: MapSpec, g: Ground, candidate: number, attem
     for (const f of out) if (f.kind === "berryPatch") for (const i of runsToTiles(f.params.area, W)) if (row[i]) have++;
     if (have < sf.bushes) {
       const close = new Uint8Array(N);
-      const dm = g.droughtMoisture;
-      for (let i = 0; i < N; i++) if (row[i] && (!startGround || startGround[i]) && (!dm || dm[i] > 0)) close[i] = 1;
+      const keep = sf.keep;
+      for (let i = 0; i < N; i++) if (row[i] && (!startGround || startGround[i]) && (!keep || keep[i])) close[i] = 1;
       const fr = stream(seed, "start-food", candidate, attempt);
       for (let k = 0; k < 8 && have < sf.bushes; k++) {
         const w = new Float64Array(N);
