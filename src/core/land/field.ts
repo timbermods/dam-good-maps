@@ -26,6 +26,7 @@ import { sinDet, TWO_PI } from "../math/detmath";
 import { lipKeep, rimKeep, type Genome, type Part } from "./genome";
 import { mapShape } from "./shape";
 import { planField } from "./plan";
+import { headWanted } from "./deltaHead";
 
 /** The seed the land's noise draws from: a variation (D143) gets land of its own. */
 export function landSeed(seed: number, variation: number): number {
@@ -105,8 +106,14 @@ function pseudoAngle(dx: number, dy: number): number {
   return clamp((dx < 0 ? 2 - p : p < 0 ? 4 + p : p) / 4, 0, 1);
 }
 
+/** D549 (6): a round bowl's rings broken on a Delta of 128² and up (`headWanted`): how far its levels' radii move
+ *  (a share of each, the most at its middle, none at its outline) and over what cell (a share of its size); its rim's
+ *  radius moved by `rimAt`, its width by `rimWide` (shares), over `rimCell`, and its height from `rimHigh` of the
+ *  noise's mean, nothing where the noise falls under it, so the rim stands in pieces. */
+export const BROKEN_BOWL = { rings: 0.45, ringCell: 0.9, rimAt: 0.25, rimWide: 0.4, rimCell: 0.6, rimHigh: 0.2 } as const;
+
 /** One part added to the uplift. */
-function addPart(U: Float64Array, p: Part, seed: number, W: number, H: number, k: number, inward = false): void {
+function addPart(U: Float64Array, p: Part, seed: number, W: number, H: number, k: number, inward = false, broken = false): void {
   const cx = p.at[0] * (W - 1);
   const cy = p.at[1] * (H - 1);
   const s = hash32(seed, "part", k, p.kind);
@@ -163,8 +170,19 @@ function addPart(U: Float64Array, p: Part, seed: number, W: number, H: number, k
           const along = dx0 * bx + dy0 * by;
           const across = -dx0 * by + dy0 * bx;
           const lobes = 1 + a1 * sinDet(TWO_PI * (k1 * pseudoAngle(dx0, dy0) + p1));
-          const d = portable.sqrt((along / stretch) * (along / stretch) + across * across) / (p.size * lobes * (1 + 0.5 * fbm(s, x, y, Math.max(8, p.size * 0.7), 3)));
-          U[i] += p.height * bump(d) + p.extra * (0.3 + 0.7 * (fbm(s + 3, x, y, 8, 2) + 1)) * bump(Math.abs(d - 1.05) / 0.45);
+          const d0 = portable.sqrt((along / stretch) * (along / stretch) + across * across) / (p.size * lobes * (1 + 0.5 * fbm(s, x, y, Math.max(8, p.size * 0.7), 3)));
+          if (!broken) {
+            U[i] += p.height * bump(d0) + p.extra * (0.3 + 0.7 * (fbm(s + 3, x, y, 8, 2) + 1)) * bump(Math.abs(d0 - 1.05) / 0.45);
+          } else {
+            // (D549 (6), `BROKEN_BOWL`: the bowl's rings and its rim noised, so its levels bunch on one side and spread on
+            // another and its rim stands in pieces, never even rings round the water, Delta 256² seed 2)
+            const B = BROKEN_BOWL;
+            const d = d0 * (1 + B.rings * fbm(s + 13, x, y, Math.max(10, p.size * B.ringCell), 2) * (1 - Math.min(1, d0)));
+            const at = 1.05 + B.rimAt * fbm(s + 14, x, y, Math.max(8, p.size * B.rimCell), 2);
+            const wide = 0.45 * (1 + B.rimWide * fbm(s + 15, x, y, Math.max(8, p.size * B.rimCell), 2));
+            const high = Math.max(0, B.rimHigh + (1 - B.rimHigh) * fbm(s + 3, x, y, Math.max(8, p.size * B.rimCell), 2));
+            U[i] += p.height * bump(d) + p.extra * 1.7 * high * bump(Math.abs(d0 - at) / wide);
+          }
           if (p.soft > 0) U[i] += (-p.height + p.soft) * bump(dist(x, y, cx, cy) / (p.size * 0.3 * (1 + 0.4 * fbm(s + 5, x, y, 6, 2))));
         }, round(4 * p.size));
         return;
@@ -508,7 +526,8 @@ export function uplift(g: Genome, seed: number, W: number, H: number, slope?: Fl
       U[y * W + x] = h;
     }
   const ps = ls;
-  g.parts.forEach((p, k) => addPart(U, p, ps, W, H, k, !!g.formsInward));
+  const broken = headWanted(g.theme, W, H);
+  g.parts.forEach((p, k) => addPart(U, p, ps, W, H, k, !!g.formsInward, broken));
   return U;
 }
 

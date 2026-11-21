@@ -332,10 +332,9 @@ export interface Genome {
   /** The valley of a land that stands up (uplands round 6b step 5: Highlands above 128², `bold.ts` `standValley`): 1 its
    *  bowl, 2 its channel, 0 elsewhere. The badwater keeps off it (`bold.ts` `standBadKeep`). */
   standValley?: Uint8Array;
-  /** Delta 1 (prototype): the start's terrace beside the fan's head (`deltaHead.ts`), drawn after the water is planned. */
-  deltaHead?: { x: number; y: number; level: number; ns: number; mask: Uint8Array };
-  /** Delta 1 (prototype): where the start's terrace is laid into the levels (`deltaHead.ts` `headSite`, `layHead`). */
-  deltaHeadSite?: { x: number; y: number; level: number; ns: number };
+  /** D549: a Delta's start's terrace on the trunk's bank above the fan's head (`deltaHead.ts`), cut into the land as
+   *  its water is planned; the settler takes it as its start. */
+  deltaHead?: { x: number; y: number; level: number; ns: number; tiles: Uint8Array; mask: Uint8Array };
   /** How far the water's way wanders from the steepest descent (levels), and the size of its
    *  wanders in tiles. */
   wander: number;
