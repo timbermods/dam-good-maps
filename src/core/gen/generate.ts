@@ -4022,7 +4022,9 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
   //      outcome the map had still holds and its own check confirms it, else dropped, never forced
   if (passed) {
     const want = opts.forms === false ? {} : formsFor(specIn);
-    if (Object.keys(want).length) {
+    // (the great form, D493's list of landmarks in the colony's view: on Canyon and Any above 128², gen/greatForm.ts)
+    const great = opts.forms !== false && greatFormOn(specIn);
+    if (Object.keys(want).length || great) {
       const vt = specIn.settings.terrain.verticality;
       // (the start's first food stands where the forms would grow without it: they grow as if it were not there, and it
       // comes off the tiles a kept form changes or its stream runs on, so the land and the water are the map's own)
@@ -4039,11 +4041,24 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
       const onLake = grown.forms.filter((p) => p.id === "spring-cave" && streamCrossesLake(caveStream(seed, p, 0, W), p.course!, hy.water, W, H));
       for (const p of onLake) records.push({ id: p.id, ok: false, note: `${p.note}; its stream would cross a planned lake`, outcome: "dropped" });
       let plans = grown.forms.filter((p) => !onLake.includes(p));
+      // (the great form: the tall cliff the opening view looks at worn deep at its foot, after the other forms, on its
+      // own stream, so their draws and places are as before; built and checked with them, kept or dropped as they are)
+      if (great) {
+        const g2 = growGreatOn(built, features, grown.mask, stream(seed, "great-form", attempt));
+        if (typeof g2 === "string") records.push({ id: "great-overhang", ok: false, note: g2, outcome: "dropped" });
+        else {
+          for (const i of g2.plan.tiles) grown.mask[i] = g2.mask[i];
+          plans.push(g2.plan);
+        }
+      }
       // (the dead stands' bare land, D516, D518: the resource pass kept it to its share on the land it planted; a form that
       // moistens dry land under the same trees, a spring cave's water, shrinks the dry land, so the forms keep it too)
       const deadTrees = features.filter((f) => f.kind === "forest" && (f.role ?? "").startsWith("forest/dead/")).flatMap((f) => runsToTiles((f as ForestFeature).params.area, W));
       const bareMost = Math.max(DEAD_STANDS.bare.most, bareShare(deadTrees, built.water, built.moisture, W, H));
-      for (let tries = 0; plans.length && tries < 2; tries++) {
+      // (a third build where the great form joined them: dropped first as the boldest, it leaves the others the two
+      // builds they had)
+      const builds = plans.some((p) => p.id === "great-overhang") ? 3 : 2;
+      for (let tries = 0; plans.length && tries < builds; tries++) {
         const mask = new Uint32Array(N);
         for (let i = 0; i < N; i++) mask[i] = plainMask(h[i]);
         for (const p of plans) for (const i of p.tiles) mask[i] = grown.mask[i];
@@ -4105,52 +4120,8 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
         }
         plans = plans.filter((p) => !failed.includes(p));
       }
-      for (const p of plans) records.push({ id: p.id, ok: false, note: `${p.note}; not kept after two builds`, outcome: "dropped" });
+      for (const p of plans) records.push({ id: p.id, ok: false, note: `${p.note}; not kept after ${builds === 2 ? "two" : "three"} builds`, outcome: "dropped" });
       intentions = [...intentions, ...records];
-    }
-  }
-  // ---- the great form (D493's list of landmarks in the colony's view, gen/greatForm.ts): on Canyon and Any above
-  //      128², the tall cliff the opening view looks at worn deep at its foot, after the other forms (their draws and
-  //      places are as before), then built and checked again as they are: kept only where every check, intention and
-  //      outcome the map had still holds and its roof reads, else dropped and recorded (D138)
-  if (passed && opts.forms !== false && greatFormOn(specIn)) {
-    const was = caves ? caves.mask : Uint32Array.from(h, (z) => plainMask(z));
-    const grown = growGreatOn(built, features, was, stream(seed, "great-form", attempt));
-    if (typeof grown === "string") intentions = [...intentions, { id: "great-overhang", ok: false, note: grown, outcome: "dropped" }];
-    else {
-      const { plan } = grown;
-      const emerged = intentions.filter((x) => x.ok && x.id in INTENTION_TEXT).map((x) => x.id as IntentionId);
-      const before = outcomesOf({ spec: shown, built, features, intentions }).score;
-      const failing = new Set(v.report.checks.filter((c) => !c.ok).map((c) => c.id));
-      const cavesWas = caves;
-      const hWas = h.slice();
-      caves = new ColumnTerrain(W, H, grown.mask);
-      h.set(caves.heights());
-      const b3 = build(features, null);
-      const check = checkForm(plan, b3, null);
-      const file3 = check.ok ? toTimberFile(spec, b3) : null;
-      const v3 = file3 ? validateMap(file3, { profile: "generate", spec, features, water: { model: b3.waterModel, settled: b3.settle }, dropped: b3.dropped ?? 0, ...(easyCheck ? { easyStart: { ...easyCheck, ...easyDay(b3) } } : {}) }) : null;
-      const holds =
-        !!v3 &&
-        v3.report.passed &&
-        v3.report.checks.every((c) => c.ok || failing.has(c.id)) &&
-        !b3.dropped &&
-        (b3.settle.settled || !built.settle.settled) &&
-        !tooStraight(straightness(W, H, b3.water, { channels: ditches })) &&
-        (g.tall || maxOf(b3.heights) <= 16) &&
-        emerged.every((id) => checkIntention(id, finalCtx(b3, hy)).ok) &&
-        outcomesOf({ spec: shown, built: b3, features, intentions }).score >= before;
-      const xy = (i: number): [number, number] => [i % W, Math.floor(i / W)];
-      if (holds) {
-        built = b3;
-        file = file3!;
-        v = v3!;
-        intentions = [...intentions, { id: "great-overhang", ok: true, note: `${plan.note}; ${check.note}`, ...(check.say ? { say: check.say } : {}), at: xy(plan.at), from: xy(plan.from), outcome: "emerged" }];
-      } else {
-        caves = cavesWas;
-        h.set(hWas);
-        intentions = [...intentions, { id: "great-overhang", ok: false, note: `${plan.note}; ${!check.ok ? check.note : "the map's checks did not hold with it"}`, outcome: "dropped" }];
-      }
     }
   }
   // (a spring's source the game would not keep, left out of its row on a map with caves, is noted as a
