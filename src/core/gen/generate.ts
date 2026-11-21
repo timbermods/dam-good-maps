@@ -4286,7 +4286,9 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
   //      then the map built and checked again: a form is kept only where every check, intention and
   //      outcome the map had still holds and its own check confirms it, else dropped, never forced
   if (passed) {
-    const want = opts.forms === false ? {} : formsFor(specIn);
+    // (none on Islands above 128², generator 0.10.62: its rock islands' cliffs offered arches and overhangs, whose terrain
+    // over terrain puts the map's water on the stacked engine, and seed 2 with Easy start took twice as long to make)
+    const want = opts.forms === false || g.isleSea ? {} : formsFor(specIn);
     if (Object.keys(want).length) {
       const vt = specIn.settings.terrain.verticality;
       // (the start's first food stands where the forms would grow without it: they grow as if it were not there, and it
