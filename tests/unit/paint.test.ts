@@ -1,11 +1,10 @@
 // Painting objects by brush (PLAN §20 D235, D338): the plans a stroke makes. A scatter lands by density and fills
-// gaps without stacking; Age is grown or mixed with the generator's saplings; a ruin field is grown as the
-// generator grows one (calibrated field size, one level, the official gaps, storeys, models and turns); a thorn
-// patch is shaped as the official maps' are (measured in docs/FINDINGS.md "Thorns").
+// gaps without stacking; Age is grown or mixed with the generator's saplings; ruins scatter as trees do, at one
+// height or mixed up to it (D548); a thorn patch is shaped as the official maps' are (measured in docs/FINDINGS.md
+// "Thorns").
 
 import { describe, expect, it } from "vitest";
-import { OFFICIAL_LAYOUT, RUIN_HEIGHT_SHARES, density as densityOf } from "../../src/core/gen/calibrated";
-import { growthAt, planPaint, planRuinFields, planScatter, planThorns, scatterTiles, THORN_PATCH, WOODS_MIX, type PaintGround } from "../../src/core/gen/paint";
+import { growthAt, planPaint, planScatter, planThorns, scatterTiles, THORN_PATCH, WOODS_MIX, type PaintGround } from "../../src/core/gen/paint";
 
 const W = 96;
 const H = 96;
@@ -118,67 +117,39 @@ describe("trees, bushes and succulents by brush: density, gaps, age", () => {
   });
 });
 
-describe("a painted ruin field is a generated one: size, one level, gaps, storeys, models, turns", () => {
+describe("ruins by brush, as trees are (D548): density, gaps, height, models, turns", () => {
   const g = ground();
-  // fifty strokes, each a disc of 12 tiles over open ground, at different places and seeds
-  const fields = Array.from({ length: 50 }, (_, k) => planRuinFields(g, disc(20 + (k % 7) * 8, 20 + Math.floor(k / 7) * 9, 12), 1, 100 + k)).flat();
-  const columns = fields.flatMap((f) => f.storeys.map((s, k) => ({ storeys: s, variant: f.variants[k], orientation: f.orientations[k] })));
+  const region = disc(48, 48, 10);
+  const ruins = (o: { density?: number; height?: number; heights?: "same" | "mixed"; seed?: number; g?: PaintGround }) =>
+    planPaint(o.g ?? g, { kind: "ruins", template: "", region, density: o.density ?? 1, age: "grown", seed: o.seed ?? 3, existing: 0, height: o.height, heights: o.heights });
 
-  it("fields are of the calibrated size for the map, filling their box as the official ones do", () => {
-    expect(fields.length).toBeGreaterThan(50);
-    const sizes = fields.map((f) => f.tiles.length);
-    const target = densityOf("ruin_field_columns", N);
-    expect(median(sizes)).toBeGreaterThan(target * 0.6);
-    expect(median(sizes)).toBeLessThan(target * 1.5);
-    // official fields fill 0.56 of their box (25th 0.50, 75th 0.64); a painted one lands close
-    const fill = fields.filter((f) => f.tiles.length >= 15).map((f) => f.tiles.length / (box(f.tiles).w * box(f.tiles).h));
-    expect(mean(fill)).toBeGreaterThan(OFFICIAL_LAYOUT.fieldFill - 0.14);
-    expect(mean(fill)).toBeLessThan(OFFICIAL_LAYOUT.fieldFill + 0.14);
-  });
-
-  it("the storeys follow the official shares, and the mean per field runs from short to tall like the official fields", () => {
-    for (let s = 1; s <= 8; s++) {
-      const got = columns.filter((c) => c.storeys === s).length / columns.length;
-      expect(got, `H${s}`).toBeGreaterThan(RUIN_HEIGHT_SHARES[s - 1] - 0.05);
-      expect(got, `H${s}`).toBeLessThan(RUIN_HEIGHT_SHARES[s - 1] + 0.05);
-    }
-    const means = fields.filter((f) => f.tiles.length >= 15).map((f) => mean(f.storeys));
-    const [lo, hi] = [2.19, 3.88]; // the official fields' mean storeys, 10th and 90th percentiles
-    expect(Math.min(...means)).toBeLessThan(lo + 0.6);
-    expect(Math.max(...means)).toBeGreaterThan(hi - 0.6);
-  });
-
-  it("the models and turns are the official shares", () => {
-    for (const [v, share] of Object.entries(OFFICIAL_LAYOUT.ruinVariants)) expect(columns.filter((c) => c.variant === v).length / columns.length, v).toBeCloseTo(share, 1);
-    for (const [o, share] of Object.entries(OFFICIAL_LAYOUT.ruinOrientations)) expect(columns.filter((c) => c.orientation === o).length / columns.length, o).toBeGreaterThan(share - 0.06);
-  });
-
-  it("a field stands on one level, keeps a tile of moat from the next, and has gaps inside it", () => {
-    const stepped = ground((x) => (x < 48 ? 4 : 7));
-    const plan = planRuinFields(stepped, disc(48, 48, 16), 1, 9);
-    expect(plan.length).toBeGreaterThan(1);
-    for (const f of plan) expect(new Set(f.tiles.map((i) => stepped.heights[i])).size).toBe(1);
-    const owner = new Map<number, number>();
-    plan.forEach((f, k) => f.tiles.forEach((i) => owner.set(i, k)));
-    for (const [i, k] of owner)
-      for (const [dx, dy] of [[1, 0], [0, 1], [1, 1], [1, -1]] as const) {
-        const j = (Math.floor(i / W) + dy) * W + (i % W) + dx;
-        if (owner.has(j)) expect(owner.get(j)).toBe(k);
-      }
-    // gaps: some interior tile of a field is missing (about 4 to 10 in a hundred of its blob)
-    const holes = fields.reduce((a, f) => {
-      const set = new Set(f.tiles);
-      return a + f.tiles.filter((i) => [[1, 0], [-1, 0], [0, 1], [0, -1]].filter(([dx, dy]) => set.has(i + dx + dy * W)).length >= 3).length;
-    }, 0);
-    expect(holes).toBeGreaterThan(0);
-  });
-
-  it("never lands on a tile that is not free, and a stroke too small for a field places none", () => {
-    const blocked = ground(undefined, (x, y) => Math.hypot(x - 48, y - 48) < 6);
-    const plan = planRuinFields(blocked, disc(48, 48, 14), 1, 3);
-    for (const f of plan) for (const i of f.tiles) expect(blocked.free[i]).toBe(1);
-    expect(planRuinFields(g, disc(48, 48, 1), 1, 3).length).toBeLessThanOrEqual(1);
+  it("land on the tiles a scatter picks, every free one at 100 %, never on a tile that is not free", () => {
+    expect(ruins({ density: 0.5 }).map((o) => o.tile)).toEqual(scatterTiles(g, { region, density: 0.5, seed: 3, existing: 0 }));
+    expect(ruins({}).length).toBe(region.length);
+    const blocked = ground(undefined, (x, y) => Math.hypot(x - 48, y - 48) < 4);
+    const plan = ruins({ g: blocked });
+    for (const o of plan) expect(blocked.free[o.tile]).toBe(1);
+    expect(plan.length).toBe(region.filter((i) => blocked.free[i]).length);
     expect(planPaint(g, { kind: "ruins", template: "", region: [], density: 1, age: "grown", seed: 1, existing: 0 })).toEqual([]);
+  });
+
+  it("Same: every column at the height (3 unless given); Mixed: each from 1 up to it", () => {
+    const storeys = (o: Parameters<typeof ruins>[0]) => ruins(o).map((p) => Number(p.template.slice("RuinColumnH".length)));
+    expect(new Set(storeys({}))).toEqual(new Set([3]));
+    expect(new Set(storeys({ height: 7 }))).toEqual(new Set([7]));
+    expect(new Set(storeys({ height: 5, heights: "mixed" }))).toEqual(new Set([1, 2, 3, 4, 5]));
+    for (const p of ruins({ height: 5, heights: "mixed" })) {
+      const c = p.components as { "Yielder:Ruin": { Yield: { Amount: number } } };
+      expect(c["Yielder:Ruin"].Yield.Amount).toBe(15 * Number(p.template.slice(-1)));
+    }
+  });
+
+  it("mixes the models and the four turns by the tile", () => {
+    const plan = ruins({ height: 4 });
+    const variants = new Set(plan.map((p) => (p.components as { RuinModels: { VariantId: string } }).RuinModels.VariantId));
+    expect(variants.size).toBeGreaterThan(3);
+    expect(new Set(plan.map((p) => p.orientation)).size).toBe(4);
+    expect(ruins({ height: 4 })).toEqual(plan);
   });
 });
 

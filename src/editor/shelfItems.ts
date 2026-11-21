@@ -1,24 +1,23 @@
 // The left shelf's objects (PLAN §20 D184): the game's placeable objects, each a small render of itself in
 // the map's look. Picking one shows its ghost under the pointer, green where it fits and red where
 // it doesn't, with the reason in a quiet word; a click places it, R turns it, Esc puts it back.
-// Trees and bushes: a click places one, a drag paints many, clustered as the generator's groves
-// and patches are. The two sources come first, then the start (D212, D226's order: Water source,
-// Badwater source, Start, Pine, then the rest): a click places a source, and its water spreads at once.
+// Trees, bushes, ruins and thorns: a click places one, a drag paints many with the brush (D235, D548). The
+// two sources come first, then the start (D212, D226's order: Water source, Badwater source, Start, Pine, then the rest): a click places a source, and its water spreads at once.
 
-import { RUIN_LINE_BREAK, RUIN_LINE_SPACING } from "../core/doc/ruinLineLimits";
+import { RUIN_HEIGHT, type RuinHeights } from "../core/doc/paintParams";
 import { hash32 } from "../core/math/hash";
 import { defaultOptions, type ObjectOptions } from "../core/doc/objectOps";
 import { tip } from "../ui/Tooltip";
 
 /** What a drag from the shelf paints (core/doc/paintParams.ts): its size and density are the object window's. */
-export type PaintedKind = "trees" | "bushes" | "succulents" | "woods" | "thorns";
+export type PaintedKind = "trees" | "bushes" | "succulents" | "woods" | "ruins" | "thorns";
 
 export interface ShelfItem {
   id: string;
   name: string;
   /** The object it places (its icon and ghost); a ruin's and a relic's follow their option. */
   template: string;
-  /** A drag paints many (trees, bushes, thorns): what it paints, as the core's `paintObjects` names it. */
+  /** A drag paints many (trees, bushes, ruins, thorns): what it paints, as the core's `paintObjects` names it. */
   paint?: PaintedKind;
   /** R turns it (a quarter turn each time). */
   turns: boolean;
@@ -47,7 +46,7 @@ export const SHELF: readonly ShelfItem[] = [
   { id: "Succulent", name: "Succulent", template: "Succulent", paint: "succulents", turns: false, hint: "plant succulents" },
   { id: "Woods", name: "Mixed woods", template: "Pine", picture: ["Pine", "Birch", "Oak"], paint: "woods", turns: false, hint: "plant pines, birches and oaks together" },
   { id: "BlueberryBush", name: "Berry bush", template: "BlueberryBush", paint: "bushes", turns: false, hint: "plant berry bushes" },
-  { id: "ruin", name: "Ruin", template: "RuinColumnH3", turns: true, hint: "a ruined tower, or a broken line of them when dragged" },
+  { id: "ruin", name: "Ruin", template: "RuinColumnH3", paint: "ruins", turns: true, hint: "a ruined tower; drag to paint a field of them" },
   { id: "UndergroundRuins", name: "Mine site", template: "UndergroundRuins", turns: true, hint: "where a scrap mine goes" },
   { id: "relic", name: "Relic", template: "SmallRelic", turns: true, hint: "a relic to demolish for science" },
   { id: "Slope", name: "Slope", template: "Slope", turns: true, hint: "a slope up one level, or a stair when dragged down" },
@@ -95,9 +94,8 @@ export const PAINT_DENSITY_MIN = 0.05;
 export interface ShelfOptions {
   /** A ruin's height, 1–8 levels. */
   ruinHeight: number;
-  /** A ruin line's (a drag with the Ruin, core/doc/ruinLine.ts): tiles from pier to pier, and the share knocked out. */
-  ruinSpacing: number;
-  ruinBreak: number;
+  /** A ruin stroke's heights (D548): every column at the Height (Same), or each from 1 up to it (Mixed). */
+  ruinHeights: RuinHeights;
   relicSize: "small" | "medium" | "large";
   /** Each kind's brush: its size and density, starting at the core's defaults (core/gen/paint.ts DEFAULT_DENSITY); a thorn patch is about seven tiles, so its brush starts wider. */
   paint: Record<PaintedKind, PaintSettings>;
@@ -116,15 +114,15 @@ export function objectOptionsOf(o: ShelfOptions, template: string): ObjectOption
 export const hasAge = (kind: PaintedKind): boolean => kind === "trees" || kind === "succulents" || kind === "woods";
 
 export const DEFAULT_SHELF_OPTIONS: ShelfOptions = {
-  ruinHeight: 3,
-  ruinSpacing: RUIN_LINE_SPACING.default,
-  ruinBreak: RUIN_LINE_BREAK.default,
+  ruinHeight: RUIN_HEIGHT.default,
+  ruinHeights: "same",
   relicSize: "small",
   paint: {
     trees: { size: 4, density: 0.8 },
     bushes: { size: 4, density: 0.55 },
     succulents: { size: 4, density: 0.5 },
     woods: { size: 4, density: 0.8 },
+    ruins: { size: 4, density: 0.8 },
     thorns: { size: 8, density: 0.6 },
   },
   treeAge: "grown",
@@ -133,7 +131,7 @@ export const DEFAULT_SHELF_OPTIONS: ShelfOptions = {
 
 /** The object an item places with its options. */
 export function templateOf(item: ShelfItem, o: ShelfOptions): string {
-  if (item.id === "ruin") return `RuinColumnH${Math.max(1, Math.min(8, Math.round(o.ruinHeight)))}`;
+  if (item.id === "ruin") return `RuinColumnH${Math.max(RUIN_HEIGHT.min, Math.min(RUIN_HEIGHT.max, Math.round(o.ruinHeight)))}`;
   if (item.id === "relic") return o.relicSize === "large" ? "LargeRelic" : o.relicSize === "medium" ? "MediumRelic" : "SmallRelic";
   return item.template;
 }
