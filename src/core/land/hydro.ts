@@ -890,6 +890,9 @@ function planHydroSingle(E: Float64Array, h: Uint8Array, g: Genome, seed: number
         const span = e === "west" || e === "east" ? H : W;
         if (along < 12 || along > span - 13) continue;
         if (downLen[i] < minLen * side || (relaxed && owner[i] >= 0)) continue;
+        // (Islands above 128²: no river enters by the sea's exit or the start's headland, as no spring rises there,
+        // `isleSea.ts` `dry`)
+        if (g.isleSea && g.dryTops?.[i]) continue;
         cands.push([-E[i] + lengthWeight * downLen[i] + 1.5 * r.float(), i]);
       }
       cands.sort((a, b) => b[0] - a[0] || a[1] - b[1]);
