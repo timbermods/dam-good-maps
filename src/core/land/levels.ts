@@ -33,6 +33,7 @@ import { integrityLevel } from "../features/raster/terrain";
 import { planBands } from "./plan";
 import { addRingForms, drawRingForms, ringFormRoom } from "./rings";
 import { benchValley, boldGorge, standMesas, standsUp, standValley, STAND } from "./bold";
+import { layHead } from "./deltaHead";
 
 /** The rank of every value in [0, 1] (ties broken by index, so it is exact and stable). */
 function ranks(v: Float64Array): Float64Array {
@@ -142,6 +143,8 @@ export function snapLevels(E: Float64Array, g: Genome, seed: number, W: number, 
   if (stand) g.standValley = Uint8Array.from(stand.m, (m, i) => (m >= 0.5 ? (stand.bowl[i] === 1 ? 1 : 2) : 0));
   const keepRims = mesas ? mesas.skip : null;
   if (ringed && tiers && g.plan?.kind === "gorge") boldGorge(level, W, H, seed, g.variation, tiers.bands[0][1], tiers.bands[1][0]);
+  // (Delta 1: the start's terrace beside the fan's head, laid before the warp, `deltaHead.ts`)
+  if (g.deltaHeadSite) layHead(level, g.deltaHeadSite, W, H);
   // (D544: every level's edge read through a warp, so no edge the field, the grade or the tableland's
   // outline leaves smooth over a dozen tiles runs ruler-straight; the levels' edges, not the field the water is planned
   // on. Above 128² a slow one, `RINGS`, that bends the lines without jagging them: uplands round 4)

@@ -44,6 +44,7 @@ import { distanceFrom, MinHeap, N4, N8 } from "../math/grid";
 import { DIRS8 } from "./num";
 import { mapShape } from "./shape";
 import { clamp } from "../math/clamp";
+import { DELTA_HEAD } from "./deltaHead";
 import { REACH as STORY_REACH } from "../analysis/story";
 
 export interface Lake {
@@ -540,6 +541,22 @@ function seaOf(h: Uint8Array, W: number, H: number): Uint8Array | null {
  *  and mouth kept, the low ground choosing the way inside a broad curved corridor with its own
  *  departure, phase and turning length, so neighbouring arms diverge, converge and braid rather than
  *  follow apex-to-mouth rays. */
+function apexBeside(path: Point[], L: number, site: { x: number; y: number }): number {
+  const lo = DELTA_HEAD.band[0] * L;
+  const hi = DELTA_HEAD.band[1] * L;
+  let best = lo;
+  let bd = Infinity;
+  for (let s = lo; s <= hi; s += 1) {
+    const [px, py] = pointAt(path, s).p;
+    const d = (px - site.x) * (px - site.x) + (py - site.y) * (py - site.y);
+    if (d < bd) {
+      bd = d;
+      best = s;
+    }
+  }
+  return Math.min(hi, best + 0.8 * DELTA_HEAD.radius);
+}
+
 function deltaCourse(from: Point, to: Point, E: Float64Array, W: number, H: number, gap: number, seed: number): Point[] {
   const end: Point = [clamp(to[0], 0, W - 1), clamp(to[1], 0, H - 1)];
   const start = Math.round(from[1]) * W + Math.round(from[0]);
@@ -2094,7 +2111,10 @@ function planHydroSingle(E: Float64Array, h: Uint8Array, g: Genome, seed: number
       main.params.bedProfile = {start:bed[0],steps};
     }
 
-    const s0Drawn = fan ? m.L * (0.33 + 0.32 * rng.float()) : Math.max(m.L * 0.55, m.L - (26 + 18 * rng.float()));
+    const u0 = rng.float();
+    // (Delta 1: where the start's terrace was laid, the fan opens just below the trunk's point beside it, `deltaHead.ts`)
+    const site = fan ? g.deltaHeadSite : undefined;
+    const s0Drawn = fan ? (site ? apexBeside(m.path, m.L, site) : m.L * (0.33 + 0.32 * u0)) : Math.max(m.L * 0.55, m.L - (26 + 18 * u0));
     // (D357: down a long map the fan opens in its last stretch, about as long as the map is wide, the
     // river running the length above it; drawn from a third of the way down, its arms ran side by side
     // for hundreds of tiles)
