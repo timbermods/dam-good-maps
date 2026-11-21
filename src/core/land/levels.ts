@@ -66,6 +66,12 @@ export function snapLevels(E: Float64Array, g: Genome, seed: number, W: number, 
   // (uplands round 5: Lake Basin and Islands keep the land of 0.10.48, `UPLANDS_BASE_PATH`)
   const f = UPLANDS_BASE_PATH.has(g.theme) ? 1 : formScale(W, H);
   const ringed = f > 1;
+  // (Lake Basin above 128², its dry plate: the levels' lines drawn as the rings' are, with no ring forms: the jitter at
+  // the map's scale, the levels smoothed and read through the slow warp, so nothing finer than about 8 tiles jags a line.
+  // The small maps' warp, 8 tiles over a 6-tile cell at 256², drew the plate's gentle slope as a tangle of one-level
+  // lines and specks)
+  const lines = ringed || !!g.basinWarp;
+  const fl = lines ? formScale(W, H) : 1;
   // (uplands round 3: the tiers are laid on the land's regional tilt, not on equal levels across the map: the plane
   // that fits the field best is taken out before the ranks and put back after, `RINGS.tilt` levels from its low corner
   // to its high, so each tier rolls down the land's slope through more levels, while a wall stands its full height
@@ -97,16 +103,16 @@ export function snapLevels(E: Float64Array, g: Genome, seed: number, W: number, 
         if (t > 0 && t < 1) t = t / (t + g.hyps.lean * (1 - t));
         // (rising away from the valley, so the valley lies in a bowl at the map's scale)
         t = STAND.floor.away * stand.away[i] + (1 - STAND.floor.away) * t;
-        level[i] = g.base + STAND.floor.over + t * STAND.floor.relief + g.terrace.jitter * warpedFbm(js, x, y, 14 * f, 2, 7 * f);
+        level[i] = g.base + STAND.floor.over + t * STAND.floor.relief + g.terrace.jitter * warpedFbm(js, x, y, 14 * fl, 2, 7 * fl);
         continue;
       } else {
         t = (1 - g.hyps.eq) * lin + g.hyps.eq * rk[i];
         // the lean: t / (t + lean (1 − t)) on [0, 1], continued straight beyond it
         if (t > 0 && t < 1) t = t / (t + g.hyps.lean * (1 - t));
       }
-      level[i] = g.base + t * (top0 - g.base) + g.terrace.jitter * warpedFbm(js, x, y, 14 * f, 2, 7 * f);
+      level[i] = g.base + t * (top0 - g.base) + g.terrace.jitter * warpedFbm(js, x, y, 14 * fl, 2, 7 * fl);
     }
-  if (ringed) level.set(smoothed(level, W, H, Math.round(RINGS.smooth * (f - 1)), RINGS.passes));
+  if (lines) level.set(smoothed(level, W, H, Math.round(RINGS.smooth * (fl - 1)), RINGS.passes));
   if (tiers) gatherFaces(level, W, H, tiers.bands);
   // (uplands round 4: the land's ringed forms, on the smoothed levels, `rings.ts`)
   if (ringed) addRingForms(level, drawRingForms(g.theme, level, W, H, seed, g.variation, stand ? floorTop + ringRoom : top0 + ringRoom, tiers ? tiers.bands[0][1] : null), W, H);
@@ -149,9 +155,9 @@ export function snapLevels(E: Float64Array, g: Genome, seed: number, W: number, 
   // (each tile's source in the unwarped levels, so the cliffs the warp makes can be told from the land's own)
   const src = new Int32Array(N);
   const side = Math.min(W, H);
-  const reach = ringed ? RINGS.warpReach : side <= EDGE_WARP.full ? EDGE_WARP.reach * (side / EDGE_WARP.full) : Math.min(EDGE_WARP.most, EDGE_WARP.reach * portable.sqrt(side / EDGE_WARP.full));
-  const wcell = ringed ? RINGS.warpCell : EDGE_WARP.cell;
-  const woct = ringed ? 1 : EDGE_WARP.octaves;
+  const reach = lines ? RINGS.warpReach : side <= EDGE_WARP.full ? EDGE_WARP.reach * (side / EDGE_WARP.full) : Math.min(EDGE_WARP.most, EDGE_WARP.reach * portable.sqrt(side / EDGE_WARP.full));
+  const wcell = lines ? RINGS.warpCell : EDGE_WARP.cell;
+  const woct = lines ? 1 : EDGE_WARP.octaves;
   for (let y = 0; y < H; y++)
     for (let x = 0; x < W; x++) {
       const d = Math.min(x, y, W - 1 - x, H - 1 - y);

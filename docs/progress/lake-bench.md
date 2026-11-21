@@ -28,3 +28,20 @@ stacked engine, about 14 s a map); the bench's own work is under a second.
 Easy s2's third and fifth lands: the planned lake stands at 4.6 and the bench at 7, so the clearing is cut to 6, a level
 under the bench, and holds a bench of about 530 tiles against the floor's 704. The bench's level comes from the lake's
 filled spill, not its planned surface; making them agree moves every bench, Normal's too.
+
+## The dry plate (branch `gen/lake-basin-plate`, from 50fc05e0)
+
+Step 1: the levels' lines drawn as the rings' are (`land/levels.ts` `snapLevels`, gated to `g.basinWarp`): the plate's
+one-level tangle came from the small maps' edge warp, 8.5 tiles over a 6-tile cell at 256². Normal, seeds 1–6.
+
+| Bar | Step 1 | 50fc05e0 |
+|---|---|---|
+| The start on the bench | 6/6 | 6/6 |
+| Food row | 6/6 (44–52) | 6/6 (44–47) |
+| Room 400+ | 6/6 (459–542) | 6/6 (473–518) |
+| Reach 8,721+ | 6/6 (lowest s6: 15,743) | 6/6 (lowest s6: 16,146) |
+| Badwater in view | 0 | 0 |
+| Land on a step edge, % | 11.3–16.2 | 14.9–21.9 |
+| Land in pieces under 40 tiles, % | 1.9–3.8 | 3.6–7.1 |
+| Other themes and Lake Basin 128² hash as dev | 6/6 | |
+| Attempts | 6 | 9 |
