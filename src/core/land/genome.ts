@@ -342,6 +342,9 @@ export interface Genome {
   /** The ground the start's views take in on a land that stands up (round 6c, round 2: `levels.ts` `snapLevels`, within
    *  `STAND.badFar` and half the bowl's radius of the bench): the badwater keeps off it too (`bold.ts` `standBadKeep`). */
   benchView?: Uint8Array;
+  /** The ground past the main river's cascade below the lake on a land that stands up (round 6c, round 3, `bold.ts`
+   *  `StandValley.below`): the only reach a badwater ditch joins (`generate.ts` `lowReach`). */
+  standBelow?: Uint8Array;
   /** How far the water's way wanders from the steepest descent (levels), and the size of its
    *  wanders in tiles. */
   wander: number;

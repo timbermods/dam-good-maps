@@ -2430,18 +2430,47 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
   // (Easy start, D495: an easy start's water is its own, so its map's badwater never joins the main water: it drains
   // where the land takes it, and D498 keeps it out of all the main water then)
   const joins = hash32(seed, "badwater joins") % 100 >= OWN_DRAIN && !easy;
-  // (round 6c, round 3: on a land that stands up the ditch joins below the start's lake and out of the ground its views
-  // take in, `Genome.benchView`: seed 11's joined just below the lake's outlet, and its badwater spread back up into
-  // the lake the start looks over; where no reach is left out there, the badwater drains on its own)
+  // (round 6c, round 3: on a land that stands up the ditch joins below the cascade the main river falls down past the
+  // lake's sill, `Genome.standBelow`, and out of the ground the start's views take in, `Genome.benchView`: seed 11's
+  // joined where the river stood level with the lake, and its badwater spread back up into the lake the start looks
+  // over; where no reach is left there, the badwater drains on its own, kept out of all the main water, D498)
+  let lowKept: Uint8Array | null | undefined;
   const lowReach = (): Uint8Array | null => {
+    if (lowKept !== undefined) return lowKept ? lowKept.slice() : null;
     const low = joinReach(shown.theme, hy, W, H);
-    if (!g.benchView) return low;
+    if (!g.benchView && !g.standBelow) return low;
+    // (where the river's water stands a full level under the last lake's on its way, the lake as its land holds it)
+    const under = g.standBelow ? fullLevelUnder() : null;
     let any = false;
     for (let i = 0; i < N; i++) {
-      if (low[i] && g.benchView[i]) low[i] = 0;
+      if (low[i] && (g.benchView?.[i] || (g.standBelow && !g.standBelow[i]) || (under && !under[i]))) low[i] = 0;
       if (low[i]) any = true;
     }
-    return any ? low : null;
+    lowKept = any ? low : null;
+    return lowKept ? lowKept.slice() : null;
+  };
+  // (round 6c, round 3: the water of the main river standing a full level or more under the last lake on its course, on
+  // the planned water as its land holds it, `plannedWater`'s `held`)
+  const fullLevelUnder = (): Uint8Array | null => {
+    const river = hy.rivers.find((r) => r.role === "river/main");
+    if (!river) return null;
+    const est = plannedWater(h, hy, W, H, true);
+    const lakeOf = new Int32Array(N).fill(-1);
+    hy.lakes.forEach((lk, k) => {
+      for (const i of lk.tiles) lakeOf[i] = k;
+    });
+    let last = -1;
+    for (const [px, py] of river.params.path) {
+      const x = Math.round(px);
+      const y = Math.round(py);
+      if (x >= 0 && y >= 0 && x < W && y < H && lakeOf[y * W + x] >= 0) last = lakeOf[y * W + x];
+    }
+    if (last < 0) return null;
+    let top = -Infinity;
+    for (const i of hy.lakes[last].tiles) if (est[i] > 0 && h[i] + est[i] > top) top = h[i] + est[i];
+    const out = new Uint8Array(N);
+    for (let i = 0; i < N; i++) if (est[i] > 0 && h[i] + est[i] <= top - 1) out[i] = 1;
+    return out;
   };
   const joinWater = (): Uint8Array | null => (joins && !standingTheme(shown.theme) ? lowReach() : null);
   // (and on every map no other badwater ends in the main water above that reach, D498; where it

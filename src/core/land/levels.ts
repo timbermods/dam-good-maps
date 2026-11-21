@@ -111,7 +111,9 @@ export function snapLevels(E: Float64Array, g: Genome, seed: number, W: number, 
   const top0 = top - tilt - ringRoom;
   // (uplands round 6: Highlands above 128² stands up, `bold.ts` `STAND`: a valley sunk in its middle, a gentle floor
   // `STAND.floor.relief` levels deep from `STAND.floor.over` over the base, and mesas standing on it)
-  const stand = ringed && standsUp(g.theme, W, H) ? standValley(seed, g.variation, g.benchPhase, g.flowDir, W, H, g.hydro.lakeBudget * W * H) : null;
+  // (round 6c, round 3: the bench a level over the land's lowest level, `BED_FLOOR` + 1, so the main river falls past the
+  // lake's sill to a reach the lake never stands level with)
+  const stand = ringed && standsUp(g.theme, W, H) ? standValley(seed, g.variation, g.benchPhase, g.flowDir, W, H, g.hydro.lakeBudget * W * H, BED_FLOOR + 2 - g.base + 0.01) : null;
   const floorTop = stand ? g.base + STAND.floor.over + STAND.floor.relief : top0;
   // (round 6c: the ground on the bench's side of the water's line within `STAND.mesa.benchFar` radii of the bowl, where
   // no floor step is laid; and round 3, the plain in front of the start's bench, sized from the start's own walk: the
@@ -219,6 +221,7 @@ export function snapLevels(E: Float64Array, g: Genome, seed: number, W: number, 
       }
   }
   if (stand) g.rockSill = stand.sill;
+  if (stand) g.standBelow = stand.below;
   // (round 6c, round 2: the ground the start's views take in, round the bench whichever way the start turns: the start
   // and the easy start stand on the bench, not where the plan's start stood, and saw the badwater past it, seeds 4, 6,
   // 11 and 12)

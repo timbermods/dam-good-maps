@@ -71,7 +71,10 @@ export const BOLD = {
  *  facing the map's middle (`benchLean`, a share of the side), and where beside the lake the line's wander is read to
  *  turn it away from the bench (`benchAt`, radii down the line from the bowl's middle); in front of the bench the floor
  *  lies at the bench's own level, out from the bowl's rim as far as holds `walk` of the map, at least `plainMin` tiles
- *  at 256², across the bench's side fading over `plainTurn` of the cosine (`levels.ts` `benchPlain`). `springs`
+ *  at 256², across the bench's side fading over `plainTurn` of the cosine (`levels.ts` `benchPlain`); round 6c, round 3:
+ *  past the sill's rock the channel falls `drop` levels in a cascade of steps `dropGap` tiles apart, where the valley is
+ *  narrowest within `dropSeek` radii of the rock's end, pinched there by `pinch` of its width over `pinchRun` tiles each
+ *  way (`StandValley.below`). `springs`
  *  (step 2): the springs such a land draws at the most. `bench` (step 2): the rings the floor steps down to the bowl
  *  and the channel past the sill in, each `min`–`max` tiles broad over a noise of `cell` tiles, wobbling `wobble`
  *  tiles, `rings` of them, `step` levels each. `mesa.plinth` (step 2; step 4: under the stepped side only): the levels
@@ -101,7 +104,7 @@ export const STAND = {
   badBeside: 6,
   badJoin: 6,
   valley: { rMin: 0.14, rMax: 0.18, offMin: 0.1, offMax: 0.26, spread: 0.05, band: 0.35, lat: 0.14, keep: 1.35, edge: 0.04, softMin: 1.2, softMax: 3.5, halfMin: 0.026, halfMax: 0.038, wander: 0.11, cell: 0.3, side: 1.5, over: 0, rise: 2, bend: 0.09, bendCell: 0.16, meander: 0.28 },
-  lake: { sill: 2, deep: 2, share: 0.35, budget: 0.6, at: 0.7, sillPast: 0.2, soft: 1, sillRun: 4, incise: 1.4, stretch: 0.5, lobes: 2.6, bays: 0.12, baysCell: 0.35, shift: 0.12, benchStretch: 0.6, benchLobes: 1.5, benchCos: 0.35, benchTurn: 0.3, benchLean: 0.03, benchAt: 0.3, walk: 0.2, plainMin: 28, plainTurn: 0.3 },
+  lake: { sill: 2, deep: 2, share: 0.35, budget: 0.6, at: 0.7, sillPast: 0.2, soft: 1, sillRun: 4, incise: 1.4, stretch: 0.5, lobes: 2.6, bays: 0.12, baysCell: 0.35, shift: 0.12, benchStretch: 0.6, benchLobes: 1.5, benchCos: 0.35, benchTurn: 0.3, benchLean: 0.03, benchAt: 0.3, walk: 0.2, plainMin: 28, plainTurn: 0.3, drop: 2, dropGap: 4, dropSeek: 0.6, pinch: 0.3, pinchRun: 8 },
   bench: { min: 5, max: 13, cell: 40, wobble: 3, rings: 3, step: 2 },
   floor: { over: 4, relief: 5, roll: 0, riser: 0, drift: 0, away: 0.5, far: 0.5 },
   mesa: { fewest: 4, most: 6, rMin: 24, rMax: 46, hMin: 4, hMax: 6, gap: 8, edge: 0.6, wall: 0.5, stretch: 0.35, brokenMin: 0.12, brokenMax: 0.25, runMin: 1.8, runMax: 4.5, inset: 7, first: 0.85, tries: 200, plinth: 2, plinthMin: 4, plinthMax: 9, open: -0.25, butte: 0.6, buttes: 1, benchCos: 0.5, benchFar: 3 },
@@ -149,6 +152,9 @@ export interface StandValley {
   /** The way the start's bench lies from the water's line (round 6c, a unit vector across the line). */
   bx: number;
   by: number;
+  /** The ground past the main river's cascade below the lake (round 6c, round 3): across the map, down the water's way
+   *  from the cascade's foot, where the lake never stands level with the river and a ditch may join it. */
+  below: Uint8Array;
 }
 
 /** The valley a land that stands up sinks in its middle: a lobed bowl near the map's middle, and a channel through it
@@ -165,10 +171,15 @@ export interface StandValley {
  *  tiles). The channel leaves the bowl at the bench's level and runs on at it for
  *  `lake.sillRun` tiles before it falls to the downstream edge: that stretch of the bowl's rim is the lake's sill. The
  *  water's plan finds the hollow on its river's way and fills it to the sill (`hydro.ts`, its lakes); nothing here
- *  lays water. Upstream the channel falls to the bench from `rise` levels over it. */
-export function standValley(seed: number, variation: number, phase: number, flowDir: number, W: number, H: number, lakeMost = Infinity): StandValley {
+ *  lays water. Upstream the channel falls to the bench from `rise` levels over it. The bench stands at least `sillLeast`
+ *  levels over the base (round 6c, round 3: the land's lowest level and one more, so the cascade past the sill has a
+ *  level to fall to). */
+export function standValley(seed: number, variation: number, phase: number, flowDir: number, W: number, H: number, lakeMost = Infinity, sillLeast = 0): StandValley {
   const V = STAND.valley;
   const K = STAND.lake;
+  // (round 6c, round 3: the bench, the lake's sill, at least `sillLeast` levels over the base: the land's lowest level,
+  // a level over the beds' floor, so the channel past the sill can fall from it, `lake.drop`)
+  const lv = Math.max(K.sill, sillLeast);
   const N = W * H;
   const side = Math.min(W, H);
   const s = hash32(seed, "stand-valley", variation, Math.floor(phase * 1073741824));
@@ -243,6 +254,21 @@ export function standValley(seed: number, variation: number, phase: number, flow
   const onMap = (a: number): boolean => lineX(a) >= 0 && lineY(a) >= 0 && lineX(a) <= W - 1 && lineY(a) <= H - 1;
   let aEnd = aOut;
   while (aEnd < 2 * side && onMap(aEnd)) aEnd += 1;
+  // (round 6c, round 3: past the sill's rock the main river falls `lake.drop` levels in a short cascade, where the valley
+  // is narrowest, and the valley pinches there, so the lake never stands level with the reach below it: badwater joined
+  // there spread back up into the lake the start looks over, seed 11, the water the settle starts from standing level
+  // from the join to the lake; the ditches join only below it, `below`)
+  const halfAt = (along: number): number => half * (1 + 0.5 * fbm(s + 7, along, 0, 0.5 * V.cell * side, 2));
+  const rockEnd = aOut + K.sillRun + 2 + K.sillPast * r;
+  let aDrop = rockEnd + 1;
+  let narrow = Infinity;
+  for (let a = rockEnd + 1; a <= rockEnd + 1 + K.dropSeek * r && a < aEnd - 2 * K.dropGap; a += 1)
+    if (halfAt(a) < narrow) {
+      narrow = halfAt(a);
+      aDrop = a;
+    }
+  const aBelow = aDrop + (K.drop - 1) * K.dropGap;
+  const pinchAt = (along: number): number => 1 - K.pinch * smoothstep(1 - Math.abs(along - (aDrop + aBelow) / 2) / K.pinchRun);
   const m = new Float64Array(N);
   const mb = new Float64Array(N);
   const mcs = new Float64Array(N);
@@ -259,7 +285,7 @@ export function standValley(seed: number, variation: number, phase: number, flow
       const b = bowlAt(x, y);
       const along = (x - cx) * ax + (y - cy) * ay;
       const lat = -(x - cx) * ay + (y - cy) * ax;
-      const hw = half * (1 + 0.5 * fbm(s + 7, along, 0, 0.5 * V.cell * side, 2));
+      const hw = halfAt(along) * pinchAt(along);
       latOf[i] = lat - offAt(along);
       line[i] = Math.abs(latOf[i]);
       const mc = smoothstep((hw - line[i]) / V.side + 0.5);
@@ -321,13 +347,15 @@ export function standValley(seed: number, variation: number, phase: number, flow
     const a = alongOf[i];
     // the channel: falling to the bench from upstream, at the bench's level through the bowl and over its sill, then
     // falling to the downstream edge
-    const vChan = a < aIn ? K.sill + V.rise * clamp((aIn - a) / (0.45 * side), 0, 1) : a <= aOut + K.sillRun ? K.sill : K.sill - (K.sill - V.over) * clamp((a - aOut - K.sillRun) / Math.max(8, aEnd - aOut - K.sillRun), 0, 1);
+    // (round 6c, round 3: level to the cascade past the sill's rock, down it a level a step, then falling to the edge)
+    const low = lv - K.drop;
+    const vChan = a < aIn ? lv + V.rise * clamp((aIn - a) / (0.45 * side), 0, 1) : a < aDrop ? lv : a < aBelow ? lv - 1 - Math.floor((a - aDrop) / K.dropGap) : low - (low - Math.min(low, V.over)) * clamp((a - aBelow) / Math.max(8, aEnd - aBelow), 0, 1);
     // the bowl: the bench, and the lake's hollow under it
     const lk = smoothstep(sd[i] / K.soft + 0.5);
-    const vBowl = K.sill - K.deep * lk;
+    const vBowl = lv - K.deep * lk;
     // (round the bowl's rim, off the channel, the ground stands at the bench's level at least: no way round the sill)
     const wb = smoothstep((mb[i] - 0.5) / 0.2 + 0.5);
-    floor[i] = wb * vBowl + (1 - wb) * (mcs[i] >= mb[i] ? vChan : Math.max(vChan, K.sill));
+    floor[i] = wb * vBowl + (1 - wb) * (mcs[i] >= mb[i] ? vChan : Math.max(vChan, lv));
   }
   // (the sill, round 6b step 3: the ground from the lake's middle to the bowl's downstream rim and the channel's run
   // over it and a little past, as far to each side as the river may wander, so wherever the river leaves its lake it
@@ -357,7 +385,9 @@ export function standValley(seed: number, variation: number, phase: number, flow
   const inBowlT = new Uint8Array(N);
   // (round 6b step 5: the channel upstream of the bowl too, so its sides step down to it in rings, not one wall)
   for (let i = 0; i < N; i++) inBowlT[i] = mb[i] >= 0.5 && mb[i] >= mcs[i] ? 1 : 2 * (mb[i] < 0.5 && (alongOf[i] > aOut + K.sillRun + 2 || alongOf[i] < aIn - 2) ? 1 : 0);
-  return { m, floor, away, share: n / N, cx, cy, r, line, sill, bowl: inBowlT, mx, my, bx: -ay * bench, by: ax * bench };
+  const below = new Uint8Array(N);
+  for (let i = 0; i < N; i++) if (alongOf[i] > aBelow + 2) below[i] = 1;
+  return { m, floor, away, share: n / N, cx, cy, r, line, sill, bowl: inBowlT, mx, my, bx: -ay * bench, by: ax * bench, below };
 }
 
 /** The lake's shore in the bowl (round 6b steps 2 and 3): found, not laid. The bowl's tiles nearest a lobed outline

@@ -1227,6 +1227,9 @@ function planHydroSingle(E: Float64Array, h: Uint8Array, g: Genome, seed: number
         for (let x = Math.max(1, Math.floor(x0) - R); x <= Math.min(W - 2, Math.ceil(x1) + R); x++) {
           const i = y * W + x;
           if (h[i] > level + 1 || (owner[i] >= 0 && owner[i] !== t.k)) continue;
+          // (round 6c, round 3: on a land that stands up, never over the lake's sill: a stretch deepened across it cut the
+          // outlet three levels and the lake stood level with the river below, Highlands 256² seed 11)
+          if (g.standBelow && g.rockSill?.[i]) continue;
           // the nearest point of the stretch, and how far along it lies
           let best = Infinity;
           let at = 0;
