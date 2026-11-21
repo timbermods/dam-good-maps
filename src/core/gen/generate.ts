@@ -25,6 +25,7 @@
 import * as portable from "../math/portable";
 import { walledRun } from "../analysis/signature";
 import { openingFrame, tilesInFrame } from "../analysis/opening";
+import { ORIENTATIONS } from "../format/footprints";
 import { damSites } from "../analysis/damsites";
 import { sourcesInFlow } from "../analysis/sources";
 import { STRAIGHT_LIMITS, straightness, tooStraight } from "../analysis/straight";
@@ -592,6 +593,9 @@ const SPRING_TRIES = 3;
 /** Starts tried on one settled water before the attempt is planned again (each new plan settles
  *  the water again). */
 const START_TRIES = 3;
+/** Lake Basin above 128² (the gated hydro pass): its starts tried on one settled water. Its start gives way for badwater
+ *  in its opening view and for ground walled off round the lake as well, before the attempt is planned again. */
+const BASIN_START_TRIES = 6;
 /** Easy start (D495): where a place is shaped on the settled water: the plan's place, then round it at 3 and at 6
  *  tiles (the settled water lies a tile or two off the plan's), the nearest first; and how many places the settler
  *  is asked for on the settled water when no reserved place holds. */
@@ -2008,6 +2012,7 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
   // so the start's island is joined without stairs as far as its one-level steps reach; its start is turned from the
   // badwater in view, never moved for it, `badTurnOnly`)
   const islesUp = g.theme === "islands" && !!g.seaLayout && Math.min(W, H) > 128;
+  const startTries = g.basinWarp ? BASIN_START_TRIES : START_TRIES;
   const ringSlopes = Math.min(W, H) > 128 && (!UPLANDS_BASE_PATH.has(g.theme) || islesUp || !!g.basinWarp);
   // (the pick reads its places' walks over the slopes as before on Islands: the start is the one it chose, its room and
   // rows kept, and the build's slopes join more of its island)
@@ -3474,7 +3479,7 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
     // is kept when none passes, tries every plan's shape it has)
     if (planLive) {
       triedBefore ??= tried.slice();
-      if (tryAt + 1 < START_TRIES - 1 || lastAttempt) {
+      if (tryAt + 1 < startTries - 1 || lastAttempt) {
         const q = landStage?.prepared.find((q) => !tried[q.y * W + q.x] && !avoidOf(bad)[q.y * W + q.x] && !wetRing(b1, q) && !padFloods(h, W, H, b1.water, q.x, q.y, q.level) && (!planFirst || servedOnB1(q))) ?? null;
         planFirst = false;
         if (q) return q;
@@ -3660,7 +3665,7 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
     // (a start chosen where its walk had room for the mine sites whose own pad leaves it none, D363,
     // a pad dug down to the water's level, gives way to the next start before its water is settled;
     // a start chosen where no walk had room is kept: there was none to choose)
-    if (tryN + 1 < START_TRIES && !lastAttempt && mineRoomAt[cur.y * W + cur.x] && mineRoom(h, W, H, { start: cur, wet: b1.water, keep: roomKeepOf(b1), want: minesWanted(W, H), lo: MINE_REACH_LO * scale + 1 }) < minesWanted(W, H)) {
+    if (tryN + 1 < startTries && !lastAttempt && mineRoomAt[cur.y * W + cur.x] && mineRoom(h, W, H, { start: cur, wet: b1.water, keep: roomKeepOf(b1), want: minesWanted(W, H), lo: MINE_REACH_LO * scale + 1 }) < minesWanted(W, H)) {
       const levelled = h.slice();
       h.set(hBefore);
       const again = nextStart(cur);
@@ -3673,7 +3678,8 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
     // (Lake Basin above 128², round 7c: a start whose opening view shows badwater gives way to the next, which is turned
     // from it where it can be: its badwater was kept off the plan's start's view, and the start chosen on the settled
     // water moved from it)
-    if (g.basinWarp && tryN + 1 < START_TRIES && !lastAttempt) {
+    // (on the last tries as well, which build nothing for it: a start passed over here costs no settle; two more at most)
+    if (g.basinWarp && tryN < startTries + 2 && !lastAttempt) {
       const badTiles: number[] = [];
       for (let i = 0; i < N; i++) if (b1.water[i] >= 0.1 && b1.contamination[i] > 0.05) badTiles.push(i);
       if (badTiles.length && tilesInFrame({ x: cur.x, y: cur.y, z: h[cur.y * W + cur.x], orientation: cur.orientation }, W, h, badTiles) > 0) {
@@ -3685,13 +3691,18 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
           continue;
         }
         h.set(levelled);
+        // (none left on this water: the start turned from it, where one of its turns shows none; where every turn shows
+        // it, the land is planned again)
+        const turn = ORIENTATIONS.find((o) => tilesInFrame({ x: cur.x, y: cur.y, z: h[cur.y * W + cur.x], orientation: o }, W, h, badTiles) === 0);
+        if (turn) cur = { ...cur, orientation: turn };
+        else return fail("badwater in the start's view", b1, true);
       }
     }
     layout = [...rivers, ...bad.features, startOf(cur)];
     // (a start whose pad changes the water is first judged on the water warm-started from the
     // settle before it, which costs a fraction of a settle: a pad the water would cover gives way to
     // the next start before its water is settled)
-    if (tryN + 1 < START_TRIES && !lastAttempt) {
+    if (tryN + 1 < startTries && !lastAttempt) {
       const bw = build(layout, "water");
       const model = waterModel(W, H, bw.heights, mapObjects({ entities: bw.entities.map(entityJson) }));
       if (!cache.get(model)) {
@@ -3787,6 +3798,11 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
       // (Buildable land Generous where the theme's own is less, and not in a rescue round: the start walks to the land
       // the setting promises, at least 2,500 tiles at 128², by area below it as the floors are (PLAN §5.2))
       else if (ease === 0 && generousReach > 0 && got.reach < generousReach) why = "start.reach";
+      // (Lake Basin above 128², the gated hydro pass: its land steps a level at a time round the lake, and the pick's
+      // ground, read over steps of a level, can be a lakeside shelf walled off from the rest without its stairs: the
+      // start walks, on its level and over the slopes as the check does, to the ground the pick asked of it, or gives
+      // way. Lake Basin 256² seed 6: a shelf of 2,965 tiles between the lake and the river leaving it)
+      else if (g.basinWarp && got.reach < minFoot) why = "start.reach";
       else if (got.moist < FLOOR_MARGIN * (floors.farmland + floors.forester)) why = "start.forester";
     }
     if (!why && N <= 96 * 96) {
@@ -3832,12 +3848,20 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
     if (!why) break;
     // (another start on the same settled water, off this one and the ground round it; the last
     // attempt keeps what it has, and a start already chosen among those that passed stands)
-    if (chosen && (!(tryN + 1 < START_TRIES + REACH_CHOICES) || lastAttempt)) {
+    if (chosen && (!(tryN + 1 < startTries + REACH_CHOICES) || lastAttempt)) {
       takeChosen();
       break;
     }
-    if (!(tryN + 1 < START_TRIES) && !chosen) return fail(why, b, true);
+    if (!(tryN + 1 < startTries) && !chosen) return fail(why, b, true);
     if (lastAttempt) return fail(why, b, true);
+    // (Lake Basin above 128²: a start refused for the little ground it walks to takes that ground with it, so the next
+    // is not found on the same shelf)
+    if (why === "start.reach" && g.basinWarp) {
+      const { blocked, links } = walkWorld(b.entities, W, H);
+      const lab = walkRegions(b.heights, W, H, blocked, links);
+      const r = lab[cur.y * W + cur.x];
+      if (r >= 0) for (let i = 0; i < N; i++) if (lab[i] === r) tried[i] = 1;
+    }
     const levelled = h.slice();
     h.set(hBefore);
     const again = nextStart(cur);
