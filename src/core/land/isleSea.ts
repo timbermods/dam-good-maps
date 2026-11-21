@@ -52,9 +52,16 @@ export interface IsleSeaLand {
   /** The exit's tiles on the map's edge. */
   exit: number[];
   /** Ground no spring rises on: within `SPRING_OFF` of the exit (a clean inflow's mouth beside the exit sends its water
-   *  straight out over it before the sea fills, the sea-bed measure's seeds 2 and 4), and the start's headland. */
+   *  straight out over it before the sea fills, the sea-bed measure's seeds 2 and 4), the start's headland, and the frame's
+   *  rim (`RIM`). */
   dry: Uint8Array;
 }
+
+/** The frame's rim: within the first of these tiles of the map's edge the mainland stands two levels over its run, within
+ *  the second one level (their lines wandering by 3 tiles), where it is `RIM_WATER` tiles or more from the water; no spring
+ *  rises within the second. */
+const RIM = [6, 12] as const;
+const RIM_WATER = 8;
 
 /** The nearest a spring rises to the sea's exit, tiles (the sea-bed measure: seed 6's sources 107 tiles off refilled
  *  its sea by the wet season's fifth day; seed 4's, at the exit, lost 2,400 blocks a day over it). */
@@ -258,6 +265,12 @@ export function isleSeaLand(seed: number, variation: number, W: number, H: numbe
         // (round the headland's root the mainland stands at its level at least, so no hollow runs down to it)
         if (fromHead[i] < 14 && fromWater[i] > fromHead[i] + 1) lv = Math.max(lv, 1);
         if (lv >= mainSteps && top > 0.1) lv = mainSteps + 1;
+        // (the frame's rim: the land rises a level, then another, toward the map's edge, its lines wandering, so no river
+        // on the mainland's top runs off the map's edge, which is a sink (D350): the sea-bed measure's lesson, the sea's
+        // only way out is its exit; Islands 256² seed 9's river ran along a flat top to two edges and its sea never refilled
+        // in a Hard wet season)
+        const e = Math.min(x, y, W - 1 - x, H - 1 - y) + 3 * fbm(sBench + 5, x, y, 20, 2);
+        if (d >= RIM_WATER) lv += e < RIM[0] ? 2 : e < RIM[1] ? 1 : 0;
       }
       h[i] = S + 1 + Math.max(0, lv);
     }
@@ -307,7 +320,7 @@ export function isleSeaLand(seed: number, variation: number, W: number, H: numbe
   for (let i = 0; i < N; i++) {
     const x = i % W;
     const y = (i - x) / W;
-    if ((exit.length && portable.hypot(x - mx, y - my) < SPRING_OFF) || portable.hypot(x - bx, y - by) < 2.2 * hw + 0.6 * reach) dryM[i] = 1;
+    if ((exit.length && portable.hypot(x - mx, y - my) < SPRING_OFF) || portable.hypot(x - bx, y - by) < 2.2 * hw + 0.6 * reach || Math.min(x, y, W - 1 - x, H - 1 - y) < RIM[1]) dryM[i] = 1;
   }
   return { h, E, spill: S, headland: { x: hx, y: hy, ux: -dx0, uy: -dy0, bx, by, r: hw }, isles, exit, dry: dryM };
 }
