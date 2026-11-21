@@ -92,7 +92,7 @@ Read this index, then [how-we-work.md](how-we-work.md), then only the topic file
 ## [The generator](generator.md)
 
 - D545: The start is picked for the level room it has, never at the cost of an Easy row: the places with Easy's room that keep the rows the pick before would keep, else those with at least its room, worth weighing the draw
-- D547: Above 128² the land is drawn in rings: landforms at the map's scale, a plan of the land, nothing fine in the snap, slopes for a ringed land, bold walls for Highlands and Canyon; Lake Basin and Islands stay on 0.10.48's land; Highlands stands up (round 6): a few walled mesas on a gentle floor, the valley sunk in the middle; round 6b step 5: no badwater in the valley or the start's view, the channel winding, the notches gullies
+- D547: Above 128² the land is drawn in rings: landforms at the map's scale, a plan of the land, nothing fine in the snap, slopes for a ringed land, bold walls for Highlands and Canyon; Lake Basin and Islands stay on 0.10.48's land; Highlands stands up (round 6): a few walled mesas on a gentle floor, the valley sunk in the middle; round 6b step 5: no badwater in the valley or the start's view, the channel winding, the notches gullies; Islands round 8 (0.10.55): an island sea's start walks its island (the ringed slopes, minFoot kept, its start turned from badwater, its berries topped up to Easy's food row on Normal)
 - D544: No level's edge runs ruler-straight over a dozen tiles: the graded levels are read through a fine warp before rounding, the water's field left as it is
 - D534: No course runs beside another: it joins the one it would run beside; Delta's arms step diagonally
 - D543: An arch over a gorge is looked for along the heading its gorge runs at the crossing, a diagonal too; a course but the main river deep under a wall for half its gorge's wavelength winds as a gorge, unless on a Canyon land it cost the promise
@@ -121,7 +121,7 @@ Read this index, then [how-we-work.md](how-we-work.md), then only the topic file
 - D502: A landmark in the opening view on the default Generate
 - D498: Badwater joins the main water's lower reach, never its signature water
 - D495: Easy start: a calm, generous start, guaranteed (amends D211 for this setting)
-- D493: The opening shot: the start turned so the game's first camera frames the landmark
+- D493: The opening shot: the start turned so the game's first camera frames the landmark; a stand of ruins in its pulled-back view (2026-11-20)
 - D480: The water story's reach counts the main water
 - D476: Badwater joins the main water
 - D471: Every setting makes a map

@@ -1,5 +1,5 @@
 {
- "generatorVersion": "0.10.53",
+ "generatorVersion": "0.10.55",
  "side": 128,
  "seeds": [
   1,
@@ -54,7 +54,7 @@
    "canyon": 1,
    "highlands": 2,
    "lakeBasin": 0,
-   "delta": 2,
+   "delta": 3,
    "islands": 0
   },
   "high-lake": {
