@@ -389,6 +389,9 @@ function shoreBench(h: Uint8Array, W: number, H: number, hy: Hydro, keep: Uint8A
 /** Lake Basin above 128²: how far its badwater keeps from the plan's start, in tiles (round 7c), half again a land
  *  that stands up's `STAND.badFar`: its start is chosen again on the settled water and moves further. */
 const BASIN_BAD_FAR = 90;
+/** Lake Basin above 128² on Normal: the dry tiles within 14 of its start that stay moist through the rule's drought
+ *  (`SettlerOptions.foodLeast`): room for its food row's berries. Seed 2's shore held 39 against the row's 40. */
+const BASIN_FOOD = 150;
 /** Lake Basin above 128²: the fewest tiles a body of a lake planned at its spill level keeps to be a lake. */
 const SPILL_LAKE_MIN = 6;
 /** Lake Basin above 128²: its shore bench (`shoreBench`): how far from the map's edge its middle keeps (a share of the
@@ -2545,7 +2548,7 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
     // water's walk and its room, never drawn to the headland's middle, farthest from its water)
     const prefer = head ? (x: number, y: number, L: number, w: number) => along(x, y, L, w) + 3 * Math.max(0, Math.min(1, 1 - (portable.hypot(x - head.bx, y - head.by) - HEAD_REACH * head.r) / head.r)) : along;
     const rng = stream(seed, "settler2", attempt, salt);
-    return pickStart(h, W, H, { depth: D, contamination: C, moisture: M }, hy, g.settler, rng, stageRule, { prepared, avoid: offShore(avoid), kept, drought: policy, prefer, foot, minFoot, footWant, moistWalk: { min: moistWant }, room, bench, benchMin, storage, near, level: allowLevel, roomFirst: !onPlan, badwater: badHollows(), slopeWater, ...(ease >= 2 ? { levelReach: Math.min(3, 1 + Math.floor(ease / 2)) } : {}), ...(ease >= 3 ? { margin: Math.max(5, Math.round(Math.min(W, H) * 0.08)) } : {}), ...(ease >= 1 ? { waterExact: true } : {}), ...(stageEasy ? { easy: stageEasy } : {}), ...(pickRings ? { ringSlopes } : {}) , ...(g.standValley || g.basinWarp ? { badView: true } : islesUp ? { badView: true, badTurnOnly: true } : {}), ...(g.basinWarp ? { badViewWide: true } : {}) });
+    return pickStart(h, W, H, { depth: D, contamination: C, moisture: M }, hy, g.settler, rng, stageRule, { prepared, avoid: offShore(avoid), kept, drought: policy, prefer, foot, minFoot, footWant, moistWalk: { min: moistWant }, room, bench, benchMin, storage, near, level: allowLevel, roomFirst: !onPlan, badwater: badHollows(), slopeWater, ...(ease >= 2 ? { levelReach: Math.min(3, 1 + Math.floor(ease / 2)) } : {}), ...(ease >= 3 ? { margin: Math.max(5, Math.round(Math.min(W, H) * 0.08)) } : {}), ...(ease >= 1 ? { waterExact: true } : {}), ...(stageEasy ? { easy: stageEasy } : {}), ...(pickRings ? { ringSlopes } : {}) , ...(g.standValley || g.basinWarp ? { badView: true } : islesUp ? { badView: true, badTurnOnly: true } : {}), ...(g.basinWarp ? { badViewWide: true, ...(!easyT && spec.designedFor === "normal" ? { foodLeast: BASIN_FOOD } : {}) } : {}) });
   };
   const levelStart = (p: StartPick) => {
     if (!p.levelled) return;
