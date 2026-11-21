@@ -28,6 +28,11 @@ away from every river (D547, [design/uplands.md](design/uplands.md)). The bed al
 its settled count at every Hard wet season's end on seeds 1–12. Short: the start's food row on seeds 2, 4, 7 and 10 (only
 the shore bench stays moist through a drought), seed 6's sea at 0.45 of 1.11 after a Hard wet season (its river's mouth 55
 tiles from the exit; the start's water whole).
+In flight: Highlands above 128², a bench for the start beside a lake that sits where the seed puts it (generator 0.10.63,
+branch `gen/highlands-6d`, labelled `hold` for planning's verdict): the bench first, a plain in front of it, the massif
+across the lake, the bowl off the middle by the seed ([design/uplands.md](design/uplands.md), round 6c). Highlands 256²
+seeds 1–12, Normal and Easy start: every start passes, room 427+, every walk 14,000+, no badwater in a start's view, the
+84 default maps as dev's.
 Before it: `highlands-done` (2026-11-20, PR #1265): dev a0a3c83c released into `main` at 46b5e71, generator 0.10.37 →
 0.10.53; 56 PRs since `tilt-forms-done`: the land above 128² drawn in rings (D547) with Highlands standing up (#1263), the
 start picked for its level room (D545, #1256, #1261), ruled water (#1162), floodplain steps 5 and 6 and Save as.

@@ -1121,6 +1121,36 @@ falls short of that on two thirds of the maps however broad the plain. Attempts:
 lowers the ground the promise counts and the Easy starts' second places; seed 11's badwater drains on its own into the
 main river where it enters and reaches the lake's outlet lobe in the start's view, which the join rule does not touch.
 
+### Round 6c shipped: generator 0.10.63 (2026-11-21)
+
+What shipped, on round 3's land (`benchPlain`, `floor.relief`, `lowReach`, `standBadKeep` with `Genome.benchView`):
+- **The sill guard** (`hydro.ts`): on a land that stands up, no chain lake's deepened stretch is laid over the lake's
+  sill rock (`Genome.rockSill`). Seed 11's cut its outlet three levels and its lake stood level with the river below;
+  it now stands at its bench (a Normal drought's end 1,012 → 3,974 tiles of the start's lake).
+- **The full-level join** (`generate.ts` `fullLevelUnder`): a badwater ditch joins the main river only where the
+  river's planned water stands a full level or more under the last lake's surface, and off the bench's views; where no
+  such reach is left the badwater drains on its own (D498).
+- **The start turned from badwater** (`generate.ts`, the start's tries): the badwater is kept off the plan's start and
+  the bench's views, but a start found on the settled water can stand past both. A start whose opening view shows
+  badwater is turned to a level door that shows none, and gives way to the next only where no turn is clear. Seed 11's
+  Easy start faced a spring's pool 75 tiles west (29 tiles); turned east it sees none.
+- **The close district's debris keeps the start's walk** (`generate.ts`, the second district): its Blockage cuts off the
+  site's pocket only, never leaving the start under the ground it was picked for (`minFoot`) or under half its walk.
+  Seed 11's stood on the one neck from the bench's plain to the floor, and the start walked 6,771 tiles of 32,193.
+
+Highlands 256², seeds 1–12, Normal and the same twelve with Easy start, against dev 0fc2390b (whose Highlands land is
+0.10.56's):
+
+| bar | dev | 0.10.63 |
+|---|---|---|
+| starts pass; Easy rows missed (Easy start) | 24 of 24; 0 | 24 of 24; 0 |
+| room, least | 401 | 427 |
+| reach 12,000+ or at least dev's | — | 24 of 24 (least 14,424, Easy start seed 6) |
+| badwater in view where dev has none | — | none (and none on the four Easy starts where dev has 9–106) |
+| CPU (Normal / Easy start) | 409.2 / 554.9 s | 408.9 / 600.6 s (−0.1 %, +8.2 %; no map over 1.7× dev's) |
+| the start's lake at a Normal drought's end, at least round 3's (cb9b8e58) | — | 12 of 12 (seed 11 1,012 → 3,974) |
+| other themes and Highlands at 128² and below (84 maps) | — | land, water and objects as dev's on all 84 |
+
 ## Islands' land above 128² (2026-11-21, generator 0.10.61)
 
 Islands above 128² (a map whose narrower side is over 128 and that is not long) no longer draws 0.10.48's land: planning's
