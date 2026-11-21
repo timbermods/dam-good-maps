@@ -34,7 +34,7 @@ import { risenBasin, wearOutlet } from "../water/outletWear";
 import { TICKS_PER_DAY, WaterSim, type SettleWatch } from "../sim/water";
 import { DRAIN_DAYS, prefill, spillLevels, watchedSettle } from "../sim/prefill";
 import { holdSeaLip, islandToExpandTo, seaLevel, standIslandsClear } from "../land/islands";
-import { isleSeaLand, takesIsleSea } from "../land/isleSea";
+import { headRamps, ISLE_SEA, isleSeaLand, takesIsleSea } from "../land/isleSea";
 import { unit } from "../land/num";
 import { entityJson, type EntitySpec } from "../format/entities";
 import { mapObjects, type MapObject } from "../sim/model";
@@ -1962,6 +1962,12 @@ function planLandStage(land: Land, attempt: number, W: number, H: number, seed: 
     cleanPitsAndSpikes(h, W, H, keep);
     fillDryHollows(h, W, H, keep);
   }
+  // (Islands above 128², generator 0.10.62: steps from the start's headland down to its shore bench every few tiles, so
+  // the start's walk reaches the bench its food grows on, `isleSea.ts` `headRamps`)
+  if (g.isleSea) for (const st of headRamps(h, W, H, g.isleSea.headland)) {
+    ramps.steps.push(st);
+    ramps.tiles[st[0]] = 1;
+  }
   // a lake no river runs into any more (the land changed after the hydrology found it) would fill
   // only by seeping over a bank, for days: it is filled as the dry hollows are
   const heads = hy.rivers.map((r) => {
@@ -2990,7 +2996,10 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
           }
         } else if (!leave.length) break;
       }
-      if (guess && badAsk.count > 0 && !bad.features.length && !lastAttempt) return fail("no place for badwater", null, true, [...badReachers]);
+      // (on Islands above 128² a land whose pits no river's water reached has no place for them that a plan on it changes:
+      // its sea, round the start's headland, takes every ditch past the start; the land is drawn again, generator 0.10.62,
+      // seed 10 spending three attempts on one such land)
+      if (guess && badAsk.count > 0 && !bad.features.length && !lastAttempt) return fail("no place for badwater", null, !g.isleSea || badReachers.size > 0, [...badReachers]);
       // (the dry washes and an old bed, `land/washes.ts` (D517): cut as the land is shaped,
       // before it is shown, off every place a start may take and its ground, the hollows, the mine sites' squares and
       // ways, the weir's pool and the natural ramps; on the water as the settle starts from it, which they never reach)
@@ -3682,7 +3691,8 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
     // or three sides, `isleSea.ts`; the rest of the land only where the headland has no place)
     const head = g.isleSea?.headland;
     const onHead = (a: Uint8Array): Uint8Array => {
-      if (head) for (let i = 0; i < N; i++) if (portable.hypot((i % W) - head.bx, Math.floor(i / W) - head.by) > HEAD_REACH * head.r) a[i] = 1;
+      // (on the headland's top, a level over its shore bench: the bench is the start's food's ground, generator 0.10.62)
+      if (head) for (let i = 0; i < N; i++) if (portable.hypot((i % W) - head.bx, Math.floor(i / W) - head.by) > HEAD_REACH * head.r || h[i] < ISLE_SEA.spill + 2) a[i] = 1;
       return a;
     };
     const headStart = (): StartPick | null => (head ? (settlerOn(b1.water, b1.contamination, b1.moisture, 1, onHead(roomy(beyondBad(b1))), 1, near, false, "skip") ?? settlerOn(b1.water, b1.contamination, b1.moisture, 1, onHead(roomy(avoidOf(bad))), 1, near, false, "skip")) : null);
