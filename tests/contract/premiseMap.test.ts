@@ -101,9 +101,9 @@ import { decodeSpecFragment, encodeSpecFragment, makeSpec, type MapSpec } from "
 // back to 0.10.54 the branch gives `2dc34c3c…` byte for byte, D148
 // and generator 0.10.56's version alone (the start's first food, which premise maps leave to their own planting): with
 // the version set back to 0.10.55 the branch gives `29e2c9c1…` byte for byte, D148
-// and generator 0.10.57's version alone (D547's Islands land above 128², which keeps this map): with the version set
+// and generator 0.10.58's version alone (D547's Islands land above 128², which keeps this map): with the version set
 // back to 0.10.56 the branch gives `b1a5d1d1…` byte for byte, D148
-const SHA = "df02ea2db9c277fa849a49f80ddc42bd7df496daafb3944c034f6149532733e1";
+const SHA = "cc5d6973dab98d1f212b06d5909a2be104339b005115f30df03c17b93bbf2a39";
 
 // (a Hard map whose start lake parts as it falls: the single analytic reading stood 0.32 over the run there, PR #1040;
 // seed 5 for 7 since D518 with dev's ways out by a ramp's line (#1061), D148: seed 7's Hard lake stair holds no plan now

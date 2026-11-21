@@ -1,4 +1,4 @@
-// Islands' land above 128² (planning's design, 2026-11-21, generator 0.10.57): the start's ground first. A mainland
+// Islands' land above 128² (planning's design, 2026-11-21, generator 0.10.58): the start's ground first. A mainland
 // frames the sea on every side, and the start stands on a headland of it reaching into the sea, water on two or three
 // sides and islands in view; the islands are the view and the place to expand to, never the place to live. Rounds 9–11
 // drew an island big enough to live on and never converged (docs/design/uplands.md).
@@ -61,6 +61,8 @@ export interface IsleSeaLand {
  *  the second one level (their lines wandering by 3 tiles), where it is `RIM_WATER` tiles or more from the water; no spring
  *  rises within the second. */
 const RIM = [6, 12] as const;
+/** The highest level the land stands at (a map without Tall stands no ground above 16). */
+const TOP = 16;
 const RIM_WATER = 8;
 
 /** The nearest a spring rises to the sea's exit, tiles (the sea-bed measure: seed 6's sources 107 tiles off refilled
@@ -240,7 +242,9 @@ export function isleSeaLand(seed: number, variation: number, W: number, H: numbe
   const sHill = ns("hill");
   const hill = (x: number, y: number, d: number, amp: number) => amp * Math.max(0, fbm(sHill, x, y, 64, 3) + 0.25) * Math.min(1, d / 14);
   const [b0, b1] = ISLE_SEA.bench;
-  const mainSteps = 6 + Math.floor(3 * rng.float());
+  // (the mainland's benches up to its tops, and the frame's rim two more, never over the game's height a map may stand
+  // to without Tall, `TOP`: `terrain.max_height`)
+  const mainSteps = 5 + Math.floor(2 * rng.float());
   const isleSteps = isles.map((q) => Math.max(1, Math.min(5, Math.round(q.r / 7))) + (rng.float() < 0.4 ? 1 : 0));
   for (let y = 0; y < H; y++)
     for (let x = 0; x < W; x++) {
@@ -271,6 +275,7 @@ export function isleSeaLand(seed: number, variation: number, W: number, H: numbe
         // in a Hard wet season)
         const e = Math.min(x, y, W - 1 - x, H - 1 - y) + 3 * fbm(sBench + 5, x, y, 20, 2);
         if (d >= RIM_WATER) lv += e < RIM[0] ? 2 : e < RIM[1] ? 1 : 0;
+        lv = Math.min(lv, TOP - S - 1);
       }
       h[i] = S + 1 + Math.max(0, lv);
     }
