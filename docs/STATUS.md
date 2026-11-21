@@ -14,13 +14,16 @@ implementation looks wrong in the game (Kyler, 2026-10-29; HANDOFF §5, "Probes"
 
 ## Released
 
-Latest: `ruin-brush-done` (2026-11-21 13:15Z, PR #1271): dev 5cb017b4 released into `main` at f389ec6d, generator 0.10.55 →
+Latest: `lake-islands-done` (2026-11-21 19:58Z, PR #1277): dev 0fc2390b released into `main` at 27c6a836, generator 0.10.56 →
+0.10.61: Lake Basin's lake the land holds (#1273, 0.10.60) and Islands' coast above 128² (#1275, 0.10.61). Deploy run
+44943786131 succeeded and the site answered 200.
+Before it: `ruin-brush-done` (2026-11-21 13:15Z, PR #1271): dev 5cb017b4 released into `main` at f389ec6d, generator 0.10.55 →
 0.10.56: the start's first food on every map (#1269) and the ruin brush painting ruins as trees land, their height asked
 (D548, #1270). The live check passed and the site answered 200; recorded on #57.
 Before it: `ruins-in-view-done` (2026-11-20, PR #1268): dev cc351e38 released into `main` at 9ca0997e, generator 0.10.53 →
 0.10.55: a stand of the map's own ruins in the opening view (#1266) and Islands' start above 128² walking its island, its
 berries topped up to Easy's food row (#1267). The live check passed and the preview was republished; recorded on #57.
-In dev, to be released: Islands' land above 128² (#1275, merged at dev 0fc2390b on 2026-11-21, generator 0.10.61):
+Released in `lake-islands-done`: Islands' land above 128² (#1275, merged at dev 0fc2390b on 2026-11-21, generator 0.10.61):
 a mainland framing the sea, the start on a headland, 8–11 islands, the sea's bed one level under its spill and its exit
 away from every river (D547, [design/uplands.md](design/uplands.md)). The bed alone, on 0.10.48's land (Islands 256² seeds
 1–6, Normal), missed its Hard bar on three: the sea's p50 at the Hard wet season's end 1.02 of 1.16, 0.65 of 1.21 and
@@ -91,7 +94,7 @@ Merge order and owner. A PR merges on its owner's verdict, a fresh reviewer agen
 the owning session may merge it itself (D490). The browser specs and the suites a change needs run on dev after the merge;
 no full run by hand except for a release.
 
-At the release of 2026-11-22, one PR is in flight and the rest are parked. The parked PRs stay open; nothing is closed or
+At the release of 2026-11-21, one PR is in flight and the rest are parked. The parked PRs stay open; nothing is closed or
 deleted (planning, #236 7059356767).
 
 | PR | Work | State, and why |
@@ -112,20 +115,19 @@ deleted (planning, #236 7059356767).
 
 ## Done, and next
 
-The release of 2026-11-22 ships what dev holds once Islands #1275 merges and dev's runs are green. After it, a release
+The release `lake-islands-done` (2026-11-21, main 27c6a836) shipped Lake Basin #1273 and Islands #1275. A release
 follows whenever a round lands; the order of the rounds is in [ROADMAP.md](../ROADMAP.md), "The order of work from the
-release of 2026-11-22" (Kyler, 2026-11-21: no round budgets, no stopping point).
+release of 2026-11-21" (Kyler, 2026-11-21: no round budgets, no stopping point).
 
-1. **In dev, not yet on `main`:** Lake Basin's hydro pass and shore bench (#1273, merged at dev 5c3694d7, generator
-   0.10.60; its Nightly was green). With it, Islands' land above 128² (#1275, merged at dev 0fc2390b,
-   generator 0.10.61).
-2. **In flight:** Islands' second round (`gen/islands-land-2`, generator 0.10.62), after the release.
-3. **Then:** planning releases dev to `main` once.
+1. **Released in `lake-islands-done`:** Lake Basin's hydro pass and shore bench (#1273, generator 0.10.60) and Islands'
+   land above 128² (#1275, generator 0.10.61).
+2. **In flight:** Islands' second round (#1278, `gen/islands-land-2`, generator 0.10.62).
+3. **Then:** planning releases each round to `main` as it lands.
 4. **Not shipped, kept as findings branches:** the start's food row where water lasts (`gen/food-row-lasting-water`,
    #1272 closed), Highlands round 6c (`findings/highlands-6c`), Delta round 2 (`findings/delta-1`, #1274 closed), the
    great form (`findings/great-form`), Lake Basin's earlier rounds (`findings/lake-basin-8`, `findings/lake-basin-7c`)
    and Islands' earlier land (`findings/islands-land-11`, `findings/islands-feed`). Each theme's state as released, its
-   shortfall and its next step are in [design/uplands.md](design/uplands.md), "State at the release of 2026-11-22".
+   shortfall and its next step are in [design/uplands.md](design/uplands.md), "State at the release of 2026-11-21".
 5. **Generator versions never used on dev:** 0.10.57 (the food row where water lasts) and 0.10.59 (Highlands 6c); 0.10.58
    too, which Islands held before it landed at 0.10.61.
 6. **Not yet played in the game:** Real places' open edges (#493's four places, files in

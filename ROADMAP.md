@@ -9,10 +9,10 @@ Save to Timberborn, M9a), the overview and release points as they stood, and the
 [docs/STATUS.md](docs/STATUS.md); how to start and how things are run, in [docs/HANDOFF.md](docs/HANDOFF.md); the
 decisions in force, in [docs/decisions/](docs/decisions/README.md).
 
-## The order of work from the release of 2026-11-22
+## The order of work from the release of 2026-11-21
 
-The generator was released on 2026-11-22, with every theme playable and each shortfall named in
-[docs/design/uplands.md](docs/design/uplands.md) ("State at the release of 2026-11-22"). The work goes in this order,
+The generator was released on 2026-11-21, with every theme playable and each shortfall named in
+[docs/design/uplands.md](docs/design/uplands.md) ("State at the release of 2026-11-21"). The work goes in this order,
 and each item starts from its findings branch, not from scratch:
 
 1. **The start's ground, drawn first, by water that lasts.** Lake Basin's shore bench as a start kind the settler must
