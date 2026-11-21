@@ -240,7 +240,14 @@ export function snapLevels(E: Float64Array, g: Genome, seed: number, W: number, 
   }
   // (uplands round 3: a planned land's walls have ways through, a graded notch about every 40 tiles of wall; round 4:
   // every land above 128², whose ring terraces stand behind walls too)
-  if ((tiers || ringed) && notchWalls(out, W, H, hash32(seed, "ways", g.variation), keepRims, !!stand)) {
+  // (round 7c: Lake Basin above 128², its benches' faces of 2 and 3 levels, gullies as Highlands' are; its rim, 4 levels
+  // or more, a gully only every `BASIN_RIM_EVERY` tiles, so a rim stands whole for 60 tiles or more and the benches
+  // behind it are reached)
+  if ((tiers || ringed || g.basinWarp) && notchWalls(out, W, H, hash32(seed, "ways", g.variation), keepRims, !!stand || !!g.basinWarp, g.basinWarp ? BASIN_RIM : Infinity)) {
+    mergeSmallRegions(out, W, H, 4);
+    cleanPitsAndSpikes(out, W, H, null);
+  }
+  if (g.basinWarp && notchWalls(out, W, H, hash32(seed, "rim ways", g.variation), keepRims, true, Infinity, BASIN_RIM, BASIN_RIM_EVERY)) {
     mergeSmallRegions(out, W, H, 4);
     cleanPitsAndSpikes(out, W, H, null);
   }
@@ -252,6 +259,10 @@ const NOTCH_EVERY = 40;
 /** A notch's half width, in tiles, and the tiles it takes per level it climbs. */
 const NOTCH_HALF = 2.5;
 const NOTCH_RUN = 2;
+/** Lake Basin above 128² (round 7c): a wall this many levels tall or more is its rim, notched only every
+ *  `BASIN_RIM_EVERY` tiles (96–144 apart, the first 48–72 from its end). */
+const BASIN_RIM = 4;
+const BASIN_RIM_EVERY = 120;
 
 /** Ways through the walls (uplands round 3): a wall is a run of tiles standing 2 or more levels over a 4-neighbour,
  *  and along each one 40 tiles or longer a notch is cut into the higher ground about every `NOTCH_EVERY` tiles,
@@ -264,7 +275,7 @@ const NOTCH_RUN = 2;
  *  ruler). Its sides keep 2 tiles from its line and its treads `NOTCH_RUN`: a narrower notch, or treads drawn 2 to 3
  *  tiles long, left the slopes no room (their spacing rule), and the colony could not walk up it (seed 1's reach fell
  *  by a third or more). Returns whether any ground was cut. */
-export function notchWalls(out: Uint8Array, W: number, H: number, seed: number, keep: Uint8Array | null = null, found = false): boolean {
+export function notchWalls(out: Uint8Array, W: number, H: number, seed: number, keep: Uint8Array | null = null, found = false, most = Infinity, least = 2, every = NOTCH_EVERY): boolean {
   const N = W * H;
   const wall = new Uint8Array(N);
   const foot = new Int32Array(N).fill(-1);
@@ -276,7 +287,7 @@ export function notchWalls(out: Uint8Array, W: number, H: number, seed: number, 
         const j = (y + dy) * W + x + dx;
         if (out[i] - out[j] >= 2 && (foot[i] < 0 || out[j] < out[foot[i]])) foot[i] = j;
       }
-      if (foot[i] >= 0) wall[i] = 1;
+      if (foot[i] >= 0 && out[i] - out[foot[i]] >= least && out[i] - out[foot[i]] < most) wall[i] = 1;
     }
   // the levels smoothed, for each notch's direction up the land
   const sm = new Float64Array(N);
@@ -338,13 +349,13 @@ export function notchWalls(out: Uint8Array, W: number, H: number, seed: number, 
     const len = dist[order[order.length - 1]];
     if (len >= 40) {
       const r = stream(seed, "notch", end);
-      let mark = 20 + 15 * r.float();
+      let mark = every === NOTCH_EVERY ? 20 + 15 * r.float() : every * (0.4 + 0.2 * r.float());
       const byDist = new Map<number, number>();
       for (const i of order) if (!byDist.has(dist[i]) || out[i] - out[foot[i]] > out[byDist.get(dist[i])!] - out[foot[byDist.get(dist[i])!]]) byDist.set(dist[i], i);
       while (mark <= len - 10) {
         const at = byDist.get(Math.round(mark));
         if (at !== undefined) centres.push(at);
-        mark += NOTCH_EVERY * (0.8 + 0.4 * r.float());
+        mark += every * (0.8 + 0.4 * r.float());
       }
     }
     for (const i of order) dist[i] = -1;

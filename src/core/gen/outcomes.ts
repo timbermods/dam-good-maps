@@ -39,6 +39,10 @@ const HIGH_RINGED = 0.35;
  *  .06 → .05. */
 const CLIFFS_STAND = 0.05;
 const PLATEAUS_STAND = 4;
+/** Lake Basin's largest lake asked above 128², where the basin is found in the land (round 7b): the planned lands that
+ *  hold their lake read .062–.095 on seeds 1–6 at 256² (the game's Lakes, its largest lake .053), against the .08 asked;
+ *  asked: the lowest, rounded down. */
+const LAKE_STAND = 0.06;
 
 /** Each theme's promise (D273 (2)) as a line on its signature's measures, and in words: `text` the
  *  promise, `words` what a version that keeps it has, only where the check measures one thing (a canyon's length;
@@ -59,7 +63,7 @@ export const PROMISES: Record<Exclude<ThemeId, "any">, { text: string; words: st
   highlands: { text: "high, rugged ground with plateaus and valleys among it", words: null, noun: "Heights", holds: (s, W, H) => { const stand = Math.min(W, H) > 128; return s.high >= (stand ? HIGH_RINGED : 0.6) && s.plateaus >= (stand ? PLATEAUS_STAND : 3) && s.cliffs >= (stand ? CLIFFS_STAND : 0.1) * portable.sqrt(128 / promiseSides(W, H).area); } },
   // (a big lake: a twelfth of the map or more. At 4% a wide river reach passed with no lake to see,
   // 0.8.3's 128² seed 15 at 4.8%; Lake Basin's lakes stand at 10% of the map and more, 96² to 256²)
-  lakeBasin: { text: "big lakes that dominate the water", words: null, noun: "Lakelands", holds: (s) => s.lakeShare >= 0.55 && s.bigLake >= 0.08 },
+  lakeBasin: { text: "big lakes that dominate the water", words: null, noun: "Lakelands", holds: (s, W, H) => s.lakeShare >= 0.55 && s.bigLake >= (Math.min(W, H) > 128 ? LAKE_STAND : 0.08) },
   delta: { text: "a river splitting into several channels as it reaches low ground", words: null, noun: "Delta", holds: (s) => s.mouths >= 3 },
   islands: { text: "land broken by water into islands", words: null, noun: "Isles", holds: (s) => s.islands >= 3 && s.mainBody >= 0.25 && s.apart >= 0.05 },
 };
