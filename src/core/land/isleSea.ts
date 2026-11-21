@@ -80,6 +80,8 @@ const LIP_WATER = 8;
 const TOP = 16;
 /** The headland's top keeps this much of its half-width over the shore bench, tiles: the start's room. */
 const HEAD_TOP = 6;
+/** How far the field rises toward the headland's root over the mainland round it, levels (`E`): rivers keep off it. */
+const HEAD_RISE = 8;
 
 /** The nearest a spring rises to the sea's exit, tiles (the sea-bed measure: seed 6's sources 107 tiles off refilled
  *  its sea by the wet season's fifth day; seed 4's, at the exit, lost 2,400 blocks a day over it). */
@@ -389,9 +391,12 @@ export function isleSeaLand(seed: number, variation: number, W: number, H: numbe
   for (let i = 0; i < N; i++) {
     const x = i % W;
     const y = (i - x) / W;
-    // (the headland stands two levels higher in the field than in its levels, so no river from the mainland runs down its
-    // spine and cuts the start's ground in two: Islands 256² seeds 2 and 8 with the start's food bench)
-    E[i] = h[i] + 0.3 * fbm(sE, x, y, 16, 2) + (headland[i] ? 2 : 0);
+    // (the headland stands over the land's highest level in the field, and the mainland round its root rises toward it,
+    // so no river from the mainland runs down its spine or along its shore and takes the start's ground or its food's
+    // bench: two levels over its own let the mainland behind its root, up to 8 levels higher, send seed 11's main river
+    // down it, generator 0.10.62)
+    const toHead = portable.hypot(x - bx, y - by) / (2.2 * hw + 0.6 * reach);
+    E[i] = (headland[i] ? TOP + 1 : h[i] + HEAD_RISE * Math.max(0, 1 - toHead)) + 0.3 * fbm(sE, x, y, 16, 2);
   }
   const dryM = new Uint8Array(N);
   let mx = 0, my = 0;
