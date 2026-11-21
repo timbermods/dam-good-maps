@@ -33,6 +33,7 @@ import { risenBasin, wearOutlet } from "../water/outletWear";
 import { TICKS_PER_DAY, WaterSim, type SettleWatch } from "../sim/water";
 import { DRAIN_DAYS, prefill, spillLevels, watchedSettle } from "../sim/prefill";
 import { holdSeaLip, islandToExpandTo, seaLevel, standIslandsClear } from "../land/islands";
+import { isleSeaLand, takesIsleSea } from "../land/isleSea";
 import { unit } from "../land/num";
 import { entityJson, type EntitySpec } from "../format/entities";
 import { mapObjects, type MapObject } from "../sim/model";
@@ -856,8 +857,17 @@ function attemptRound(specIn: MapSpec, optsIn: GenerateOptions, t0: number, roun
       // (uplands round 6: Highlands above 128² sinks a valley in its middle, the water's field with the levels, `bold.ts`)
       if (standsUp(g.theme, W, H)) lowerValley(E, standValley(seed, g.variation, g.benchPhase, g.flowDir, W, H, g.hydro.lakeBudget * W * H), g.flowDir, W, H);
       land = { g, E, h0: snapLevels(E, g, seed, W, H), settles: 0 };
+      // (Islands above 128², planning's design of 2026-11-21: the start's ground first, a mainland round the sea with the
+      // start on a headland of it, many islands, the sea's bed a level under its spill, `isleSea.ts`)
+      if (g.seaLayout && takesIsleSea(g.theme, W, H)) {
+        const isl = isleSeaLand(seed, g.variation ?? 0, W, H, drawn);
+        land = { g, E: isl.E, h0: isl.h, settles: 0 };
+        g.isleSea = { headland: isl.headland, isles: isl.isles };
+        // (no spring by the sea's exit or on the start's headland, `isleSea.ts` `SPRING_OFF`)
+        g.dryTops = isl.dry;
+      }
       // (round 6: Islands' sea's lip at the map's edge, a tile or two, D151's edge rule kept)
-      if (g.seaLayout && g.theme === "islands") holdSeaLip(land.h0, W, H);
+      else if (g.seaLayout && g.theme === "islands") holdSeaLip(land.h0, W, H);
     } else replans++;
     const screenedAt = { ...screened };
     let shownJoined = false;
@@ -1843,7 +1853,7 @@ function planLandStage(land: Land, attempt: number, W: number, H: number, seed: 
     });
     const keepI = new Uint8Array(N);
     for (let i = 0; i < N; i++) keepI[i] = hy.water[i] === 1 ? 1 : 0;
-    standIslandsClear(h, W, H, isles, keepI, BED_FLOOR);
+    standIslandsClear(h, W, H, g.isleSea ? g.isleSea.isles : isles, keepI, BED_FLOOR);
   }
   // (item 47: nothing the processes cut goes below the beds' floor; where one would, it runs
   // shallower there)
@@ -2195,7 +2205,12 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
     // (D357: on a long map the start leans to where its theme wants it along the length, an end for a
     // journey or the middle with two ways to grow, land/shape.ts; a lean, never a rule)
     const lengthwise = mapShape(W, H).long;
-    const prefer = lengthwise ? (x: number, y: number, L: number, w: number) => intended(x, y, L, w) + SHAPE_PULL * startAlong(spec.theme, x, y, W, H) : intended;
+    const along = lengthwise ? (x: number, y: number, L: number, w: number) => intended(x, y, L, w) + SHAPE_PULL * startAlong(spec.theme, x, y, W, H) : intended;
+    // (Islands above 128²: the start drawn to its headland's bench, `isleSea.ts`)
+    const head = g.isleSea?.headland;
+    // (alike over the headland, `HEAD_REACH` of its bench, falling off past it: within it the start ranks as anywhere, by its
+    // water's walk and its room, never drawn to the headland's middle, farthest from its water)
+    const prefer = head ? (x: number, y: number, L: number, w: number) => along(x, y, L, w) + 3 * Math.max(0, Math.min(1, 1 - (portable.hypot(x - head.bx, y - head.by) - HEAD_REACH * head.r) / head.r)) : along;
     const rng = stream(seed, "settler2", attempt, salt);
     return pickStart(h, W, H, { depth: D, contamination: C, moisture: M }, hy, g.settler, rng, stageRule, { prepared, avoid, kept, drought: policy, prefer, foot, minFoot, footWant, moistWalk: { min: moistWant }, room, bench, benchMin, storage, near, level: allowLevel, roomFirst: !onPlan, badwater: badHollows(), slopeWater, ...(ease >= 2 ? { levelReach: Math.min(3, 1 + Math.floor(ease / 2)) } : {}), ...(ease >= 3 ? { margin: Math.max(5, Math.round(Math.min(W, H) * 0.08)) } : {}), ...(ease >= 1 ? { waterExact: true } : {}), ...(stageEasy ? { easy: stageEasy } : {}), ...(pickRings ? { ringSlopes } : {}) , ...(g.standValley ? { badView: true } : islesUp ? { badView: true, badTurnOnly: true } : {}) });
   };
@@ -2284,7 +2299,7 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
     distance: Math.max(spec.settings.hazards.badwaterDistance, easyT ? easyT.badwaterSource + 2 : 0),
     // (a land that stands up keeps its badwater off its valley's bowl and the ground in the start's view round it, and
     // off its channel but where a ditch joins the main water: round 6b step 5, `bold.ts` `standBadKeep`)
-    keepOff: (g.standValley ? orMask(weir ? pool : null, standBadKeep(g.standValley, joinWater(), W, H)) : weir ? pool : null) as Uint8Array | null,
+    keepOff: (g.standValley ? orMask(weir ? pool : null, standBadKeep(g.standValley, joinWater(), W, H)) : g.isleSea ? orMask(weir ? pool : null, isleBadKeep(g.isleSea.headland, W, H)) : weir ? pool : null) as Uint8Array | null,
     // (the ditches follow the field's own drainage, as the rivers' courses do)
     field: land.E,
     // (Designed for pulls the badwater near the start on Hard, away on Easy: D536 (6))
@@ -3466,7 +3481,15 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
     // (Easy start, D495: only a place with its clearing and pond, the plan's as it stands on this settled water or
     // one shaped on it: any other start misses its targets, and its land is planned again at once)
     if (easy) return easyStartOn();
-    let p = isleStart() ?? settlerOn(b1.water, b1.contamination, b1.moisture, 1, roomy(beyondBad(b1)), 1, near, false, skip) ?? settlerOn(b1.water, b1.contamination, b1.moisture, 1, roomy(avoidOf(bad)), 1, near, false, skip) ?? planFooted() ?? settlerOn(b1.water, b1.contamination, b1.moisture, 1, avoidOf(bad), 1, near, false, skip);
+    // (Islands above 128²: the start on its headland first, the mainland's ground reaching into the sea with water on two
+    // or three sides, `isleSea.ts`; the rest of the land only where the headland has no place)
+    const head = g.isleSea?.headland;
+    const onHead = (a: Uint8Array): Uint8Array => {
+      if (head) for (let i = 0; i < N; i++) if (portable.hypot((i % W) - head.bx, Math.floor(i / W) - head.by) > HEAD_REACH * head.r) a[i] = 1;
+      return a;
+    };
+    const headStart = (): StartPick | null => (head ? (settlerOn(b1.water, b1.contamination, b1.moisture, 1, onHead(roomy(beyondBad(b1))), 1, near, false, "skip") ?? settlerOn(b1.water, b1.contamination, b1.moisture, 1, onHead(roomy(avoidOf(bad))), 1, near, false, "skip")) : null);
+    let p = headStart() ?? isleStart() ?? settlerOn(b1.water, b1.contamination, b1.moisture, 1, roomy(beyondBad(b1)), 1, near, false, skip) ?? settlerOn(b1.water, b1.contamination, b1.moisture, 1, roomy(avoidOf(bad)), 1, near, false, skip) ?? planFooted() ?? settlerOn(b1.water, b1.contamination, b1.moisture, 1, avoidOf(bad), 1, near, false, skip);
     // D348: no place for a start on the settled water: the start goes where the plan put it (the
     // land was shown because it had one), when that is still dry ground clear of the hollows and of
     // the starts that failed here; a spring by it gives it water below when the settled water left
@@ -4213,3 +4236,16 @@ export function rebuild(spec: MapSpec, features: Feature[], field: GeneratedFiel
   const file = toTimberFile(spec, built, says.length ? { says } : {});
   return { built, bytes: writeTimber(file), report: validateBuilt(spec, features, built, file).report };
 }
+
+/** Islands above 128² (`isleSea.ts`): the ground badwater keeps off, the start's headland and the land round it within
+ *  `ISLE_BAD_OFF` of its bench, so no badwater stands in the start's view. */
+/** How far round its bench a headland's start may stand, in the headland's half-widths (Islands above 128²). */
+const HEAD_REACH = 1.6;
+function isleBadKeep(head: { bx: number; by: number }, W: number, H: number): Uint8Array {
+  const out = new Uint8Array(W * H);
+  for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) if (portable.hypot(x - head.bx, y - head.by) < ISLE_BAD_OFF) out[y * W + x] = 1;
+  return out;
+}
+
+/** The nearest badwater stands to the start's bench on Islands above 128², tiles: past the opening view's reach. */
+const ISLE_BAD_OFF = 105;
