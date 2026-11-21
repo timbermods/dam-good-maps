@@ -32,7 +32,7 @@ import { damWalls } from "../analysis/ridge";
 import { risenBasin, wearOutlet } from "../water/outletWear";
 import { TICKS_PER_DAY, WaterSim, type SettleWatch } from "../sim/water";
 import { DRAIN_DAYS, prefill, spillLevels, watchedSettle } from "../sim/prefill";
-import { gradeIsles, holdSeaLip, islandToExpandTo, seaLevel, standIslandsClear } from "../land/islands";
+import { holdSeaLip, islandToExpandTo, seaLevel, standIslandsClear } from "../land/islands";
 import { unit } from "../land/num";
 import { entityJson, type EntitySpec } from "../format/entities";
 import { mapObjects, type MapObject } from "../sim/model";
@@ -858,8 +858,6 @@ function attemptRound(specIn: MapSpec, optsIn: GenerateOptions, t0: number, roun
       land = { g, E, h0: snapLevels(E, g, seed, W, H), settles: 0 };
       // (round 6: Islands' sea's lip at the map's edge, a tile or two, D151's edge rule kept)
       if (g.seaLayout && g.theme === "islands") holdSeaLip(land.h0, W, H);
-      // (Islands round 9: above 128² the sea shallow and low, the land over it taller and graded from its shore, `gradeIsles`)
-      if (g.seaLayout && g.theme === "islands" && Math.min(W, H) > 128) gradeIsles(land.h0, W, H, hash32(seed, "isle-grade", drawn));
     } else replans++;
     const screenedAt = { ...screened };
     let shownJoined = false;
