@@ -97,7 +97,7 @@ import { bareShare, DEAD_STANDS } from "./deadStands";
 import { description, toTimberFile } from "./pack";
 import { outcomesOf, PROMISES, promiseSides, type Outcomes } from "./outcomes";
 import { mapSays, mapWords, type PlayFacts } from "./names";
-import { nearStartTargets, planResources } from "./resources";
+import { FIRST_FOOD, nearStartTargets, planResources, type ResourceConstraints } from "./resources";
 import { planRuinStories } from "./ruinStories";
 import { DROUGHT, REACH_MIN, RESERVE, reservoirNeeded, RUIN_HEIGHT_SHARES } from "./calibrated";
 import { gameSoil } from "../sim/soil";
@@ -3942,20 +3942,26 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
   };
   // (Easy start, D495: the ground that stays moist through a Normal drought, the checks' drought model and the
   // game's soil, where the start's berries go)
-  // (Islands round 8: an island sea above 128² on Normal tops its start's berries up to Easy's food row on that ground,
-  // `startFood`, so the slopes it adds, moving the patches the planting draws, never cost the start its food)
-  const isleFood = islesUp && spec.designedFor === "normal" && !easyT ? easyTargets(W, H) : null;
-  const easyFood = (b: BuildResult): { easy?: { safe: Uint8Array; bushes: number; within: number; ruins: number }; startFood?: { safe: Uint8Array; bushes: number; within: number } } => {
-    if (!easyT && !isleFood) return {};
-    const kept = droughtStorage(b.waterModel, b.water, DROUGHT.normal.days);
-    const cd = new Float64Array(N);
-    for (let i = 0; i < N; i++) if (kept[i] > 0) cd[i] = b.contamination[i];
-    const md = gameSoil(W, H, b.heights, kept, cd, mapObjects({ entities: b.entities.map(entityJson) })).moisture;
+  // (the start's first food, generator 0.10.56: every map without Easy start tops its start's berries up to Easy's food
+  // row on that ground, `startFood`, planted last; an island sea above 128² on Normal, Islands round 8, before the
+  // start's groves, `early`, as it did, so the slopes it adds, moving the patches the planting draws, never cost the
+  // start its food. On Normal the rule's drought is that drought: its ground is the one `droughtGround` read)
+  const foodT = easyT ? null : easyTargets(W, H);
+  const isleEarly = islesUp && spec.designedFor === "normal";
+  const easyFood = (b: BuildResult & { droughtMoisture?: Float64Array }): { easy?: { safe: Uint8Array; bushes: number; within: number; ruins: number }; startFood?: ResourceConstraints["startFood"] } => {
+    let md: Float64Array | undefined = !easyT && spec.designedFor === "normal" ? b.droughtMoisture : undefined;
+    if (!md) {
+      const kept = droughtStorage(b.waterModel, b.water, DROUGHT.normal.days);
+      const cd = new Float64Array(N);
+      for (let i = 0; i < N; i++) if (kept[i] > 0) cd[i] = b.contamination[i];
+      md = gameSoil(W, H, b.heights, kept, cd, mapObjects({ entities: b.entities.map(entityJson) })).moisture;
+    }
     const safe = Uint8Array.from(md, (v) => (v > 0 ? 1 : 0));
-    if (!easyT) return { startFood: { safe, bushes: Math.ceil(1.1 * isleFood!.bushes), within: isleFood!.bushesWithin } };
+    if (!easyT) return { startFood: { safe, bushes: Math.ceil(1.1 * foodT!.bushes), within: foodT!.bushesWithin, ...(isleEarly ? { early: true } : {}) } };
     return { easy: { safe, bushes: Math.ceil(1.3 * easyT.bushes), within: easyT.bushesWithin, ruins: easyT.ruins } };
   };
-  const resources = [...rise.filter((f) => f.kind === "ruinField"), ...planResources(spec, droughtGround(base), 0, attempt, { turn: (layout.find((f) => f.kind === "start") as StartFeature | undefined)?.params.orientation, standBeyond: g.intentions.includes("two-ways") ? TWO_WAYS_REACH : 0, protect: keepOff, scrapPlaced, woodLean: (opts.ease ?? 0) >= 1, ...(info.washes ? { beds: bedMask(info.washes, N) } : {}), ...easyFood(base) }, sites)];
+  const baseGround = droughtGround(base);
+  const resources = [...rise.filter((f) => f.kind === "ruinField"), ...planResources(spec, baseGround, 0, attempt, { turn: (layout.find((f) => f.kind === "start") as StartFeature | undefined)?.params.orientation, standBeyond: g.intentions.includes("two-ways") ? TWO_WAYS_REACH : 0, protect: keepOff, scrapPlaced, woodLean: (opts.ease ?? 0) >= 1, ...(info.washes ? { beds: bedMask(info.washes, N) } : {}), ...easyFood(baseGround) }, sites)];
   let features = [...layout, ...resources];
   let built = build(features, null);
   opts.onProgress?.({ attempt, stage: "check" });
@@ -3976,7 +3982,8 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
         if (d < 60 || d > 120 || !walkableFromStart(b3, st.x, st.y)) return null;
       }
       if (risePlan && !riseStands(b3, risePlan.x, risePlan.y, risePlan.radius, risePlan.top, risePlan.rise)) return null;
-      const r3 = [...rise.filter((f) => f.kind === "ruinField"), ...planResources(spec, droughtGround(b3), 0, attempt, { turn: (lay3.find((f) => f.kind === "start") as StartFeature | undefined)?.params.orientation, standBeyond: g.intentions.includes("two-ways") ? TWO_WAYS_REACH : 0, protect: keepOff, scrapPlaced, woodLean: (opts.ease ?? 0) >= 1, ...(info.washes ? { beds: bedMask(info.washes, N) } : {}), ...easyFood(b3) }, sites)];
+      const g3 = droughtGround(b3);
+      const r3 = [...rise.filter((f) => f.kind === "ruinField"), ...planResources(spec, g3, 0, attempt, { turn: (lay3.find((f) => f.kind === "start") as StartFeature | undefined)?.params.orientation, standBeyond: g.intentions.includes("two-ways") ? TWO_WAYS_REACH : 0, protect: keepOff, scrapPlaced, woodLean: (opts.ease ?? 0) >= 1, ...(info.washes ? { beds: bedMask(info.washes, N) } : {}), ...easyFood(g3) }, sites)];
       const f3 = [...lay3, ...r3];
       const bb = build(f3, null);
       const file3 = toTimberFile(spec, bb);
@@ -4039,7 +4046,11 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
     const want = opts.forms === false ? {} : formsFor(specIn);
     if (Object.keys(want).length) {
       const vt = specIn.settings.terrain.verticality;
-      const grown = growOn(built, features, want, vt, g.tall ? Math.ceil(g.top) : 16, stream(seed, "forms3d", attempt));
+      // (the start's first food stands where the forms would grow without it: they grow as if it were not there, and it
+      // comes off the tiles a kept form changes or its stream runs on, so the land and the water are the map's own)
+      const food = new Uint8Array(N);
+      for (const f of features) if (f.kind === "berryPatch" && (f.role ?? "").startsWith(FIRST_FOOD)) for (const i of runsToTiles(f.params.area, W)) food[i] = 1;
+      const grown = growOn(built, features, want, vt, g.tall ? Math.ceil(g.top) : 16, stream(seed, "forms3d", attempt), food);
       const emerged = intentions.filter((x) => x.ok && x.id in INTENTION_TEXT).map((x) => x.id as IntentionId);
       const before = outcomesOf({ spec: shown, built, features, intentions }).score;
       // (and no check, advisory ones included, fails that passed without the forms)
@@ -4064,7 +4075,14 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
         h.set(t3.heights());
         caves = t3;
         for (const f of streams) contains.add(f.id);
-        const f3 = [...features, ...streams];
+        const formed = new Uint8Array(N);
+        for (const p of plans) for (const i of [...p.tiles, ...(p.course ?? [])]) formed[i] = 1;
+        const fed = features.flatMap((f): Feature[] => {
+          if (f.kind !== "berryPatch" || !(f.role ?? "").startsWith(FIRST_FOOD)) return [f];
+          const tiles = runsToTiles(f.params.area, W).filter((i) => !formed[i]);
+          return tiles.length ? [{ ...f, params: { ...f.params, area: tilesToRuns(tiles, W) } }] : [];
+        });
+        const f3 = [...fed, ...streams];
         const b3 = build(f3, null);
         // (each form's own check first: a form that did not stand costs no validation)
         let k = 0;
