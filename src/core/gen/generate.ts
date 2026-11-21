@@ -60,7 +60,7 @@ import { shapeLakeBasin } from "../land/lakeBasin";
 import { shapeCanyon } from "../land/canyon";
 import { shapeHighlands } from "../land/highlands";
 import { lowerValley, STAND, standBadKeep, standsUp, standValley } from "../land/bold";
-import { cutHead, DELTA_HEAD, headOf, headSite, headStairs, headWanted, joinOffHead, offHead, refitHead } from "../land/deltaHead";
+import { cutHead, DELTA_HEAD, growBanks, headOf, headServed, headSite, headStairs, headWanted, headWet, joinOffHead, offHead, refitHead, uncutHead } from "../land/deltaHead";
 import { BED_FLOOR, drawGenome, leanGenome, ownScaleFor, UPLANDS_BASE_PATH, type Genome } from "../land/genome";
 import { joinReach, mainWater, planBadwater, standingTheme, type Hazards } from "../land/hazards";
 import { besideCourses, blockedCourses, courseCells, inflowEdges, closeBackEdges, closeSideEdges, drownedHeads, sealedMouths } from "../land/courses";
@@ -1949,8 +1949,11 @@ function planLandStage(land: Land, attempt: number, W: number, H: number, seed: 
   land.joined = (hy.joined ?? 0) > 0;
   // (D549: a Delta's start's terrace, cut into its bank above the fan's head before anything else reads the land,
   // `land/deltaHead.ts`)
-  const headAt = headWanted(g.theme, W, H) ? headSite(h, hy, plannedWater(h, hy, W, H), plannedWater(h, hy, W, H, true), W, H, seed) : null;
-  if (headAt) cutHead(h, hy.water, headAt, W, H);
+  // (D549 (8): its banks grown where the land stands sheer over the water, `land/deltaHead.ts` `growBanks`)
+  if (headWanted(g.theme, W, H)) growBanks(h, hy.water, plannedWater(h, hy, W, H), W, H, seed);
+  const headEst = headWanted(g.theme, W, H) ? plannedWater(h, hy, W, H) : null;
+  const headAt = headEst ? headSite(h, hy, headEst, plannedWater(h, hy, W, H, true), W, H, seed) : null;
+  if (headAt) headAt.undo = cutHead(h, hy.water, headAt, W, H, headEst);
   land.joinedRivers = new Set(hy.joinedRivers ?? []);
   // (Lake Basin above 128², the gated hydro pass: the lake owns the basin's lowest level. Its floor is dug `BASIN_DIG`
   // levels, to the beds' floor at the most, under the rivers inside the basin, which stand at `BASIN_BED` or over)
@@ -2113,7 +2116,10 @@ function planLandStage(land: Land, attempt: number, W: number, H: number, seed: 
   }
   // (D549: the terrace as the land now stands, the start's place, `land/deltaHead.ts`)
   g.deltaHead = headAt ? headOf(h, headAt, W, H) : undefined;
-  if (g.deltaHead) for (const st of headStairs(h, keep, g.deltaHead, W, H)) addStep(ramps, st);
+  if (g.deltaHead) {
+    g.deltaHead.stairs = headStairs(h, keep, g.deltaHead, W, H);
+    for (const st of g.deltaHead.stairs) addStep(ramps, st);
+  }
   const mouthArms = hy.arms.filter((a) => a.kind === "mouth").map((a) => a.path);
   let blocked = blockedCourses(h, W, H, hy.rivers, mouthArms);
   for (let k = 0; k < 3 && blocked.some((b) => b.back) && closeBackEdges(h, W, H, blocked, hy.rivers, g.hydro.exactInflows ? 4 : 2); k++) blocked = blockedCourses(h, W, H, hy.rivers, mouthArms);
@@ -3374,6 +3380,59 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
     b1 = build([...rivers, ...bad.features], "resources");
     if (!b1.settle.settled) return unsettled(b1);
     if (!fixes.includes("gentler rivers")) fixes.push("gentler rivers");
+  }
+  // D549 (7), round 3: the start's terrace chosen again on the water as it settled, the place planned taken back where
+  // the settled water finds a better one: where the planned terrace's foot holds no water in the shore rule's band, or it
+  // stands on the smaller bank, or there was none; the land settled again with it. Where it does not settle, the land
+  // stays as it was
+  if (headWanted(g.theme, W, H) && !lastAttempt) {
+    const cur = g.deltaHead;
+    const bare = h.slice();
+    if (cur?.undo) uncutHead(bare, cur.undo);
+    const site = headSite(bare, hy, b1.water, b1.water, W, H, seed, { depth: b1.water, contamination: b1.contamination });
+    // (the planned terrace stays where the settled water leaves it dry and serves its foot, on the bank with more reach)
+    const dry = !!cur && headWet(b1.water, cur) <= DELTA_HEAD.wetMost;
+    const keepCur = !!cur && (!site || (dry && ((Math.hypot(site.x - cur.x, site.y - cur.y) <= DELTA_HEAD.radius / 2 && site.level === cur.level) || (headServed(h, b1.water, cur, W, H) >= DELTA_HEAD.touch && (cur.bank ?? 0) >= DELTA_HEAD.bankNear * (site.bank ?? 0)))));
+    if (site && !keepCur) {
+      const was = h.slice();
+      const stepsWere = ramps.steps.length;
+      const tilesWere = ramps.tiles.slice();
+      const stepsBefore = ramps.steps.slice();
+      // (the planned terrace's staircases come off the ramps with its cut)
+      if (cur?.stairs?.length) {
+        const off = new Set(cur.stairs.map(([a, b]) => a * N + b));
+        const kept = ramps.steps.filter(([a, b]) => !off.has(a * N + b));
+        ramps.steps.length = 0;
+        ramps.steps.push(...kept);
+        ramps.tiles.fill(0);
+        for (const [a] of kept) ramps.tiles[a] = 1;
+      }
+      h.set(bare);
+      const wetNow = new Uint8Array(N);
+      for (let i = 0; i < N; i++) if (b1.water[i] > 0.001) wetNow[i] = 1;
+      site.undo = cutHead(h, wetNow, site, W, H, b1.water);
+      const head = headOf(h, site, W, H);
+      head.stairs = headStairs(h, wetNow, head, W, H);
+      for (const st of head.stairs) addStep(ramps, st);
+      const b2 = build([...rivers, ...bad.features], "resources");
+      if (b2.settle.settled && headServed(h, b2.water, head, W, H) >= DELTA_HEAD.touch && headWet(b2.water, head) <= DELTA_HEAD.wetMost) {
+        for (let i = 0; i < N; i++)
+          if (h[i] !== was[i]) {
+            hLand[i] = h[i];
+            if (from) from.hLand[i] = h[i];
+            bad.heights[i] = h[i];
+          }
+        g.deltaHead = head;
+        b1 = b2;
+        fixes.push("start's terrace on the settled water");
+      } else {
+        h.set(was);
+        ramps.steps.length = 0;
+        ramps.steps.push(...stepsBefore);
+        void stepsWere;
+        ramps.tiles.set(tilesWere);
+      }
+    }
   }
   // D549 (5): the start's terrace brought down to the water its foot holds as the land settled, and the land settled
   // again with it (only dry ground over the water is cut, so the water stands as it did)

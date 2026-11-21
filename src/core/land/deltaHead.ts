@@ -20,6 +20,7 @@ import { landRegions } from "../analysis/regions";
 import { fbm } from "../math/noise";
 import { hash32 } from "../math/hash";
 import { mapShape } from "./shape";
+import { drainage } from "./drainage";
 import type { Hydro } from "./hydro";
 
 export const DELTA_HEAD = {
@@ -34,8 +35,10 @@ export const DELTA_HEAD = {
   waterGap: 3,
   core: 8,
   least: 820,
-  /** The land it stands on joined without stairs, a share of the largest such piece at the least. */
+  /** The land joined without stairs it stands on, a share of the largest such piece at the least; and of the largest
+   *  such piece any place that passes stands on, so it takes the bank with more reach (D549 (7)). */
   joined: 0.8,
+  bankNear: 0.9,
   /** Its tiles within a tile and a half of the trunk's channel, at the least: its bank on the trunk. */
   touch: 8,
   /** How far up the trunk from the fan's head its outline may meet the trunk, in radii. */
@@ -56,6 +59,8 @@ export const DELTA_HEAD = {
   /** The most levels it is cut down once the land has settled (`refitHead`): a terrace whose foot's water stands
    *  further under is a pit in its valley side, not a bench, and the settler stands elsewhere. */
   refitMost: 1,
+  /** The share of its level ground the settled water may lie on (round 3): more, and the settled water's place is taken. */
+  wetMost: 0.05,
   /** The badwater's pits and gullies, and its join to the main water, keep this far from its middle. */
   badKeep: 46,
 } as const;
@@ -68,6 +73,12 @@ export interface HeadSite {
   ns: number;
   /** 1 on its outline's ground, clear of every water but the trunk's. */
   tiles: Uint8Array;
+  /** The land joined without stairs it stands on (`landRegions`), tiles: its bank. */
+  bank?: number;
+  /** The ground its cut changed, `[tile, before, after]` in a row (`cutHead`), so a terrace moved leaves no trace. */
+  undo?: Int32Array;
+  /** Its staircases' steps (`headStairs`), taken off the ramps when it moves. */
+  stairs?: [number, number][];
 }
 
 export interface DeltaHead extends HeadSite {
@@ -98,7 +109,7 @@ function markAlong(pts: readonly Pt[], k0: number, k1: number, r: number, into: 
 
 /** The place for the terrace on a land whose water `hy` planned (`h` with its courses cut, `est` the water planned on
  *  it, `generate.ts` `plannedWater`): see the head of this file. Null where the land has no fan, or no such place. */
-export function headSite(h: Uint8Array, hy: Pick<Hydro, "water" | "rivers" | "arms">, est: ArrayLike<number>, held: ArrayLike<number>, W: number, H: number, seed: number): HeadSite | null {
+export function headSite(h: Uint8Array, hy: Pick<Hydro, "water" | "rivers" | "arms">, est: ArrayLike<number>, held: ArrayLike<number>, W: number, H: number, seed: number, settled: { depth: ArrayLike<number>; contamination: ArrayLike<number> } | null = null): HeadSite | null {
   const main = hy.rivers.find((r) => r.role === "river/main");
   const mouths = hy.arms.filter((a) => a.kind === "mouth" && a.river === main?.id);
   if (!main || !("edge" in main.params.exit) || !mouths.length) return null;
@@ -117,30 +128,35 @@ export function headSite(h: Uint8Array, hy: Pick<Hydro, "water" | "rivers" | "ar
     }
   }
   const half = main.params.width / 2 + 1.5;
+  // (the water: as planned, or as settled (round 3, D549 (7)), any tile 0.05 deep)
+  const wetAt = (i: number) => (settled ? settled.depth[i] > 0.001 || hy.water[i] === 1 || hy.water[i] === 2 : hy.water[i] === 1 || hy.water[i] === 2);
   // (the trunk's water along the stretch above the head, its channel or a lake it runs through)
   const trunk = new Uint8Array(N);
   const upTo = Math.max(0, kApex - Math.round(P.upstream * R));
-  markAlong(path, upTo, kApex, half, trunk, W, H);
-  for (let i = 0; i < N; i++) if (hy.water[i] !== 1 && hy.water[i] !== 2) trunk[i] = 0;
+  markAlong(path, upTo, kApex, half + (settled ? 1.5 : 0), trunk, W, H);
+  for (let i = 0; i < N; i++) if (!wetAt(i)) trunk[i] = 0;
   const course = new Uint8Array(N);
-  markAlong(path, 0, kApex, half + 1, course, W, H);
+  markAlong(path, 0, kApex, half + (settled ? 2.5 : 1), course, W, H);
   // (a lake the trunk runs through there is the trunk's water, all of it)
+  // (on the settled water, the water joined to the trunk's within a radius of its stretch)
+  const near = settled ? new Uint8Array(N) : null;
+  if (near) markAlong(path, upTo, kApex, half + R, near, W, H);
   {
     const q: number[] = [];
-    for (let i = 0; i < N; i++) if (trunk[i] && hy.water[i] === 2) q.push(i);
+    for (let i = 0; i < N; i++) if (trunk[i] && (settled || hy.water[i] === 2)) q.push(i);
     for (let k = 0; k < q.length; k++) {
       const i = q[k];
       course[i] = 1;
       const x = i % W;
       for (const j of [x > 0 ? i - 1 : -1, x < W - 1 ? i + 1 : -1, i - W, i + W]) {
-        if (j < 0 || j >= N || trunk[j] || hy.water[j] !== 2) continue;
+        if (j < 0 || j >= N || trunk[j] || (near ? !near[j] || !wetAt(j) : hy.water[j] !== 2)) continue;
         trunk[j] = 1;
         q.push(j);
       }
     }
   }
   const other = new Uint8Array(N);
-  for (let i = 0; i < N; i++) if ((hy.water[i] === 1 || hy.water[i] === 2) && !course[i]) other[i] = 1;
+  for (let i = 0; i < N; i++) if (wetAt(i) && !course[i]) other[i] = 1;
   const dOther = distanceFrom(other, W, H);
   // (the water at the terrace's foot: the trunk's channel, as planned, or a lake on it where the land as it stands
   // holds it (`held`, `generate.ts` `plannedWater`), at the surface it holds; a lake the land doesn't hold is no one's
@@ -150,8 +166,8 @@ export function headSite(h: Uint8Array, hy: Pick<Hydro, "water" | "rivers" | "ar
   const deepAt = new Uint8Array(N);
   for (let i = 0; i < N; i++) {
     if (!trunk[i]) continue;
-    const d = hy.water[i] === 1 ? est[i] : held[i];
-    if (hy.water[i] !== 1 && !(d >= P.shoreDepth)) continue;
+    const d = settled ? settled.depth[i] : hy.water[i] === 1 ? est[i] : held[i];
+    if (!settled && hy.water[i] !== 1 && !(d >= P.shoreDepth)) continue;
     chan[i] = 1;
     surf[i] = h[i] + d;
     if (d >= P.shoreDepth) deepAt[i] = 1;
@@ -168,26 +184,39 @@ export function headSite(h: Uint8Array, hy: Pick<Hydro, "water" | "rivers" | "ar
   // (the land joined without stairs, D515's reach: the terrace stands on the largest piece of it, or one nearly as
   // large, so the start's walk is the land's)
   const wetAll = new Uint8Array(N);
-  for (let i = 0; i < N; i++) if (hy.water[i] === 1 || hy.water[i] === 2) wetAll[i] = 1;
+  for (let i = 0; i < N; i++) if (wetAt(i)) wetAll[i] = 1;
   const lab = landRegions(h, W, H, wetAll);
   const size: number[] = [];
   for (let i = 0; i < N; i++) if (lab[i] >= 0) size[lab[i]] = (size[lab[i]] ?? 0) + 1;
   let largest = 0;
   for (const n of size) if (n > largest) largest = n;
+  // (on the settled water, the badwater kept `badKeep` / 2 from its middle: none in its foot's water or its view)
+  let dBad: Float64Array | null = null;
+  if (settled) {
+    const bad = new Uint8Array(N);
+    let any = false;
+    for (let i = 0; i < N; i++)
+      if (settled.depth[i] > 0.05 && settled.contamination[i] > 0.05) {
+        bad[i] = 1;
+        any = true;
+      }
+    if (any) dBad = distanceFrom(bad, W, H);
+  }
   const ns = hash32(seed, "delta-head");
   const reach = Math.ceil(R * (1 + P.lobe));
   const edge = reach + 3;
   const rField = new Float64Array(N);
   for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) rField[y * W + x] = rOf(ns, x, y);
-  let best = -1;
-  let bestCost = Infinity;
-  let bestLevel = 0;
+  // (every place that passes, its cost and its bank; the bank with more reach first: D549 (7))
+  const passing: { c: number; cost: number; level: number; bank: number }[] = [];
   const tiles: number[] = [];
+  const count = new Map<number, number>();
   for (let cy = edge; cy < H - edge; cy++)
     for (let cx = edge; cx < W - edge; cx++) {
       const c = cy * W + cx;
       if (dTrunk[c] < R * (1 - P.lobe) - 2 || dTrunk[c] > reach + 1) continue;
       if (dOther[c] < P.core) continue;
+      if (dBad && dBad[c] < P.badKeep / 2) continue;
       // (its tiles: the lobed disc's ground, clear of other water by the gap; where it meets the trunk, the trunk's
       // surface there, its depth, and how far above the fan's head)
       let lo = Infinity;
@@ -195,15 +224,15 @@ export function headSite(h: Uint8Array, hy: Pick<Hydro, "water" | "rivers" | "ar
       let up = Infinity;
       let deep = 0;
       let touch = 0;
-      let joined = 0;
       let lakeHi = -Infinity;
       tiles.length = 0;
+      count.clear();
       for (let dy = -reach; dy <= reach; dy++)
         for (let dx = -reach; dx <= reach; dx++) {
           const i = c + dy * W + dx;
-          if (dx * dx + dy * dy > rField[i] * rField[i] || dOther[i] < P.waterGap || hy.water[i] === 1 || hy.water[i] === 2) continue;
+          if (dx * dx + dy * dy > rField[i] * rField[i] || dOther[i] < P.waterGap || wetAt(i)) continue;
           tiles.push(i);
-          if (lab[i] >= 0 && size[lab[i]] > joined) joined = size[lab[i]];
+          if (lab[i] >= 0) count.set(lab[i], (count.get(lab[i]) ?? 0) + 1);
           for (const j of [i - 1, i + 1, i - W, i + W]) if (trunk[j] && !chan[j] && held[j] > 0.001) lakeHi = Math.max(lakeHi, h[j] + held[j]);
           if (dTrunk[i] > 1.5) continue;
           touch++;
@@ -217,7 +246,15 @@ export function headSite(h: Uint8Array, hy: Pick<Hydro, "water" | "rivers" | "ar
           }
         }
       if (tiles.length < P.least) continue;
-      if (joined < P.joined * largest) continue;
+      // (its bank: the land joined without stairs most of its ground stands on)
+      let most = 0;
+      let bank = 0;
+      for (const [l, n] of count)
+        if (n > most) {
+          most = n;
+          bank = size[l];
+        }
+      if (bank < P.joined * largest) continue;
       if (touch < P.touch) continue;
       if (deep < P.touch) continue;
       // (its level: the trunk's surface at its foot about `under` levels under it, the whole of it in the shore's band)
@@ -225,11 +262,20 @@ export function headSite(h: Uint8Array, hy: Pick<Hydro, "water" | "rivers" | "ar
       if (lo < level - P.shoreReach || hi > level - P.shoreUnder || lakeHi > level - P.shoreUnder) continue;
       let cost = P.apexPull * (up < Infinity ? up : P.upstream * R);
       for (const i of tiles) cost += h[i] < level ? 1.5 * (level - h[i]) : h[i] - level;
-      if (cost < bestCost || (cost === bestCost && c < best)) {
-        bestCost = cost;
-        best = c;
-        bestLevel = level;
-      }
+      passing.push({ c, cost, level, bank });
+    }
+  let bankMost = 0;
+  for (const p of passing) bankMost = Math.max(bankMost, p.bank);
+  let best = -1;
+  let bestCost = Infinity;
+  let bestLevel = 0;
+  let bestBank = 0;
+  for (const p of passing)
+    if (p.bank >= P.bankNear * bankMost && (p.cost < bestCost || (p.cost === bestCost && p.c < best))) {
+      bestCost = p.cost;
+      best = p.c;
+      bestLevel = p.level;
+      bestBank = p.bank;
     }
   if (best < 0) return null;
   const x = best % W;
@@ -238,15 +284,15 @@ export function headSite(h: Uint8Array, hy: Pick<Hydro, "water" | "rivers" | "ar
   for (let dy = -reach; dy <= reach; dy++)
     for (let dx = -reach; dx <= reach; dx++) {
       const i = best + dy * W + dx;
-      if (dx * dx + dy * dy <= rField[i] * rField[i] && dOther[i] >= P.waterGap && hy.water[i] !== 1 && hy.water[i] !== 2) mask[i] = 1;
+          if (dx * dx + dy * dy <= rField[i] * rField[i] && dOther[i] >= P.waterGap && !wetAt(i)) mask[i] = 1;
     }
-  return { x, y, level: bestLevel, ns, tiles: mask };
+  return { x, y, level: bestLevel, ns, tiles: mask, bank: bestBank };
 }
 
 /** Cuts the terrace into the land: its outline's ground (not its water) at its level, filled or cut; the ground behind
  *  it within `grade` tiles cut to rise from it a level every two to four tiles (noised), never raised, and the ground
  *  within `waterGap` of the water left as it is. */
-export function cutHead(h: Uint8Array, water: Uint8Array, site: HeadSite, W: number, H: number): void {
+export function cutHead(h: Uint8Array, water: Uint8Array, site: HeadSite, W: number, H: number, depth: ArrayLike<number> | null = null): Int32Array {
   const N = W * H;
   const P = DELTA_HEAD;
   const reach = Math.ceil(P.radius * (1 + P.lobe));
@@ -256,18 +302,72 @@ export function cutHead(h: Uint8Array, water: Uint8Array, site: HeadSite, W: num
   const dWet = distanceFrom(wet, W, H);
   const d = distanceFrom(inside, W, H);
   const span = reach + P.grade + 1;
+  const undo: number[] = [];
+  // (round 3: with the water's depth, the ground behind is never cut under `shoreUnder` above water within three tiles,
+  // so no water held behind it runs down onto it)
+  const under = (x: number, y: number): number => {
+    if (!depth) return -Infinity;
+    let m = -Infinity;
+    for (let dy = -3; dy <= 3; dy++)
+      for (let dx = -3; dx <= 3; dx++) {
+        if (x + dx < 0 || y + dy < 0 || x + dx >= W || y + dy >= H) continue;
+        const j = (y + dy) * W + x + dx;
+        if (wet[j] && h[j] + depth[j] > m) m = h[j] + depth[j];
+      }
+    return Math.ceil(m + P.shoreUnder);
+  };
   for (let y = Math.max(0, site.y - span); y <= Math.min(H - 1, site.y + span); y++)
     for (let x = Math.max(0, site.x - span); x <= Math.min(W - 1, site.x + span); x++) {
       const i = y * W + x;
       if (inside[i]) {
+        if (h[i] !== site.level) undo.push(i, h[i], site.level);
         h[i] = site.level;
         continue;
       }
       if (wet[i] || d[i] > P.grade || dWet[i] < P.waterGap) continue;
       const tread = P.treadLo + ((P.treadHi - P.treadLo) * (fbm(site.ns + 7, x, y, 10, 2) + 1)) / 2;
-      const most = site.level + Math.floor(d[i] / tread);
-      if (h[i] > most) h[i] = most;
+      const most = Math.max(site.level + Math.floor(d[i] / tread), under(x, y));
+      if (h[i] > most) {
+        undo.push(i, h[i], most);
+        h[i] = most;
+      }
     }
+  return Int32Array.from(undo);
+}
+
+/** The land with a terrace's cut taken back (`undo`): each tile its cut changed, where it still stands as cut. */
+export function uncutHead(h: Uint8Array, undo: Int32Array): void {
+  for (let k = 0; k < undo.length; k += 3) if (h[undo[k]] === undo[k + 2]) h[undo[k]] = undo[k + 1];
+}
+
+/** The share of its level ground the water `depth` lies on. */
+export function headWet(depth: ArrayLike<number>, head: { mask: Uint8Array }): number {
+  let n = 0;
+  let wet = 0;
+  for (let i = 0; i < head.mask.length; i++) {
+    if (!head.mask[i]) continue;
+    n++;
+    if (depth[i] > 0.001) wet++;
+  }
+  return n ? wet / n : 1;
+}
+
+/** Its foot's tiles whose water, `shoreDepth` deep, stands in the shore rule's band under it on `depth` (the settled
+ *  water): `touch` of them and the terrace serves its start. */
+export function headServed(h: ArrayLike<number>, depth: ArrayLike<number>, head: DeltaHead, W: number, H: number): number {
+  const N = W * H;
+  const P = DELTA_HEAD;
+  let served = 0;
+  for (let i = 0; i < N; i++) {
+    if (!head.mask[i]) continue;
+    const x = i % W;
+    for (const j of [x > 0 ? i - 1 : -1, x < W - 1 ? i + 1 : -1, i - W, i + W]) {
+      if (j < 0 || j >= N || head.mask[j] || depth[j] < P.shoreDepth) continue;
+      const sf = h[j] + depth[j];
+      if (sf >= head.level - P.shoreReach && sf <= head.level - P.shoreUnder) served++;
+    }
+  }
+  return served;
 }
 
 /** The terrace on the land as it stands (`h`): its tiles at its level. */
@@ -411,4 +511,188 @@ export function joinOffHead(join: Uint8Array, head: { x: number; y: number }, W:
   for (let y = Math.max(0, head.y - r); y <= Math.min(H - 1, head.y + r); y++)
     for (let x = Math.max(0, head.x - r); x <= Math.min(W - 1, head.x + r); x++) if ((x - head.x) * (x - head.x) + (y - head.y) * (y - head.y) <= r * r) out[y * W + x] = 0;
   return out;
+}
+
+/** D549 (8): a Delta's banks grown, not ruled (round 3): where the land stands sheer over its water (a crater lake's
+ *  walls, Delta 256² seed 2; a lake planned on the trunk deeper than its land holds, drained to a pit, seed 5), the ground
+ *  is cut to rise from the water a level every `treadLo`–`treadHi` tiles (noised over `cell`), from `over` above the
+ *  water's surface, the least such rise from any water, until it meets the land (`grade` tiles at the most), so no cut
+ *  ends in a wall; gentler ground is left as it is. Cut only, never under `over` above water within two tiles, nor above
+ *  a pool of `pool` tiles or more the land holds within `guard` but on its own banks (so no rim is lowered under the
+ *  water it holds), and never raised. */
+export const GROWN_BANKS = { grade: 48, guard: 14, treadLo: 1.2, treadHi: 2.6, over: 0.6, cell: 9, pool: 12 } as const;
+
+/** Grows the banks (`GROWN_BANKS`) on `h` beside the water `water` plans (1 its channels, 2 its lakes) at the depth
+ *  `est` (`generate.ts` `plannedWater`). Returns the tiles cut. */
+export function growBanks(h: Uint8Array, water: ArrayLike<number>, est: ArrayLike<number>, W: number, H: number, seed: number): number {
+  const N = W * H;
+  const P = GROWN_BANKS;
+  // (the water: the channels at their planned depth, and a lake's tiles where the land holds it, at the level it fills
+  // to, or its bed, its lowest tiles, where a river runs through a lake planned deeper than its land holds)
+  const filled = drainage(h, W, H, { eight: false }).filled;
+  const lid = new Int32Array(N).fill(-1);
+  const bed = new Float64Array(N).fill(Infinity);
+  {
+    const seen = new Uint8Array(N);
+    let lakes = 0;
+    for (let s0 = 0; s0 < N; s0++) {
+      if (seen[s0] || water[s0] !== 2) continue;
+      const pool = [s0];
+      seen[s0] = 1;
+      let lo = h[s0];
+      for (let k = 0; k < pool.length; k++) {
+        const c = pool[k];
+        const x = c % W;
+        for (const n of [x > 0 ? c - 1 : -1, x < W - 1 ? c + 1 : -1, c - W, c + W]) {
+          if (n < 0 || n >= N || seen[n] || water[n] !== 2) continue;
+          seen[n] = 1;
+          pool.push(n);
+          if (h[n] < lo) lo = h[n];
+        }
+      }
+      for (const c of pool) {
+        bed[c] = lo;
+        lid[c] = lakes;
+      }
+      lakes++;
+    }
+  }
+  const wet = new Uint8Array(N);
+  const surf = new Float64Array(N).fill(-Infinity);
+  for (let i = 0; i < N; i++) {
+    if (water[i] === 1) surf[i] = h[i] + Math.max(0, est[i]);
+    else if (water[i] === 2 && (filled[i] > h[i] + 0.05 || h[i] <= bed[i])) surf[i] = Math.max(filled[i], h[i] + P.over);
+    else continue;
+    wet[i] = 1;
+  }
+  // (the least rise from any water: each tile's height allowed, from `over` above a water's surface, a level more every
+  // tread walked, a step's length over the tread where it is (Dijkstra over the eight neighbours); `from`, the lake the
+  // least rise climbs from)
+  const ns = hash32(seed, "delta-banks");
+  const cost = new Float64Array(N).fill(Infinity);
+  const walked = new Float64Array(N).fill(Infinity);
+  const from = new Int32Array(N).fill(-1);
+  const tread = new Float64Array(N);
+  for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) tread[y * W + x] = P.treadLo + ((P.treadHi - P.treadLo) * (fbm(ns, x, y, P.cell, 2) + 1)) / 2;
+  const heap: number[] = [];
+  const less = (a: number, b: number) => cost[a] < cost[b] || (cost[a] === cost[b] && a < b);
+  const push = (i: number) => {
+    heap.push(i);
+    for (let k = heap.length - 1; k > 0; ) {
+      const p = (k - 1) >> 1;
+      if (!less(heap[k], heap[p])) break;
+      [heap[k], heap[p]] = [heap[p], heap[k]];
+      k = p;
+    }
+  };
+  const pop = (): number => {
+    const top = heap[0];
+    const last = heap.pop()!;
+    if (heap.length) {
+      heap[0] = last;
+      for (let k = 0; ; ) {
+        const a = 2 * k + 1;
+        const b = a + 1;
+        let m = k;
+        if (a < heap.length && less(heap[a], heap[m])) m = a;
+        if (b < heap.length && less(heap[b], heap[m])) m = b;
+        if (m === k) break;
+        [heap[k], heap[m]] = [heap[m], heap[k]];
+        k = m;
+      }
+    }
+    return top;
+  };
+  for (let i = 0; i < N; i++) {
+    if (!wet[i]) continue;
+    cost[i] = Math.ceil(surf[i] + P.over) - 1 / tread[i];
+    walked[i] = 0;
+    from[i] = lid[i];
+    push(i);
+  }
+  const done = new Uint8Array(N);
+  while (heap.length) {
+    const c = pop();
+    if (done[c]) continue;
+    done[c] = 1;
+    if (walked[c] >= P.grade) continue;
+    const x = c % W;
+    const y = (c - x) / W;
+    for (let dy = -1; dy <= 1; dy++)
+      for (let dx = -1; dx <= 1; dx++) {
+        if ((!dx && !dy) || x + dx < 0 || y + dy < 0 || x + dx >= W || y + dy >= H) continue;
+        const n = c + dy * W + dx;
+        if (wet[n] || done[n]) continue;
+        const len = dx && dy ? Math.SQRT2 : 1;
+        const v = cost[c] + len / tread[n];
+        if (v < cost[n]) {
+          cost[n] = v;
+          walked[n] = walked[c] + len;
+          from[n] = from[c];
+          push(n);
+        }
+      }
+  }
+  // (every pool of `pool` tiles or more the land holds keeps the ground within `guard` of it over its surface, but where
+  // that ground is its own lake's bank)
+  const R = P.guard;
+  const floor = new Float64Array(N).fill(-Infinity);
+  {
+    const seen = new Uint8Array(N);
+    const at = new Int32Array(N).fill(-1);
+    let mark = 0;
+    for (let s0 = 0; s0 < N; s0++) {
+      if (seen[s0] || water[s0] !== 2 || !(filled[s0] > h[s0] + 0.05)) continue;
+      const pool = [s0];
+      seen[s0] = 1;
+      for (let k = 0; k < pool.length; k++) {
+        const c = pool[k];
+        const x = c % W;
+        for (const n of [x > 0 ? c - 1 : -1, x < W - 1 ? c + 1 : -1, c - W, c + W]) {
+          if (n < 0 || n >= N || seen[n] || water[n] !== 2 || !(filled[n] > h[n] + 0.05) || filled[n] !== filled[s0]) continue;
+          seen[n] = 1;
+          pool.push(n);
+        }
+      }
+      if (pool.length < P.pool) continue;
+      const top = filled[s0];
+      const own = lid[s0];
+      mark++;
+      const base = mark * (R + 2);
+      const ring = pool.slice();
+      for (const c of ring) at[c] = base;
+      for (let r = 0; r < ring.length; r++) {
+        const c = ring[r];
+        if (from[c] !== own && top > floor[c]) floor[c] = top;
+        const sc = at[c] - base;
+        if (sc >= R) continue;
+        const x = c % W;
+        for (const n of [x > 0 ? c - 1 : -1, x < W - 1 ? c + 1 : -1, c - W, c + W]) {
+          if (n < 0 || n >= N || (at[n] >= base && at[n] < base + R + 2)) continue;
+          at[n] = base + sc + 1;
+          ring.push(n);
+        }
+      }
+    }
+  }
+  let cut = 0;
+  for (let y = 0; y < H; y++)
+    for (let x = 0; x < W; x++) {
+      const i = y * W + x;
+      if (wet[i] || !(cost[i] < Infinity)) continue;
+      // (water within two tiles stays under the bank)
+      let close = -Infinity;
+      for (let dy = -2; dy <= 2; dy++)
+        for (let dx = -2; dx <= 2; dx++) {
+          if (x + dx < 0 || y + dy < 0 || x + dx >= W || y + dy >= H) continue;
+          const j = i + dy * W + dx;
+          if (wet[j] && surf[j] > close) close = surf[j];
+        }
+      const cap = Math.max(Math.floor(cost[i]), Math.ceil(close + P.over), Math.ceil(floor[i] + P.over));
+      if (h[i] > cap) {
+        h[i] = cap;
+        cut++;
+      }
+    }
+  return cut;
 }

@@ -340,7 +340,7 @@ export interface Genome {
   standValley?: Uint8Array;
   /** D549: a Delta's start's terrace on the trunk's bank above the fan's head (`deltaHead.ts`), cut into the land as
    *  its water is planned; the settler takes it as its start. */
-  deltaHead?: { x: number; y: number; level: number; ns: number; tiles: Uint8Array; mask: Uint8Array };
+  deltaHead?: { x: number; y: number; level: number; ns: number; tiles: Uint8Array; mask: Uint8Array; bank?: number; undo?: Int32Array; stairs?: [number, number][] };
   /** How far the water's way wanders from the steepest descent (levels), and the size of its
    *  wanders in tiles. */
   wander: number;
