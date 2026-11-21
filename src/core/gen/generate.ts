@@ -277,7 +277,7 @@ function shoreBench(h: Uint8Array, W: number, H: number, hy: Hydro, keep: Uint8A
       if (tried.length >= BENCH_PLACES) break;
       const sx = best % W;
       const sy = (best - sx) / W;
-      if (tried.some((t) => Math.hypot((t % W) - sx, Math.floor(t / W) - sy) < BENCH_LONG / 2)) continue;
+      if (tried.some((t) => { const dx = (t % W) - sx; const dy = Math.floor(t / W) - sy; return dx * dx + dy * dy < (BENCH_LONG / 2) * (BENCH_LONG / 2); })) continue;
       tried.push(best);
       const inBench = new Uint8Array(N);
       for (let y = Math.max(1, sy - L); y <= Math.min(H - 2, sy + L); y++)
