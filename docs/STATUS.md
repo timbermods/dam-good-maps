@@ -8,26 +8,30 @@ is [HANDOFF.md](HANDOFF.md); the decisions are in [docs/decisions/](decisions/RE
 
 As of 2026-10-27, everything runs on the dedicated machine, on Kyler's new account (HANDOFF §7): the milestone session in
 `C:\Users\krams\code\DamGoodMaps`, the planning session in `DamGoodMaps-planning` and the renderer session in
-`DamGoodMaps-forces-play`. **There is no Timberborn on the dedicated machine since 2026-10-25 (Kyler):** no probe batch and no
-game launch until he lifts it. The page session is stopped (worktree `DamGoodMaps-page`); the probe folder is
-`DamGoodMaps-probe`. Kyler's PC is idle.
+`DamGoodMaps-forces-play`. Timberborn runs on the dedicated machine only through the DGM Probe runner, and only where an
+implementation looks wrong in the game (Kyler, 2026-10-29; HANDOFF §5, "Probes"). The page session is stopped (worktree
+`DamGoodMaps-page`); the probe folder is `DamGoodMaps-probe`. Kyler's PC is idle.
 
 ## Released
 
-Latest: `ruin-brush-done` (2026-11-21 13:15Z, PR #1271): dev 5cb017b4 released into `main` at f389ec6d, generator 0.10.55 →
+Latest: `lake-islands-done` (2026-11-21 19:58Z, PR #1277): dev 0fc2390b released into `main` at 27c6a836, generator 0.10.56 →
+0.10.61: Lake Basin's lake the land holds (#1273, 0.10.60) and Islands' coast above 128² (#1275, 0.10.61). Deploy run
+44943786131 succeeded and the site answered 200.
+Before it: `ruin-brush-done` (2026-11-21 13:15Z, PR #1271): dev 5cb017b4 released into `main` at f389ec6d, generator 0.10.55 →
 0.10.56: the start's first food on every map (#1269) and the ruin brush painting ruins as trees land, their height asked
 (D548, #1270). The live check passed and the site answered 200; recorded on #57.
 Before it: `ruins-in-view-done` (2026-11-20, PR #1268): dev cc351e38 released into `main` at 9ca0997e, generator 0.10.53 →
 0.10.55: a stand of the map's own ruins in the opening view (#1266) and Islands' start above 128² walking its island, its
 berries topped up to Easy's food row (#1267). The live check passed and the preview was republished; recorded on #57.
-In flight: Islands' land above 128² (generator 0.10.61, branch `gen/islands-land`, labelled `hold` for planning's verdict):
+Released in `lake-islands-done`: Islands' land above 128² (#1275, merged at dev 0fc2390b on 2026-11-21, generator 0.10.61):
 a mainland framing the sea, the start on a headland, 8–11 islands, the sea's bed one level under its spill and its exit
 away from every river (D547, [design/uplands.md](design/uplands.md)). The bed alone, on 0.10.48's land (Islands 256² seeds
 1–6, Normal), missed its Hard bar on three: the sea's p50 at the Hard wet season's end 1.02 of 1.16, 0.65 of 1.21 and
 0.29 of 1.01 on seeds 1, 2 and 4, as seed 4's river entered at the exit; the new land holds it, the start's water back to
 its settled count at every Hard wet season's end on seeds 1–12. Short: the start's food row on seeds 2, 4, 7 and 10 (only
 the shore bench stays moist through a drought), seed 6's sea at 0.45 of 1.11 after a Hard wet season (its river's mouth 55
-tiles from the exit; the start's water whole).
+tiles from the exit; the start's water whole). Its second round is in flight (`gen/islands-land-2`, 0.10.62): the food
+row on 12 of 12 from a wider shore bench in the start's walk, the mainland's banded back broken, and three kinds of island.
 Before it: `highlands-done` (2026-11-20, PR #1265): dev a0a3c83c released into `main` at 46b5e71, generator 0.10.37 →
 0.10.53; 56 PRs since `tilt-forms-done`: the land above 128² drawn in rings (D547) with Highlands standing up (#1263), the
 start picked for its level room (D545, #1256, #1261), ruled water (#1162), floodplain steps 5 and 6 and Save as.
@@ -70,15 +74,16 @@ Every released step's tag: `git tag -l '*-done'`. `dev` is ahead of `main` by wh
 
 - **The milestone session** (Opus 5.5, high) does everything except the page and the renderer: the core, the water, the
   generator, the Rust order, the Codex adoptions and the documents. It hands out
-  decision numbers (**next free: D495**). Since 2026-10-14 it completes the whole order without Kyler (D484). It owns STATUS and HANDOFF. Since 2026-10-15 trivial and simple work goes to Haiku sub-agents at high effort wherever they can do it (Kyler).
-- **The planning session** (Opus 5.5, high; worktree `DamGoodMaps-planning`; since 2026-10-14; active since 2026-10-25) coordinates: it merges
-  every "ready to merge" posted on #236, releases to `main` (it cut `3d-foundations-done` and `high-look-fix-2-done`), now owns the page's work (Showcase's page #520 and #535, #555), settles cross-session questions, and sends Kyler only the
-  design questions his decisions don't settle.
+  decision numbers (the next free one is kept in [decisions/README.md](decisions/README.md)). Since 2026-10-14 it completes the whole order without Kyler (D484). It owns STATUS and HANDOFF. Since 2026-10-15 trivial and simple work goes to Haiku sub-agents at high effort wherever they can do it (Kyler).
+- **The planning session** (Fable, high, since 2026-11-10; worktree `DamGoodMaps-planning`) leads the work: it sets the
+  order, judges every look, releases to `main`, owns the page's work, settles cross-session questions, and sends Kyler only
+  the design questions his decisions don't settle.
 - **The page session** is stopped (2026-10-07, on Kyler's word): "The page is the editor" is on dev (#347), `feature/page` holds
   nothing of its own, and nothing is queued until 3D's step 3 needs the Block tool's interface. To resume: the top of
   `docs/progress/page.md`; no page work starts without Kyler's yes. Worktree `DamGoodMaps-page`.
 - **The renderer session "forces play"** (the dedicated machine, worktree `DamGoodMaps-forces-play`, its own usage) gives every force
-  Carve's smooth play and builds the 3D view. Last seen 2026-10-27: #615 (a force's own water on maps with caves) merged.
+  Carve's smooth play and builds the 3D view. Its last item was Lake Basin's land (#1273, merged); it takes no new item
+  (planning, #236 7066273969).
 - **Codex** builds investigations on `investigation/<name>`, each with an adoption patch split by owner and an
   eight-line report; Kyler decides each adoption; the milestone session adopts its part.
 - **Other Claude Code sessions** Kyler starts (the theme critique, the Canyon session) open real PRs into `dev`.
@@ -89,35 +94,45 @@ Merge order and owner. A PR merges on its owner's verdict, a fresh reviewer agen
 the owning session may merge it itself (D490). The browser specs and the suites a change needs run on dev after the merge;
 no full run by hand except for a release.
 
-| PR | Work | Owner | State and what's next |
-|---|---|---|---|
-| #611 | 3D forms at each theme's default Verticality (the gate comes off), 0.10.4 | milestone | Merging dev in; comes off hold next |
-| #599 | Say when a map is kept and where a replaced map went; Help findable; Rename in Your maps | planning | Open |
-| #549 | Finisher fixes: Show marks the problem, Markers labels water objects, kept version note, seep label fits | planning | Open |
-| #617 | Dependabot: collab-worker minor and patch group | planning | Open |
-| #399 | The 20-second tour (D377) | planning | Paused by D488 |
-| #303 | Codex page hunt (draft) | Codex | Running |
-| #211, #210, #152, #132 | Theme critique, Islands round 2, perf audit, scaling round 4 | records | Kept open as references; #132's round 4 is approved for adoption |
-| #73, #71, #35 | Weather days, 3D step 1, Real places 2 | parked drafts | Parked by Kyler |
+At the release of 2026-11-21, one PR is in flight and the rest are parked. The parked PRs stay open; nothing is closed or
+deleted (planning, #236 7059356767).
+
+| PR | Work | State, and why |
+|---|---|---|
+| #1183 | The water tree above 128² | Parked (planning, 2026-11-16): #1162's joins give the same read of each river system, and the tree laid over them doubled leaks (9 → 18). It comes back only as a tree built on the joins. |
+| #1178 | Nightly test: every generator control's move changes the map (D527, fix 5) | `hold`: it merges after #1177, the last of the settings fixes it follows. |
+| #1177 | Starting berries folds into Berries near start (D527, fix 1) | Approved at b9c7e2f0. `hold` until planning's conditions hold: dev's rescue rounds and premises kept, and trees within 3 % (#236 6895067611). |
+| #1170 | Intentions PR 1: offered at 8 of 12, badwater-rich removed (0.10.24) | `hold`: counted on #1145's land before #1145 merged, never re-pinned. It comes back on the new land, with the landmark by design (#236 6996806923). |
+| #1157 | The Gate's dry side: no knobs, no one-tile pits | Approved at 0926cafb, but its quick suite failed there (`test (1/2)`). No session owns it; labelled `hold` (planning, 2026-11-21). |
+| #1127 | The land stage in Rust: the hydrology's hollow flood | `hold`: same bytes, but a gain inside the noise does not pay for a second copy of the hollow flood before the land stage is redesigned (#236 6880377008). It merges if the flood survives that redesign as it is. |
+| #928 | Naturalize: cut banks slump | Draft, `hold`: paused work in progress (usage). It becomes rule 7 when it resumes (D514). |
+| #927 | The first ten cycles as a report | Draft, `hold`: paused work in progress, not yet typechecked or run. |
+| #914 | Glaciate: one trough at the valley's width | `hold`: its look review fell short; #1054 built Glaciate's five asks and merged. Kept as a record. |
+| #709 | Companion: the first in-game run | `hold`: the companion mod is set aside (ROADMAP). Its last code review asked for changes (the restore is skipped in one case). When it resumes, it recognises our files by a metadata field (#1243's note on the PR). |
+| #672 | 128² maps' water on four threads | Draft, `hold`: speed comes after map quality (D453). It waits for the WebKit thread measure. |
+| #1121 | Dependabot: npm minor and patch (Playwright 1.65.0, vite) | `hold`: Playwright 1.65 needs new browser downloads on the dedicated machine, which wait for Kyler's yes. |
+| #1203 | Dependabot: collab-worker minor and patch (workers-types, wrangler) | Quick checks green, mergeable. A minor and patch bump merges on green CI (D150); planning keeps it open through the release. |
 
 ## Done, and next
 
-1. **Released:** `3d-foundations-done`, the patch `high-look-fix-2-done`, then `game-look-done` and `naturalize-done` (above).
-2. **In dev since 2026-10-24 (milestone's):** Showcase mode's core and worker with three tuning rounds (#504, #516, #526, #588) and
-   planning's page (#520, #535); the opening shot and landmarks into view (#515, D493, 0.10.2); ruins with meaning (#527, 0.10.1);
-   3D in generation part 1 (#478, 0.10.0) and its follow-ups (#579, 0.10.3); objects in caves (#490, D491) with follow-ups (#531), forces around caves (#496),
-   Fill/Remove unfed water on caves (#498, D494), sealed basins at rest (#534 via #567), live water on maps with caves (#606,
-   D280 amended in #610) and for forces (#615); the start and painted plants under a roof (#553, #572); removed or moved relics
-   measured where they stand (#584); Real places' open edges (#493) and dying plants (#576); long shapes (#545, #603);
-   large-map retries and attempt reasons (#570); the map description (#541, planning's field #555); the water's thread budget
-   (#590); Generate speed (#605); CI: seven browser shards (#608) and flake fixes (#505, #554, #560, #589, #593); first-dry
-   and first-bad days (#566, #573).
-3. **Merge rules (D489, D490):** a PR merges on a fresh review plus quick checks, and the owner may merge it themselves; the
-   full suites run on dev after the merge.
-4. **Next (milestone):** lift the gate (#611: merging dev in, off hold next); #532 (cave outflows in exports) later. Next decision number: D495.
-5. **Held until Kyler lifts the no-Timberborn hold:** Real places' open edges (#493's four places, files ready in
-   `C:\dgm-probe\places-open-edges\`), the release's D483 batch for generated caves and the opening shot, and the cycle-10 run for
-   Showcase's winners (#507's `--cycles`).
+The release `lake-islands-done` (2026-11-21, main 27c6a836) shipped Lake Basin #1273 and Islands #1275. A release
+follows whenever a round lands; the order of the rounds is in [ROADMAP.md](../ROADMAP.md), "The order of work from the
+release of 2026-11-21" (Kyler, 2026-11-21: no round budgets, no stopping point).
+
+1. **Released in `lake-islands-done`:** Lake Basin's hydro pass and shore bench (#1273, generator 0.10.60) and Islands'
+   land above 128² (#1275, generator 0.10.61).
+2. **In flight:** Islands' second round (#1278, `gen/islands-land-2`, generator 0.10.62).
+3. **Then:** planning releases each round to `main` as it lands.
+4. **Not shipped, kept as findings branches:** the start's food row where water lasts (`gen/food-row-lasting-water`,
+   #1272 closed), Highlands round 6c (`findings/highlands-6c`), Delta round 2 (`findings/delta-1`, #1274 closed), the
+   great form (`findings/great-form`), Lake Basin's earlier rounds (`findings/lake-basin-8`, `findings/lake-basin-7c`)
+   and Islands' earlier land (`findings/islands-land-11`, `findings/islands-feed`). Each theme's state as released, its
+   shortfall and its next step are in [design/uplands.md](design/uplands.md), "State at the release of 2026-11-21".
+5. **Generator versions never used on dev:** 0.10.57 (the food row where water lasts) and 0.10.59 (Highlands 6c); 0.10.58
+   too, which Islands held before it landed at 0.10.61.
+6. **Not yet played in the game:** Real places' open edges (#493's four places, files in
+   `C:\dgm-probe\places-open-edges\`), generated caves and the opening shot (D483), and the cycle-10 run for Showcase's
+   winners (#507's `--cycles`). A batch runs only where an implementation looks wrong in the game.
 
 ## Expected failures, in one place
 

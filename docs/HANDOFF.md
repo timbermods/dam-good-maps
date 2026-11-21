@@ -13,6 +13,22 @@
 editor work), `docs/decisions/README.md` (the decisions in force: the index, then `how-we-work.md`, then only the topic files your task touches) and the top of `ROADMAP.md` (the order of work). Kyler (he/him) owns the project and decides everything. The earlier handoff:
 [archive/handoff-2026-10-01.md](archive/handoff-2026-10-01.md).
 
+## 0. Where the work stands at the release of 2026-11-21
+
+- **What ships:** every theme as dev holds it at the release, with Lake Basin's hydro pass and shore bench (#1273,
+  generator 0.10.60) and Islands' land above 128² (#1275, generator 0.10.61). STATUS.md, "Done, and next",
+  has the release state.
+- **What falls short:** one entry per theme, each with its next step and its findings branch, in
+  [design/uplands.md](design/uplands.md), "State at the release of 2026-11-21". The parked PRs are in STATUS.md's
+  table, one line each. The findings branches are kept, not merged.
+- **The lesson to start from:** the start's ground comes first. It is a kind of place the settler must take, drawn
+  first, dry and level, with lasting water at its foot. Rounds that drew the land and hoped the start would find it
+  missed.
+- **What to pick up first,** unless planning's order in ROADMAP.md says otherwise: the next steps that put the start on
+  lasting water, since they also answer the food row's misses. They are Lake Basin's bench as a start kind the settler
+  must take, and Delta's terrace chosen on the settled water. Then Highlands 6c's three, and the great form, a probe
+  frame first.
+
 ## 1. Starting a session
 
 1. Start in the main clone (`C:\Users\krams\code\DamGoodMaps`, the dedicated machine, §7) at Opus 5.5, high, so
