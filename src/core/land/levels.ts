@@ -99,6 +99,9 @@ export function snapLevels(E: Float64Array, g: Genome, seed: number, W: number, 
         t = STAND.floor.away * stand.away[i] + (1 - STAND.floor.away) * t;
         level[i] = g.base + STAND.floor.over + t * STAND.floor.relief + g.terrace.jitter * warpedFbm(js, x, y, 14 * f, 2, 7 * f);
         continue;
+      } else if (g.levelUnit) {
+        // (Islands round 10: a level the same units of the field at every height, `Genome.levelUnit`)
+        t = (E[i] - lo) / (g.levelUnit * Math.max(1e-6, top0 - g.base));
       } else {
         t = (1 - g.hyps.eq) * lin + g.hyps.eq * rk[i];
         // the lean: t / (t + lean (1 − t)) on [0, 1], continued straight beyond it

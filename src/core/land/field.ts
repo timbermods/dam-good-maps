@@ -375,6 +375,10 @@ function addPart(U: Float64Array, p: Part, seed: number, W: number, H: number, k
       const p2 = ir.float();
       const a1 = 0.14 + 0.16 * ir.float();
       const a2 = 0.07 + 0.09 * ir.float();
+      // (Islands round 10: the way its steep side faces, on the island's own axes)
+      const [sx0, sy0] = p.steep !== undefined ? unit(p.steep) : [0, 0];
+      const sa = sx0 * ux + sy0 * uy;
+      const sb = -sx0 * uy + sy0 * ux;
       each((x, y, i) => {
         const wx = 0.38 * wob * fbm(s + 1, x, y, cell, 2);
         const wy = 0.38 * wob * fbm(s + 2, x, y, cell, 2);
@@ -397,8 +401,23 @@ function addPart(U: Float64Array, p: Part, seed: number, W: number, H: number, k
         // hollows stayed under the water and it stood as a pebble, a third its size or none. Its
         // flank falls from 0.8 of its radius to 1.05: falling from 0.75 to 1.15, neighbours' feet met
         // in a shelf at the water's level, which joined them and joined them to the shore.)
-        const t = smoothstep((1.05 - d) / 0.25);
-        U[i] += p.height * t * (0.85 + 0.3 * n);
+        // (Islands round 10: falling over a quarter of its radius on its steep side and shelving over seven tenths on the
+        // far one, so its top stands off its middle toward the steep side, and its contours never ring it evenly)
+        if (p.steep === undefined) {
+          const t = smoothstep((1.05 - d) / 0.25);
+          U[i] += p.height * t * (0.85 + 0.3 * n);
+          return;
+        }
+        // (its foot first, a shore rising to `foot` over a fifth of its radius, and the flank inside it, so the steep
+        // side stands back from the water: risen from the water's edge it stood three levels and more over it)
+        // (the far side shelving over seven tenths of a small island's radius, a large one's half, so its top is broad)
+        const w = 0.28 + clamp(0.42 - (0.18 * (p.size - 12)) / 18, 0.24, 0.42) * (0.5 - (0.5 * (a * sa + b * sb)) / Math.max(1e-6, r0));
+        const foot = Math.min(p.height, p.foot ?? 0);
+        // (the foot four tiles wide at least)
+        const wf = Math.max(0.12, 4 / p.size);
+        // (and the high ground of the mainland, not an island, rolls more gently over its top, so it keeps level room)
+        const rough = p.isle ? 0.3 : 0.14;
+        U[i] += foot * smoothstep((1.05 - d) / wf) * (0.95 + 0.1 * n) + (p.height - foot) * smoothstep((1.05 - wf - d) / w) * (1 - rough / 2 + rough * n);
       }, round(1.41 * Math.max(major, minor) + 0.54 * wob));
       return;
     }
@@ -693,8 +712,8 @@ export function makeField(g: Genome, seed: number, W: number, H: number): Field 
     for (let y = 0; y < H; y++)
       for (let x = 0; x < W; x++) {
         const i = y * W + x;
-        const lip = lipKeep(sea.coast!, x, y, W, H, true);
-        if (lip < 1 && rimKeep(sea.coast!, x, y, W, H, sea.lobes, true) >= lip && E[i] < U[i]) E[i] = U[i];
+        const lip = lipKeep(sea.coast!, x, y, W, H, sea.thinLip);
+        if (lip < 1 && rimKeep(sea.coast!, x, y, W, H, sea.lobes, sea.thinLip) >= lip && E[i] < U[i]) E[i] = U[i];
       }
   return { E, hard };
 }
