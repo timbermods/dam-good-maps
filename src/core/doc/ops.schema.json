@@ -474,7 +474,7 @@
       }
     },
     "paintObjects": {
-      "description": "A brush stroke of objects (D235, D338): trees (Pine, Birch or Oak), bushes (BlueberryBush), succulents (Succulent), mixed woods, ruin fields or thorn patches, over the tiles it covers. It is planned on the map as it stands (dry, free ground, one level for a ruin field) and placed as one step; the log keeps the objects it placed, so a replay never plans again. The density is how densely they land: from a sparse scatter to a dense grove, and the share of the ground a ruin field or a thorn patch covers. The age (trees, succulents, woods): grown, or mixed with saplings. The seed makes the same stroke on the same map place the same objects.",
+      "description": "A brush stroke of objects (D235, D338, D548): trees (Pine, Birch or Oak), bushes (BlueberryBush), succulents (Succulent), mixed woods, ruins or thorn patches, over the tiles it covers. It is planned on the map as it stands (dry, free ground) and placed as one step; the log keeps the objects it placed, so a replay never plans again. The density is how densely they land: from a sparse scatter to a dense grove (ruins too), and the share of the ground a thorn patch covers. The age (trees, succulents, woods): grown, or mixed with saplings. Ruins: the height (1 to 8 levels, 3 unless given) and the heights, same (every column at the height, the default) or mixed (each from 1 up to it). The seed makes the same stroke on the same map place the same objects.",
       "type": "object",
       "additionalProperties": false,
       "required": ["kind", "area", "density", "seed"],
@@ -484,6 +484,8 @@
         "area": { "$ref": "#/$defs/runs" },
         "density": { "type": "number", "minimum": 0.05, "maximum": 1 },
         "age": { "enum": ["grown", "mixed"] },
+        "height": { "type": "integer", "minimum": 1, "maximum": 8 },
+        "heights": { "enum": ["same", "mixed"] },
         "seed": { "type": "integer", "minimum": 0, "maximum": 2147483647 },
         "levels": {
           "description": "Under a roof (D491): groups of the stroke's tiles and the level each paints at (a cave floor, the ground under a ledge, as the pick found it); a tile in none, or at its top, paints the ground's top. Each object stands by the game's rule at its level; a tile that can't hold one gets none, never one on the roof's top.",

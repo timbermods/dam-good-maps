@@ -14,8 +14,14 @@ import type { PaintLevel, PaintParams } from "./paintParams";
 import { objectCells, waterDepth } from "./placing";
 import { dyingTiles, SUCCULENT_MOIST } from "./plantSoil";
 
-/** The templates a plant kind counts as already there: painting over them fills the gaps up to the density. */
-const SAME: Record<string, readonly string[]> = { trees: [], bushes: ["BlueberryBush"], succulents: ["Succulent"], woods: ["Pine", "Birch", "Oak"] };
+/** The templates a kind counts as already there: painting over them fills the gaps up to the density. */
+const SAME: Record<string, readonly string[]> = {
+  trees: [],
+  bushes: ["BlueberryBush"],
+  succulents: ["Succulent"],
+  woods: ["Pine", "Birch", "Oak"],
+  ruins: Array.from({ length: 8 }, (_, k) => `RuinColumnH${k + 1}`),
+};
 
 /** Where an object may stand on the map as it is: on the map, dry, nothing there. A stroke paints the ground's top,
  *  a roof's top too, where the game keeps what stands on it (D491). Under a roof (`levels`: the tiles a stroke paints
@@ -138,7 +144,7 @@ export function planPaintObjects(s: MapSession, p: PaintParams, nextSeq: number 
       if (same.includes(e.template) && inRegion.has(i) && (!levels.size || (levels.get(i) ?? s.built.heights[i]) === e.z)) existing++;
     }
   }
-  const planned = planPaint(g, { kind: p.kind, template: p.template ?? "", region, density: p.density, age: p.age ?? "grown", seed: p.seed, existing });
+  const planned = planPaint(g, { kind: p.kind, template: p.template ?? "", region, density: p.density, age: p.age ?? "grown", seed: p.seed, existing, height: p.height, heights: p.heights });
   // under a roof each object stands by the game's rule at its level (a pine needs 3 levels of air, D491): where one
   // can't, that tile gets none, never a place on the roof's top
   const refused: string[] = [];
@@ -167,7 +173,6 @@ function nothingReason(p: PaintParams, region: number[], g: PaintGround, existin
   if (!free && moist) return SUCCULENT_MOIST;
   if (!free && levels.size) return "there is no free ground at that level under the stroke: it is rock, air or other objects";
   if (!free) return "there is no free ground under the stroke: it is water or other objects";
-  if (p.kind === "ruins") return "the ground under the stroke is too small or broken for a ruin field: a field stands on one level";
   if (p.kind === "thorns") return "the stroke is too small for a thorn patch";
   if (existing) return "the stroke already holds as many as its density asks for";
   return "the density asks for none on so little ground: raise it or paint more";

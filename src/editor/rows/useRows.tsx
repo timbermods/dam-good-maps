@@ -1,6 +1,6 @@
 // The top bar's rows: the source picked, the shelf item's options and the force's rows.
 
-import { RUIN_LINE_BREAK, RUIN_LINE_SPACING } from "../../core/doc/ruinLineLimits";
+import { RUIN_HEIGHT } from "../../core/doc/paintParams";
 import type { ComponentChildren } from "preact";
 import type { EditOp } from "../../core/doc/ops";
 import type { EntityInfo } from "../../worker/session";
@@ -265,64 +265,6 @@ export function useRows(ed: Ed): RowsSlice {
       const groups = objectGroups(shelf.template, o, (c) => setShelfOptions({ ...shelfOptions, objects: { ...shelfOptions.objects, [shelf.template]: { ...o, ...c } } }));
       return groups.length ? { label: `${shelf.name} options`, groups } : null;
     }
-    if (shelf.id === "ruin")
-      return {
-        label: "Ruin options",
-        groups: [
-          {
-            key: "height",
-            label: "Height",
-            value: `${shelfOptions.ruinHeight} ${shelfOptions.ruinHeight === 1 ? "level" : "levels"}`,
-            node: (
-              <ObjectSlider
-                label="Height"
-                min={1}
-                max={8}
-                step={1}
-                value={shelfOptions.ruinHeight}
-                words={`${shelfOptions.ruinHeight} ${shelfOptions.ruinHeight === 1 ? "level" : "levels"}`}
-                tipText="How tall the ruin is"
-                onInput={(v) => setShelfOptions({ ...shelfOptions, ruinHeight: v })}
-              />
-            ),
-          },
-          // a drag lays a ruin line (core/doc/ruinLine.ts): its piers' spacing and how much of it is missing
-          {
-            key: "spacing",
-            label: "Spacing",
-            value: `${shelfOptions.ruinSpacing} ${shelfOptions.ruinSpacing === 1 ? "tile" : "tiles"}`,
-            node: (
-              <ObjectSlider
-                label="Spacing"
-                min={RUIN_LINE_SPACING.min}
-                max={RUIN_LINE_SPACING.max}
-                step={1}
-                value={shelfOptions.ruinSpacing}
-                words={`${shelfOptions.ruinSpacing} ${shelfOptions.ruinSpacing === 1 ? "tile" : "tiles"}`}
-                tipText="How far apart a dragged line's piers stand"
-                onInput={(v) => setShelfOptions({ ...shelfOptions, ruinSpacing: v })}
-              />
-            ),
-          },
-          {
-            key: "break",
-            label: "Break",
-            value: `${Math.round(shelfOptions.ruinBreak * 100)}%`,
-            node: (
-              <ObjectSlider
-                label="Break"
-                min={0}
-                max={RUIN_LINE_BREAK.max * 100}
-                step={10}
-                value={Math.round(shelfOptions.ruinBreak * 100)}
-                words={`${Math.round(shelfOptions.ruinBreak * 100)}%`}
-                tipText="How much of a dragged line is missing"
-                onInput={(v) => setShelfOptions({ ...shelfOptions, ruinBreak: v / 100 })}
-              />
-            ),
-          },
-        ],
-      };
     if (shelf.id === "relic")
       return {
         label: "Relic options",
@@ -345,7 +287,8 @@ export function useRows(ed: Ed): RowsSlice {
           },
         ],
       };
-    // trees, bushes and thorns: a drag paints them, so the brush's size and density, and a tree's age (D235)
+    // trees, bushes, ruins and thorns: a drag paints them, so the brush's size and density, a tree's age and a ruin's
+    // height (D235, D548)
     if (shelf.paint) {
       const kind = shelf.paint;
       const { size, density } = shelfOptions.paint[kind];
@@ -371,7 +314,7 @@ export function useRows(ed: Ed): RowsSlice {
                 step={5}
                 value={Math.round(density * 100)}
                 words={`${Math.round(density * 100)}%`}
-                tipText={`How thickly it plants ${kind}`}
+                tipText={kind === "ruins" ? "How thickly it places ruins" : `How thickly it plants ${kind}`}
                 keys={[...STRENGTH_KEYS]}
                 onInput={(v) => set({ density: v / 100 })}
               />
@@ -391,6 +334,42 @@ export function useRows(ed: Ed): RowsSlice {
                         ["mixed", "Mixed", "Grown trees and saplings"],
                       ]}
                       onPick={(treeAge) => setShelfOptions({ ...shelfOptions, treeAge })}
+                    />
+                  ),
+                },
+              ]
+            : []),
+          ...(kind === "ruins"
+            ? [
+                {
+                  key: "height",
+                  label: "Height",
+                  value: `${shelfOptions.ruinHeight} ${shelfOptions.ruinHeight === 1 ? "level" : "levels"}`,
+                  node: (
+                    <ObjectSlider
+                      label="Height"
+                      min={RUIN_HEIGHT.min}
+                      max={RUIN_HEIGHT.max}
+                      step={1}
+                      value={shelfOptions.ruinHeight}
+                      words={`${shelfOptions.ruinHeight} ${shelfOptions.ruinHeight === 1 ? "level" : "levels"}`}
+                      tipText="How tall the ruin is"
+                      onInput={(v) => setShelfOptions({ ...shelfOptions, ruinHeight: v })}
+                    />
+                  ),
+                },
+                {
+                  key: "heights",
+                  label: "Heights",
+                  node: (
+                    <ObjectChoice
+                      label="Heights"
+                      value={shelfOptions.ruinHeights}
+                      options={[
+                        ["same", "Same", "Every ruin at the Height"],
+                        ["mixed", "Mixed", "Ruins from 1 level up to the Height"],
+                      ]}
+                      onPick={(ruinHeights) => setShelfOptions({ ...shelfOptions, ruinHeights })}
                     />
                   ),
                 },

@@ -1,9 +1,9 @@
 // Placing from the left shelf (PLAN §20 D184), as the map's pointer tool.
 //
 // The shelf: the picked object's ghost follows the pointer, its footprint green where it fits and
-// red where it doesn't, the reason in a quiet word beside the pointer; a click places it. Trees and
-// bushes: a drag paints many, clustered as the generator's groves and patches are, and the release
-// plants them as one step. The Slope: a drag from high ground down to low ground shows a stair of
+// red where it doesn't, the reason in a quiet word beside the pointer; a click places it. Trees,
+// bushes, ruins and thorns: a drag paints many with the brush (D235, D548), and the release places them as one
+// step. The Slope: a drag from high ground down to low ground shows a stair of
 // slopes, and the release lays it as one step (core/doc/stair.ts).
 //
 // (Removing things is Select and Delete, and Delete on what the pointer is on: D288.)
@@ -120,8 +120,8 @@ export function shelfTool(host: ShelfHost): PointerTool {
       host.hover(hit, ev);
     },
     voxel: true,
-    // a finger (render3d/touch.ts, #1074 slice 3): trees and bushes paint under it, as a brush does; the Slope and the
-    // Ruin draw their line a little above it; anything else shows its ghost above it, and the lift places it there
+    // a finger (render3d/touch.ts, #1074 slice 3): trees, bushes, ruins and thorns paint under it, as a brush does; the
+    // Slope draws its stair a little above it; anything else shows its ghost above it, and the lift places it there
     get finger() {
       return host.paintAround(0.5, 0.5) ? undefined : host.stairs?.() ? "draw" : "aim";
     },

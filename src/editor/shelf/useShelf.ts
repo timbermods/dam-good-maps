@@ -315,8 +315,9 @@ export function useShelf(ed: Ed): ShelfSlice {
     placeShelf(hit.x, hit.y, level);
     pickShelf(null);
   }
-  /** Trees, bushes and thorns painted by a drag (D235): the core's stroke over the tiles the brush covered, at the
-   *  object window's density (and a tree's age), planted where they can grow, one step, each with its pop. */
+  /** Trees, bushes, ruins and thorns painted by a drag (D235, D548): the core's stroke over the tiles the brush covered,
+   *  at the object window's density (and a tree's age, a ruin's height), placed where they can stand, one step, each
+   *  with its pop. */
   function plantShelf(tiles: number[], density?: number, aimed?: number) {
     const item = shelfRef.current;
     if (!item?.paint || !tiles.length) return;
@@ -325,10 +326,11 @@ export function useShelf(ed: Ed): ShelfSlice {
     const template = templateOf(item, o);
     const params: PaintParams = {
       kind,
-      ...(kind === "thorns" || kind === "woods" ? {} : { template }),
+      ...(kind === "thorns" || kind === "woods" || kind === "ruins" ? {} : { template }),
       area: tilesToRuns(tiles, infoRef.current.W),
       density: density ?? o.paint[kind].density,
       ...(hasAge(kind) ? { age: o.treeAge } : {}),
+      ...(kind === "ruins" ? { height: o.ruinHeight, heights: o.ruinHeights } : {}),
       seed: paintSeed.current,
     };
     void run(
@@ -371,25 +373,17 @@ export function useShelf(ed: Ed): ShelfSlice {
       return;
     }
     const W = info.W;
-    // (the Ruin's drag is a ruin line, core/doc/ruinLine.ts: its piers green, with how many and where their tops stand)
-    const asked: Promise<{ problem: string | null; tiles: number[]; words: string }> = ruinLining()
-      ? api.ruinLinePlanAt(ruinLineOf(from, to)).then((p) => ({ problem: p.reason, tiles: p.piers.map((q) => q.tile), words: `${p.piers.length} piers, tops at level ${p.top}` }))
-      : api.stairAt(from, to).then((p) => ({ problem: p.ok ? null : (p.errors[0] ?? null), tiles: p.steps.map((t) => t.y * W + t.x), words: p.label }));
-    void asked
+    void api
+      .stairAt(from, to)
       .then((p) => {
         if (job !== stairJob.current || !mounted.current) return;
-        const problem = p.problem;
+        const problem = p.ok ? null : (p.errors[0] ?? null);
         stairShown.current = { key: key!, problem };
-        setFit({ tiles: problem ? dragLine(from, to, W, info.H) : p.tiles, problem });
-        setShapeNote({ text: problem ? stairWord(problem) : p.words, ok: true, warn: !!problem, ...pointerAt.current });
+        setFit({ tiles: problem ? dragLine(from, to, W, info.H) : p.steps.map((t) => t.y * W + t.x), problem });
+        setShapeNote({ text: problem ? stairWord(problem) : p.label, ok: true, warn: !!problem, ...pointerAt.current });
       })
       .catch(() => undefined);
   }
-  /** The held object's drag lays a ruin line (the Ruin), not a stair (the Slope). */
-  const ruinLining = () => shelfRef.current?.id === "ruin";
-  /** One seed a drag: the line shown is the line laid; the next drag knocks out other piers. */
-  const lineSeed = useRef((Math.random() * 0x7fffffff) | 0);
-  const ruinLineOf = (from: [number, number], to: [number, number]) => ({ from, to, spacing: shelfOptionsRef.current.ruinSpacing, break: shelfOptionsRef.current.ruinBreak, seed: lineSeed.current });
   /** The stair's drag let go on `to`: laid, one step, with its pop; refused where its preview said why, the reason
    *  staying beside the pointer for a moment. */
   function layShelfStair(from: [number, number], to: [number, number] | null) {
@@ -397,18 +391,6 @@ export function useShelf(ed: Ed): ShelfSlice {
     showStair(from, null);
     if (!to) return;
     if (shown?.key === `${from}|${to}` && shown.problem) return flashNote(stairWord(shown.problem));
-    if (ruinLining()) {
-      const params = ruinLineOf(from, to);
-      lineSeed.current = (Math.random() * 0x7fffffff) | 0;
-      return void run(
-        () => api.ruinLineAt(params),
-        (u) => {
-          if (!u.ok) return;
-          feel("place", to[0], to[1], 1, false, "RuinColumnH3");
-          firstDone("place");
-        },
-      );
-    }
     void run(
       (w) => w.layStair(from, to),
       (u) => {
@@ -489,7 +471,7 @@ export function useShelf(ed: Ed): ShelfSlice {
         if (!tiles) paintSeed.current = (Math.random() * 0x7fffffff) | 0;
       },
       plant: (tiles, hit) => shelfCalls.current.plantShelf(tiles, undefined, hit ? levelOf(hit) : undefined),
-      stairs: () => shelfRef.current?.id === "Slope" || shelfRef.current?.id === "ruin",
+      stairs: () => shelfRef.current?.id === "Slope",
       stairing: (from, to, ev) => shelfCalls.current.showStair(from, to, ev),
       stair: (from, to) => shelfCalls.current.layShelfStair(from, to),
     });
