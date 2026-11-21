@@ -67,8 +67,10 @@ export const BOLD = {
  *  step 3: how far the lake's middle lies off the line, away from the bench (`shift`, a share of the radius), and the
  *  bench's shore: how far down the line it is read (`benchStretch`), its outline's lobes (`benchLobes`), and the
  *  turn from it to the far shore's lobes (where the direction from the lake's middle leans `benchCos` towards the
- *  bench, over `benchTurn`); round 6c: the lead in the map's breadth past the lake that puts the bench on that side
- *  (`benchRoom`, a share of the side). `springs`
+ *  bench, over `benchTurn`); round 6c: how far across the water's way the bowl must lie for the bench to take the side
+ *  facing the map's middle (`benchLean`, a share of the side), and where beside the lake the line's wander is read to
+ *  turn it away from the bench (`benchAt`, radii down the line from the bowl's middle); in front of the bench, within
+ *  `plain` radii of the bowl, the floor lies at the bench's own level (`levels.ts` `snapLevels`). `springs`
  *  (step 2): the springs such a land draws at the most. `bench` (step 2): the rings the floor steps down to the bowl
  *  and the channel past the sill in, each `min`–`max` tiles broad over a noise of `cell` tiles, wobbling `wobble`
  *  tiles, `rings` of them, `step` levels each. `mesa.plinth` (step 2; step 4: under the stepped side only): the levels
@@ -98,7 +100,7 @@ export const STAND = {
   badBeside: 6,
   badJoin: 6,
   valley: { rMin: 0.14, rMax: 0.18, offMin: 0.1, offMax: 0.26, spread: 0.05, band: 0.35, lat: 0.14, keep: 1.35, edge: 0.04, softMin: 1.2, softMax: 3.5, halfMin: 0.026, halfMax: 0.038, wander: 0.11, cell: 0.3, side: 1.5, over: 0, rise: 2, bend: 0.09, bendCell: 0.16, meander: 0.28 },
-  lake: { sill: 2, deep: 2, share: 0.35, budget: 0.6, at: 0.7, sillPast: 0.2, soft: 1, sillRun: 4, incise: 1.4, stretch: 0.5, lobes: 2.6, bays: 0.12, baysCell: 0.35, shift: 0.12, benchStretch: 0.6, benchLobes: 1.5, benchCos: 0.35, benchTurn: 0.3, benchRoom: 0.12 },
+  lake: { sill: 2, deep: 2, share: 0.35, budget: 0.6, at: 0.7, sillPast: 0.2, soft: 1, sillRun: 4, incise: 1.4, stretch: 0.5, lobes: 2.6, bays: 0.12, baysCell: 0.35, shift: 0.12, benchStretch: 0.6, benchLobes: 1.5, benchCos: 0.35, benchTurn: 0.3, benchLean: 0.03, benchAt: 0.3, plain: 2.2 },
   bench: { min: 5, max: 13, cell: 40, wobble: 3, rings: 3, step: 2 },
   floor: { over: 4, relief: 4, roll: 0, riser: 0, drift: 0, away: 0.5, far: 0.5 },
   mesa: { fewest: 4, most: 6, rMin: 24, rMax: 46, hMin: 4, hMax: 6, gap: 8, edge: 0.6, wall: 0.5, stretch: 0.35, brokenMin: 0.12, brokenMax: 0.25, runMin: 1.8, runMax: 4.5, inset: 7, first: 0.85, tries: 200, plinth: 2, plinthMin: 4, plinthMax: 9, open: -0.25, butte: 0.6, buttes: 1, benchCos: 0.5, benchFar: 3 },
@@ -177,8 +179,12 @@ export function standValley(seed: number, variation: number, phase: number, flow
   // on even ones, `band` of the range each, so the seeds a player tries in a row never lay the lake in one place: drawn
   // at random, seeds 3 and 4 laid it within a tenth of the map of each other, and on the golden way alone, seeds 2 and
   // 5, a third of a turn's difference eaten by the bowl kept whole on the map)
-  const offA = (seed * GOLDEN + V.spread * (2 * rng.float() - 1)) % 1;
-  const offD = (V.offMin + (V.offMax - V.offMin) * ((seed & 1 ? 0 : 1 - V.band) + V.band * rng.float())) * side;
+  // (round 6c, round 2: drawn from the seed and the variation alone, never the attempt, so a land drawn again keeps the
+  // seed's composition and the built maps differ from one another as the first lands do: seeds 2 and 4 both took a
+  // second land, and those lay 0.06 of the map apart)
+  const cs = stream(hash32(seed, "stand-compose", variation), "bowl");
+  const offA = (seed * GOLDEN + V.spread * (2 * cs.float() - 1)) % 1;
+  const offD = (V.offMin + (V.offMax - V.offMin) * ((seed & 1 ? 0 : 1 - V.band) + V.band * cs.float())) * side;
   const keep = V.keep * r + V.edge * side;
   // (across the water's way no further than `lat` of the side, so both sides of the line keep room, the bench's and the
   // massif's: seeds 2 and 4 laid it against an edge across the flow, and the start took the narrow side or the river
@@ -195,6 +201,10 @@ export function standValley(seed: number, variation: number, phase: number, flow
   const oy = along * fy + across * fx;
   const cx = clamp((W - 1) / 2 + ox, Math.min(keep, (W - 1) / 2), Math.max(W - 1 - keep, (W - 1) / 2));
   const cy = clamp((H - 1) / 2 + oy, Math.min(keep, (H - 1) / 2), Math.max(H - 1 - keep, (H - 1) / 2));
+  // (round 6c, round 2: the start's bench first, on the open side: the side of the water's line facing the map's middle
+  // where the bowl lies `benchLean` of the side or more across the way from it, else the side where the bowl is broader,
+  // as before; the bench took the side with room after the lake was drawn, and seeds 4 and 6 lost room to it)
+  const benchWant = across >= K.benchLean * side ? -1 : across <= -K.benchLean * side ? 1 : 0;
   const bowl = outline(hash32(s, "bowl-outline"), cx, cy, r, 1.4);
   const [ax, ay] = DIRS8[flowDir];
   const half = (V.halfMin + (V.halfMax - V.halfMin) * rng.float()) * side;
@@ -206,7 +216,11 @@ export function standValley(seed: number, variation: number, phase: number, flow
   // (round 6b step 5: outside the bowl the line bends at a shorter wavelength too, `bend` of the side, so the channel
   // winds as a river's valley does: one that wandered only at the map's scale ran straight for 60 tiles past the sill,
   // a chute, Normal 256² seed 3)
-  const wanderAt = (along: number): number => V.wander * side * fbm(s + 5, along, 0, V.cell * side, 2);
+  const wander0 = (along: number): number => V.wander * side * fbm(s + 5, along, 0, V.cell * side, 2);
+  // (with the bench's side set first, the line wanders away from it beside the lake, so the bench keeps the bowl's
+  // broader side, base's room)
+  const wsgn = benchWant !== 0 && wander0(K.benchAt * r) * benchWant > 0 ? -1 : 1;
+  const wanderAt = (along: number): number => wsgn * wander0(along);
   // (where the line leaves the bowl, down the flow and up it, read on the wander alone, the bend not yet laid)
   let aOut = 0;
   while (aOut < side && bowlAt(cx + aOut * ax - wanderAt(aOut) * ay, cy + aOut * ay + wanderAt(aOut) * ax) >= 0.5) aOut += 0.5;
@@ -259,7 +273,7 @@ export function standValley(seed: number, variation: number, phase: number, flow
   // the lake: a lobed hollow on the water's line against the bowl's downstream rim, as much of the bowl as asked
   const aL = aOut - K.at * r;
   const want = Math.min(K.share * inBowl, K.budget * lakeMost);
-  const { sd, side: bench } = lakeShore(s, W, H, r, aL, lineX(aL), lineY(aL), mb, alongOf, latOf, want, ax, ay);
+  const { sd, side: bench } = lakeShore(s, W, H, r, aL, lineX(aL), lineY(aL), mb, alongOf, latOf, want, ax, ay, benchWant);
   // (round 6c: the massif stands across the lake from the bench, `standMassif`: the water's line's side away from the
   // bench, turned by up to `STAND.massif.turn` of a turn, so the lake lies against the high ground on one side and the
   // start's bench opens on the other)
@@ -268,7 +282,7 @@ export function standValley(seed: number, variation: number, phase: number, flow
   // edge)
   // (the turn one way on odd seeds and the other on even, so two seeds whose lakes lie near have their high ground on
   // different sides)
-  const tq = (seed & 1 ? 1 : -1) * (0.3 + 0.7 * stream(s, "massif-dir").float()) * STAND.massif.turn;
+  const tq = (seed & 1 ? 1 : -1) * (0.3 + 0.7 * stream(hash32(seed, "stand-compose", variation), "massif-dir").float()) * STAND.massif.turn;
   const lx0 = -ay * -bench;
   const ly0 = ax * -bench;
   const roomAt = (dx: number, dy: number) => {
@@ -348,13 +362,13 @@ export function standValley(seed: number, variation: number, phase: number, flow
 /** The lake's shore in the bowl (round 6b steps 2 and 3): found, not laid. The bowl's tiles nearest a lobed outline
  *  round the lake's middle near the water's line (`aL` tiles along it, at `lx`, `ly`), the `want` nearest are the lake.
  *  Step 3, the bench first: the bench lies on the side of the line where the bowl is broader beside the lake's middle
- *  (round 6c: or, where the map past the lake is broader on one side by `benchRoom` of the side, on that side), and the lake's middle lies off the line away from it (`shift`). Facing the bench the shore is read from an outline
+ *  (round 6c: or on the side `benchWant` names, set before the lake is drawn), and the lake's middle lies off the line away from it (`shift`). Facing the bench the shore is read from an outline
  *  of gentle lobes (`benchLobes`, read `benchStretch` as far down the line as across it), so beside the bench it wanders
  *  a tile or two and the bench keeps its level room; turning away from the bench (`benchCos`, `benchTurn`) it is read
  *  from one of deep lobes (`lobes`, `stretch`) with a slow warped noise (`bays`), so the bays, the spit and the narrow
  *  end lie on the far shore and at the ends, and no two lakes share an outline. Returns each tile's signed distance to
  *  the shore (tiles, positive in the lake) and the bench's side of the water's line (1 where `latOf` is positive). */
-function lakeShore(s: number, W: number, H: number, r: number, aL: number, lx: number, ly: number, mb: Float64Array, alongOf: Float64Array, latOf: Float64Array, want: number, ax: number, ay: number): { sd: Float64Array; side: number } {
+function lakeShore(s: number, W: number, H: number, r: number, aL: number, lx: number, ly: number, mb: Float64Array, alongOf: Float64Array, latOf: Float64Array, want: number, ax: number, ay: number, benchWant = 0): { sd: Float64Array; side: number } {
   const K = STAND.lake;
   const N = W * H;
   const lakeF = outline(hash32(s, "lake-outline"), lx, ly, r, K.lobes);
@@ -368,13 +382,8 @@ function lakeShore(s: number, W: number, H: number, r: number, aL: number, lx: n
       if (latOf[i] > 0) pos++;
       else if (latOf[i] < 0) neg++;
     }
-  // (round 6c: with the bowl off the map's middle, the side facing the map's middle where the map past the lake is
-  // broader on it by `benchRoom` of the side or more: seed 4's bench lay between its lake and the edge, room 338)
-  const past = (dx: number, dy: number) => Math.min(dx > 0 ? (W - 1 - lx) / dx : dx < 0 ? -lx / dx : Infinity, dy > 0 ? (H - 1 - ly) / dy : dy < 0 ? -ly / dy : Infinity);
-  const roomPos = past(-ay, ax);
-  const roomNeg = past(ay, -ax);
-  const lean = (roomPos - roomNeg) / Math.min(W, H);
-  const side = lean >= K.benchRoom ? 1 : lean <= -K.benchRoom ? -1 : pos > neg ? 1 : pos < neg ? -1 : bs & 1 ? 1 : -1;
+  // (round 6c: the side set first, `standValley`'s `benchWant`, where the bowl lies off the middle across the way)
+  const side = benchWant !== 0 ? benchWant : pos > neg ? 1 : pos < neg ? -1 : bs & 1 ? 1 : -1;
   const ds: number[] = [];
   const dl = new Float64Array(N).fill(Infinity);
   for (let i = 0; i < N; i++)
@@ -466,8 +475,9 @@ export function benchValley(level: Float64Array, v: StandValley, base: number, W
  *  start; and the valley's channel and the ground within `STAND.badBeside` of it, so no ditch runs down it beside the
  *  river (seeds 1 and 5, a badwater stream the length of the channel), but where the channel holds the water a ditch
  *  joins (`join`, the main water's lower reach, D476): there the tiles within `STAND.badJoin` of that water are open,
- *  so the ditch crosses the floor to it. `valley` is `Genome.standValley`. */
-export function standBadKeep(valley: Uint8Array, join: Uint8Array | null, W: number, H: number): Uint8Array {
+ *  so the ditch crosses the floor to it. `valley` is `Genome.standValley`; round 6c, round 2: and the ground the start's
+ *  views take in round its bench (`benchView`, `Genome.benchView`). */
+export function standBadKeep(valley: Uint8Array, join: Uint8Array | null, W: number, H: number, benchView: Uint8Array | null = null): Uint8Array {
   const N = W * H;
   const bowl = new Uint8Array(N);
   for (let i = 0; i < N; i++) bowl[i] = valley[i] === 1 ? 1 : 0;
@@ -478,7 +488,7 @@ export function standBadKeep(valley: Uint8Array, join: Uint8Array | null, W: num
   const dc = distanceFrom(chan, W, H);
   const dj = join ? distanceFrom(join, W, H) : null;
   const keep = new Uint8Array(N);
-  for (let i = 0; i < N; i++) if (db[i] < view || (dc[i] <= STAND.badBeside && !(dj && dj[i] <= STAND.badJoin))) keep[i] = 1;
+  for (let i = 0; i < N; i++) if (db[i] < view || benchView?.[i] || (dc[i] <= STAND.badBeside && !(dj && dj[i] <= STAND.badJoin))) keep[i] = 1;
   return keep;
 }
 

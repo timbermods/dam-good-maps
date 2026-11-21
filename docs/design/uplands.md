@@ -950,7 +950,7 @@ planting within Easy's 15 tiles is a rule for every theme's Normal maps.
 **The hash proof**: the 52 maps of the other themes Designed for Normal and of Highlands at 128² and under, this head
 against dev (18a6518a), the version neutralised: 52 of 52 identical.
 
-### Round 6c: Highlands' maps differ from one another (2026-11-21, pushed as findings/highlands-6c: the start's bars failed)
+### Round 6c: Highlands' maps differ from one another (2026-11-21, two rounds, pushed as findings/highlands-6c: the start's bars failed)
 
 Planning's brief (#236, round 6c) named three shortfalls of 0.10.56's Highlands above 128²: every seed laid the same
 map, the lake in the middle with high ground in a ring round it; the broad tops were blank; and the walls were short,
@@ -1033,7 +1033,7 @@ same seeds made with Easy start; the three measures on the Normal maps; the lake
 - The composition moves the start, and every move cost room somewhere: a lake against an edge across the flow left the
   bench the narrow side (seed 4) or sent the river round the bowl (seed 2); a massif turned toward room walled the
   bench's flank (seed 2, six levels); a spring ran across the bench (seed 4). Each is ruled here (`valley.lat`,
-  `lake.benchRoom`, `massif.benchPush`, the springs kept off the bench's front), but they are rules round a bowl drawn
+  `lake.benchRoom` in round 1, `massif.benchPush`, the springs kept off the bench's front), but they are rules round a bowl drawn
   first. Draw the start's bench first, on the open side with room, then the lake beside it and the massif across.
 - Relief on a top must stand as tables whose rims drop two or more all round, or the promise loses its plateaus; and
   relief on the floor the colony walks is walls: keep the floor's steps off the start's walk, or leave the floor to the
@@ -1041,6 +1041,56 @@ same seeds made with Easy start; the three measures on the Normal maps; the lake
 - The variety rules (the golden way, near and far by parity, the turn's side by parity) hold for a seed's first land
   only; a second land re-draws its jitter and can land where another seed's did, so the attempts matter for variety
   too.
+
+**Round 2** (planning, #236: draw the bench first, then the lake beside it, then the massif across; keep the variety on
+the built maps; the same bars). What changed (`bold.ts` `standValley`, `lakeShore`; `levels.ts` `snapLevels`):
+- **The composition is the seed's, not the attempt's**: the bowl's way, its distance and the massif's turn come from
+  their own stream (`stand-compose`), so a second land keeps its seed's composition and the built maps keep their
+  variety (seeds 5 and 10, both second lands, kept their first land's lake and side).
+- **The bench faces the map's middle** (`lake.benchLean`, replacing round 1's `benchRoom`): the bowl lies off the
+  middle across the water's way, so the bench is laid on the side toward the middle, and the channel's wander is turned
+  so the bowl is broader there (`lake.benchAt`).
+- **A plain in front of the bench** (`lake.plain`, 2.2 radii of the bowl, fading over half a radius and across the
+  bench's front): the floor there lies at the bench's own level, so the start walks out over one plain; no floor step
+  is laid on the bench's side within `mesa.benchFar` radii. Seed 4's bench had been a strip under a floor two levels
+  higher, its walk 4,118 tiles; 11,973 with the plain. A plain of 3 radii cost seed 4 its plateaus and seed 10 its
+  high share (0.342).
+- **No badwater in the bench's view** (`Genome.benchView`, kept off in `standBadKeep`: within `badFar` and half the
+  bowl's radius of the bench): the Easy starts of seeds 4, 5, 6 and 12 saw 21, 4, 16 and 75 tiles; none now.
+
+| seed | attempts | room (Normal / Easy) | reach (Normal / Easy) | badwater in view (Normal / Easy) | moist % | lake x, y; high side (lopsidedness) | 3+ faces % | largest flat top % |
+|---|---|---|---|---|---|---|---|---|
+| 1 | 1 | 536 / 530 | 30,792 / 27,915 | 0 / 0 | 7.2 | 0.47, 0.40; E (0.48) | 4.2 | 4.3 |
+| 2 | 1 | 489 / 555 | 31,760 / 33,892 | 0 / 0 | 6.7 | 0.31, 0.71; E (0.63) | 4.5 | 2.6 |
+| 3 | 1 | 513 / 577 | 20,380 / 18,712 | 0 / 0 | 5.6 | 0.60, 0.46; N (0.45) | 4.7 | 2.1 |
+| 4 | 1 | 526 / 527 | 11,973 / 33,515 | 0 / 0 | 10.9 | 0.33, 0.59; S (0.44) | 4.7 | 3.3 |
+| 5 | 2 | 522 / 571 | 23,880 / 23,768 | 0 / 0 | 7.1 | 0.64, 0.60; W (0.34) | 3.6 | 3.7 |
+| 6 | 1 | 482 / 562 | 30,239 / 31,357 | 0 / 0 | 9.8 | 0.52, 0.35; N (0.42) | 4.5 | 1.9 |
+| 7 | 1 | 574 / 495 | 25,953 / 35,823 | 0 / 0 | 13.7 | 0.47, 0.68; S (0.53) | 4.3 | 2.3 |
+| 8 | 1 | 535 / 546 | 34,393 / 33,462 | 0 / 0 | 10 | 0.76, 0.49; N (0.55) | 4.6 | 1.7 |
+| 9 | 1 | 433 / 413 | 32,893 / 31,577 | 0 / 0 | 11.2 | 0.41, 0.43; E (0.62) | 3.6 | 2.8 |
+| 10 | 2 | 477 / 464 | 21,984 / 23,438 | 0 / 0 | 8.5 | 0.57, 0.74; S (0.67) | 4.1 | 1.9 |
+| 11 | 1 | 423 / 510 | 27,594 / 3,968 | 12 / 76 | 8 | 0.38, 0.51; S (0.44) | 4.2 | 1.8 |
+| 12 | 1 | 490 / 561 | 26,221 / 25,858 | 0 / 0 | 11.7 | 0.34, 0.71; E (0.80) | 3.7 | 3.6 |
+
+**Where round 2 falls short.** Starts 24 of 24, no Easy start misses a row, CPU 416.8 → 421.4 s (+1.1 %) and
+548.4 → 549.7 s (+0.2 %), lopsidedness 0.34–0.80 and no two of seeds 1–6 within a tenth of the map with the same side
+high, on the built maps too. But:
+- **Room** more than a tenth under base on seed 9 (433 against 528) and on Easy start seeds 7, 9 and 10 (495, 413, 464
+  against 555, 532, 551).
+- **Reach** under 8,721 on Easy start seed 11 (3,968).
+- **Badwater in view** on seed 11 (12 tiles, Normal) and its Easy start (76): the main water itself, mildly
+  contaminated (0.05–0.14) in the lake's lower lobe, from a ditch that joins the river upstream; no spring stands in view.
+- **Moist** on seed 4, 8 → 10.9 (+2.9).
+- **Attempts** 12 → 14 on each set: seed 5's first land reads a high share of 0.341 at the plan stage (0.75 on the land
+  alone, so the plan's read of the high ground, not the land, is short), seed 10's water story finds 33 % of the land
+  near clean water.
+- **Walls** 3.6–4.7 % of land beside a 3+ drop (the game's 5–9 %, reported, not a bar).
+
+**Lessons.** The plain in front of the bench is the lever for reach (seed 4, 4,118 → 11,973) but costs plateaus when it
+is broad: size it from the start's own walk, not the bowl. The plan stage's promise read and the land's disagree
+(seed 5, 0.341 against 0.75): mend the read before tuning the land to it. Badwater in view now comes from the main
+water downstream of a ditch, not from springs: where the ditch joins is the next rule.
 
 ## Islands' land above 128², parked (2026-11-20)
 

@@ -2284,7 +2284,7 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
     distance: Math.max(spec.settings.hazards.badwaterDistance, easyT ? easyT.badwaterSource + 2 : 0),
     // (a land that stands up keeps its badwater off its valley's bowl and the ground in the start's view round it, and
     // off its channel but where a ditch joins the main water: round 6b step 5, `bold.ts` `standBadKeep`)
-    keepOff: (g.standValley ? orMask(weir ? pool : null, standBadKeep(g.standValley, joinWater(), W, H)) : weir ? pool : null) as Uint8Array | null,
+    keepOff: (g.standValley ? orMask(weir ? pool : null, standBadKeep(g.standValley, joinWater(), W, H, g.benchView ?? null)) : weir ? pool : null) as Uint8Array | null,
     // (the ditches follow the field's own drainage, as the rivers' courses do)
     field: land.E,
     // (Designed for pulls the badwater near the start on Hard, away on Easy: D536 (6))
