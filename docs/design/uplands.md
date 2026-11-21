@@ -993,3 +993,54 @@ Lessons for whoever takes the land up again:
 - **A warm-started second settle can't ship under D455.** A saved project reopens by a fresh settle of the land it holds,
   so water that a settle warm from the first one reaches is not the water the project reopens to: the file's water must
   be a cold settle's.
+
+## Islands' land above 128², round 2 (2026-11-21, generator 0.10.62)
+
+Planning's follow-up to #1275: food first, the mainland's bands broken, three kinds of island, gated to Islands above 128²
+as #1275 was. The start's food row was short on four maps because only ground one level over the sea's spill stays moist
+through a Normal drought, and the headland's shore bench there was 3–6 tiles deep. Now that bench is 8–10 tiles deep, the
+headland's top keeps 6 tiles of its half-width over it (`ISLE_SEA.headBench`, `HEAD_TOP`), and the headland is 4 tiles
+broader, so the start's room stays. The start stands on the top, two levels over the spill or more (`generate.ts`
+`headStart`); the start's bench is not lowered. Two more causes came out of the food diagnostics:
+- **The map's groves took the bench.** On seed 7 the groves were planted before the start's top-up and took the free
+  moist tiles within the walk. The top-up now holds those tiles for itself first (`resources.ts`, `foodHeld`).
+- **The walk did not reach the bench.** On seed 8 the walk reached only 30 bench tiles, for want of slopes: the ringed
+  land places one slope per 70 tiles of a step. Steps now join the top to the bench every 7 tiles or so, taken as natural
+  ramps that the slopes follow (`isleSea.ts` `headRamps`).
+
+A river from the mainland could run down the headland's spine and take the start's ground (seeds 2, 8 and 11), or run
+along its shore and take the food's bench. So in the field the water is planned on, the headland stands over the land's
+highest level, and the mainland round its root rises toward it by up to 8 levels (`HEAD_RISE`); the land's levels are
+not changed. A field only 2 higher on the headland still let seed 11's main river, from mainland up to 8 levels higher
+behind the root, run down it.
+
+The mainland's steps are read on the shore's distance through a warp (14 tiles over 44), and lifted in spurs and valleys
+along the shore, 2 levels every 34 tiles or so, growing in from the shore bench; past the shore bench they are 2.5–8 tiles
+deep (`warp`, `spur`, `mainBench`). So the steps bend, merge and split, and a valley or a spur crosses them.
+
+The islands are of three kinds, mixed on every map, none over half (`IsleKind`):
+- **Low:** the smallest third, narrow, all of it one level over the sea, so they stay green to their middles.
+- **Rock:** half of the rest, bare rock rising steeply (two levels a tile) from a foot one level over the sea.
+- **Bench:** the largest, a top over benches, as before.
+
+No 3D forms grow on this land. The rock islands' cliffs offered arches and overhangs, and terrain over terrain puts the
+map's water on the stacked engine, so each try cost a stacked settle; every one was then dropped by its checks. Easy-start
+seed 2 took 128.9 s in the page's worker (#1275's head 61.2 s), and 65.2 s without them.
+
+A land where no river's water reached the badwater pits and they found no place for them is drawn again, not planned
+again. On seed 10 a mainland ringing the sea round the headland took every ditch past the start, and three attempts were
+spent on that one land.
+
+Measured on Islands 256² seeds 1–12 against #1275's head (d300f309), base and branch run side by side. Normal: every
+start passes, eleven on the headland's top and seed 7 on its tip a level lower; the food row on all twelve (base short on
+seeds 2, 4, 7 and 10); badwater in the opening view 0 on all twelve; attempts 29 → 21; CPU 743 → 474 s; reach least 18,036
+→ 13,575; room least 1,694 → 1,239. Easy start: every map passes, no Easy row missed on either, the opening view's badwater
+12 → 0 (seed 1), attempts 35 → 19, CPU 1,290 → 849 s. Every map has all three kinds of island, none over half. The sea: at every Hard wet season's end (four cycles) the start's water is its settled count on all twelve (25–61 tiles), the sea's p50 within 0.13 of settled; Normal's droughts end at p50 0.69–0.73 and the 9-day drought at 0.58–0.62. The 84
+default maps (seven themes, seeds 1–6, 96² and 128²) keep their heights, water and objects; with the version set back to
+0.10.61 their files are #1275's byte for byte.
+
+Short: the mainland's steps still run along the shore where the mainland is a narrow strip between the sea and the map's
+edge (seed 2's east shore climbs seven levels in 14 tiles, straight). The longest run of a step's edge within 3 tiles of
+one distance from the shore is 25–58 tiles (base 33–65; about 24 asked). Stronger warps, spurs and wandering bench depths
+moved it little, as the levels are still read on the distance from the shore. The next round draws the mainland's back
+from a field of its own, the shore's distance kept only for the shore bench and the first steps.
