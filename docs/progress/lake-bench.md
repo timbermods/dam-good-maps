@@ -45,3 +45,18 @@ one-level tangle came from the small maps' edge warp, 8.5 tiles over a 6-tile ce
 | Land in pieces under 40 tiles, % | 1.9–3.8 | 3.6–7.1 |
 | Other themes and Lake Basin 128² hash as dev | 6/6 | |
 | Attempts | 6 | 9 |
+
+Step 2: a spur and two or three broad hills out on the plate (`land/lakeBasin.ts` `plateForms`). Seeds 1–12.
+
+| Bar | Normal | Easy start | 50fc05e0 |
+|---|---|---|---|
+| The start on the bench | 12/12 | 12/12 | 12/12, 12/12 |
+| Food row | 12/12 (44–63) | 12/12 (52–60) | 12/12, 12/12 |
+| Room 400+ | 12/12 (410–534) | 12/12 (470–574) | 12/12, 12/12 |
+| Reach 8,721+ | 12/12 (lowest s7: 19,123) | 12/12 (lowest s8: 10,109) | lowest 16,146, 17,776 |
+| Badwater in view | 0 | 0 | 0 |
+| Other themes and Lake Basin 128² hash as dev | 6/6 | | |
+| Attempts, seeds 1–6 / 7–12 | 7 / 7 | 7 / 9 | Normal 9 / 9, Easy 12 / 9 |
+| CPU s, seeds 1–6 / 7–12 | 238.4 / 215.4 | 368.4 / 334.1 | Normal 287.2 / 326.9, Easy 430.8 / 478.1 |
+
+Reach falls but stays over the bar on Easy s8 (to 10,109).
