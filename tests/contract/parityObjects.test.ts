@@ -271,7 +271,7 @@ describe("a brush stroke is one operation, one undo step (D235, D338)", () => {
     expect(count()).toBe(before + planted);
   });
 
-  it("ruin fields and thorn patches: as generated, on one level, in the game's components, one step each", () => {
+  it("ruins (D548) and thorn patches: in the game's components, one step each", () => {
     const s = open();
     const [x, y] = flatten(s, 12);
     const ruins = () => s.built.entities.filter((e) => e.owner === "placed" && /^RuinColumnH\d$/.test(e.template));
@@ -279,7 +279,9 @@ describe("a brush stroke is one operation, one undo step (D235, D338)", () => {
     const r = s.apply(stroke("ruins", undefined, x + 6, y + 6, 5, 1));
     expect(r.errors).toEqual([]);
     const made = ruins();
-    expect(made.length).toBeGreaterThanOrEqual(12);
+    // (at 100 % a ruin on every free tile of the ring, each at the shelf's 3 levels unless set)
+    expect(made.length).toBeGreaterThanOrEqual(60);
+    expect(new Set(made.map((e) => e.template))).toEqual(new Set(["RuinColumnH3"]));
     for (const e of made) {
       const c = entityJson(e).Components as Record<string, Record<string, unknown>>;
       expect(Object.keys(c)).toEqual(["BlockObject", "Yielder:Ruin", "RuinModels"]);
