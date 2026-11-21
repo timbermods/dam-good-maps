@@ -75,7 +75,9 @@ import { hash32 } from "../math/hash";
 import { stream } from "../math/rng";
 import { droughtStorage } from "../sim/drought";
 import { waterModel } from "../sim/model";
-import { moisture } from "../sim/moisture";
+import { evapModifier, moisture } from "../sim/moisture";
+import { HAZARD_DAYS } from "../sim/weather";
+import { TEMPERATE_DAYS } from "../sim/coreMoment";
 import { AVAILABLE_THEMES, EDITOR_LEVEL, generatorSizeRefusal, THEME_PRESETS, themeOwnSettings, VARIETY_DEFAULT, VT_DEFAULT, VT_TALL, type MapSpec, type Settings, type ThemeId } from "../spec/mapspec";
 import { assertSpec } from "../spec/schema";
 import { ColumnTerrain, plainMask, terrainColumns, terrainData } from "../terrain/runs";
@@ -1557,6 +1559,69 @@ function reachesDown(cells: readonly number[], spill: Float64Array, W: number, H
     }
   }
   return false;
+}
+
+/** The feed an island sea is given (generator 0.10.56): what a typical Hard drought takes from it, returned within a
+ *  typical Hard wet season, with a little to spare. The middles of the game's ranges: the drought 15–30 days, the wet
+ *  season 5–8 (`HAZARD_DAYS`, `TEMPERATE_DAYS`, investigation/cycles/weather.ts `MODES`). */
+export const SEA_FEED = {
+  droughtDays: (HAZARD_DAYS.hard.drought[0] + HAZARD_DAYS.hard.drought[1]) / 2,
+  wetDays: (TEMPERATE_DAYS.hard[0] + TEMPERATE_DAYS.hard[1]) / 2,
+  spare: 1.15,
+} as const;
+
+/**
+ * An island sea's feed from its loss (generator 0.10.56; planning's ruling on #236, 2026-11-20): the sea, the largest
+ * hollow of the land's levels (4-connected tiles a level or more under their spill), loses its surface's evaporation
+ * (1e-4 a second times wide water's modifier, a cluster's saturation 8: `evapModifier`) on every day of a drought and
+ * of the wet season after it; the clean rivers whose water runs down to it are to give that loss over the wet season's
+ * days, times `SEA_FEED.spare`. The factor their flows are raised by (1 when they give as much already) and the rivers,
+ * or null when no clean river runs down to the sea.
+ */
+export function seaFeed(h: ArrayLike<number>, W: number, H: number, rivers: readonly Feature[]): { k: number; feeders: RiverFeature[] } | null {
+  const N = W * H;
+  const filled = drainage(h, W, H, { eight: false }).filled;
+  const seen = new Uint8Array(N);
+  let best: number[] = [];
+  for (let s = 0; s < N; s++) {
+    if (seen[s] || !(filled[s] - h[s] >= 1)) continue;
+    const q = [s];
+    seen[s] = 1;
+    for (let k = 0; k < q.length; k++) {
+      const c = q[k];
+      const x = c % W;
+      const y = (c - x) / W;
+      for (const n of [x > 0 ? c - 1 : -1, x < W - 1 ? c + 1 : -1, y > 0 ? c - W : -1, y < H - 1 ? c + W : -1]) {
+        if (n < 0 || seen[n] || !(filled[n] - h[n] >= 1)) continue;
+        seen[n] = 1;
+        q.push(n);
+      }
+    }
+    if (q.length > best.length) best = q;
+  }
+  if (!best.length) return null;
+  const sea = new Uint8Array(N);
+  for (const i of best) sea[i] = 1;
+  const need = best.length * 1e-4 * evapModifier(8) * ((SEA_FEED.droughtDays + SEA_FEED.wetDays) / SEA_FEED.wetDays) * SEA_FEED.spare;
+  const feeders = rivers.filter((f): f is RiverFeature => {
+    if (f.kind !== "river" || f.params.badwater) return false;
+    const [px, py] = f.params.path[0];
+    const x = Math.min(W - 1, Math.max(0, Math.round(px)));
+    const y = Math.min(H - 1, Math.max(0, Math.round(py)));
+    return reachesDown([y * W + x], filled, W, H, sea);
+  });
+  const have = feeders.reduce((t, f) => t + f.params.flow, 0);
+  if (!(have > 0)) return null;
+  return { k: Math.max(1, need / have), feeders };
+}
+
+/** `seaFeed` applied: the clean rivers that run down to the sea raised by its factor, shared as their flows were.
+ *  Returns whether any was raised. */
+export function feedSea(h: ArrayLike<number>, W: number, H: number, rivers: readonly Feature[]): boolean {
+  const fed = seaFeed(h, W, H, rivers);
+  if (!fed || fed.k <= 1) return false;
+  for (const f of fed.feeders) f.params.flow = Math.round(f.params.flow * fed.k * 1000) / 1000;
+  return true;
 }
 
 /** Dry tiles within 20 tiles' walk of the start (where the start rules count its wood and berries). */
@@ -3090,6 +3155,9 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
     // second plan is tried before the attempts stop)
     return (landStage?.unsettled ?? 2) >= 2 ? { ...fail("water.settles", b, false), stuck: true } : fail("water.settles", b, true);
   };
+  // (an island sea above 128²: its rivers feed it what a typical Hard drought takes, returned within a wet season,
+  // `feedSea`; the land and the rivers' beds stay as they were planned)
+  if (islesUp && feedSea(h, W, H, rivers)) fixes.push("sea fed");
   let b1 = build([...rivers, ...bad.features], "resources");
   // (a plug that holds its lake back, D274, and keeps the water from settling: its lake fills for
   // days over the plug's narrow line. It is opened, and stays open on the later attempts on this
