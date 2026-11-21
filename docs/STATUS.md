@@ -20,7 +20,7 @@ Latest: `ruin-brush-done` (2026-11-21 13:15Z, PR #1271): dev 5cb017b4 released i
 Before it: `ruins-in-view-done` (2026-11-20, PR #1268): dev cc351e38 released into `main` at 9ca0997e, generator 0.10.53 →
 0.10.55: a stand of the map's own ruins in the opening view (#1266) and Islands' start above 128² walking its island, its
 berries topped up to Easy's food row (#1267). The live check passed and the preview was republished; recorded on #57.
-In flight: Islands' land above 128² (generator 0.10.58, branch `gen/islands-land`, labelled `hold` for planning's verdict):
+In flight: Islands' land above 128² (generator 0.10.61, branch `gen/islands-land`, labelled `hold` for planning's verdict):
 a mainland framing the sea, the start on a headland, 8–11 islands, the sea's bed one level under its spill and its exit
 away from every river (D547, [design/uplands.md](design/uplands.md)). The bed alone, on 0.10.48's land (Islands 256² seeds
 1–6, Normal), missed its Hard bar on three: the sea's p50 at the Hard wet season's end 1.02 of 1.16, 0.65 of 1.21 and

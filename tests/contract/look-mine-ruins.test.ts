@@ -141,9 +141,12 @@ import * as ed from "../../src/worker/session";
 // back to 0.10.54 the branch gives `5d76ac7a…` byte for byte, D148
 // and generator 0.10.56's version alone (the start's first food, which this map's start does not need): with the
 // version set back to 0.10.55 the branch gives `f8adbd50…` byte for byte, D148
-// and generator 0.10.58's version alone (D547's Islands land above 128², which keeps this River Valley map): with the
-// version set back to 0.10.56 the branch gives `b0d7d607…` byte for byte, D148
-const LIVE_SHA = "e2aedaaf37afdfc44158eaa7fe184de9383560f5036f71d1605f1f8e1a44c1a6";
+// and generator 0.10.60's version alone (Lake Basin's hydro pass and shore bench, gated to Lake Basin above 128², which
+// keeps this River Valley map): dev's code with its version set to 0.10.60 gives this pin byte for byte (`b0d7d607…`
+// at 0.10.56), D148
+// and generator 0.10.61's version alone (D547's Islands land above 128², which keeps this River Valley map): with the
+// version set back to 0.10.60 the branch gives `5cf58a1e…` byte for byte, D148
+const LIVE_SHA = "1fb9ca92ce592d0d61870f9fac3357a201bb43947e74e00f96c0e69dce17c499";
 const spec = () => makeSpec({ seed: 4242, size: { x: 128, y: 128 }, theme: "riverValley", designedFor: "normal" });
 
 describe("mine sites and ruins, models of our own", () => {

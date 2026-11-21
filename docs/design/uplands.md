@@ -950,7 +950,7 @@ planting within Easy's 15 tiles is a rule for every theme's Normal maps.
 **The hash proof**: the 52 maps of the other themes Designed for Normal and of Highlands at 128² and under, this head
 against dev (18a6518a), the version neutralised: 52 of 52 identical.
 
-## Islands' land above 128² (2026-11-21, generator 0.10.58)
+## Islands' land above 128² (2026-11-21, generator 0.10.61)
 
 Islands above 128² (a map whose narrower side is over 128 and that is not long) no longer draws 0.10.48's land: planning's
 design of 2026-11-21, the start's ground first, is drawn in levels by `land/isleSea.ts` (rounds 9–11 drew an island big

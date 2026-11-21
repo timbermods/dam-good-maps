@@ -126,7 +126,7 @@ const DROWNED = 2;
  *  sealed, two levels or more over the mouth's bed): a lake whose rim stands above the head backs
  *  up the course to the edge, its water stands over the head's sources and runs off the map beside
  *  them, and it never settles (Canyon 256² seed 14: a head at 4 under a lake held at 7). */
-export function drownedHeads(h: ArrayLike<number>, W: number, H: number, rivers: readonly RiverFeature[]): string[] {
+export function drownedHeads(h: ArrayLike<number>, W: number, H: number, rivers: readonly RiverFeature[], wetOnly = false): string[] {
   const sealed = sealedMouths(rivers, W, H);
   const filled = drainage(h, W, H, { eight: false, outlet: (i) => !sealed[i] }).filled;
   const out: string[] = [];
@@ -149,7 +149,10 @@ export function drownedHeads(h: ArrayLike<number>, W: number, H: number, rivers:
         const u = x + dx;
         const v = y + dy;
         if (u <= 0 || v <= 0 || u >= W - 1 || v >= H - 1) continue;
-        top = Math.max(top, filled[v * W + u]);
+        // (`wetOnly`, Lake Basin above 128²: only where water stands, a dry bank's own height being no water over the
+        // head; its inflows come down from the rim between banks over their beds. Fix B of round 7c, gated: every other
+        // map reads its banks as before)
+        if (!wetOnly || filled[v * W + u] > h[v * W + u]) top = Math.max(top, filled[v * W + u]);
       }
     }
     if (top - bed >= DROWNED) out.push(r.id);

@@ -1,4 +1,4 @@
-// Islands' land above 128² (planning's design, 2026-11-21, generator 0.10.58): the start's ground first. A mainland
+// Islands' land above 128² (planning's design, 2026-11-21, generator 0.10.61): the start's ground first. A mainland
 // frames the sea on every side, and the start stands on a headland of it reaching into the sea, water on two or three
 // sides and islands in view; the islands are the view and the place to expand to, never the place to live. Rounds 9–11
 // drew an island big enough to live on and never converged (docs/design/uplands.md).
