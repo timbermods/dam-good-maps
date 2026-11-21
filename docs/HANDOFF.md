@@ -16,7 +16,7 @@ editor work), `docs/decisions/README.md` (the decisions in force: the index, the
 ## 0. Where the work stands at the release of 2026-11-22
 
 - **What ships:** every theme as dev holds it at the release, with Lake Basin's hydro pass and shore bench (#1273,
-  generator 0.10.60). **TO FILL (Islands):** whether #1275 landed, and at which version. STATUS.md, "Done, and next",
+  generator 0.10.60) and Islands' land above 128² (#1275, generator 0.10.61). STATUS.md, "Done, and next",
   has the release state.
 - **What falls short:** one entry per theme, each with its next step and its findings branch, in
   [design/uplands.md](design/uplands.md), "State at the release of 2026-11-22". The parked PRs are in STATUS.md's

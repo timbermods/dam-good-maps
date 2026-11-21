@@ -20,14 +20,15 @@ Latest: `ruin-brush-done` (2026-11-21 13:15Z, PR #1271): dev 5cb017b4 released i
 Before it: `ruins-in-view-done` (2026-11-20, PR #1268): dev cc351e38 released into `main` at 9ca0997e, generator 0.10.53 →
 0.10.55: a stand of the map's own ruins in the opening view (#1266) and Islands' start above 128² walking its island, its
 berries topped up to Easy's food row (#1267). The live check passed and the preview was republished; recorded on #57.
-In flight: Islands' land above 128² (generator 0.10.61, branch `gen/islands-land`, labelled `hold` for planning's verdict):
+In dev, to be released: Islands' land above 128² (#1275, merged at dev 0fc2390b on 2026-11-21, generator 0.10.61):
 a mainland framing the sea, the start on a headland, 8–11 islands, the sea's bed one level under its spill and its exit
 away from every river (D547, [design/uplands.md](design/uplands.md)). The bed alone, on 0.10.48's land (Islands 256² seeds
 1–6, Normal), missed its Hard bar on three: the sea's p50 at the Hard wet season's end 1.02 of 1.16, 0.65 of 1.21 and
 0.29 of 1.01 on seeds 1, 2 and 4, as seed 4's river entered at the exit; the new land holds it, the start's water back to
 its settled count at every Hard wet season's end on seeds 1–12. Short: the start's food row on seeds 2, 4, 7 and 10 (only
 the shore bench stays moist through a drought), seed 6's sea at 0.45 of 1.11 after a Hard wet season (its river's mouth 55
-tiles from the exit; the start's water whole).
+tiles from the exit; the start's water whole). Its second round is in flight (`gen/islands-land-2`, 0.10.62): the food
+row on 12 of 12 from a wider shore bench in the start's walk, the mainland's banded back broken, and three kinds of island.
 Before it: `highlands-done` (2026-11-20, PR #1265): dev a0a3c83c released into `main` at 46b5e71, generator 0.10.37 →
 0.10.53; 56 PRs since `tilt-forms-done`: the land above 128² drawn in rings (D547) with Highlands standing up (#1263), the
 start picked for its level room (D545, #1256, #1261), ruled water (#1162), floodplain steps 5 and 6 and Save as.
@@ -95,7 +96,6 @@ deleted (planning, #236 7059356767).
 
 | PR | Work | State, and why |
 |---|---|---|
-| #1275 | Islands' land above 128² (`gen/islands-land`, head d300f309, generator 0.10.61) | In flight, `hold` for planning's verdict: the last map change before the release. **TO FILL (Islands):** merged at dev …, or named and parked. |
 | #1183 | The water tree above 128² | Parked (planning, 2026-11-16): #1162's joins give the same read of each river system, and the tree laid over them doubled leaks (9 → 18). It comes back only as a tree built on the joins. |
 | #1178 | Nightly test: every generator control's move changes the map (D527, fix 5) | `hold`: it merges after #1177, the last of the settings fixes it follows. |
 | #1177 | Starting berries folds into Berries near start (D527, fix 1) | Approved at b9c7e2f0. `hold` until planning's conditions hold: dev's rescue rounds and premises kept, and trees within 3 % (#236 6895067611). |
@@ -117,9 +117,9 @@ follows whenever a round lands; the order of the rounds is in [ROADMAP.md](../RO
 release of 2026-11-22" (Kyler, 2026-11-21: no round budgets, no stopping point).
 
 1. **In dev, not yet on `main`:** Lake Basin's hydro pass and shore bench (#1273, merged at dev 5c3694d7, generator
-   0.10.60; its Nightly was green). Before Islands lands, dev is ahead of `main` by #1273 alone.
-2. **In flight:** Islands' land above 128² (#1275, `gen/islands-land`, generator 0.10.61), the last map change before the
-   release. **TO FILL (Islands):** merged at dev …, or named.
+   0.10.60; its Nightly was green). With it, Islands' land above 128² (#1275, merged at dev 0fc2390b,
+   generator 0.10.61).
+2. **In flight:** Islands' second round (`gen/islands-land-2`, generator 0.10.62), after the release.
 3. **Then:** planning releases dev to `main` once.
 4. **Not shipped, kept as findings branches:** the start's food row where water lasts (`gen/food-row-lasting-water`,
    #1272 closed), Highlands round 6c (`findings/highlands-6c`), Delta round 2 (`findings/delta-1`, #1274 closed), the
@@ -127,7 +127,7 @@ release of 2026-11-22" (Kyler, 2026-11-21: no round budgets, no stopping point).
    and Islands' earlier land (`findings/islands-land-11`, `findings/islands-feed`). Each theme's state as released, its
    shortfall and its next step are in [design/uplands.md](design/uplands.md), "State at the release of 2026-11-22".
 5. **Generator versions never used on dev:** 0.10.57 (the food row where water lasts) and 0.10.59 (Highlands 6c); 0.10.58
-   too, which Islands held before it moved to 0.10.61. **TO FILL (Islands):** the version it lands at.
+   too, which Islands held before it landed at 0.10.61.
 6. **Not yet played in the game:** Real places' open edges (#493's four places, files in
    `C:\dgm-probe\places-open-edges\`), generated caves and the opening shot (D483), and the cycle-10 run for Showcase's
    winners (#507's `--cycles`). A batch runs only where an implementation looks wrong in the game.

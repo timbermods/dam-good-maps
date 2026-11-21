@@ -998,8 +998,8 @@ Lessons for whoever takes the land up again:
 
 Every theme as it is released on 2026-11-22, and what still falls short. Each entry gives the state as released, the
 shortfall, the next step and the findings branch. The findings branches are kept, not merged. The numbers are from the
-#236 posts named in each entry: 256², Normal, unless the entry says otherwise. Entries marked **TO FILL (Islands)** wait
-for the Islands PR (#1275), and are filled in when it lands.
+#236 posts named in each entry: 256², Normal, unless the entry says otherwise. Islands' entry is
+from #1275 (7066878943, 7066905865).
 
 ### The lesson across the land rounds
 
@@ -1097,9 +1097,15 @@ water at its foot. Rounds that drew the land and hoped the start would find it m
 
 ### Islands
 
-- **As released:** **TO FILL (Islands)**, from #1275 (`gen/islands-land`).
-- **Shortfall:** **TO FILL (Islands)**.
-- **Next step:** **TO FILL (Islands)**.
+- **As released:** #1275 (0.10.61). Above 128², a mainland frames the sea with bays and headlands, the start is on a
+  headland (12 of 12, reach 18,036+, badwater in view 0), there are 8–11 islands of 100+ tiles, and the sea's bed is one
+  level under its spill with a one-level lip on the outer rows. The start's water is back to its settled count at every
+  Hard wet season's end on 12 of 12. Seed 2 is ready in the page's worker in 52 s, where 0.10.60 hung.
+- **Shortfall:** the start's food row passes on 8 of 12 (base 10): the start's own bench never lasts a drought, and only
+  the shore bench one level over the spill does. The mainland's back rises in bands that follow the shore. The islands
+  are all one kind, a green bench round a flat grey top.
+- **Next step:** in flight as round 2 (`gen/islands-land-2`, 0.10.62): widen the shore bench inside the start's walk to
+  40+ lasting bushes, break the bands with merges, splits, valleys and spurs, and mix three kinds of island.
 - **Earlier parked work:** `findings/islands-land-11` (34543b52: land rounds 9–11) and `findings/islands-feed`
   (c1a5e669: the sea feed). Their lessons are in this file's Islands section, above.
 
