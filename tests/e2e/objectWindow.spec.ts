@@ -22,12 +22,18 @@ test("the object window has sliders with their values and segmented choices, nev
   const shelf = page.getByRole("navigation", { name: "Place" });
   const none = (name: string) => page.getByRole("group", { name }).locator("select");
 
-  // a ruin: Height is a slider saying its levels; a relic: Size is a choice; each with Turn
+  // a ruin: the brush's Size and Density, Height a slider saying its levels, Heights a choice (D548); a relic: Size is
+  // a choice; each with Turn
   await shelf.getByRole("button", { name: "Ruin", exact: true }).click();
   const ruin = page.getByRole("group", { name: "Ruin options" });
+  await expect(ruin.getByRole("slider", { name: "Size" })).toBeVisible();
+  await expect(ruin.getByRole("slider", { name: "Density" })).toBeVisible();
   const height = ruin.getByRole("slider", { name: "Height" });
   await height.fill("5");
-  await expect(ruin.locator(".ow-value").first()).toHaveText("5 levels");
+  await expect(ruin.locator(".ow-value", { hasText: "levels" })).toHaveText("5 levels");
+  await ruin.getByRole("group", { name: "Heights" }).getByRole("button", { name: "Mixed" }).click();
+  await expect(ruin.getByRole("group", { name: "Heights" }).getByRole("button", { name: "Mixed" })).toHaveAttribute("aria-pressed", "true");
+  await expect(ruin.getByRole("group", { name: "Turn" })).toBeVisible();
   await expect(none("Ruin options")).toHaveCount(0);
   await putAway(page);
   await shelf.getByRole("button", { name: "Relic", exact: true }).click();

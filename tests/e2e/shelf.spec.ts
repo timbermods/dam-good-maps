@@ -171,6 +171,52 @@ test("the shelf: a ghost red where the game would delete it and refused there, p
   expect(errors).toEqual([]);
 });
 
+test("the Ruin places like the trees (D548): its drag paints a filled field at its Height, one step that one undo takes back; a click places one", async ({ page }) => {
+  const errors: string[] = [];
+  page.on("pageerror", (e) => errors.push(String(e)));
+  await openTopDown(page, "s=1&z=96&d=n&t=riverValley");
+  const shelf = page.getByRole("navigation", { name: "Place" });
+  const ruinsNear = (near: [number, number], rx: number, ry: number) =>
+    page.evaluate(
+      ([x, y, ax, ay]) => {
+        const e = window.dgm3d!.renderer.mapState()!.entities;
+        const out: string[] = [];
+        for (let k = 0; k < e.count; k++) if (/^RuinColumnH\d$/.test(e.templates[e.template[k]]) && Math.abs(e.x[k] - x) <= ax && Math.abs(e.y[k] - y) <= ay) out.push(`${e.x[k]},${e.y[k]},${e.templates[e.template[k]]}`);
+        return out;
+      },
+      [near[0], near[1], rx, ry] as const,
+    );
+  const spots = await openGround(page, 4);
+  const [gx, gy] = spots[0];
+  await shelf.getByRole("button", { name: "Ruin", exact: true }).click();
+  const options = page.getByRole("group", { name: "Ruin options" });
+  await options.getByRole("slider", { name: "Density" }).fill("100");
+  await options.getByRole("slider", { name: "Height" }).fill("4");
+  await page.evaluate(() => (document.activeElement as HTMLElement | null)?.blur());
+  // a drag along six tiles with the 4-tile brush: every tile within one of its line holds a ruin, all 4 levels tall
+  const a = await client(page, gx - 3, gy);
+  const b = await client(page, gx + 3, gy);
+  await page.mouse.move(a.x, a.y);
+  await page.mouse.down();
+  await page.mouse.move(b.x, b.y, { steps: 8 });
+  await page.mouse.up();
+  await idle(page);
+  const field = await ruinsNear([gx, gy], 5, 3);
+  for (let y = gy - 1; y <= gy + 1; y++) for (let x = gx - 3; x <= gx + 3; x++) expect(field, `X ${x} · Y ${y}`).toContain(`${x},${y},RuinColumnH4`);
+  expect(field.every((r) => r.endsWith("RuinColumnH4"))).toBe(true);
+  expect(await labels(page)).toEqual([`Paint ${field.length} ruins`]);
+  // one undo takes the whole field back
+  await page.keyboard.press("Control+z");
+  await idle(page);
+  await expect.poll(() => ruinsNear([gx, gy], 5, 3)).toEqual([]);
+  // a click places one
+  const [ox, oy] = spots.find(([p, q]) => Math.hypot(p - gx, q - gy) > 12)!;
+  await clickTile(page, ox, oy);
+  expect(await ruinsNear([ox, oy], 4, 4)).toEqual([`${ox},${oy},RuinColumnH4`]);
+  expect((await labels(page)).at(-1)).toBe("Place a ruin");
+  expect(errors).toEqual([]);
+});
+
 test("Delete (D288, D323 items 1 and 44): pointed at an object it takes it, the start too; on bare ground it takes the top level; Select and Delete take everything inside, one step; no Remove tool", async ({ page }) => {
   const errors: string[] = [];
   page.on("pageerror", (e) => errors.push(String(e)));
