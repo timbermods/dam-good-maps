@@ -3919,13 +3919,18 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
   };
   // (Easy start, D495: the ground that stays moist through a Normal drought, the checks' drought model and the
   // game's soil, where the start's berries go)
-  const easyFood = (b: BuildResult): { easy?: { safe: Uint8Array; bushes: number; within: number; ruins: number } } => {
-    if (!easyT) return {};
+  // (Islands round 8: an island sea above 128² on Normal tops its start's berries up to Easy's food row on that ground,
+  // `startFood`, so the slopes it adds, moving the patches the planting draws, never cost the start its food)
+  const isleFood = islesUp && spec.designedFor === "normal" && !easyT ? easyTargets(W, H) : null;
+  const easyFood = (b: BuildResult): { easy?: { safe: Uint8Array; bushes: number; within: number; ruins: number }; startFood?: { safe: Uint8Array; bushes: number; within: number } } => {
+    if (!easyT && !isleFood) return {};
     const kept = droughtStorage(b.waterModel, b.water, DROUGHT.normal.days);
     const cd = new Float64Array(N);
     for (let i = 0; i < N; i++) if (kept[i] > 0) cd[i] = b.contamination[i];
     const md = gameSoil(W, H, b.heights, kept, cd, mapObjects({ entities: b.entities.map(entityJson) })).moisture;
-    return { easy: { safe: Uint8Array.from(md, (v) => (v > 0 ? 1 : 0)), bushes: Math.ceil(1.3 * easyT.bushes), within: easyT.bushesWithin, ruins: easyT.ruins } };
+    const safe = Uint8Array.from(md, (v) => (v > 0 ? 1 : 0));
+    if (!easyT) return { startFood: { safe, bushes: Math.ceil(1.1 * isleFood!.bushes), within: isleFood!.bushesWithin } };
+    return { easy: { safe, bushes: Math.ceil(1.3 * easyT.bushes), within: easyT.bushesWithin, ruins: easyT.ruins } };
   };
   const resources = [...rise.filter((f) => f.kind === "ruinField"), ...planResources(spec, droughtGround(base), 0, attempt, { turn: (layout.find((f) => f.kind === "start") as StartFeature | undefined)?.params.orientation, standBeyond: g.intentions.includes("two-ways") ? TWO_WAYS_REACH : 0, protect: keepOff, scrapPlaced, woodLean: (opts.ease ?? 0) >= 1, ...(info.washes ? { beds: bedMask(info.washes, N) } : {}), ...easyFood(base) }, sites)];
   let features = [...layout, ...resources];

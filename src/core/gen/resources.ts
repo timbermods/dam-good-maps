@@ -62,6 +62,10 @@ export interface ResourceConstraints {
    *  least `bushes` of them within `within` tiles' walk, the map's own patches kept out of the start's walk, and a
    *  small ruin field the colony walks to within `ruins` tiles' walk (scrap at hand). */
   easy?: { safe: Uint8Array; bushes: number; within: number; ruins: number };
+  /** Islands above 128² on Normal (round 8): the start's berries topped up to at least `bushes` within `within` tiles'
+   *  walk on ground that stays moist through a Normal drought (`safe`), as Easy's are, after the map's own planting:
+   *  the island's added slopes move the patches the draws grow, never the food the start's row counts. */
+  startFood?: { safe: Uint8Array; bushes: number; within: number };
   /** The start's turn (its door's orientation): the game's first camera is turned by it (D493). */
   turn?: Orientation;
   /** The stand in the opening view keeps more than this many straight tiles from the start's middle, measured as the
@@ -595,28 +599,30 @@ export function planResources(spec: MapSpec, g: Ground, candidate: number, attem
     }
     // (Easy start, D495: its berries within its shorter walk, on ground that stays moist through a drought; what
     // the planting above left short there is planted now, round the start's water first)
-    if (easy && walk) {
+    // (and Islands above 128² on Normal, `startFood`: the same top-up, to its own count)
+    const food = easy ?? constraints?.startFood ?? null;
+    if (food && walk) {
       const close = new Uint8Array(N);
-      for (let i = 0; i < N; i++) if (walk[i] <= easy.within && easy.safe[i] && (!plantWalk || plantWalk[i])) close[i] = 1;
+      for (let i = 0; i < N; i++) if (walk[i] <= food.within && food.safe[i] && (!plantWalk || plantWalk[i])) close[i] = 1;
       let have = 0;
       for (const f of out) if (f.kind === "berryPatch") for (const i of runsToTiles(f.params.area, W)) if (close[i] && moist[i]) have++;
-      const er = stream(seed, "easy-berries", candidate, attempt);
+      const er = stream(seed, easy ? "easy-berries" : "start-food", candidate, attempt);
       // (first on ground the drought leaves moist, as the patches only grow there; where that leaves Easy's
       // berries short, on the rest of its drought-proof ground as before the D410 round: its targets hold)
-      for (let pass = 0; pass < 2 && have < easy.bushes; pass++) {
+      for (let pass = 0; pass < 2 && have < food.bushes; pass++) {
         if (pass === 1) {
           if (!dries) break;
           dries = null;
         }
-        for (let k = 0; k < 8 && have < easy.bushes; k++) {
+        for (let k = 0; k < 8 && have < food.bushes; k++) {
           const w = new Float64Array(N);
           for (let i = 0; i < N; i++) if (close[i] && free[i] && bushMoist[i] && !dries?.[i]) w[i] = nearWater(i) ? 2 : 1;
           const seeds = pickSeeds(er, w, W, 3, 3);
           if (!seeds.length) break;
           let grew = 0;
           for (const s of seeds) {
-            if (have >= easy.bushes) break;
-            const n = patch(s, Math.max(4, Math.min(24, easy.bushes - have)), 1, close, 0.9, "berryPatch/start");
+            if (have >= food.bushes) break;
+            const n = patch(s, Math.max(4, Math.min(24, food.bushes - have)), 1, close, 0.9, "berryPatch/start");
             have += n;
             grew += n;
           }
