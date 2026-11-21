@@ -1109,7 +1109,7 @@ failed). Built, each measured on Highlands 256² seeds 1–12, Normal and Easy s
 |---|---|---|
 | starts | 24 of 24 | 24 of 24 |
 | attempts (Normal / Easy start) | 12 / 12 | 14 / 19 |
-| room at least dev's | — | 8 of 24 (seed 7 427 against 530, Easy start seed 6 433 against 563) |
+| room at least dev's | — | 9 of 24 (seed 7 427 against 530, Easy start seed 6 433 against 563) |
 | reach at least dev's under 12,000 | — | all |
 | badwater in view where dev has none | — | seed 11, 10 tiles |
 | Easy rows missed (Easy start) | 0 | 0 |
