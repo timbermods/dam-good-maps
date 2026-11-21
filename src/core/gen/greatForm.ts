@@ -1,5 +1,6 @@
 // The great form on a generated map (D493's list of landmarks in the colony's view; land/greatForm.ts wears it): on
-// Canyon and Any above 128², after the other forms, the tall cliff the opening view looks at is worn deep at its foot.
+// Canyon, Highlands and Any above 128², after the other forms, the tall cliff the opening view looks at is worn deep at
+// its foot.
 // The forms stage's machinery keeps it (gen/generate.ts): built and checked again, kept only where every check,
 // intention and outcome the map had still holds and its roof reads as a shelter, else dropped and recorded (D138).
 
@@ -21,10 +22,10 @@ import { plainMask } from "../terrain/runs";
  *  measure of 2026-11-20 on #236: no form of forms3d's rules reached it on 84 maps at 256²). */
 export const GREAT_SEEN = 400;
 
-/** Whether a map looks for the great form: Canyon and Any above 128² (planning's limit of 2026-11-21: Highlands waits
- *  for its own variety round), at any Verticality but 0. */
+/** Whether a map looks for the great form: Canyon, Highlands and Any above 128², at any
+ *  Verticality but 0 (Lake Basin and the flatter themes have no tall dry cliff to wear). */
 export function greatFormOn(spec: MapSpec): boolean {
-  return (spec.theme === "canyon" || spec.theme === "any") && Math.min(spec.size.x, spec.size.y) > 128 && spec.settings.terrain.verticality > 0;
+  return (spec.theme === "canyon" || spec.theme === "any" || spec.theme === "highlands") && Math.min(spec.size.x, spec.size.y) > 128 && spec.settings.terrain.verticality > 0;
 }
 
 /** The great form worn on a built map whose terrain is `mask` (the other forms in it), or why none: the plan as the

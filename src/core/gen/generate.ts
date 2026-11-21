@@ -4022,7 +4022,7 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
   //      outcome the map had still holds and its own check confirms it, else dropped, never forced
   if (passed) {
     const want = opts.forms === false ? {} : formsFor(specIn);
-    // (the great form, D493's list of landmarks in the colony's view: on Canyon and Any above 128², gen/greatForm.ts)
+    // (the great form, D493's list of landmarks in the colony's view: on Canyon, Highlands and Any above 128², gen/greatForm.ts)
     const great = opts.forms !== false && greatFormOn(specIn);
     if (Object.keys(want).length || great) {
       const vt = specIn.settings.terrain.verticality;
