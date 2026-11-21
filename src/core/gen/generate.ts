@@ -2430,20 +2430,20 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
   // (Easy start, D495: an easy start's water is its own, so its map's badwater never joins the main water: it drains
   // where the land takes it, and D498 keeps it out of all the main water then)
   const joins = hash32(seed, "badwater joins") % 100 >= OWN_DRAIN && !easy;
-  // (round 6c, round 3: on a land that stands up the ditch joins below the cascade the main river falls down past the
-  // lake's sill, `Genome.standBelow`, and out of the ground the start's views take in, `Genome.benchView`: seed 11's
-  // joined where the river stood level with the lake, and its badwater spread back up into the lake the start looks
-  // over; where no reach is left there, the badwater drains on its own, kept out of all the main water, D498)
+  // (round 6c, round 3: on a land that stands up the ditch joins only where the main river's water stands a full level
+  // under the last lake's, and out of the ground the start's views take in, `Genome.benchView`: seed 11's joined where
+  // the river stood level with the lake, and its badwater spread back up into the lake the start looks over; where no
+  // reach is left there, the badwater drains on its own, kept out of all the main water, D498)
   let lowKept: Uint8Array | null | undefined;
   const lowReach = (): Uint8Array | null => {
     if (lowKept !== undefined) return lowKept ? lowKept.slice() : null;
     const low = joinReach(shown.theme, hy, W, H);
-    if (!g.benchView && !g.standBelow) return low;
+    if (!g.benchView) return low;
     // (where the river's water stands a full level under the last lake's on its way, the lake as its land holds it)
-    const under = g.standBelow ? fullLevelUnder() : null;
+    const under = g.standValley ? fullLevelUnder() : null;
     let any = false;
     for (let i = 0; i < N; i++) {
-      if (low[i] && (g.benchView?.[i] || (g.standBelow && !g.standBelow[i]) || (under && !under[i]))) low[i] = 0;
+      if (low[i] && (g.benchView[i] || (under && !under[i]))) low[i] = 0;
       if (low[i]) any = true;
     }
     lowKept = any ? low : null;
