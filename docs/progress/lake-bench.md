@@ -16,6 +16,7 @@ a clearing short of the bench's floor is given back on the plan's water.
 | Room 400+ | 12/12 (473–520) | 12/12 (528–572) | 12/12 |
 | Reach 8,721+ | 12/12 (lowest s6: 16,146) | 12/12 (lowest s5: 17,776) | 12/12 |
 | Badwater in view | 0 | 0 | 0 |
+| Other themes hash as dev (256² seed 1: Any, River Valley, Canyon, Highlands, Delta, Islands) | 6/6 | | |
 | Attempts, seeds 1–6 / 7–12 | 9 / 9 | 12 / 9 | Normal 9 / 9, Easy 10 / 12 |
 | CPU s, seeds 1–6 / 7–12 | 287.2 / 326.9 | 430.8 / 478.1 | Normal 262.0 / 298.9, Easy 503.4 / 513.6 |
 
@@ -24,3 +25,6 @@ Easy s7 (33,783 to 33,257), s11 (36,517 to 35,361) and s12 (29,141 to 23,160).
 Easy s2 takes 6 attempts against the head's 3: its third and fifth lands hold no Easy clearing on the bench.
 Normal's CPU is over the head's because seeds 4 and 7 now keep a spring cave (terrain above terrain settles in the
 stacked engine, about 14 s a map); the bench's own work is under a second.
+Easy s2's third and fifth lands: the planned lake stands at 4.6 and the bench at 7, so the clearing is cut to 6, a level
+under the bench, and holds a bench of about 530 tiles against the floor's 704. The bench's level comes from the lake's
+filled spill, not its planned surface; making them agree moves every bench, Normal's too.
