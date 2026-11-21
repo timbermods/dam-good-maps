@@ -104,7 +104,10 @@ import { decodeSpecFragment, encodeSpecFragment, makeSpec, type MapSpec } from "
 // and generator 0.10.60's version alone (Lake Basin's hydro pass and shore bench, gated to Lake Basin above 128², which
 // premise maps do not take): dev's code with its version set to 0.10.60 gives this pin byte for byte (`b1a5d1d1…` at
 // 0.10.56), D148
-const SHA = "b3f5b992d6f4039b7809ded4f3b78e9e1f605bf3fc054a7266586e90b2e95b33";
+// and generator 0.10.61's version alone (Delta's start terrace and broken rings, D549, gated to Delta at 128² and up,
+// which premise maps do not take): with the version set back to 0.10.60 the branch gives `b3f5b992…` byte for byte,
+// D148
+const SHA = "9bd44cd63f58a00b4c15e0fc0d1e433e3fef4f27710adb0d5bc15c19cd02802a";
 
 // (a Hard map whose start lake parts as it falls: the single analytic reading stood 0.32 over the run there, PR #1040;
 // seed 5 for 7 since D518 with dev's ways out by a ramp's line (#1061), D148: seed 7's Hard lake stair holds no plan now
