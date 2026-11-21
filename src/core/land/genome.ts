@@ -330,6 +330,10 @@ export interface Genome {
    *  floor stands its two levels under the shore and the land over it keeps the heights it was drawn with
    *  (`levels.ts` `snapLevels`, in place of the hypsometry). */
   levelUnit?: number;
+  /** Islands above 128² (round 11) only: the start's place, drawn first, a level bench by the water on a mainland lobe
+   *  (tiles, before the land's orientation: its middle, its radii along and across the coast, and the turn of its
+   *  long axis). The land stage levels it (`generate.ts`) and the start is drawn to it. */
+  bench?: { at: [number, number]; rx: number; ry: number; turn: number };
   /** The slow regional field (playbook #1): levels and cell; warped on a sea's map (D417). */
   regional: { amp: number; cell: number; warped?: boolean };
   /** Caprock: hard rock high in the land that weathering leaves standing. */
@@ -1271,112 +1275,93 @@ function addSea(g: Genome, rng: Rng, W: number, H: number, attempt: number, area
       size *= 0.72 + 0.12 * rng.float();
     }
   };
-  // (Islands round 10, above 128²: the game's own island map's numbers, not its picture. The sea two levels deep, the
+  // (Islands round 10, above 128²: the game's own island map's numbers, not its picture; round 11 draws the start's
+  // place first, then the mainland round it, then the islands as its way out. The sea three levels deep, the
   // mainland round every edge holding it, its reach from 10 tiles to 60 and more, in headlands, bays and a broad
   // shoulder or two, rising 10–13 levels over the sea only there; islands in groups with open water between, one
   // large in a group or a few, the rest small, each with a steep side and a shelving one, its top off its middle)
   const thousandIslands = () => {
     const u = LEVEL_UNIT;
-    // (three levels under the mainland's low coast: the sea's way out takes one, and two stay)
-    const D = 3 * u;
+    // (round 11: four levels under the mainland's low coast: the sea's way out takes one, and three stay)
+    const D = 4 * u;
     g.focus = [0.5, 0.5];
     sea([0.5, 0.5], open(), D, rng.float(), 1.05 + 0.1 * rng.float());
-    // (the mainland's lobes round the whole perimeter, each meeting the next so no stretch of the edge is the lip
-    // alone, the thin rim: a coast 8–16 tiles in, headlands 30–55 and one or two shoulders 45–70 broad)
-    const at: number[] = [];
-    for (let p = 4 * rng.float(), end = p + 4; p < end - 0.08; p += 0.13 + 0.15 * rng.float()) at.push(p);
-    // (and a long swell round the perimeter, so one stretch of coast reaches far in and another stays near the edge)
-    const swell = rng.float();
-    const swellK = 1 + Math.floor(2 * rng.float());
-    for (let k = 0; k < at.length; k++) {
-      const gap = Math.max((at[(k + 1) % at.length] - at[k] + 4) % 4, (at[k] - at[(k + at.length - 1) % at.length] + 4) % 4);
-      const head = rng.float() < 0.25;
-      const r = rng.float();
-      const sw = 0.55 + 0.9 * (0.5 + 0.5 * sinDet((TWO_PI * swellK * at[k]) / 4 + TWO_PI * swell));
-      lobes.push([at[k] % 4, gap * (0.75 + 0.2 * rng.float()), (0.022 + 0.06 * r * r) * sw]);
-      if (head) lobes.push([(at[k] + 0.3 * gap * (rng.float() - 0.5) + 4) % 4, 0.035 + 0.045 * rng.float(), 0.1 + 0.1 * rng.float()]);
-    }
-    const shoulders = 2 + (rng.float() < 0.3 ? 1 : 0);
-    const s0 = 4 * rng.float();
-    for (let k = 0; k < shoulders; k++) lobes.push([(s0 + k * (4 / shoulders) * (0.75 + 0.5 * rng.float())) % 4, 0.1 + 0.06 * rng.float(), 0.17 + 0.07 * rng.float()]);
     // (the perimeter's point and the way into the map there)
     const edgeAt = (q: number): [number, number, number, number] => {
-      const j = Math.floor(q) % 4;
+      const j = Math.floor(((q % 4) + 4) % 4);
       const f = q - Math.floor(q);
       return j === 0 ? [f * (W - 1), 0, 0, 1] : j === 1 ? [W - 1, f * (H - 1), -1, 0] : j === 2 ? [(1 - f) * (W - 1), H - 1, 0, -1] : [0, (1 - f) * (H - 1), 1, 0];
     };
-    // (the mainland's high ground: on each lobe but some of the coast's, a broad rise from its shore toward the edge,
-    // its steep side mostly off the map, so it shelves down to the sea in terraces; low on the coast, higher on the
-    // headlands, 10–13 levels over the sea on the shoulders)
+    // (round 11, the start first: its side, a broad mainland there, and its place on it, a level bench by the water a
+    // fifth of the way in from the coast's two ends; a second broad side on half the maps, beside it or across, so which
+    // sides stand high differs from seed to seed)
+    const startSide = Math.floor(4 * rng.float());
+    const startF = 0.3 + 0.4 * rng.float();
+    const broad = [startSide];
+    if (rng.float() < 0.6) broad.push((startSide + (rng.float() < 0.5 ? 2 : rng.float() < 0.5 ? 1 : 3)) % 4);
+    // (the broad sides: lobes reaching 40–65 tiles in, the start's deepest at its place; the other sides a low shore
+    // 5–20 tiles in, bending in bays with a long swell round them)
+    const swell = rng.float();
+    for (let p = 4 * rng.float(), end = p + 4; p < end - 0.06; ) {
+      const s = Math.floor(((p % 4) + 4) % 4);
+      const isBroad = broad.includes(s);
+      const step = isBroad ? 0.16 + 0.1 * rng.float() : 0.12 + 0.14 * rng.float();
+      const r = rng.float();
+      const sw = 0.6 + 0.8 * (0.5 + 0.5 * sinDet(TWO_PI * (p / 4 + swell)));
+      lobes.push([p % 4, step * (0.8 + 0.2 * rng.float()), isBroad ? 0.15 + 0.1 * rng.float() : (0.018 + 0.05 * r * r) * sw]);
+      if (!isBroad && rng.float() < 0.2) lobes.push([(p + 0.3 * step * (rng.float() - 0.5) + 4) % 4, 0.035 + 0.04 * rng.float(), 0.09 + 0.08 * rng.float()]);
+      p += step;
+    }
+    const uStart = startSide + startF;
+    const startDeep = 0.2 + 0.05 * rng.float();
+    lobes.push([uStart % 4, 0.16 + 0.06 * rng.float(), startDeep]);
+    const startReach = 2 + side * startDeep;
+    // (the bench: 32–40 tiles along the coast, 18–22 deep, its seaward side 5 tiles in from the coast)
+    const [sx0, sy0, snx, sny] = edgeAt(uStart);
+    const benchRx = 16 + 4 * rng.float();
+    const benchRy = 9 + 2 * rng.float();
+    const benchIn = startReach - 5 - benchRy;
+    g.bench = { at: [sx0 + snx * benchIn, sy0 + sny * benchIn], rx: benchRx, ry: benchRy, turn: snx !== 0 ? 0.25 : 0 };
+    // (the mainland's high ground: on the broad sides shoulders 10–13 levels over the sea along about half the edge,
+    // their steep side off the map, so they shelve down toward the sea in terraces; behind the start the walk up
+    // onto them; the low shore's rises 2–5 levels, with bays of fields between them)
     for (const [lu, lw, ld] of lobes.slice()) {
-      const shoulder = ld >= 0.17;
-      const headland = !shoulder && ld >= 0.1;
-      // (one in eight of the coast's lobes stays low, a shore of fields)
-      if (!shoulder && !headland && rng.float() < 0.125) continue;
+      const s = Math.floor(((lu % 4) + 4) % 4);
+      const isBroad = broad.includes(s);
+      if (!isBroad && rng.float() < 0.3) continue;
       const [ex, ey, nx, ny] = edgeAt(lu);
       const reach = 2 + side * ld;
-      const along = Math.max(6, lw * side * (0.7 + 0.3 * rng.float()));
-      // (centred past the edge, its land reaching four fifths of the way to the coast: reaching past it, its flank
-      // stood out of the sea as a cliff)
+      const along = Math.max(6, lw * side * (0.75 + 0.3 * rng.float()));
+      // (its foot short of the coast, and behind the bench on the start's lobe)
+      const keep = lu === uStart % 4 ? Math.max(4, startReach - 2 * benchRy - 8) / reach : 0.75;
       const f = 0.15 + 0.25 * rng.float();
-      const across = Math.max(4, (0.8 * reach) / (1 - f));
+      const across = Math.max(4, (keep * reach) / (1 - f));
       const out = f * across;
-      const over = shoulder ? 10 + 3 * rng.float() : headland ? 4 + 4 * rng.float() : 2.5 + 2.5 * rng.float();
+      const over = isBroad ? 10 + 3 * rng.float() : ld >= 0.09 ? 4 + 3 * rng.float() : 2 + 3 * rng.float();
       const turn = Math.abs(nx) > 0 ? 0.25 : 0;
-      // (its steep side mostly toward the edge, so it shelves to the sea in terraces; else one way along the coast)
       const outward = nx > 0 ? 0.5 : nx < 0 ? 0 : ny > 0 ? 0.75 : 0.25;
-      const steep = (rng.float() < 0.7 ? outward : outward + (rng.float() < 0.5 ? 0.25 : -0.25)) + 0.12 * (rng.float() - 0.5);
-      g.parts.push({ kind: "isle", at: [(ex - nx * out) / (W - 1), (ey - ny * out) / (H - 1)], size: portable.sqrt(along * across), height: u * over, turn, extra: along / across, soft: 0, steep: (steep + 4) % 1, foot: u });
-      // (a shoulder's knolls, so its terraces break)
-      if (shoulder)
-        for (let k = 0, n = 2 + Math.floor(2 * rng.float()); k < n; k++) {
-          const fa = (rng.float() - 0.5) * 1.2 * along;
-          const fi = (0.2 + 0.5 * rng.float()) * reach;
-          g.parts.push({ kind: "isle", at: [(ex - ny * fa + nx * fi) / (W - 1), (ey + nx * fa + ny * fi) / (H - 1)], size: reach * (0.25 + 0.2 * rng.float()), height: u * (1.5 + 2.5 * rng.float()), turn: rng.float(), extra: 1 + rng.float(), soft: 0, steep: rng.float(), foot: 0 });
-        }
+      const steep = (rng.float() < 0.75 ? outward : outward + (rng.float() < 0.5 ? 0.25 : -0.25)) + 0.12 * (rng.float() - 0.5);
+      g.parts.push({ kind: "isle", at: [(ex - nx * out) / (W - 1), (ey - ny * out) / (H - 1)], size: portable.sqrt(along * across), height: u * over, turn, extra: along / across, soft: 0, steep: (steep + 4) % 1, foot: 2 * u });
     }
-    // (an island: its dome, the steep side its group's way, a spine and a knoll toward that side)
+    // (an island: its dome, the steep side its group's way, a spine and a knoll toward that side; its foot rises from
+    // the floor to three levels over the water over six tiles and more, a level a tile above the water)
     const isleT = (x: number, y: number, R: number, over: number, aspect: number, turn: number, steep: number) => {
       const r = R * isleK;
       placed.push([x, y, reachOf(R, aspect)]);
       const from = g.parts.length;
       const [sx, sy] = unit(steep);
-      g.parts.push({ kind: "isle", at: [x / (W - 1), y / (H - 1)], size: r, height: u * (3.3 + over), turn, extra: aspect, soft: 0, isle: true, steep: (steep + 4) % 1, foot: D + u });
+      g.parts.push({ kind: "isle", at: [x / (W - 1), y / (H - 1)], size: r, height: u * (6 + over), turn, extra: aspect, soft: 0, isle: true, steep: (steep + 4) % 1, foot: D + 2 * u });
       g.parts.push({ kind: "ridge", at: [(x + sx * r * 0.2) / (W - 1), (y + sy * r * 0.2) / (H - 1)], size: r * (0.4 + 0.2 * rng.float()), height: u * over * (0.15 + 0.15 * rng.float()), turn: steep + 0.25 + 0.1 * (rng.float() - 0.5), extra: r * (0.2 + 0.1 * rng.float()), soft: 0 });
       g.parts.push({ kind: "isle", at: [(x + sx * r * 0.2) / (W - 1), (y + sy * r * 0.2) / (H - 1)], size: r * (0.25 + 0.15 * rng.float()), height: u * over * (0.15 + 0.2 * rng.float()), turn: rng.float(), extra: 1 + rng.float(), soft: 0, steep: (steep + 4) % 1, foot: 0 });
       groups.push({ from, to: g.parts.length });
     };
-    // (three to five groups, open water of 12 tiles and more between them; one to three of them round an island of a
-    // thousand tiles and more, the rest round one of a few hundred; three to seven small ones round it, a strait of
-    // 3–7 tiles between neighbours, so most can be bridged)
-    const nG = 4 + Math.floor(3 * rng.float());
-    const leads = 1 + Math.floor(2.6 * rng.float());
-    const hubs: [number, number, number][] = [];
-    for (let k = 0; k < nG; k++) {
-      // (the first group's island the home island, a fifth of the map's side across its middle, broad and gently
-      // terraced, ground enough for a colony's start (the start walks a tenth of the map and more))
-      const home = k === 0;
-      const big = k <= leads;
-      const R = home ? (0.23 + 0.03 * rng.float()) * side / isleK : big ? 13 + 4 * rng.float() : 8 + 3 * rng.float();
-      const asp = home ? 1.15 + 0.35 * rng.float() : shape();
+    const near = (x: number, y: number, r: number, gap: number) => placed.every(([px, py, pr]) => portable.hypot(px - x, py - y) >= 0.62 * (pr + r) + gap);
+    // (a group: its island, and satellites round it a strait of 2.5–6 tiles apart, most of them bridged)
+    const group = (hx: number, hy: number, R: number, over: number, reachG: number) => {
+      const asp = shape();
       const r0 = reachOf(R, asp);
-      // (the group's reach: its satellites within 14–30 tiles of its island's coast)
-      const reachG = 0.7 * r0 + 14 + 16 * rng.float();
-      let hub: [number, number] | null = null;
-      for (let draw = 0; draw < 150 && !hub; draw++) {
-        const x = (0.08 + 0.84 * rng.float()) * (W - 1);
-        const y = (0.08 + 0.84 * rng.float()) * (H - 1);
-        if (!room(x, y, home ? 0.8 * r0 : r0)) continue;
-        if (hubs.some(([hx, hy, hr]) => portable.hypot(hx - x, hy - y) < 0.9 * (hr + reachG) + 10)) continue;
-        hub = [x, y];
-      }
-      if (!hub) continue;
-      hubs.push([hub[0], hub[1], reachG]);
       const steepG = rng.float();
-      isleT(hub[0], hub[1], R, home ? 3.5 + 1.5 * rng.float() : big ? 6 + 4 * rng.float() : 4 + 3 * rng.float(), asp, rng.float(), steepG + 0.15 * (rng.float() - 0.5));
-      // (a coast stands at about two thirds of its island's drawn reach, the rest its flank under the water: the strait
-      // is read between those)
-      const near = (x: number, y: number, r: number, gap: number) => placed.every(([px, py, pr]) => portable.hypot(px - x, py - y) >= 0.62 * (pr + r) + gap);
+      isleT(hx, hy, R, over, asp, rng.float(), steepG + 0.15 * (rng.float() - 0.5));
       for (let m = 0, sats = 5 + Math.floor(5 * rng.float()); m < sats; m++) {
         const Rs = 4.6 + 4 * rng.float() * rng.float() + (rng.float() < 0.25 ? 1.5 : 0);
         const aS = shape();
@@ -1384,17 +1369,51 @@ function addSea(g: Genome, rng: Rng, W: number, H: number, attempt: number, area
         for (let draw = 0; draw < 40; draw++) {
           const [vx, vy] = unit(rng.float());
           const dd = 0.62 * (r0 + rs) + 2.5 + Math.max(0, reachG - 0.62 * (r0 + rs)) * rng.float();
-          const x = hub[0] + vx * dd;
-          const y = hub[1] + vy * dd;
+          const x = hx + vx * dd;
+          const y = hy + vy * dd;
           if (!room(x, y, rs) || !near(x, y, rs, 2.5 + 3.5 * rng.float())) continue;
-          isleT(x, y, Rs, 2.5 + 3.5 * rng.float(), aS, rng.float(), steepG + 0.2 * (rng.float() - 0.5));
+          isleT(x, y, Rs, 2 + 3.5 * rng.float(), aS, rng.float(), steepG + 0.2 * (rng.float() - 0.5));
           break;
         }
       }
+    };
+    // (the first group the start's way out: its island off the bench, its coast 6–9 tiles from the start's shore, so a
+    // short bridge reaches it, in the start's view)
+    {
+      const R = 7 + 3 * rng.float();
+      const r = R * isleK;
+      const off = startReach + 6 + 3 * rng.float() + 0.62 * r;
+      const fa = (rng.float() - 0.5) * benchRx;
+      const hx = sx0 + snx * off - sny * fa;
+      const hy = sy0 + sny * off + snx * fa;
+      group(hx, hy, R, 3.5 + 2 * rng.float(), 0.7 * r + 14 + 8 * rng.float());
+    }
+    // (the rest spread over the sea on a jittered grid, so no stretch of open water reads as one basin: one or two of
+    // them round an island of a thousand tiles and more, the rest round one of a few hundred)
+    const cells: [number, number][] = [];
+    for (let gy = 0; gy < 3; gy++) for (let gx = 0; gx < 3; gx++) cells.push([gx, gy]);
+    for (let k = cells.length - 1; k > 0; k--) {
+      const j = Math.floor((k + 1) * rng.float());
+      [cells[k], cells[j]] = [cells[j], cells[k]];
+    }
+    let leads = 1 + (rng.float() < 0.5 ? 1 : 0);
+    for (const [gx, gy] of cells) {
+      const big = leads > 0;
+      const R = big ? 12 + 4 * rng.float() : 7 + 3 * rng.float();
+      const r0 = reachOf(R, 1.3);
+      let hub: [number, number] | null = null;
+      for (let draw = 0; draw < 40 && !hub; draw++) {
+        const x = ((gx + 0.15 + 0.7 * rng.float()) / 3) * (W - 1);
+        const y = ((gy + 0.15 + 0.7 * rng.float()) / 3) * (H - 1);
+        if (room(x, y, r0) && near(x, y, r0, 10)) hub = [x, y];
+      }
+      if (!hub) continue;
+      if (big) leads--;
+      group(hub[0], hub[1], R, big ? 6 + 4 * rng.float() : 4 + 3 * rng.float(), 0.7 * r0 + 12 + 10 * rng.float());
     }
     // (and a few alone in the open water)
     for (let k = 0, n = 3 + Math.floor(3 * rng.float()); k < n; k++) {
-      const Rs = 4 + 3 * rng.float();
+      const Rs = 4.6 + 3 * rng.float();
       const aS = shape();
       const at1 = somewhere(Rs, aS, 0.08, 0.92, 0.08, 0.92);
       if (at1) isleT(at1[0], at1[1], Rs, 2 + 3 * rng.float(), aS, rng.float(), rng.float());

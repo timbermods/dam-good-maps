@@ -413,8 +413,8 @@ function addPart(U: Float64Array, p: Part, seed: number, W: number, H: number, k
         // (the far side shelving over seven tenths of a small island's radius, a large one's half, so its top is broad)
         const w = 0.28 + clamp(0.42 - (0.18 * (p.size - 12)) / 18, 0.24, 0.42) * (0.5 - (0.5 * (a * sa + b * sb)) / Math.max(1e-6, r0));
         const foot = Math.min(p.height, p.foot ?? 0);
-        // (the foot four tiles wide at least)
-        const wf = Math.max(0.12, 4 / p.size);
+        // (an island's six tiles at least, its foot rising a level a tile from the water to three over it)
+        const wf = Math.max(0.12, (p.isle ? 6 : 4) / p.size);
         // (and the high ground of the mainland, not an island, rolls more gently over its top, so it keeps level room)
         const rough = p.isle ? 0.3 : 0.14;
         U[i] += foot * smoothstep((1.05 - d) / wf) * (0.95 + 0.1 * n) + (p.height - foot) * smoothstep((1.05 - wf - d) / w) * (1 - rough / 2 + rough * n);

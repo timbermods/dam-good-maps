@@ -858,6 +858,8 @@ function attemptRound(specIn: MapSpec, optsIn: GenerateOptions, t0: number, roun
       land = { g, E, h0: snapLevels(E, g, seed, W, H), settles: 0 };
       // (round 6: Islands' sea's lip at the map's edge, a tile or two, D151's edge rule kept)
       if (g.seaLayout && g.theme === "islands") holdSeaLip(land.h0, W, H);
+      // (Islands round 11: the start's bench, drawn first, levelled a level over the sea's spill)
+      if (g.bench) levelBench(land.h0, g, W, H);
     } else replans++;
     const screenedAt = { ...screened };
     let shownJoined = false;
@@ -2195,7 +2197,10 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
     // (D357: on a long map the start leans to where its theme wants it along the length, an end for a
     // journey or the middle with two ways to grow, land/shape.ts; a lean, never a rule)
     const lengthwise = mapShape(W, H).long;
-    const prefer = lengthwise ? (x: number, y: number, L: number, w: number) => intended(x, y, L, w) + SHAPE_PULL * startAlong(spec.theme, x, y, W, H) : intended;
+    const along = lengthwise ? (x: number, y: number, L: number, w: number) => intended(x, y, L, w) + SHAPE_PULL * startAlong(spec.theme, x, y, W, H) : intended;
+    // (Islands round 11: the start drawn to the bench the land was drawn round)
+    const benchAt = g.bench ? benchOn(g, W, H) : null;
+    const prefer = benchAt ? (x: number, y: number, L: number, w: number) => along(x, y, L, w) + 1.5 * Math.max(0, 1 - portable.hypot(x - benchAt.x, y - benchAt.y) / (1.5 * benchAt.rx)) : along;
     const rng = stream(seed, "settler2", attempt, salt);
     return pickStart(h, W, H, { depth: D, contamination: C, moisture: M }, hy, g.settler, rng, stageRule, { prepared, avoid, kept, drought: policy, prefer, foot, minFoot, footWant, moistWalk: { min: moistWant }, room, bench, benchMin, storage, near, level: allowLevel, roomFirst: !onPlan, badwater: badHollows(), slopeWater, ...(ease >= 2 ? { levelReach: Math.min(3, 1 + Math.floor(ease / 2)) } : {}), ...(ease >= 3 ? { margin: Math.max(5, Math.round(Math.min(W, H) * 0.08)) } : {}), ...(ease >= 1 ? { waterExact: true } : {}), ...(stageEasy ? { easy: stageEasy } : {}), ...(pickRings ? { ringSlopes } : {}) , ...(g.standValley ? { badView: true } : islesUp ? { badView: true, badTurnOnly: true } : {}) });
   };
@@ -4212,4 +4217,32 @@ export function rebuild(spec: MapSpec, features: Feature[], field: GeneratedFiel
   const built = buildMap({ W: spec.size.x, H: spec.size.y, seed: spec.seed, features, ...(field ? { field } : {}) });
   const file = toTimberFile(spec, built, says.length ? { says } : {});
   return { built, bytes: writeTimber(file), report: validateBuilt(spec, features, built, file).report };
+}
+
+/** Islands round 11: the start's bench as the land stands, turned with it (`Genome.bench`): its middle, its radius
+ *  along the coast and its axes. */
+function benchOn(g: Genome, W: number, H: number): { x: number; y: number; rx: number; ry: number; ux: number; uy: number } {
+  const b = g.bench!;
+  const o = (g.orientation ?? 0) as LandOrientation;
+  const [x, y] = orientXY(b.at[0], b.at[1], W, H, o);
+  const [ax, ay] = unit(b.turn);
+  const [x2, y2] = orientXY(b.at[0] + 10 * ax, b.at[1] + 10 * ay, W, H, o);
+  return { x, y, rx: b.rx, ry: b.ry, ux: (x2 - x) / 10, uy: (y2 - y) / 10 };
+}
+
+/** Islands round 11: the start's bench levelled, one level over the sea's spill, so the start has its room by the
+ *  water whatever the land's noise drew there. */
+function levelBench(h: Uint8Array, g: Genome, W: number, H: number): void {
+  const S = seaLevel(h, W, H);
+  if (S < 0) return;
+  const b = benchOn(g, W, H);
+  const r = Math.ceil(Math.max(b.rx, b.ry)) + 1;
+  for (let y = Math.max(0, Math.floor(b.y - r)); y <= Math.min(H - 1, Math.ceil(b.y + r)); y++)
+    for (let x = Math.max(0, Math.floor(b.x - r)); x <= Math.min(W - 1, Math.ceil(b.x + r)); x++) {
+      const dx = x - b.x;
+      const dy = y - b.y;
+      const a = (dx * b.ux + dy * b.uy) / b.rx;
+      const c = (-dx * b.uy + dy * b.ux) / b.ry;
+      if (a * a + c * c <= 1 && Math.min(x, y, W - 1 - x, H - 1 - y) >= 2) h[y * W + x] = S + 1;
+    }
 }
