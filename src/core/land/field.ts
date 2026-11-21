@@ -495,6 +495,7 @@ export function uplift(g: Genome, seed: number, W: number, H: number, slope?: Fl
   const S = Math.min(W, H);
   const bendAlong = form.long && g.tiltKind === "linear" && g.theme === "delta" ? (0.15 * S * 2) / (Math.max(W, H) - 1) : 0;
   const lw = hash32(ls, "length-bend");
+  const bw = hash32(ls, "basin-warp");
   for (let y = 0; y < H; y++)
     for (let x = 0; x < W; x++) {
       const u = (x / (W - 1)) * 2 - 1;
@@ -503,8 +504,31 @@ export function uplift(g: Genome, seed: number, W: number, H: number, slope?: Fl
       let h = 0;
       if (g.tiltKind === "linear") h += tilt * -0.5 * (bendAlong ? proj + bendAlong * fbm(lw, x, y, 0.8 * S, 2) : proj) * lengthTilt;
       else {
-        const du = x / (W - 1) - g.focus[0];
-        const dv = y / (H - 1) - g.focus[1];
+        let du = x / (W - 1) - g.focus[0];
+        let dv = y / (H - 1) - g.focus[1];
+        // (Lake Basin above 128², round 7: the bowl's distance through a slow warp at the map's scale)
+        if (g.basinWarp) {
+          const ox = g.basinWarp.amp * fbm(bw, x, y, g.basinWarp.cell * S, 2);
+          const oy = g.basinWarp.amp * fbm(bw + 1, x, y, g.basinWarp.cell * S, 2);
+          du += ox;
+          dv += oy;
+          // (round 7b: the land rising across the map, ever more steeply, to a rim on the far side from the outlet and,
+          // on some maps, on one side as well; the outlet's side open. Its contours bent by the same warp)
+          const bwk = g.basinWarp;
+          const n1 = Math.abs(fx) + Math.abs(fy);
+          const q = -(((u + 2 * ox) * fx + (v + 2 * oy) * fy) / n1);
+          const prof = (qq: number) => bwk.lin * portable.pow(clamp((qq + 1) / 2, 0, 1.25), bwk.pow);
+          // (and past the lake toward the outlet no lower than at the lake's own place less the lip, round 7c)
+          const ql = -(((2 * g.focus[0] - 1) * fx + (2 * g.focus[1] - 1) * fy) / n1);
+          h += Math.max(prof(q), prof(ql) - bwk.lip);
+          if (bwk.side) {
+            // (the side's rim rising from beside the lake: `rl` the lake's place across the map)
+            const r = ((u + 2 * ox) * -fy + (v + 2 * oy) * fx) / n1;
+            const rl = ((2 * g.focus[0] - 1) * -fy + (2 * g.focus[1] - 1) * fx) / n1;
+            const sr = bwk.side * (r - rl);
+            if (sr > 0) h += bwk.sideLin * portable.pow(clamp(sr / Math.max(0.2, 1 - bwk.side * rl), 0, 1.25), bwk.pow);
+          }
+        }
         // (round 6: not on an open island sea, whose floor lies level: its levels' contours ran
         // ruler-straight across the sea, seams in the water)
         h += g.tilt * (portable.sqrt(du * du + dv * dv) * 1.6 - 0.4) - (g.seaLayout && !g.seaRing ? 0 : 0.3 * g.tilt * proj);
