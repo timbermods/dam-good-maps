@@ -24,7 +24,7 @@
 
 import * as portable from "../math/portable";
 import { walledRun } from "../analysis/signature";
-import { openingFrame, tilesInFrame } from "../analysis/opening";
+import { levelDoorTurns, openingFrame, tilesInFrame } from "../analysis/opening";
 import { ORIENTATIONS } from "../format/footprints";
 import { damSites } from "../analysis/damsites";
 import { sourcesInFlow } from "../analysis/sources";
@@ -3864,6 +3864,30 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
         else return fail("badwater in the start's view", b1, true);
       }
     }
+    // (Highlands above 128², round 6c: its badwater is kept off the plan's start and the bench's views, `Genome.benchView`,
+    // and a start found on the settled water past both can face it: Highlands 256² seed 11's Easy start faced a spring's
+    // pool 75 tiles off. Such a start is turned to a level door that shows none, and gives way to the next only where
+    // none of its turns is clear)
+    if (g.standValley && !lastAttempt) {
+      const badTiles: number[] = [];
+      for (let i = 0; i < N; i++) if (b1.water[i] >= 0.1 && b1.contamination[i] > 0.05) badTiles.push(i);
+      const L = h[cur.y * W + cur.x];
+      const seen = (o: StartPick["orientation"]): number => tilesInFrame({ x: cur.x, y: cur.y, z: L, orientation: o }, W, h, badTiles);
+      if (badTiles.length && seen(cur.orientation) > 0) {
+        const turn = levelDoorTurns(h, W, H, cur.x, cur.y, L).find((t) => seen(t.o) === 0);
+        if (turn) cur = { ...cur, orientation: turn.o };
+        else if (tryN < startTries + 2) {
+          const levelled = h.slice();
+          h.set(hBefore);
+          const again = nextStart(cur);
+          if (again) {
+            cur = again;
+            continue;
+          }
+          h.set(levelled);
+        }
+      }
+    }
     layout = [...rivers, ...bad.features, startOf(cur)];
     // (a start whose pad changes the water is first judged on the water warm-started from the
     // settle before it, which costs a fraction of a settle: a pad the water would cover gives way to
@@ -4148,6 +4172,13 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
           // (the debris never cuts the colony off from a mine site it reached: Delta 128² seed 37's
           // stood across the way to both)
           if (startWalksTo(b3, x, y) || minesReachedOn(b3) < Math.min(wantMines, minesReachedOn(b2))) continue;
+          // (Highlands above 128², round 6c: nor from the land its walk joins, the debris cutting off the site's pocket
+          // alone, never under the ground the start was picked for, `minFoot`, or under half its walk: Highlands 256² seed
+          // 11's stood on the one neck from the bench's plain to the floor, and the start walked 6,771 tiles of 32,193)
+          if (g.standValley) {
+            const before = startFloorsOf(b2).reach;
+            if (startFloorsOf(b3).reach < Math.max(minFoot, before / 2)) continue;
+          }
           extra.push(debris);
           b2 = b3;
         }
