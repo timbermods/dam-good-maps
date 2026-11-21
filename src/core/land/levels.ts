@@ -20,7 +20,7 @@
 import { hash32 } from "../math/hash";
 import * as portable from "../math/portable";
 import { fbm, warpedFbm } from "../math/noise";
-import { levelRegions, MinHeap, N4, N8 } from "../math/grid";
+import { distanceFrom, levelRegions, MinHeap, N4, N8 } from "../math/grid";
 import { stream, type Rng } from "../math/rng";
 import { pctSorted } from "./num";
 import { clamp, smoothstep } from "../math/clamp";
@@ -32,7 +32,41 @@ import { landRegions } from "../analysis/regions";
 import { integrityLevel } from "../features/raster/terrain";
 import { planBands } from "./plan";
 import { addRingForms, drawRingForms, ringFormRoom } from "./rings";
-import { benchValley, boldGorge, standMassif, standMesas, standsUp, standValley, stepOf, STAND } from "./bold";
+import { benchValley, boldGorge, standMassif, standMesas, standsUp, standValley, stepOf, STAND, type StandValley } from "./bold";
+
+/** The plain in front of a standing land's bench (round 6c, round 3), 0 to 1 a tile: the ground on the bench's side of
+ *  the water's line (fading over `STAND.lake.plainTurn` of the cosine from across it) out to the least distance from
+ *  the bowl's rim that holds `STAND.lake.walk` of the map, `lake.plainMin`–`STAND.mesa.benchFar` radii, fading over
+ *  half the bowl's radius past it; the valley left out. */
+function benchPlain(v: StandValley, W: number, H: number): Float64Array {
+  const K = STAND.lake;
+  const N = W * H;
+  const sizeK = Math.min(W, H) / 256;
+  const bowl = new Uint8Array(N);
+  for (let i = 0; i < N; i++) bowl[i] = v.m[i] >= 0.5 && v.bowl[i] === 1 ? 1 : 0;
+  const db = distanceFrom(bowl, W, H);
+  const front = new Float64Array(N);
+  for (let y = 0; y < H; y++)
+    for (let x = 0; x < W; x++) {
+      const i = y * W + x;
+      if (v.m[i] >= 0.5) continue;
+      const dx = x - v.cx;
+      const dy = y - v.cy;
+      const dd = portable.sqrt(dx * dx + dy * dy);
+      front[i] = dd > 0 ? smoothstep(clamp((dx * v.bx + dy * v.by) / dd / K.plainTurn, 0, 1)) : 0;
+    }
+  const fade = 0.5 * v.r;
+  const most = STAND.mesa.benchFar * v.r;
+  let D = K.plainMin * sizeK;
+  for (; D < most; D += 2) {
+    let n = 0;
+    for (let i = 0; i < N; i++) if (front[i] >= 0.5 && db[i] <= D) n++;
+    if (n >= K.walk * N) break;
+  }
+  const out = new Float64Array(N);
+  for (let i = 0; i < N; i++) if (front[i] > 0) out[i] = front[i] * smoothstep(clamp((D + fade - db[i]) / fade, 0, 1));
+  return out;
+}
 
 /** The rank of every value in [0, 1] (ties broken by index, so it is exact and stable). */
 function ranks(v: Float64Array): Float64Array {
@@ -79,7 +113,13 @@ export function snapLevels(E: Float64Array, g: Genome, seed: number, W: number, 
   // `STAND.floor.relief` levels deep from `STAND.floor.over` over the base, and mesas standing on it)
   const stand = ringed && standsUp(g.theme, W, H) ? standValley(seed, g.variation, g.benchPhase, g.flowDir, W, H, g.hydro.lakeBudget * W * H) : null;
   const floorTop = stand ? g.base + STAND.floor.over + STAND.floor.relief : top0;
-  // (round 6c: the ground on the bench's side of the water's line within `STAND.mesa.benchFar` radii of the bowl)
+  // (round 6c: the ground on the bench's side of the water's line within `STAND.mesa.benchFar` radii of the bowl, where
+  // no floor step is laid; and round 3, the plain in front of the start's bench, sized from the start's own walk: the
+  // ground on the bench's side out to the least distance from the bowl's rim that holds `STAND.lake.walk` of the map, at
+  // least `lake.plainMin` tiles (two of the start's room's radii at 256²), so wherever the start stands along the bench
+  // its room and its walk lie on one level. Round 2's plain, 2.2 radii from the bowl's middle across the bench's front
+  // only, left the starts that stood off that front 9 tiles from the floor's rise, Easy start seed 9's room 426)
+  const plain = stand ? benchPlain(stand, W, H) : null;
   const benchSide = (x: number, y: number): boolean => {
     if (!stand) return false;
     const dx = x - stand.cx;
@@ -114,9 +154,7 @@ export function snapLevels(E: Float64Array, g: Genome, seed: number, W: number, 
         // floor lies at the bench's own level, so the start's walk runs out over one plain and no step of the floor
         // stands between the bench and the ground it reaches; seed 4's bench, a strip under a floor 2 levels higher, walked
         // to 4,118 tiles)
-        const far = STAND.lake.plain * stand.r;
-        const cosB = dd > 0 ? (dx * stand.bx + dy * stand.by) / dd : 0;
-        t *= 1 - smoothstep(clamp((far - dd) / (0.5 * stand.r), 0, 1)) * smoothstep(clamp((cosB - STAND.mesa.benchCos + 0.25) / 0.25, 0, 1));
+        if (plain) t *= 1 - plain[i];
         level[i] = g.base + STAND.floor.over + t * STAND.floor.relief + g.terrace.jitter * warpedFbm(js, x, y, 14 * f, 2, 7 * f);
         continue;
       } else {

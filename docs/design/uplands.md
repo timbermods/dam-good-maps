@@ -950,7 +950,7 @@ planting within Easy's 15 tiles is a rule for every theme's Normal maps.
 **The hash proof**: the 52 maps of the other themes Designed for Normal and of Highlands at 128² and under, this head
 against dev (18a6518a), the version neutralised: 52 of 52 identical.
 
-### Round 6c: Highlands' maps differ from one another (2026-11-21, two rounds, pushed as findings/highlands-6c: the start's bars failed)
+### Round 6c: Highlands' maps differ from one another (2026-11-21, three rounds, pushed as findings/highlands-6c and findings/highlands-6d: the start's bars failed)
 
 Planning's brief (#236, round 6c) named three shortfalls of 0.10.56's Highlands above 128²: every seed laid the same
 map, the lake in the middle with high ground in a ring round it; the broad tops were blank; and the walls were short,
@@ -1091,6 +1091,35 @@ high, on the built maps too. But:
 is broad: size it from the start's own walk, not the bowl. The plan stage's promise read and the land's disagree
 (seed 5, 0.341 against 0.75): mend the read before tuning the land to it. Badwater in view now comes from the main
 water downstream of a ditch, not from springs: where the ditch joins is the next rule.
+
+**Round 3** (planning, #236, 2026-11-21: generator 0.10.63 on dev 5c3694d7; pushed as findings/highlands-6d, the bars
+failed). Built, each measured on Highlands 256² seeds 1–12, Normal and Easy start, against dev:
+- **The plan's read of the high ground** was right: seed 5's first land, built without the screen, reads 0.344 on its
+  settled water (0.341 planned); the land alone read 0.75 only on round 2's own measure, which took the lake for the
+  water. The land was short: its floor's top bench stood dead flat 3.6 levels over the water's median. The floor now
+  rises 5 levels (`floor.relief`), and seeds 3 and 5 keep their first lands; seed 10's first land still finds 33 % of
+  its land near clean water (two springs gave 0.405 but cut the starts' walks to 5,000 tiles, so one stays).
+- **The ditch joins out of the start's view**: on a land that stands up the main water's lower reach is open to a
+  ditch only off `Genome.benchView` (`generate.ts` `lowReach`); where none is left the badwater drains on its own.
+- **The plain from the start's walk** (`levels.ts` `benchPlain`): the bench's side of the water's line, out from the
+  bowl's rim as far as holds a fifth of the map (`lake.walk`, at least `plainMin` 28 tiles). Every start now walks
+  14,000+ tiles (Easy start seed 11, 3,968 → 28,613; seed 8, 2,901 → 24,457).
+
+| bar | dev | round 3 |
+|---|---|---|
+| starts | 24 of 24 | 24 of 24 |
+| attempts (Normal / Easy start) | 12 / 12 | 14 / 19 |
+| room at least dev's | — | 8 of 24 (seed 7 427 against 530, Easy start seed 6 433 against 563) |
+| reach at least dev's under 12,000 | — | all |
+| badwater in view where dev has none | — | seed 11, 10 tiles |
+| Easy rows missed (Easy start) | 0 | 0 |
+| CPU (Normal / Easy start) | 409.2 / 542.0 s | 393.7 / 576.7 s (−4 %, +6 %) |
+
+**Why the bars miss.** Room: dev's starts stand in open floor round a centred lake, a full 14-tile disc on most
+(578 of the disc's 617); a start beside an off-centre lake, the massif across it and the floor rising behind it,
+falls short of that on two thirds of the maps however broad the plain. Attempts: the plain the start's walk needs
+lowers the ground the promise counts and the Easy starts' second places; seed 11's badwater drains on its own into the
+main river where it enters and reaches the lake's outlet lobe in the start's view, which the join rule does not touch.
 
 ## Islands' land above 128², parked (2026-11-20)
 

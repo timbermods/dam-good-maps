@@ -69,8 +69,9 @@ export const BOLD = {
  *  turn from it to the far shore's lobes (where the direction from the lake's middle leans `benchCos` towards the
  *  bench, over `benchTurn`); round 6c: how far across the water's way the bowl must lie for the bench to take the side
  *  facing the map's middle (`benchLean`, a share of the side), and where beside the lake the line's wander is read to
- *  turn it away from the bench (`benchAt`, radii down the line from the bowl's middle); in front of the bench, within
- *  `plain` radii of the bowl, the floor lies at the bench's own level (`levels.ts` `snapLevels`). `springs`
+ *  turn it away from the bench (`benchAt`, radii down the line from the bowl's middle); in front of the bench the floor
+ *  lies at the bench's own level, out from the bowl's rim as far as holds `walk` of the map, at least `plainMin` tiles
+ *  at 256², across the bench's side fading over `plainTurn` of the cosine (`levels.ts` `benchPlain`). `springs`
  *  (step 2): the springs such a land draws at the most. `bench` (step 2): the rings the floor steps down to the bowl
  *  and the channel past the sill in, each `min`–`max` tiles broad over a noise of `cell` tiles, wobbling `wobble`
  *  tiles, `rings` of them, `step` levels each. `mesa.plinth` (step 2; step 4: under the stepped side only): the levels
@@ -100,9 +101,9 @@ export const STAND = {
   badBeside: 6,
   badJoin: 6,
   valley: { rMin: 0.14, rMax: 0.18, offMin: 0.1, offMax: 0.26, spread: 0.05, band: 0.35, lat: 0.14, keep: 1.35, edge: 0.04, softMin: 1.2, softMax: 3.5, halfMin: 0.026, halfMax: 0.038, wander: 0.11, cell: 0.3, side: 1.5, over: 0, rise: 2, bend: 0.09, bendCell: 0.16, meander: 0.28 },
-  lake: { sill: 2, deep: 2, share: 0.35, budget: 0.6, at: 0.7, sillPast: 0.2, soft: 1, sillRun: 4, incise: 1.4, stretch: 0.5, lobes: 2.6, bays: 0.12, baysCell: 0.35, shift: 0.12, benchStretch: 0.6, benchLobes: 1.5, benchCos: 0.35, benchTurn: 0.3, benchLean: 0.03, benchAt: 0.3, plain: 2.2 },
+  lake: { sill: 2, deep: 2, share: 0.35, budget: 0.6, at: 0.7, sillPast: 0.2, soft: 1, sillRun: 4, incise: 1.4, stretch: 0.5, lobes: 2.6, bays: 0.12, baysCell: 0.35, shift: 0.12, benchStretch: 0.6, benchLobes: 1.5, benchCos: 0.35, benchTurn: 0.3, benchLean: 0.03, benchAt: 0.3, walk: 0.2, plainMin: 28, plainTurn: 0.3 },
   bench: { min: 5, max: 13, cell: 40, wobble: 3, rings: 3, step: 2 },
-  floor: { over: 4, relief: 4, roll: 0, riser: 0, drift: 0, away: 0.5, far: 0.5 },
+  floor: { over: 4, relief: 5, roll: 0, riser: 0, drift: 0, away: 0.5, far: 0.5 },
   mesa: { fewest: 4, most: 6, rMin: 24, rMax: 46, hMin: 4, hMax: 6, gap: 8, edge: 0.6, wall: 0.5, stretch: 0.35, brokenMin: 0.12, brokenMax: 0.25, runMin: 1.8, runMax: 4.5, inset: 7, first: 0.85, tries: 200, plinth: 2, plinthMin: 4, plinthMax: 9, open: -0.25, butte: 0.6, buttes: 1, benchCos: 0.5, benchFar: 3 },
   massif: { turn: 0.11, frontMin: 0.75, frontMax: 1.05, frontLeast: 0.6, least: 0.14, most: 0.32, bendMin: -0.3, bendMax: 1.0, bendMost: 4, room: 0.22, benchPush: 1.5, sway: 0.1, swayCell: 0.3, bays: 20, baysCell: 44, under: 4, tier: 3, belt: 26, beltBend: 1, beltCell: 50, stepIn: 0.15, ravineGap: 52, ravineMin: 60, ravineMax: 160, ravineHalf: 3.5, ravineWander: 12, ravineCell: 28, wall: 0.5, benchFree: 3, floorLo: 0.25, foot: 26 },
   steps: { run: 24, rise: 2, bend: 1.1, cell: 48 },

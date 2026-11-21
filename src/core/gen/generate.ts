@@ -2430,7 +2430,20 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
   // (Easy start, D495: an easy start's water is its own, so its map's badwater never joins the main water: it drains
   // where the land takes it, and D498 keeps it out of all the main water then)
   const joins = hash32(seed, "badwater joins") % 100 >= OWN_DRAIN && !easy;
-  const joinWater = (): Uint8Array | null => (joins && !standingTheme(shown.theme) ? joinReach(shown.theme, hy, W, H) : null);
+  // (round 6c, round 3: on a land that stands up the ditch joins below the start's lake and out of the ground its views
+  // take in, `Genome.benchView`: seed 11's joined just below the lake's outlet, and its badwater spread back up into
+  // the lake the start looks over; where no reach is left out there, the badwater drains on its own)
+  const lowReach = (): Uint8Array | null => {
+    const low = joinReach(shown.theme, hy, W, H);
+    if (!g.benchView) return low;
+    let any = false;
+    for (let i = 0; i < N; i++) {
+      if (low[i] && g.benchView[i]) low[i] = 0;
+      if (low[i]) any = true;
+    }
+    return any ? low : null;
+  };
+  const joinWater = (): Uint8Array | null => (joins && !standingTheme(shown.theme) ? lowReach() : null);
   // (and on every map no other badwater ends in the main water above that reach, D498; where it
   // drains on its own, in none of the main water)
   // (worked out once: the plan's water stays as it is while the hollows are tried)
@@ -2467,8 +2480,8 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
       }
     }
     if (!joins) return (spared = main);
-    const low = joinReach(shown.theme, hy, W, H);
-    for (let i = 0; i < N; i++) if (low[i]) main[i] = 0;
+    const low = lowReach();
+    if (low) for (let i = 0; i < N; i++) if (low[i]) main[i] = 0;
     return (spared = main);
   };
   const badAsk = {
