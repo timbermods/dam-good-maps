@@ -42,15 +42,17 @@ export function formsWanted(theme: ThemeId, vt: number, rng: Rng): FormsWanted {
   return out;
 }
 
-/** The forms grown on a finished map's land, water, objects and start (nothing changed yet). */
-export function growOn(built: BuildResult, features: readonly Feature[], want: FormsWanted, vt: number, top: number, rng: Rng): Forms {
+/** The forms grown on a finished map's land, water, objects and start (nothing changed yet). `unseen`: tiles whose
+ *  plants the forms grow as if they were not there (the start's first food, `resources.ts` `FIRST_FOOD`, so the forms,
+ *  and the land and water they make, are the map's own); a form's caller takes those plants off its tiles. */
+export function growOn(built: BuildResult, features: readonly Feature[], want: FormsWanted, vt: number, top: number, rng: Rng, unseen: Uint8Array | null = null): Forms {
   const { W, H } = built;
   const N = W * H;
   const keep = new Uint8Array(N);
   const plants = new Uint8Array(N);
   for (const e of built.entities) {
     const plant = e.template in PLANT_CLEARANCE || e.template.startsWith("RuinColumn");
-    for (const [x, y] of entityTiles(e)) if (x >= 0 && y >= 0 && x < W && y < H) (plant ? plants : keep)[y * W + x] = 1;
+    for (const [x, y] of entityTiles(e)) if (x >= 0 && y >= 0 && x < W && y < H && !(plant && unseen?.[y * W + x])) (plant ? plants : keep)[y * W + x] = 1;
   }
   // the start's ground and a tile round it
   const st = built.start ?? null;

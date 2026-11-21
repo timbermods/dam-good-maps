@@ -14,7 +14,25 @@ game launch until he lifts it. The page session is stopped (worktree `DamGoodMap
 
 ## Released
 
-Latest: `tilt-forms-done` (2026-11-16, PR #1211): dev eda351c9 released into `main` at e4a403e, generator 0.10.23 → 0.10.37;
+Latest: `ruins-in-view-done` (2026-11-20, PR #1268): dev cc351e38 released into `main` at 9ca0997e, generator 0.10.53 →
+0.10.55: a stand of the map's own ruins in the opening view (#1266) and Islands' start above 128² walking its island, its
+berries topped up to Easy's food row (#1267). The live check passed and the preview was republished; recorded on #57.
+Known finding: Islands 256² steps its sea down over typical Hard cycles (6.5 days wet, 22.5 dry; the sea's depth at
+the cycle's end, p50; base cc351e38, Normal). Over the first cycles: seed 1's droughts end 2.84, 2.63, 2.43 and its wet
+seasons 3.88, 3.68 (settled 4.19); seed 2's droughts 1.90, 1.48, 1.10, wet 2.68, 2.27 (settled 3.20); seed 4's wet seasons
+3.60, 3.23, 2.87 (settled 4.01). Run until the wet season's end stops moving, or 16 cycles: on seed 1 it falls 3.86 → 1.80
+by cycle 16 and is still falling, and the start's water returns every cycle (29 tiles); on seed 2 it levels off at 1.09 at
+cycle 7, every drought ending at 0, and the start's water is 0 at every wet season's end from cycle 3; on seed 4 it levels
+off at 0.90 at cycle 13, the droughts ending at 0 from cycle 10, and the start's water is 0 at every wet season's end from
+cycle 1 (31 tiles when settled). Where it levels off, the sea is a sheet about 1 m deep that empties each drought. The
+cause is the land: on seed 4 the main river's mouth is 22 tiles from the sea's exit. A prototype that feeds the sea is
+kept on `findings/islands-feed`; the land's lessons are in [design/uplands.md](design/uplands.md), "Islands' land above
+128², parked". On seeds 2 and 4 the start's water stops returning, so Islands' land comes next, after the start's first
+food (generator 0.10.56).
+Before it: `highlands-done` (2026-11-20, PR #1265): dev a0a3c83c released into `main` at 46b5e71, generator 0.10.37 →
+0.10.53; 56 PRs since `tilt-forms-done`: the land above 128² drawn in rings (D547) with Highlands standing up (#1263), the
+start picked for its level room (D545, #1256, #1261), ruled water (#1162), floodplain steps 5 and 6 and Save as.
+Before it: `tilt-forms-done` (2026-11-16, PR #1211): dev eda351c9 released into `main` at e4a403e, generator 0.10.23 → 0.10.37;
 the deploy and the live check passed (run 43939200291). Phones' two-finger tilt (#1196), rivers kept to their courses (#1145),
 round forms at their meant size and Verticality reaching again (#1102, #1205), Generous's reach and the 48² starved start
 (#1208). The Nightly on eda351c9 was green on every job. The scheduled Nightly checks out dev.

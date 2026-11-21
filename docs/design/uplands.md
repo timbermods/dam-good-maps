@@ -949,3 +949,23 @@ planting within Easy's 15 tiles is a rule for every theme's Normal maps.
 
 **The hash proof**: the 52 maps of the other themes Designed for Normal and of Highlands at 128² and under, this head
 against dev (18a6518a), the version neutralised: 52 of 52 identical.
+
+## Islands' land above 128², parked (2026-11-20)
+
+Islands above 128² stays on 0.10.48's land (`UPLANDS_BASE_PATH`) with round 8's start (generator 0.10.55). The land
+rounds after it were prototypes, not merged: round 9 (the land graded from a low, shallower sea, reverted), round 10
+(the game's island map's numbers drawn in the genome) and round 11 (the start's bench first, then the mainland, then the
+islands as its way out), on `findings/islands-land-11`; and a sea feed (rivers raised to a typical Hard drought's loss),
+on `findings/islands-feed`, which fell short: on seeds 2 and 4 the wet season's end stayed short of settled, seed 2's sea
+stood 0.18 higher, and the start moved on seeds 1, 4 and 5. The sea's step-down over Hard cycles that the feed was for is
+in STATUS ("Known finding" under `ruins-in-view-done`): run on, the sea levels off on seeds 2 and 4 as a sheet about
+1 m deep that empties each drought, and the start's water stops returning, so this land is the next item after the
+start's first food.
+
+Lessons for whoever takes the land up again:
+- **River mouths stay away from the sea's exit.** On seed 4 the main river's mouth is 22 tiles from the exit, and its
+  sea steps down over Hard cycles.
+- **Shelves stand under the sea's spill level.**
+- **A warm-started second settle can't ship under D455.** A saved project reopens by a fresh settle of the land it holds,
+  so water that a settle warm from the first one reaches is not the water the project reopens to: the file's water must
+  be a cold settle's.

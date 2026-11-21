@@ -139,7 +139,9 @@ import * as ed from "../../src/worker/session";
 // 12 to 36 columns and its other fields give back the stand's scrap, the map still passing every check, D148
 // and generator 0.10.55's version alone (D547's Islands round 8, which keeps this River Valley map): with the version set
 // back to 0.10.54 the branch gives `5d76ac7a…` byte for byte, D148
-const LIVE_SHA = "f8adbd50e3cef5109a092975054c3cd988397b41ce8799cd20f4a8ebd4250cee";
+// and generator 0.10.56's version alone (the start's first food, which this map's start does not need): with the
+// version set back to 0.10.55 the branch gives `f8adbd50…` byte for byte, D148
+const LIVE_SHA = "b0d7d6070c767a07cdd8873a4ab4cd9fd04ba6546afa5b5126f884b1ff3dbc2e";
 const spec = () => makeSpec({ seed: 4242, size: { x: 128, y: 128 }, theme: "riverValley", designedFor: "normal" });
 
 describe("mine sites and ruins, models of our own", () => {

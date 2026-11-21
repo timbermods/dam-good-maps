@@ -99,7 +99,9 @@ import { decodeSpecFragment, encodeSpecFragment, makeSpec, type MapSpec } from "
 // back to 0.10.53 the branch gives `7b35dbf3…` byte for byte, D148
 // and generator 0.10.55's version alone (D547's Islands round 8, which keeps this River Valley map): with the version set
 // back to 0.10.54 the branch gives `2dc34c3c…` byte for byte, D148
-const SHA = "29e2c9c1547a16115aff9107aef9439cd002c83bac2b9c4903ac561e303c1c46";
+// and generator 0.10.56's version alone (the start's first food, which premise maps leave to their own planting): with
+// the version set back to 0.10.55 the branch gives `29e2c9c1…` byte for byte, D148
+const SHA = "b1a5d1d13dfc94f7e68af0faa4cb600ff1bb3c5ec59082e9088de04a185640fa";
 
 // (a Hard map whose start lake parts as it falls: the single analytic reading stood 0.32 over the run there, PR #1040;
 // seed 5 for 7 since D518 with dev's ways out by a ramp's line (#1061), D148: seed 7's Hard lake stair holds no plan now

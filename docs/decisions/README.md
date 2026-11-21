@@ -130,7 +130,7 @@ Read this index, then [how-we-work.md](how-we-work.md), then only the topic file
 - D458: Lake Basin round 2 adopted
 - D464: Lake Basin always reads as one
 - D466: Settings experiments expected failures
-- D85: Start requirements
+- D85: Start requirements; the start's first food, Easy's food row, on every map (generator 0.10.56)
 - D224: Starting-logs floor
 - D167: Resources like official maps
 - D171: Sources start rivers
