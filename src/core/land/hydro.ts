@@ -38,7 +38,7 @@ import { hash32 } from "../math/hash";
 import { fbm } from "../math/noise";
 import { stream, type Rng } from "../math/rng";
 import { drainage } from "./drainage";
-import { BED_FLOOR, type Genome } from "./genome";
+import { BASIN_BED, BED_FLOOR, type Genome } from "./genome";
 import { sinDet, TWO_PI } from "../math/detmath";
 import { distanceFrom, MinHeap, N4, N8 } from "../math/grid";
 import { DIRS8 } from "./num";
@@ -108,6 +108,10 @@ const WIDE_WANT = 0.5;
 /** How far the soil's moisture has to spread from the water on `wet` tiles to reach each tile, by the game's own rule
  *  (sim/soil3d.ts: a step costs 1, and 6 for each level the tile stands above the one it spreads from; downhill is
  *  free of the climb), the water standing a level above its bed; 64 or more read as 64 (D504). */
+/** Lake Basin above 128² (round 7c): a hollow under this share of the map is a pond, not the basin's lake. */
+const BASIN_POND = 0.01;
+/** Lake Basin above 128²: how far round the lake's place its hollow is read, as a share of the map's narrower side. */
+const BASIN_SPILL_REACH = 0.08;
 export function moistCost(wet: Uint8Array, h: ArrayLike<number>, W: number, H: number): Int32Array {
   const N = W * H;
   const CAP = 64;
@@ -1292,6 +1296,19 @@ function planHydroSingle(E: Float64Array, h: Uint8Array, g: Genome, seed: number
   const lakes: Lake[] = [];
   const lakeOf = new Int32Array(N).fill(-1);
   const budget = g.hydro.lakeBudget * N;
+  // (Lake Basin above 128², the gated hydro pass: the level the basin's hollow spills at, the snapped land's, read
+  // round the lake's place (`g.focus`): no river inside the basin is carved under it where its banks stand that high)
+  let basinSpill = -Infinity;
+  if (g.basinWarp) {
+    const fx = Math.round(g.focus[0] * (W - 1));
+    const fy = Math.round(g.focus[1] * (H - 1));
+    const R = Math.round(BASIN_SPILL_REACH * Math.min(W, H));
+    for (let y = Math.max(0, fy - R); y <= Math.min(H - 1, fy + R); y++)
+      for (let x = Math.max(0, fx - R); x <= Math.min(W - 1, fx + R); x++) {
+        const i = y * W + x;
+        if (depth[i] > 0 && lv.filled[i] > basinSpill) basinSpill = lv.filled[i];
+      }
+  }
   const rivers: RiverFeature[] = [];
   const falls: Hydro["falls"] = [];
   const arms: Arm[] = [];
@@ -1436,6 +1453,9 @@ function planHydroSingle(E: Float64Array, h: Uint8Array, g: Genome, seed: number
     let onSill = false;
     // (round 6b step 3: the lake a river last left, on a land with a rock sill)
     let leftLake = -1;
+    // (Lake Basin above 128², the gated hydro pass: where the river leaving the basin's lake left it, and its bed there)
+    let outFrom = -1;
+    let outBed = 0;
     /** Whether a lake's water, standing at its sill, would spill out of the river's channel
      *  upstream of sample `j`: where the backwater reaches (the bed below the sill), the ground
      *  round the channel lower than the sill, outside the lake, drains away lower than it (to an
@@ -1502,7 +1522,10 @@ function planHydroSingle(E: Float64Array, h: Uint8Array, g: Genome, seed: number
       if (!Number.isFinite(ring)) ring = Number.isFinite(run) ? run + 1 : h[Math.max(0, Math.min(N - 1, ci))] + 1;
       if (withLakes && !gorgeMain && isIn && depth[ci] > 0 && lakeOf[ci] < 0 && inLake < 0) {
         // A flat valley's trunk stays below its upstream bed when it crosses a hollow.
-        const lk = hollow(ci, valleyMain ? Math.min(maxSill, run + 1) : maxSill);
+        let lk = hollow(ci, valleyMain ? Math.min(maxSill, run + 1) : maxSill);
+        // (round 7c: Lake Basin above 128², a hollow smaller than the basin's lake stands no higher than the river's bed
+        // upstream: a pond on a bench over its course backed the water up to its head and out by the edge beside it)
+        if (g.basinWarp && !valleyMain && lk && lk.sill > run + 1 && lk.tiles.length < BASIN_POND * N) lk = hollow(ci, Math.min(maxSill, run + 1));
         // (a hollow too big for the budget is cut down to its lowest part: the same lake again)
         const again = lk ? lk.tiles.find((i) => lakeOf[i] >= 0) : undefined;
         if (lk && again !== undefined) inLake = lakeOf[again];
@@ -1535,6 +1558,11 @@ function planHydroSingle(E: Float64Array, h: Uint8Array, g: Genome, seed: number
         // (a land with a rock sill: the river leaves over the sill at the outlet's bed, whatever its bed upstream)
         run = valleyMain && !g.rockSill ? Math.min(run, lakes[inLake].outletBed) : lakes[inLake].outletBed;
         leftLake = inLake;
+        // (the last time it leaves: a river that crosses a spit of its lake and comes back in leaves it again after)
+        if (g.basinWarp && withLakes && lakes[inLake].tiles.length >= BASIN_POND * N) {
+          outFrom = j;
+          outBed = run;
+        }
         inLake = -1;
         onSill = !!g.rockSill;
       }
@@ -1542,9 +1570,19 @@ function planHydroSingle(E: Float64Array, h: Uint8Array, g: Genome, seed: number
       // sill at the outlet's bed and cuts down only past it, where it falls)
       onSill = onSill && isIn && !!g.rockSill?.[ci];
       if (!onSill) run = Math.min(run, ring - cut, floorRing - 1, beside);
+      // (Lake Basin above 128², the gated hydro pass: the river leaving the lake falls from its sill to the beds' floor
+      // at the map's edge, a level at a time along its way, so its sill stands where it left the lake)
+      // (and never faster: its bed is that grade, whatever the ground and the water beside it, so nothing lower than its
+      // sill lets the lake out)
+      if (outFrom >= 0) run = outBed - ((outBed - BED_FLOOR) * (j - outFrom)) / Math.max(1, n - outFrom);
       if (run < endBed) run = endBed;
-      // (never below the beds' floor, item 47: a river there runs shallower)
-      if (run < BED_FLOOR) run = BED_FLOOR;
+      // (never below the beds' floor, item 47: a river there runs shallower; Lake Basin above 128²: inside the basin no
+      // deeper than `BASIN_BED`, a level over the lake's floor, so no river runs under its lake or past it lower than its
+      // water; only the river leaving it falls further)
+      // (and where its banks stand at the hollow's spill level or over, no deeper than a level under it: a river beside
+      // the lake, or crossing its rim, never runs lower than the lake's water)
+      const bedFloor = g.basinWarp && outFrom < 0 ? Math.max(BASIN_BED, Math.min(basinSpill - 1, ring - 1)) : BED_FLOOR;
+      if (run < bedFloor) run = bedFloor;
       prof[j] = Math.round(run);
     }
     return { st, prof, L, n, lakeAt };
@@ -1758,7 +1796,7 @@ function planHydroSingle(E: Float64Array, h: Uint8Array, g: Genome, seed: number
     const bedOf = prof.slice();
     const poolAt: number[] = [];
     for (let j = 1; j <= n; j++) {
-      if (!(prof[j - 1] - prof[j] >= 1) || prof[j] < BED_FLOOR + 1) continue;
+      if (!(prof[j - 1] - prof[j] >= 1) || prof[j] < (g.basinWarp ? BASIN_BED : BED_FLOOR) + 1) continue;
       let level = 0;
       for (let q = j; q <= n && prof[q] === prof[j]; q++) level++;
       if (level >= 8) poolAt.push(j);
