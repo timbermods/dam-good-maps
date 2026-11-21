@@ -166,6 +166,9 @@ export interface SettlerOptions {
   /** With `badView` (Lake Basin above 128², round 7c): where each of the good few still shows badwater, the best place of
    *  the rest of the list drawn from (every one keeps the rows the pick keeps) whose turn shows none. */
   badViewWide?: boolean;
+  /** Islands above 128² (round 8): with `badView`, the start is turned to the view with the least badwater, but never
+   *  moved to another place for it: the place, its room and its rows are the pick's own. */
+  badTurnOnly?: boolean;
   /** The rivers' channel as the build lays it (`BuildResult.channel`), on the settled water: the places read over the
    *  slopes are read over the slopes the build will place (`startWalks`), toward the river, so the walk the pick
    *  weighs is the one the start's water rows read on the map. */
@@ -757,7 +760,8 @@ export function pickStart(
   };
   // turned for the game's opening camera (D493)
   const badTiles: number[] = [];
-  if (opts.badView) for (let i = 0; i < N; i++) if (D[i] >= 0.1 && water.contamination[i] > 0.05) badTiles.push(i);
+  // (`badTurnOnly`: read only for the place chosen, below, so the pick and its frame read as without it)
+  if (opts.badView && !opts.badTurnOnly) for (let i = 0; i < N; i++) if (D[i] >= 0.1 && water.contamination[i] > 0.05) badTiles.push(i);
   const badSeen = (t: Cand, o: Orientation): number => tilesInFrame({ x: t.i % W, y: Math.floor(t.i / W), z: h[t.i], orientation: o }, W, h, badTiles);
   const turned = (t: Cand): Orientation => {
     const tx = t.i % W;
@@ -879,6 +883,12 @@ export function pickStart(
         orientation = o;
       }
     }
+  }
+  // (`badTurnOnly`, Islands above 128²: the place chosen turned to the view with the least badwater, the opening shot
+  // choosing among those turns)
+  if (opts.badView && opts.badTurnOnly) {
+    for (let i = 0; i < N; i++) if (D[i] >= 0.1 && water.contamination[i] > 0.05) badTiles.push(i);
+    if (badTiles.length) orientation = turned(c);
   }
   const x = c.i % W;
   const y = (c.i - x) / W;

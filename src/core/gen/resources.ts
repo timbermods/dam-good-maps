@@ -19,6 +19,8 @@ import { pickSeeds } from "./blobs";
 import { BUSHES, density, FOREST, OFFICIAL_LAYOUT, RUIN_HEIGHT_SHARES, RUINS } from "./calibrated";
 import { START_FLOORS } from "../validate/playability";
 import { planDeadStands } from "./deadStands";
+import { giveBackScrap, markAround, planFrameStand } from "./frameStand";
+import type { Orientation } from "../format/footprints";
 import { growGroveAcross, growGroveAt, growPatchAt, livingSpecies, NEAR_WALK, planGroves, planPatches, planRuinFields, resourceBudget, ruinColumns, saplings, startWalkField, succulentsOf, woodPerTree, type BaselineGround } from "../resources/baseline";
 
 export interface Ground {
@@ -60,6 +62,16 @@ export interface ResourceConstraints {
    *  least `bushes` of them within `within` tiles' walk, the map's own patches kept out of the start's walk, and a
    *  small ruin field the colony walks to within `ruins` tiles' walk (scrap at hand). */
   easy?: { safe: Uint8Array; bushes: number; within: number; ruins: number };
+  /** Islands above 128² on Normal (round 8): the start's berries topped up to at least `bushes` within `within` tiles'
+   *  walk on ground that stays moist through a Normal drought (`safe`), as Easy's are, after the map's own planting:
+   *  the island's added slopes move the patches the draws grow, never the food the start's row counts. */
+  startFood?: { safe: Uint8Array; bushes: number; within: number };
+  /** The start's turn (its door's orientation): the game's first camera is turned by it (D493). */
+  turn?: Orientation;
+  /** The stand in the opening view keeps more than this many straight tiles from the start's middle, measured as the
+   *  two-ways intention measures (it counts the ruins within its reach, `TWO_WAYS_REACH`: a stand there would weigh
+   *  against the side it reads as farmland). */
+  standBeyond?: number;
   /** The share of the moist ground the map's own groves may cover at most (default the official maps',
    *  `OFFICIAL_LAYOUT.moistCover`; a premise map's wood budget asks less, PREMISES §2.2 stage 6). */
   moistCover?: number;
@@ -587,28 +599,30 @@ export function planResources(spec: MapSpec, g: Ground, candidate: number, attem
     }
     // (Easy start, D495: its berries within its shorter walk, on ground that stays moist through a drought; what
     // the planting above left short there is planted now, round the start's water first)
-    if (easy && walk) {
+    // (and Islands above 128² on Normal, `startFood`: the same top-up, to its own count)
+    const food = easy ?? constraints?.startFood ?? null;
+    if (food && walk) {
       const close = new Uint8Array(N);
-      for (let i = 0; i < N; i++) if (walk[i] <= easy.within && easy.safe[i] && (!plantWalk || plantWalk[i])) close[i] = 1;
+      for (let i = 0; i < N; i++) if (walk[i] <= food.within && food.safe[i] && (!plantWalk || plantWalk[i])) close[i] = 1;
       let have = 0;
       for (const f of out) if (f.kind === "berryPatch") for (const i of runsToTiles(f.params.area, W)) if (close[i] && moist[i]) have++;
-      const er = stream(seed, "easy-berries", candidate, attempt);
+      const er = stream(seed, easy ? "easy-berries" : "start-food", candidate, attempt);
       // (first on ground the drought leaves moist, as the patches only grow there; where that leaves Easy's
       // berries short, on the rest of its drought-proof ground as before the D410 round: its targets hold)
-      for (let pass = 0; pass < 2 && have < easy.bushes; pass++) {
+      for (let pass = 0; pass < 2 && have < food.bushes; pass++) {
         if (pass === 1) {
           if (!dries) break;
           dries = null;
         }
-        for (let k = 0; k < 8 && have < easy.bushes; k++) {
+        for (let k = 0; k < 8 && have < food.bushes; k++) {
           const w = new Float64Array(N);
           for (let i = 0; i < N; i++) if (close[i] && free[i] && bushMoist[i] && !dries?.[i]) w[i] = nearWater(i) ? 2 : 1;
           const seeds = pickSeeds(er, w, W, 3, 3);
           if (!seeds.length) break;
           let grew = 0;
           for (const s of seeds) {
-            if (have >= easy.bushes) break;
-            const n = patch(s, Math.max(4, Math.min(24, easy.bushes - have)), 1, close, 0.9, "berryPatch/start");
+            if (have >= food.bushes) break;
+            const n = patch(s, Math.max(4, Math.min(24, food.bushes - have)), 1, close, 0.9, "berryPatch/start");
             have += n;
             grew += n;
           }
@@ -912,6 +926,50 @@ export function planResources(spec: MapSpec, g: Ground, candidate: number, attem
       part.sort((a, b) => a - b);
       out.push({ ...grove, id: partId, role, params: { ...grove.params, area: tilesToRuns(part, W), speciesMix: { [fastSp]: 1 }, groveSize: part.length } });
       planted.push({ id: partId, tiles: part, species: fastSp, living: true });
+    }
+  }
+
+  // ---- a stand of the map's own ruins in the opening view pulled back (D493, planning's ruling of 2026-11-20 on #236):
+  //      on dry ground ahead of the colony and raised where the land offers it, past Normal's clear distance
+  //      (gen/frameStand.ts). It is planned last, on the ground everything else left, so every other resource keeps its
+  //      draws and its place (the start's food and wood with them); the map's other fields give back its scrap, so the
+  //      map's scrap stays the setting's (gen/frameStand.ts `giveBackScrap`). Not with Easy start, whose own small field
+  //      stands on the start's walk.
+  const turn = constraints?.turn;
+  if (!easy && g.start && turn && g.entities) {
+    const near = new Uint8Array(N);
+    for (const f of out) {
+      if (f.kind !== "ruinField" && f.kind !== "forest" && f.kind !== "berryPatch") continue;
+      markAround(near, runsToTiles(f.params.area, W), W, H, f.kind === "ruinField" ? 2 : 1);
+    }
+    const beyond = constraints?.standBeyond ?? 0;
+    const sx = g.start.x;
+    const sy = g.start.y;
+    const ok = Uint8Array.from(free, (v, i) => {
+      const dx = (i % W) - sx;
+      const dy = Math.floor(i / W) - sy;
+      return v && !near[i] && !g.occupied[i] && dx * dx + dy * dy > beyond * beyond ? 1 : 0;
+    });
+    const start = { x: g.start.x, y: g.start.y, z: g.heights[g.start.y * W + g.start.x], orientation: turn };
+    const stand = planFrameStand({ ...ground, entities: g.entities }, start, ok, moist, startDist, walk, spec.settings.start.rules.ruinsWithin + 1, stream(seed, "frame-stand", candidate, attempt));
+    if (stand) {
+      const role = "ruinField/firstView";
+      const id = featureId(seed, "ruinField", role);
+      const scrapTarget = ruinColumns(stand.tiles, W, stream(seed, id, "heights"), stand.tallness).scrap;
+      // (its scrap comes out of the map's: the fields planned above give it back, farthest from the start first)
+      const fields = out.filter((f): f is RuinFieldFeature & { params: { layout: { tallness: number } } } => f.kind === "ruinField" && !!f.params.layout && !f.params.story);
+      const back = giveBackScrap(
+        fields.map((f) => ({ tiles: runsToTiles(f.params.area, W), scrapOf: (t: readonly number[]) => ruinColumns(t, W, stream(seed, f.id, "heights"), f.params.layout.tallness).scrap })),
+        scrapTarget,
+        g.start,
+        W,
+      );
+      fields.forEach((f, k) => {
+        if (back.tiles[k].length === runsToTiles(f.params.area, W).length) return;
+        f.params.area = tilesToRuns(back.tiles[k], W);
+        f.params.scrapTarget = ruinColumns(back.tiles[k], W, stream(seed, f.id, "heights"), f.params.layout.tallness).scrap;
+      });
+      out.push({ id, kind: "ruinField", origin: "generated", role, locked: false, params: { area: tilesToRuns(stand.tiles, W), scrapTarget, heightMix: [...RUIN_HEIGHT_SHARES], centerBias: 0, layout: { tallness: stand.tallness } } });
     }
   }
   return out;
