@@ -4255,10 +4255,10 @@ export function rebuild(spec: MapSpec, features: Feature[], field: GeneratedFiel
   return { built, bytes: writeTimber(file), report: validateBuilt(spec, features, built, file).report };
 }
 
-/** Islands above 128² (`isleSea.ts`): the ground badwater keeps off, the start's headland and the land round it within
- *  `ISLE_BAD_OFF` of its bench, so no badwater stands in the start's view. */
 /** How far round its bench a headland's start may stand, in the headland's half-widths (Islands above 128²). */
 const HEAD_REACH = 1.6;
+/** Islands above 128² (`isleSea.ts`): the ground badwater keeps off, the start's headland and the land round it within
+ *  `ISLE_BAD_OFF` of its bench, so no badwater stands in the start's view. */
 function isleBadKeep(head: { bx: number; by: number }, W: number, H: number): Uint8Array {
   const out = new Uint8Array(W * H);
   for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) if (portable.hypot(x - head.bx, y - head.by) < ISLE_BAD_OFF) out[y * W + x] = 1;
