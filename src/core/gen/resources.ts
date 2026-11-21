@@ -62,10 +62,12 @@ export interface ResourceConstraints {
    *  least `bushes` of them within `within` tiles' walk, the map's own patches kept out of the start's walk, and a
    *  small ruin field the colony walks to within `ruins` tiles' walk (scrap at hand). */
   easy?: { safe: Uint8Array; bushes: number; within: number; ruins: number };
-  /** Islands above 128² on Normal (round 8): the start's berries topped up to at least `bushes` within `within` tiles'
-   *  walk on ground that stays moist through a Normal drought (`safe`), as Easy's are, after the map's own planting:
-   *  the island's added slopes move the patches the draws grow, never the food the start's row counts. */
-  startFood?: { safe: Uint8Array; bushes: number; within: number };
+  /** The start's first food (generator 0.10.56, every map without Easy start): the start's berries topped up to at
+   *  least `bushes` within `within` tiles' walk on ground that stays moist through a Normal drought (`safe`), Easy's
+   *  food row and a tenth more, planted last on the ground everything else left (`FIRST_FOOD`), so every other plant
+   *  keeps its draws and its place. `early`: Islands above 128² on Normal (round 8), whose top-up comes before the
+   *  start's groves, as Easy's does. */
+  startFood?: { safe: Uint8Array; bushes: number; within: number; early?: boolean };
   /** The start's turn (its door's orientation): the game's first camera is turned by it (D493). */
   turn?: Orientation;
   /** The stand in the opening view keeps more than this many straight tiles from the start's middle, measured as the
@@ -102,6 +104,10 @@ export function nearStartTargets(spec: MapSpec): { wood: number; trees: number; 
     ruinsClear: r.ruinsWithin + 7,
   };
 }
+
+/** The role prefix of the start's first food's patches (generator 0.10.56): the 3D forms grow as if they were not there
+ *  (`gen/forms3d.ts` `growOn`), so the land and the water stay the map's own. */
+export const FIRST_FOOD = "berryPatch/start/food";
 
 /** A second district's site needs a grove of 40+ trees and 20+ berry bushes near it (PLAN §9.8). */
 export const SITE_TREES = 48;
@@ -179,6 +185,7 @@ export function planResources(spec: MapSpec, g: Ground, candidate: number, attem
   // a level of dry ground beyond the start's clearing, or of green ground where that walk has none dry; its scrap
   // counts toward the map's)
   const easy = constraints?.easy ?? null;
+  const sf = constraints?.startFood;
   let easyScrap = 0;
   if (easy && walk && g.start) {
     const er = stream(seed, "easy-ruins", candidate, attempt);
@@ -271,11 +278,11 @@ export function planResources(spec: MapSpec, g: Ground, candidate: number, attem
   const nearFill = { bushes: 0.85, trees: 0.7 };
   // (Easy start, D495: within the start's walk, berries grow only where the soil stays moist through a drought)
   const bushMoist = easy && nearWalk ? Uint8Array.from(moist, (v, i) => (v && (!nearWalk![i] || easy.safe[i]) ? 1 : 0)) : moist;
-  const patch = (seedTile: number, size: number, ripeShare: number, within: Uint8Array | null = null, fill?: number, prefix = "berryPatch"): number => {
+  const patch = (seedTile: number, size: number, ripeShare: number, within: Uint8Array | null = null, fill?: number, prefix = "berryPatch", rng = vegRng): number => {
     const allowed = new Uint8Array(N);
     for (let i = 0; i < N; i++) allowed[i] = free[i] && bushMoist[i] && (!within || within[i]) && !dries?.[i] ? 1 : 0;
     if (!allowed[seedTile]) return 0;
-    const grown = growPatchAt(ground, vegRng, allowed, seedTile, size, fill);
+    const grown = growPatchAt(ground, rng, allowed, seedTile, size, fill);
     if (!grown) return 0;
     const tiles = grown.tiles;
     for (const i of grown.area) free[i] = 0;
@@ -599,8 +606,9 @@ export function planResources(spec: MapSpec, g: Ground, candidate: number, attem
     }
     // (Easy start, D495: its berries within its shorter walk, on ground that stays moist through a drought; what
     // the planting above left short there is planted now, round the start's water first)
-    // (and Islands above 128² on Normal, `startFood`: the same top-up, to its own count)
-    const food = easy ?? constraints?.startFood ?? null;
+    // (and Islands above 128² on Normal, `startFood` `early`: the same top-up, to its own count; every other map's
+    // comes last, below)
+    const food = easy ?? (constraints?.startFood?.early ? constraints.startFood : null);
     if (food && walk) {
       const close = new Uint8Array(N);
       for (let i = 0; i < N; i++) if (walk[i] <= food.within && food.safe[i] && (!plantWalk || plantWalk[i])) close[i] = 1;
@@ -970,6 +978,45 @@ export function planResources(spec: MapSpec, g: Ground, candidate: number, attem
         f.params.scrapTarget = ruinColumns(back.tiles[k], W, stream(seed, f.id, "heights"), f.params.layout.tallness).scrap;
       });
       out.push({ id, kind: "ruinField", origin: "generated", role, locked: false, params: { area: tilesToRuns(stand.tiles, W), scrapTarget, heightMix: [...RUIN_HEIGHT_SHARES], centerBias: 0, layout: { tallness: stand.tallness } } });
+      // (its ground and the ring round it, as the map's other fields keep theirs, for the start's food below)
+      const held = new Uint8Array(N);
+      markAround(held, stand.tiles, W, H, 1);
+      for (let i = 0; i < N; i++) if (held[i]) free[i] = 0;
+    }
+  }
+
+  // ---- the start's first food (generator 0.10.56, planning's rule of 2026-11-20): on every map without Easy start,
+  //      what the planting above left short of Easy's food row (`startFood`: its count and a tenth more, living bushes
+  //      within its 15 tiles' walk on ground that stays moist through a Normal drought, PERFECT's berries for an Iron
+  //      Teeth start) is planted now, last, on the ground everything else left: so the start's wood, ruins and every
+  //      other plant keep their draws and their place, and only bushes are added. They grow only where the ground
+  //      already grows them (moist, free, past the start's yard, and moist through the map's own drought where that is
+  //      longer), round water first, a few patches as the land lets; nothing is watered for them, and where that ground
+  //      runs out the row stays short. Islands above 128² on Normal tops up before its groves (`early`, above).
+  if (!easy && sf && !sf.early && walk && g.start) {
+    const row = new Uint8Array(N);
+    for (let i = 0; i < N; i++) if (walk[i] <= sf.within && sf.safe[i] && moist[i]) row[i] = 1;
+    let have = 0;
+    for (const f of out) if (f.kind === "berryPatch") for (const i of runsToTiles(f.params.area, W)) if (row[i]) have++;
+    if (have < sf.bushes) {
+      const close = new Uint8Array(N);
+      const dm = g.droughtMoisture;
+      for (let i = 0; i < N; i++) if (row[i] && (!startGround || startGround[i]) && (!dm || dm[i] > 0)) close[i] = 1;
+      const fr = stream(seed, "start-food", candidate, attempt);
+      for (let k = 0; k < 8 && have < sf.bushes; k++) {
+        const w = new Float64Array(N);
+        for (let i = 0; i < N; i++) if (close[i] && free[i]) w[i] = nearWater(i) ? 2 : 1;
+        const seeds = pickSeeds(fr, w, W, 3, 3);
+        if (!seeds.length) break;
+        let grew = 0;
+        for (const s of seeds) {
+          if (have >= sf.bushes) break;
+          const n = patch(s, Math.max(4, Math.min(24, sf.bushes - have)), 1, close, 0.9, FIRST_FOOD, fr);
+          have += n;
+          grew += n;
+        }
+        if (!grew) break;
+      }
     }
   }
   return out;

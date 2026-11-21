@@ -539,7 +539,10 @@ Every placement uses the footprints in `footprints.json` and marks occupied cell
    patch within the colony's walk grows only on soil the water the drought leaves keeps moist (`plants.drought`'s
    reading), so the start's food lasts its first drought; where the walk holds too little of it for Minimum starting
    bushes, the rest grows on moist soil as before, and the start itself prefers places with such soil near them (on
-   most River Valley maps the rivers drain whole in a drought, and nothing near them stays moist). Bushes are ripe (`GatherableYieldGrower 1.0`) near the start and 55%
+   most River Valley maps the rivers drain whole in a drought, and nothing near them stays moist). Last of all (generator
+   0.10.56, every map without Easy start), what that leaves short of Easy's food row (44 living bushes within 15 tiles' walk
+   on soil moist through a Normal drought) is planted on the ground the rest left, round water first, never on watered
+   ground, so nothing else on the map moves (`src/core/gen/README.md`). Bushes are ripe (`GatherableYieldGrower 1.0`) near the start and 55%
    ripe elsewhere, as in official maps.
 3. **Forests:** groves are single-species blobs grown with a compactness of about 0.8, sized log-normal around the
    grove-size median. The map's groves come first (living groves on moist soil up to about a quarter of it, then dead

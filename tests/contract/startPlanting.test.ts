@@ -108,8 +108,10 @@ describe("the start's own planting on generated maps (PLAN §20 D252)", () => {
 
   it("reads the land: the groves go to several kinds of place, with openings of their own", () => {
     // (not "fast" since generator 0.10.17, D515, D148: the fast groves the start's wood grows for `start.wood_fast`,
-    // `forest/start/fast`, are named for their species, not a kind of place, so they never count among the kinds of place)
-    const kinds = new Set(starts.flatMap((s) => s.spread.kinds).filter((k) => k !== "fast"));
+    // `forest/start/fast`, are named for their species, not a kind of place, so they never count among the kinds of place;
+    // nor "food" since generator 0.10.56, D85, D148: the start's first food, `berryPatch/start/food` (`resources.ts`
+    // `FIRST_FOOD`), is the start's berries topped up last on the ground everything else left, not a grove's kind of place)
+    const kinds = new Set(starts.flatMap((s) => s.spread.kinds).filter((k) => k !== "fast" && k !== "food"));
     expect(kinds.size, [...kinds].join(", ")).toBeGreaterThanOrEqual(3);
     for (const k of kinds) expect(["riverside", "across", "plateau", "valley", "open", "dead"]).toContain(k);
     // a birch-rich opening somewhere and a pine-rich one somewhere else (D164's lever; birch for oak since generator

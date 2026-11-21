@@ -449,15 +449,15 @@ place of its bottom rule.
   warehouse and tank (five groups, 26 rows), each picture a small render in the map's look. Picking one lights its row in the mint, as the bar lights a tool. **An object's settings** sit in a
   small window directly above the list, on its edges, showing only while an object is picked (its height follows
   what it has; the picked row stays under the pointer, or, where the window takes its place (Start, at the list's top), comes into view just under the list's title; no row above the bar then; the object put away, the list returns to its top, or where it was when the row is clicked again): picked in the list, a source's Next source and
-  Pointing at, a ruin's Height, a relic's Size, a plant's or Mixed woods' Size and Density (trees, succulents and woods
-  also Age), a water object's Strength ("drains 2 water/s" below 0) and Starts (At once or Later, with its Cycle), the
+  Pointing at, a ruin's Size, Density, Height and Heights (Same | Mixed), a relic's Size, a plant's or Mixed woods' Size
+  and Density (trees, succulents and woods also Age), a water object's Strength ("drains 2 water/s" below 0) and Starts (At once or Later, with its Cycle), the
   core's Radius and Goes off in cycle, a reserve's Holds (a menu in the page's own look: the goods every faction has,
   then those of one faction each, with the warning that another faction's good deletes the reserve) and Amount, the
   Ancient drill's note, and Turn (0°–270°, R) for an object that turns (not a plant); picked on the map, a source's Strength, This source ("1.45 water/s",
   in a row "1.45 of 5.79 water/s"), Water, Power, Unleash, Remove and Try another, an object's Delete, each with Put
   it down (×). The window follows the bar's one look per control: a number is the bar's slider with its value at the right of
   its name (Strength, Power, Next source, a ruin's Height, a plant's Size and Density), a choice is segmented (Water:
-  Clean | Badwater; a relic's Size; Age: Grown | Mixed; Turn); no dropdowns.
+  Clean | Badwater; a relic's Size; Age: Grown | Mixed; a ruin's Heights: Same | Mixed; Turn); no dropdowns.
   - Picking one shows a live ghost that follows the cursor, green where it fits and red where it doesn't, its footprint
     on the ground a darker fill of that hue with a lighter edge of the same hue round it, never a white square
     (`tools.ts` `GOOD`, `WARN`, `BAD` and a layer's `edge`; Kyler, 2026-10-29: calm, not abrasive) (the start
@@ -530,12 +530,13 @@ place of its bottom rule.
     needs 3"). A generated
     map's start already levels its own bench. A placed source starts at the game's own default strength (D323, item
     46: 1 water/s, 3 for badwater); it can be changed.
-  - **Scatter-type items place like a brush** (D235): trees, bushes, thorns (ruins and the like next) show the force's one
+  - **Scatter-type items place like a brush** (D235, D548): trees, bushes, ruins and thorns show the force's one
     ring round the pointer at the size in the object window (Size, tiles across, 2–24, and Density, 5–100%, per kind;
     the one key habit: { and } or F and the mouse for Size, [ and ] or F+scroll for Density, the ring following); a drag is the core's `paintObjects` over the tiles the brush covered
     (`ShelfItem.paint`, `worker paintAt`); dragging scatters that exact item naturally inside the circle, random, never overlapping, only where the game
-    allows it (a ruin stroke paints a ruin field with varied heights and mixed models), filling gaps up to the
-    density, never stacking; trees and bushes on dry ground tint the brush amber with "dry ground: these will die"
+    allows it, filling gaps up to the density, never stacking (ruins as trees are, D548: each column at the Ruin's
+    **Height**, or with **Heights** Mixed each from 1 up to it, their models and turns mixed by the tile; ruins have
+    no dry-ground tint and fit the land as placed objects do, D328); trees and bushes on dry ground tint the brush amber with "dry ground: these will die"
     (still allowed; `core/doc/plantSoil.ts`, the rule `plants.survive` applies; on a map with caves or overhangs the
     run top each tile paints at, under a roof or on top, its own moisture, contamination and water, never a cave's
     seen through its roof: `paint.ts` `paintDying`, `worker paintDryAt`; the checks read each plant there by its run
@@ -1204,17 +1205,8 @@ on one shared forces core, `src/core/forces/` (D203, D206, D220; see its README)
   shaped as the generator's natural ramps are: a tread of two to four tiles a level, uneven, filling the drag's
   length, a slope on the first tile of each, the ground three wide and a spur beside a fill; its slopes green as it
   is dragged or the line red with the one reason it can't be laid, the release one step: `core/doc/stair.ts`, sharing
-  `land/levels.ts`'s `dealTreads` and `shapeRamp`). The shelf's **Ruin**, dragged, lays a **ruin line**: ruins as
-  architecture, not scatter. Piers stand evenly from one end of the drag to the other, **Spacing** tiles apart (1 to 8,
-  3 unless changed), their tops at one level, a storey over the highest ground under the line, so they are tall in the
-  low ground and short at the ends (an aqueduct's or a dam's remains across a valley); **Break** (0 to 80%, 30% unless
-  changed) knocks piers between the two ends out by the drag's seed, and a pier that can't stand where it falls (water,
-  another object) is one more gap. The piers show green as it is dragged, with how many and the level of their tops
-  beside the pointer, or the line red with the one reason (no room for two piers; ground that drops more than a ruin's
-  8 levels under the line); the release lays the line it showed, one step in History ("Lay a ruin line of 10 piers"),
-  each column a `placeEntity` the log keeps, as a stroke of painted objects (`core/doc/ruinLine.ts` `planRuinLine`,
-  `applyRuinLine`; the worker's `ruinLinePlanAt` and `ruinLineAt`). A click with the Ruin still places one, at its
-  Height. Smooth has no walkable option (D247) and Flatten no Ramped edges
+  `land/levels.ts`'s `dealTreads` and `shapeRamp`). The shelf's **Ruin** places like the trees (D548: a brush, its
+  drag a field of ruins; "Scatter-type items" above). Smooth has no walkable option (D247) and Flatten no Ramped edges
   (D322). **Naturalize** weathers what the player paints (forces' results, strokes, rivers, set pieces); it leaves
   only what must not change for the map to stay correct: the start's pad and the ground under water sources,
   badwater sources and objects (not trees, bushes, ruin columns or slopes), worked out by the core when the stroke
