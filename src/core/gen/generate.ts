@@ -73,6 +73,7 @@ import type { FormPlan, FormsWanted } from "../land/forms3d";
 import { carveOutlets, widenOutlets, unreachedLakes, cleanPitsAndSpikes, contourField, fillDryHollows, footComponents, mergeSmallRegions, naturalRamps, relaxEdges, snapLevels } from "../land/levels";
 import { distanceFrom, levelRegions, N4 } from "../math/grid";
 import { hash32 } from "../math/hash";
+import { fbm } from "../math/noise";
 import { stream } from "../math/rng";
 import { droughtStorage } from "../sim/drought";
 import { waterModel } from "../sim/model";
@@ -197,11 +198,108 @@ function lakesAtSpill(h: Uint8Array, W: number, H: number, hy: Hydro, keep: Uint
   hy.lakes = lakes;
 }
 
+/** Lake Basin above 128² (the gated hydro pass): its shore bench, the start's place. The basin's land steps a level at a
+ *  time round the lake, and no lakeside ground held a start's room (256² seeds 6 and 8): one stretch of the big lake's
+ *  shore is brought to a level over its water, as far back from it as the land behind stands at most a level over the
+ *  bench and two under it, the land a level higher behind it the step its slopes cross. Its width follows the shore and
+ *  is drawn from noise, widest near its middle and pinched toward its ends, so it reads as a terrace the lake left, never
+ *  a strip. One a map, away from the rivers' channels and the map's edge. Returns its middle, or null. */
+function shoreBench(h: Uint8Array, W: number, H: number, hy: Hydro, keep: Uint8Array, seed: number, attempt: number): { x: number; y: number } | null {
+  const N = W * H;
+  const lk = hy.lakes.reduce<Hydro["lakes"][number] | null>((m, l) => (!m || l.tiles.length > m.tiles.length ? l : m), null);
+  if (!lk || lk.tiles.length < BASIN_LAKE * N) return null;
+  const filled = drainage(h, W, H, { eight: false }).filled;
+  const lake = new Uint8Array(N);
+  let spill = -Infinity;
+  for (const i of lk.tiles)
+    if (filled[i] > h[i]) {
+      lake[i] = 1;
+      if (filled[i] > spill) spill = filled[i];
+    }
+  if (!Number.isFinite(spill)) return null;
+  const B = Math.round(spill) + 1;
+  const dL = distanceFrom(lake, W, H);
+  const chan = new Uint8Array(N);
+  for (let i = 0; i < N; i++) chan[i] = hy.water[i] === 1 ? 1 : 0;
+  const dC = distanceFrom(chan, W, H);
+  const fits = (i: number) => !lake[i] && hy.water[i] === 0 && h[i] <= B + 1 && h[i] >= B - 2;
+  // (the shore tile whose land within reach holds most ground the bench can take, off the channels and the edge)
+  const M = Math.round(BENCH_EDGE * Math.min(W, H));
+  const R = BENCH_REACH;
+  let best = -1;
+  let bestN = 0;
+  for (let y = M; y < H - M; y += 3)
+    for (let x = M; x < W - M; x += 3) {
+      const c = y * W + x;
+      if (lake[c] || !(dL[c] <= 1.5) || dC[c] < BENCH_OFF_CHANNEL || !fits(c)) continue;
+      let n = 0;
+      for (let dy = -R; dy <= R; dy++)
+        for (let dx = -R; dx <= R; dx++) {
+          if (dx * dx + dy * dy > R * R) continue;
+          const i = (y + dy) * W + x + dx;
+          if (fits(i) && dL[i] <= BENCH_WIDE && dC[i] >= 3) n++;
+        }
+      if (n > bestN) {
+        bestN = n;
+        best = c;
+      }
+    }
+  if (best < 0) return null;
+  const sx = best % W;
+  const sy = (best - sx) / W;
+  const fs = hash32(seed, "shore-bench", attempt);
+  const L = BENCH_LONG;
+  const inBench = new Uint8Array(N);
+  for (let y = Math.max(1, sy - L); y <= Math.min(H - 2, sy + L); y++)
+    for (let x = Math.max(1, sx - L); x <= Math.min(W - 2, sx + L); x++) {
+      const i = y * W + x;
+      if (!fits(i) || dC[i] < 3) continue;
+      const dx = x - sx;
+      const dy = y - sy;
+      const along = (dx * dx + dy * dy) / (L * L * (1 + 0.3 * fbm(fs, x, y, 23, 2)));
+      if (along >= 1) continue;
+      // (widest near the middle, pinched toward the ends, its edge uneven)
+      const wide = BENCH_NARROW + (BENCH_WIDE - BENCH_NARROW) * (1 - along) * (0.7 + 0.45 * fbm(fs + 1, x, y, 13, 3));
+      if (dL[i] <= wide) inBench[i] = 1;
+    }
+  // (the part joined to its middle)
+  const part: number[] = [];
+  if (inBench[best]) {
+    inBench[best] = 2;
+    part.push(best);
+    for (let k = 0; k < part.length; k++) {
+      const c = part[k];
+      const x = c % W;
+      for (const n of [x > 0 ? c - 1 : -1, x < W - 1 ? c + 1 : -1, c - W, c + W]) {
+        if (n < 0 || n >= N || inBench[n] !== 1) continue;
+        inBench[n] = 2;
+        part.push(n);
+      }
+    }
+  }
+  if (part.length < BENCH_LEAST) return null;
+  for (const i of part) {
+    h[i] = B;
+    keep[i] = 0;
+  }
+  return { x: sx, y: sy };
+}
+
 /** Lake Basin above 128²: how far its badwater keeps from the plan's start, in tiles (round 7c), half again a land
  *  that stands up's `STAND.badFar`: its start is chosen again on the settled water and moves further. */
 const BASIN_BAD_FAR = 90;
 /** Lake Basin above 128²: the fewest tiles a body of a lake planned at its spill level keeps to be a lake. */
 const SPILL_LAKE_MIN = 6;
+/** Lake Basin above 128²: its shore bench (`shoreBench`): how far from the map's edge its middle keeps (a share of the
+ *  narrower side), the reach round a shore tile it is scored over, how far a channel keeps from its middle, its width
+ *  from the water at its widest and at its ends, its half-length, and the fewest tiles it takes to be one. */
+const BENCH_EDGE = 0.12;
+const BENCH_REACH = 20;
+const BENCH_OFF_CHANNEL = 16;
+const BENCH_WIDE = 24;
+const BENCH_NARROW = 6;
+const BENCH_LONG = 42;
+const BENCH_LEAST = 500;
 /** Lake Basin above 128², the gated hydro pass: how many levels the lake's floor is dug, and the share of the map a lake
  *  covers to be the basin's (a bench's pond is not dug). */
 const BASIN_DIG = 1;
@@ -1992,7 +2090,10 @@ function planLandStage(land: Land, attempt: number, W: number, H: number, seed: 
   // (Lake Basin above 128², round 7c: its lakes planned again on the finished land, each at the level its hollow spills at
   // and as far as that water reaches: the land's edits after the hydrology, its channels carved, its small regions
   // merged, its ramps and ways out, left lower saddles than the hydrology's, and the lake it planned drained to them)
-  if (g.basinWarp) lakesAtSpill(h, W, H, hy, keep);
+  if (g.basinWarp) {
+    shoreBench(h, W, H, hy, keep, seed, attempt);
+      lakesAtSpill(h, W, H, hy, keep);
+  }
   return { h, hy, keep, ramps, blocked };
 }
 
