@@ -13,7 +13,7 @@ import * as portable from "../math/portable";
 import { stream } from "../math/rng";
 import { fbm } from "../math/noise";
 import { cosDet, TWO_PI } from "../math/detmath";
-import { distanceFromInTs } from "../math/grid";
+import { distanceFromInTs, MinHeap } from "../math/grid";
 import { mapShape } from "./shape";
 
 /** The sea's spill level (its exit's lip) and its bed, one level under it. */
@@ -34,15 +34,6 @@ export const ISLE_SEA = {
   /** The headland's shore bench, tiles deep: the start's food grows there (only ground a level over the sea's spill
    *  stays moist through a drought), so it is deeper than the benches elsewhere. */
   headBench: [8, 10] as const,
-  /** The spurs and valleys crossing the mainland's steps: levels (each about 6 tiles of the shore's distance), and the
-   *  tiles along the shore between them. */
-  spur: 2,
-  spurWave: 34,
-  /** The warp the mainland's steps are read through: its reach and wavelength, tiles. */
-  warp: 14,
-  warpWave: 44,
-  /** The mainland's benches past its shore bench, tiles deep: from steps crowding into a face to broad shelves. */
-  mainBench: [2.5, 8] as const,
 } as const;
 
 /** An island's kind: low and all of it a level over the sea (green to its middle); a top over benches; bare rock
@@ -283,32 +274,12 @@ export function isleSeaLand(seed: number, variation: number, W: number, H: numbe
   const sHill = ns("hill");
   const hill = (x: number, y: number, d: number, amp: number) => amp * Math.max(0, fbm(sHill, x, y, 64, 3) + 0.25) * Math.min(1, d / 14);
   const [b0, b1] = ISLE_SEA.bench;
-  // (the mainland's steps drawn on the shore's distance read through a warp, so they bend into spurs and valleys and
-  // never ring the sea in a band; its pull under a tile per tile, so no step closes into a hollow)
-  const sWarpM = ns("main-warp");
-  const warpedFrom = (x: number, y: number, d: number) => {
-    const k = Math.min(1, Math.max(0, d - 5) / 16) * ISLE_SEA.warp;
-    if (!k) return d;
-    const qx = Math.min(W - 1, Math.max(0, x + k * fbm(sWarpM, x, y, ISLE_SEA.warpWave, 2)));
-    const qy = Math.min(H - 1, Math.max(0, y + k * fbm(sWarpM + 1, x, y, ISLE_SEA.warpWave, 2)));
-    const x0 = Math.floor(qx), y0 = Math.floor(qy), x1 = Math.min(W - 1, x0 + 1), y1 = Math.min(H - 1, y0 + 1);
-    const fx = qx - x0, fy = qy - y0;
-    const v = (1 - fy) * ((1 - fx) * fromWater[y0 * W + x0] + fx * fromWater[y0 * W + x1]) + fy * ((1 - fx) * fromWater[y1 * W + x0] + fx * fromWater[y1 * W + x1]);
-    return Math.max(Math.min(d, 6), v);
-  };
-  // (spurs and valleys: a rise and a fall along the shore, every `spurWave` tiles or so, growing in from the shore bench,
-  // so the mainland's steps bend round them, merge and split, and never ring the sea in a band)
-  const sSpur = ns("spur");
-  const SPUR_R = 110;
-  const spur = (x: number, y: number, d: number) => {
-    const t = turnOf(x - cx, y - cy);
-    const sx = SPUR_R * cosDet(TWO_PI * t);
-    const sy = SPUR_R * cosDet(TWO_PI * (t - 0.25));
-    return ISLE_SEA.spur * 2 * fbm(sSpur, sx, sy, ISLE_SEA.spurWave, 2) * Math.min(1, Math.max(0, d - 6) / 20);
-  };
   const [hb0, hb1] = ISLE_SEA.headBench;
   const sHB = ns("head-bench");
   const mainSteps = 6 + Math.floor(3 * rng.float());
+  // (the mainland's back, a field of its own, round 3: past the shore bench the land stands a level over it at least, so
+  // the first step keeps to the shore and the start's level runs along it; its tops `mainSteps` levels and a top over)
+  const back = mainBack(ns, sea, headland, W, H);
   const isleSteps = isles.map((q) => Math.max(1, Math.min(5, Math.round(q.r / 7))) + (rng.float() < 0.4 ? 1 : 0));
   const rockSteps = isles.map((q) => Math.max(3, Math.min(TOP - S - 2, Math.round(q.r / 2.5))));
   for (let y = 0; y < H; y++)
@@ -342,9 +313,7 @@ export function isleSeaLand(seed: number, variation: number, W: number, H: numbe
         }
       } else {
         const d = fromWater[i];
-        const dm = warpedFrom(x, y, d);
-        const mb = ISLE_SEA.mainBench[0] + (ISLE_SEA.mainBench[1] - ISLE_SEA.mainBench[0]) * (0.5 + 0.5 * fbm(sBench + 11, x, y, 26, 2));
-        lv = Math.min(mainSteps, Math.floor(0.7 * (dm / (d < 8 ? bench : mb)) + hill(x, y, d, 5) + spur(x, y, d) + 0.35 * fbm(sBench + 3, x, y, 12, 2)));
+        lv = d <= bench ? 0 : Math.min(mainSteps, Math.max(1, Math.floor(back[i] + BACK.rough * fbm(sBench + 3, x, y, 16, 2))));
         // (round the headland's root the mainland stands at its level at least, so no hollow runs down to it)
         if (fromHead[i] < 14 && fromWater[i] > fromHead[i] + 1) lv = Math.max(lv, 1);
         if (lv >= mainSteps && top > 0.1) lv = mainSteps + 1;
@@ -413,6 +382,161 @@ export function isleSeaLand(seed: number, variation: number, W: number, H: numbe
   }
   return { h, E, spill: S, headland: { x: hx, y: hy, ux: -dx0, uy: -dy0, bx, by, r: hw }, isles, exit, dry: dryM };
 }
+
+/** The mainland's back (round 3): a field of its own at the map's scale, in levels over the shore bench. Its land is
+ *  uplifted at a rate of its own (broad highs, hard rock rising faster) and worn by its rivers toward the sea, as a
+ *  steady state of the stream-power law on a coarse grid at the map's scale (each cell's height its receiver's and its
+ *  rate over a power of the ground draining through it): valleys run down to the sea with spurs between them, and the
+ *  height comes from the land's own processes, never from the distance to the shore (round 2's steps, read on that
+ *  distance through a warp and lifted in spurs, still ran along the shore in bands of 25–58 tiles). The shore bench and
+ *  the first step stay on the shore's distance (`isleSeaLand`). */
+function mainBack(ns: (k: string) => number, low: Uint8Array, headland: Uint8Array, W: number, H: number): Float64Array {
+  const N = W * H;
+  const side = Math.min(W, H);
+  const c = Math.max(2, Math.round(side * BACK.cell));
+  const Wc = Math.ceil(W / c);
+  const Hc = Math.ceil(H / c);
+  const Nc = Wc * Hc;
+  const sUp = ns("back-up");
+  const sRidge = ns("back-ridge");
+  const sRw = ns("back-ridge-warp");
+  const sHard = ns("back-hard");
+  const sRate = ns("back-rate");
+  const sWarp = ns("back-warp");
+  const U = new Float64Array(Nc);
+  const rate = new Float64Array(Nc);
+  const fixed = new Uint8Array(Nc);
+  for (let cy = 0; cy < Hc; cy++)
+    for (let cx = 0; cx < Wc; cx++) {
+      const k = cy * Wc + cx;
+      const x = Math.min(W - 1, cx * c + (c >> 1));
+      const y = Math.min(H - 1, cy * c + (c >> 1));
+      const i = y * W + x;
+      if (low[i] || headland[i]) {
+        fixed[k] = 1;
+        continue;
+      }
+      const broad = fbm(sUp, x, y, BACK.broad * side, 2);
+      const wx = x + 0.3 * BACK.ridge * side * fbm(sRw, x, y, BACK.ridge * side, 2);
+      const wy = y + 0.3 * BACK.ridge * side * fbm(sRw + 1, x, y, BACK.ridge * side, 2);
+      const ridge = 1 - Math.abs(fbm(sRidge, wx, wy, BACK.ridge * side, 3));
+      U[k] = (0.55 + 0.45 * broad) * (0.3 + 0.7 * ridge);
+      const hard = Math.max(0, Math.min(1, (fbm(sHard, x, y, BACK.hard * side, 2) - 0.1) * 4));
+      const r0 = Math.max(0, Math.min(1, 0.5 + 0.9 * fbm(sRate, x, y, BACK.rate * side, 2)));
+      rate[k] = (0.12 + 0.88 * r0 * r0 * (3 - 2 * r0)) / (1 - 0.6 * hard);
+    }
+  // (the grid's two outer rings reached last, each from the ring inside it, so no valley runs along the map's edge: its
+  // water runs off the edge inward, and a river's course along the edge is refused, Islands 256² seed 2 had none)
+  const edgeLast = new Float64Array(Nc);
+  for (let k = 0; k < Nc; k++) {
+    const e = Math.min(k % Wc, Math.floor(k / Wc), Wc - 1 - (k % Wc), Hc - 1 - Math.floor(k / Wc));
+    edgeLast[k] = e < 2 ? 1e3 * (2 - e) : 0;
+  }
+  const area = new Float64Array(Nc);
+  const flood = (h: Float64Array) => {
+    const f = floodFrom(h, fixed, Wc, Hc, edgeLast);
+    area.fill(1);
+    for (let q = f.n - 1; q >= 0; q--) {
+      const k = f.order[q];
+      if (f.rcv[k] >= 0 && !fixed[k]) area[f.rcv[k]] += area[k];
+    }
+    return f;
+  };
+  let hc = U;
+  for (let it = 0; it < BACK.rounds; it++) {
+    const { n, order, rcv } = flood(hc);
+    const hn = new Float64Array(Nc);
+    for (let q = 0; q < n; q++) {
+      const k = order[q];
+      if (fixed[k]) continue;
+      const r = rcv[k];
+      const dx = (k % Wc) - (r % Wc);
+      const dy = Math.floor(k / Wc) - Math.floor(r / Wc);
+      const len = dx !== 0 && dy !== 0 ? Math.SQRT2 : 1;
+      hn[k] = hn[r] + len * Math.min(BACK.steep, rate[k] / (BACK.k * portable.pow(area[k], BACK.m)));
+    }
+    hc = hn;
+  }
+  // (smoothed, the fixed cells kept: the forms' rings run smooth)
+  for (let pass = 0; pass < BACK.smooth; pass++) {
+    const sm = new Float64Array(Nc);
+    for (let cy = 0; cy < Hc; cy++)
+      for (let cx = 0; cx < Wc; cx++) {
+        const k = cy * Wc + cx;
+        if (fixed[k]) continue;
+        let a = 4 * hc[k], n = 4;
+        for (const [dx, dy, w] of [[1, 0, 2], [-1, 0, 2], [0, 1, 2], [0, -1, 2], [1, 1, 1], [1, -1, 1], [-1, 1, 1], [-1, -1, 1]] as const) {
+          const xx = cx + dx, yy = cy + dy;
+          if (xx < 0 || yy < 0 || xx >= Wc || yy >= Hc) continue;
+          a += w * hc[yy * Wc + xx];
+          n += w;
+        }
+        sm[k] = a / n;
+      }
+    hc = sm;
+  }
+  // (read back on the tiles through a slow warp, so no line of the coarse grid runs straight)
+  const h = new Float64Array(N);
+  const wc = BACK.warp * c;
+  for (let y = 0; y < H; y++)
+    for (let x = 0; x < W; x++) {
+      const qx = Math.min(Wc - 1, Math.max(0, (x + wc * fbm(sWarp, x, y, BACK.warpWave * c, 2)) / c - 0.5 + 0.5 / c));
+      const qy = Math.min(Hc - 1, Math.max(0, (y + wc * fbm(sWarp + 1, x, y, BACK.warpWave * c, 2)) / c - 0.5 + 0.5 / c));
+      const x0 = Math.floor(qx), y0 = Math.floor(qy), x1 = Math.min(Wc - 1, x0 + 1), y1 = Math.min(Hc - 1, y0 + 1);
+      const fx = qx - x0, fy = qy - y0;
+      h[y * W + x] = (1 - fy) * ((1 - fx) * hc[y0 * Wc + x0] + fx * hc[y0 * Wc + x1]) + fy * ((1 - fx) * hc[y1 * Wc + x0] + fx * hc[y1 * Wc + x1]);
+    }
+  // (its height: the land's 95th percentile at `BACK.height` levels)
+  const vals: number[] = [];
+  for (let i = 0; i < N; i++) if (!low[i] && !headland[i]) vals.push(h[i]);
+  vals.sort((a, b) => a - b);
+  const p = vals[Math.floor(0.95 * (vals.length - 1))] || 1;
+  for (let i = 0; i < N; i++) h[i] *= BACK.height / p;
+  return h;
+}
+
+/** A priority flood from the `fixed` cells (the sea) over a grid, eight ways, ties by index: each cell's receiver, the
+ *  one the flood reached it from, and the cells in the order reached. */
+function floodFrom(h: ArrayLike<number>, fixed: Uint8Array, Wg: number, Hg: number, bias?: ArrayLike<number>): { order: Int32Array; rcv: Int32Array; n: number } {
+  const Ng = Wg * Hg;
+  const rcv = new Int32Array(Ng).fill(-1);
+  const order = new Int32Array(Ng);
+  const seen = new Uint8Array(Ng);
+  const heap = new MinHeap();
+  for (let k = 0; k < Ng; k++)
+    if (fixed[k]) {
+      seen[k] = 1;
+      heap.push(-1, k);
+    }
+  let n = 0;
+  while (heap.size) {
+    const k = heap.pop();
+    const key = heap.lastKey;
+    order[n++] = k;
+    const kx = k % Wg, ky = (k - kx) / Wg;
+    for (let d = 0; d < 8; d++) {
+      const xx = kx + DX8[d], yy = ky + DY8[d];
+      if (xx < 0 || yy < 0 || xx >= Wg || yy >= Hg) continue;
+      const j = yy * Wg + xx;
+      if (seen[j]) continue;
+      seen[j] = 1;
+      rcv[j] = k;
+      heap.push(Math.max(h[j] + (bias ? bias[j] : 0), key), j);
+    }
+  }
+  return { order, rcv, n };
+}
+
+/** The eight ways, sides first. */
+const DX8 = [1, -1, 0, 0, 1, 1, -1, -1];
+const DY8 = [0, 0, 1, -1, 1, -1, 1, -1];
+
+/** The mainland's back: its height (levels at the land's 95th percentile); the broad uplift's, the ridges', the hard
+ *  rock's and the wear rate's wavelengths and the coarse grid's cell, shares of the map's side, so the forms scale with
+ *  the map (round 2's warp, 14 tiles over 44, and spurs every 34 tiles were sized at 256² and stayed so at 512²); the
+ *  steady state's rounds, its erodibility, its power of the area drained and its steepest slope (a cell's, before the
+ *  height); the read-back warp and its wavelength (cells); the smoothing passes; the step edges' roughness (levels). */
+const BACK = { height: 6, broad: 0.5, ridge: 0.22, hard: 0.2, rate: 0.2, cell: 1 / 42, rounds: 3, k: 1, m: 0.8, steep: 0.45, warp: 1, warpWave: 4, smooth: 1, rough: 0.2 } as const;
 
 /** How far apart the headland's steps down to its shore bench stand, tiles (Chebyshev). */
 const HEAD_RAMP_APART = 7;

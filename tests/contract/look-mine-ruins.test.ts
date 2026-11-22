@@ -153,7 +153,9 @@ import * as ed from "../../src/worker/session";
 // and generator 0.10.64's version alone (Lake Basin's bench start, gated to Lake Basin above 128², which keeps this River
 // Valley map; the merge of dev's 0.10.63, Highlands' composition, changes nothing here either, so the pin is the branch's own
 // as before the merge): dev's code with its version set to 0.10.64 gives this pin byte for byte (`1cc7970a…` at 0.10.63), D148
-const LIVE_SHA = "faa14f4ad1ec70fec4f82668cd9dd9672f25b594225f1b8a13a06249fd420051";
+// and generator 0.10.65's version alone (D547's Islands land round 3, gated to Islands above 128², which keeps this River Valley map): with the
+// version set back to 0.10.64 the branch gives `faa14f4a…` byte for byte, D148
+const LIVE_SHA = "8aea24195face7efefa63bf3763f67272d859851136f072cacdeecd3ea8a4fc5";
 const spec = () => makeSpec({ seed: 4242, size: { x: 128, y: 128 }, theme: "riverValley", designedFor: "normal" });
 
 describe("mine sites and ruins, models of our own", () => {

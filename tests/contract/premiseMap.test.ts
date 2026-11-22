@@ -113,7 +113,9 @@ import { decodeSpecFragment, encodeSpecFragment, makeSpec, type MapSpec } from "
 // and generator 0.10.64's version alone (Lake Basin's bench start, gated to Lake Basin above 128², which premise maps do
 // not take; the merge of dev's 0.10.63, Highlands' composition, changes nothing here either, so the pin is the branch's own
 // as before the merge): dev's code with its version set to 0.10.64 gives this pin byte for byte (`966b67e9…` at 0.10.63), D148
-const SHA = "345cfb72af9e2b326de0afb427ed250b86ab241ce3f551d1fca5cf3477a447bd";
+// and generator 0.10.65's version alone (D547's Islands land round 3, gated to Islands above 128², which premise maps do not take): with the
+// version set back to 0.10.64 the branch gives `345cfb72…` byte for byte, D148
+const SHA = "17635de07d90e8a7a0cf8e0c084c1338414d4c6f629a5e2cd4b5def5e9e33bcd";
 
 // (a Hard map whose start lake parts as it falls: the single analytic reading stood 0.32 over the run there, PR #1040;
 // seed 5 for 7 since D518 with dev's ways out by a ramp's line (#1061), D148: seed 7's Hard lake stair holds no plan now

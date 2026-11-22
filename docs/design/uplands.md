@@ -1245,3 +1245,73 @@ edge (seed 2's east shore climbs seven levels in 14 tiles, straight). The longes
 one distance from the shore is 25–58 tiles (base 33–65; about 24 asked). Stronger warps, spurs and wandering bench depths
 moved it little, as the levels are still read on the distance from the shore. The next round draws the mainland's back
 from a field of its own, the shore's distance kept only for the shore bench and the first steps.
+
+## Islands' land above 128², round 3 (2026-11-22, generator 0.10.65)
+
+Planning's next step after round 2: the mainland's back drawn from a field of its own, not from the distance to the
+shore, gated to Islands above 128² as rounds 1 and 2 were. The start's headland, its bench and food, the three kinds of
+island and the sea are round 2's.
+
+**The back (`isleSea.ts` `mainBack`).** Past its shore bench the mainland stands on a field of its own: land uplifted at
+a rate of its own (broad highs times warped ridges, hard rock wearing slower) and worn by its rivers toward the sea, as a
+steady state of the stream-power law on a coarse grid of a 42nd of the side (each cell's height its receiver's plus its
+rate over the area draining through it to the power 0.8, capped at a steepest slope), three rounds, smoothed once, read
+back on the tiles through a slow warp and scaled so the land's 95th percentile stands 6 levels over the shore bench
+(`BACK`). Valleys run down to the sea with spurs between them, and the levels' lines run round them. The shore's
+distance keeps only the shore bench and the first step: past the bench the mainland stands a level over it at least, so
+the start's level runs along the shore as before. The grid's two outer rings are reached from inside them, so no valley
+runs along the map's edge: with the edge's cells reached along it, seed 2's corner drained along the west edge, the 40
+far springs of D504's loop all ran there and were refused (a course within 4 tiles of the border), and the map had one
+river. Islands above 128² no longer draws the genome's field, its contours and its snap, which its own land replaced.
+
+**Sizes made for one map.** Round 2's warp (14 tiles over 44) and spurs (2 levels every 34 tiles, on a circle of 110
+tiles) were sized at 256² and stayed so at 512²; they are gone, and the back's wavelengths and grid are shares of the
+side. The rest of `isleSea.ts`'s tile sizes are the colony's on purpose (benches 3–6 tiles, the headland's bench 8–10,
+its ramps every 7, the frame's lip, the strait, the islands' areas by the map's) or the shore's and islands' small
+relief, which reads the same at every size. Of planning's shared rows (docs/progress/big-map-constants.md on
+findings/constants-128), the far springs' 40 tiles (row 1) are what refused seed 2's springs; the land fixes the cause
+here and `hydro.ts` is left to its owners; a spring's way down of 0.35 of the side (row 6) does not bind on a sea's map,
+whose ways down run on across the sea to its exit.
+
+**The start's drought answer is the sea.** No dam worth building stands in the start's walk on Islands (planning's
+`tools/damwalk.ts`, a dam at most 8 tiles long within 40 tiles' walk holding half the first drought's need): 0 of 24 on
+round 2, 2 of 24 now (seed 10, Normal and Easy, 4 tiles long, 67 and 76 % of the need). The start stands on the
+headland's top over a sea that never empties: its running water is 12–23 times the start's need on every map, its clean
+water a pump on a shore within 20 tiles' walk reaches is 21–56 tiles on Normal (33–85 on Easy start), and at every
+Hard wet season's end that water is its settled count and the sea's median depth 1.1–1.4. A player pumps from the sea
+and stores it in tanks. No dam site is drawn by the headland's root: round 2 keeps rivers off the root and the headland
+(`HEAD_RISE`, `dry`), as a river there took the start's ground on three maps, and a stream to dam would undo that.
+
+Measured on Islands 256² seeds 1–12, base (#1278's 4d111adb, generator 0.10.62) and branch side by side.
+
+| | branch (base) |
+|---|---|
+| Normal: starts that pass | 12 of 12 (12) |
+| food row | 12 of 12 (12), 44–52 (44) |
+| badwater in the opening view | 0 on all twelve (0) |
+| reach, least | 15,303 (13,575) |
+| room, least | 1,733 (1,239) |
+| attempts, CPU | 21, 469 s (21, 464 s) |
+| start's water at every Hard wet season's end | its settled count on all twelve, 21–56 tiles (25–61) |
+| Easy start: starts that pass, Easy rows missed | 12 of 12, none (12, none) |
+| reach, room least; food | 16,516, 1,582; 52–60 (13,276, 1,585; 52–60) |
+| attempts, CPU | 21, 803 s (19, 802 s) |
+| longest run of a step's edge within 3 tiles of one shore distance | 18–43 tiles (29–63) |
+| page, production build, ready / checks: seed 10, seed 2 | 89.9 / 112.3 s, 42.4 / 76.6 s (101.0 / 133.2 s, 93.8 / 193.2 s) |
+
+The band run is measured on the generated maps' mainland, past the start's headland (3.2 of its half-widths), the
+frame's four outer rows left out, at 12 tiles or more from the sea, a run being a level's step edges joined corner to
+corner within 1.5 tiles of one distance (round 2's measure gave 25–58 on the same maps; this one 29–63). The maps move:
+reach falls on seeds 1 (−11 %), 3 (−27 %), 4 (−21 %) and 9 (−47 %), room on seeds 1 (−31 %) and 2 (−48 %), and on
+Easy start room on seeds 1, 5, 7 and 10; each map's land is a new one, and the least of each stays over the base's. The
+start's water on Normal falls on seeds 3, 7 and 8 (51 → 32, 42 → 21, 51 → 24) and rises on 9, 10 and 12. The 84
+default maps (seven themes, seeds 1–6, 96² and 128²) keep their heights, water and objects: with the version set back
+their files are dev's byte for byte.
+
+Short: the band run is 24 or less on five maps (seeds 2, 3, 4, 9, 12; 18–24) and 25–32 on six; seed 10's is 43 (base
+33), a step 20 tiles from a straight stretch of the east shore. The longest runs sit on the steady state's even coastal
+slopes and in narrow strips between the sea and the map's edge, where the land's way down is across the strip; finer
+grids, rougher step edges, no slope cap, a grid reaching past the edge and hills or gullies on the worn land all moved
+it by a few tiles at most (mean 26–28 on the land alone). The mainland's rivers are fewer: water on the land over the
+shore bench 90–1,309 tiles (base 255–2,421), seed 11's 90. A dam site at the start: 2 of 24, against planning's aim of
+20; the sea is the answer.
