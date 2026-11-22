@@ -44,7 +44,7 @@ import { distanceFrom, MinHeap, N4, N8 } from "../math/grid";
 import { DIRS8 } from "./num";
 import { mapShape } from "./shape";
 import { clamp } from "../math/clamp";
-import { REACH as STORY_REACH } from "../analysis/story";
+import { REACH as STORY_REACH, STORY, storyScale } from "../analysis/story";
 
 export interface Lake {
   tiles: number[];
@@ -104,6 +104,28 @@ const REACH_HEADS = 2;
 export const BESIDE = { near: 12, run: 16 } as const;
 const MOIST_REACH = 10;
 const WIDE_WANT = 0.5;
+/** The heads the far land's springs try per round (D333 (3), D504). */
+const TRY_HEADS = 40;
+/** Above 128², on `TOLD`'s themes: the tiles kept between two heads tried in one round. */
+const TRY_APART = 12;
+/** The themes whose far land's springs read the story they will be judged by above 128² (TRIAL). */
+const TOLD = new Set<string>(["any", "riverValley"]);
+/** And the most of the planned courses' cells that may lie outside the main system there (`STORY.mainShare`'s
+ *  complement, less a margin for the lakes the courses do not count). */
+const OTHER_MOST = 0.2;
+
+/** Up to `n` of `list` (sorted best first), each at least `apart` tiles (Chebyshev) from every one taken before it. */
+function spaced(list: readonly [number, number][], W: number, n: number, apart: number): [number, number][] {
+  const out: [number, number][] = [];
+  for (const c of list) {
+    if (out.length >= n) break;
+    const x = c[1] % W;
+    const y = (c[1] - x) / W;
+    if (out.some(([, j]) => Math.max(Math.abs((j % W) - x), Math.abs(Math.floor(j / W) - y)) < apart)) continue;
+    out.push(c);
+  }
+  return out;
+}
 
 /** How far the soil's moisture has to spread from the water on `wet` tiles to reach each tile, by the game's own rule
  *  (sim/soil3d.ts: a step costs 1, and 6 for each level the tile stands above the one it spreads from; downhill is
@@ -921,13 +943,15 @@ function planHydroSingle(E: Float64Array, h: Uint8Array, g: Genome, seed: number
   }
   // which tiles' water reaches the rivers already traced, and how far it runs before it does (M9b:
   // tributaries only; recomputed as rivers are added)
-  const reachesOwned = (): { reach: Uint8Array; len: Int32Array } => {
+  // (`into`: only the courses it names are reached; a tile whose water meets another course first reaches none)
+  const reachesOwned = (into?: (k: number) => boolean): { reach: Uint8Array; len: Int32Array } => {
     const reach = new Uint8Array(N);
     const len = new Int32Array(N).fill(1 << 30);
     for (let q = 0; q < dr.order.length; q++) {
       const i = dr.order[q];
       const r = dr.rcv[i];
       if (owner[i] >= 0) {
+        if (into && !into(owner[i])) continue;
         reach[i] = 1;
         len[i] = 0;
       } else if (r >= 0 && reach[r]) {
@@ -976,6 +1000,12 @@ function planHydroSingle(E: Float64Array, h: Uint8Array, g: Genome, seed: number
     if (spread) maxHeads += Math.round(REACH_HEADS * (wide - 1));
     const longWay = 0.35 * (spread ? 128 : side);
     let separateMore = 0;
+    const told = spread && TOLD.has(g.theme);
+    const rootOf = (k: number): number => {
+      let r = k;
+      for (let s = 0; s < traced.length && traced[r].joins >= 0; s++) r = traced[r].joins;
+      return r;
+    };
     for (let more = 0; more < 4 * wide && heads.length < maxHeads; more++) {
       const wetP = new Uint8Array(N);
       for (let i = 0; i < N; i++) if (owner[i] >= 0) wetP[i] = 1;
@@ -984,7 +1014,16 @@ function planHydroSingle(E: Float64Array, h: Uint8Array, g: Genome, seed: number
       let near = 0;
       for (let i = 0; i < N; i++) if (dist[i] <= reach) near++;
       if (near >= (spread ? WIDE_WANT : REACH_WANT) * N) break;
-      const joinable = reachesOwned();
+      // (told: the main system's courses and the rest, as the story will read them)
+      let mainCells = 0;
+      let otherCells = 0;
+      let otherCourses = 0;
+      const roots = told ? traced.map((t) => rootOf(t.k)) : null;
+      if (roots) {
+        for (let i = 0; i < N; i++) if (owner[i] >= 0) roots[owner[i]] === roots[0] ? mainCells++ : otherCells++;
+        for (const r of roots) if (r !== roots[0]) otherCourses++;
+      }
+      const joinable = roots ? reachesOwned((k) => roots[k] === roots[0]) : reachesOwned();
       const far: [number, number][] = [];
       const apart: [number, number][] = [];
       for (let y = 12; y < H - 12; y++)
@@ -997,14 +1036,22 @@ function planHydroSingle(E: Float64Array, h: Uint8Array, g: Genome, seed: number
         }
       far.sort((a, b) => b[0] - a[0] || a[1] - b[1]);
       apart.sort((a, b) => b[0] - a[0] || a[1] - b[1]);
+      const tryList = (list: [number, number][]): [number, number][] => (told ? spaced(list, W, TRY_HEADS, TRY_APART) : list.slice(0, TRY_HEADS));
       let added = false;
       // (where no spring there joins them, one river of its own: a story reads with one river that
       // never joins the main one, D273 (1); D504: above 128² one for each 128² of the map's area, and
       // first where the land farthest from the water drains away from it, so the green spreads over
       // the whole map, not one side)
-      const separateOk = separateMore < Math.floor(wide) && g.theme !== "riverValley";
+      const separateOk = separateMore < Math.floor(wide) && g.theme !== "riverValley" && (!roots || (otherCourses < STORY.separate * storyScale(W, H) && otherCells < OTHER_MOST * (mainCells + otherCells)));
+      // (told: a river of its own whose way down would leave the main system under the story's share is passed over)
+      const keepsShare = (i: number): boolean => {
+        if (!roots) return true;
+        let len = 0;
+        for (let c = i; c >= 0 && owner[c] < 0 && len <= N; c = dr.rcv[c]) len++;
+        return otherCells + len <= OTHER_MOST * (mainCells + otherCells + len);
+      };
       const separate = () => {
-        for (const [, i] of apart.slice(0, 40)) if (trace({ cell: i, kind: "spring", flow: 0 }, false, false)) {
+        for (const [, i] of tryList(apart)) if (keepsShare(i) && trace({ cell: i, kind: "spring", flow: 0 }, false, false)) {
           added = true;
           separateMore++;
           break;
@@ -1013,7 +1060,7 @@ function planHydroSingle(E: Float64Array, h: Uint8Array, g: Genome, seed: number
       const apartFirst = wide > 1 && separateOk && apart.length > 0 && (far.length === 0 || apart[0][0] > far[0][0]);
       if (apartFirst) separate();
       if (!added)
-        for (const [, i] of far.slice(0, 40)) if (trace({ cell: i, kind: "spring", flow: 0 })) {
+        for (const [, i] of tryList(far)) if (trace({ cell: i, kind: "spring", flow: 0 })) {
           added = true;
           break;
         }
