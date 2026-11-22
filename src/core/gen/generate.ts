@@ -3392,7 +3392,7 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
     const site = headSite(bare, hy, b1.water, b1.water, W, H, seed, { depth: b1.water, contamination: b1.contamination });
     // (the planned terrace stays where the settled water leaves it dry and serves its foot, on the bank with more reach)
     const dry = !!cur && headWet(b1.water, cur) <= DELTA_HEAD.wetMost;
-    const keepCur = !!cur && (!site || (dry && ((Math.hypot(site.x - cur.x, site.y - cur.y) <= DELTA_HEAD.radius / 2 && site.level === cur.level) || (headServed(h, b1.water, cur, W, H) >= DELTA_HEAD.touch && (cur.bank ?? 0) >= DELTA_HEAD.bankNear * (site.bank ?? 0)))));
+    const keepCur = !!cur && (!site || (dry && (((site.x - cur.x) * (site.x - cur.x) + (site.y - cur.y) * (site.y - cur.y) <= (DELTA_HEAD.radius / 2) * (DELTA_HEAD.radius / 2) && site.level === cur.level) || (headServed(h, b1.water, cur, W, H) >= DELTA_HEAD.touch && (cur.bank ?? 0) >= DELTA_HEAD.bankNear * (site.bank ?? 0)))));
     if (site && !keepCur) {
       const was = h.slice();
       const stepsWere = ramps.steps.length;
