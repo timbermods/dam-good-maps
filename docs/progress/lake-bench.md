@@ -55,6 +55,7 @@ Step 2: a spur and two or three broad hills out on the plate (`land/lakeBasin.ts
 | Room 400+ | 12/12 (410–534) | 12/12 (470–574) | 12/12, 12/12 |
 | Reach 8,721+ | 12/12 (lowest s7: 19,123) | 12/12 (lowest s8: 10,109) | lowest 16,146, 17,776 |
 | Badwater in view | 0 | 0 | 0 |
+| Lake share 25 % or less (the biggest lake, % of the map) | 12/12 (6.9–24.5) | 12/12 (10.2–24.6) | seeds 1–6: 11.0–21.8 |
 | Other themes and Lake Basin 128² hash as dev | 6/6 | | |
 | Attempts, seeds 1–6 / 7–12 | 7 / 7 | 7 / 9 | Normal 9 / 9, Easy 12 / 9 |
 | CPU s, seeds 1–6 / 7–12 | 238.4 / 215.4 | 368.4 / 334.1 | Normal 287.2 / 326.9, Easy 430.8 / 478.1 |
