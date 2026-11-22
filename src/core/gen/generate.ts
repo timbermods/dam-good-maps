@@ -71,7 +71,7 @@ import { mapShape, startAlong } from "../land/shape";
 import { planHydro, type Hydro } from "../land/hydro";
 import { ACTIVE, checkIntention, INTENTION_TEXT, TWO_WAYS_REACH, type IntentionId } from "../land/intentions";
 import type { FormPlan, FormsWanted } from "../land/forms3d";
-import { carveOutlets, widenOutlets, unreachedLakes, cleanPitsAndSpikes, contourField, fillDryHollows, footComponents, mergeSmallRegions, naturalRamps, relaxEdges, snapLevels } from "../land/levels";
+import { carveOutlets, widenOutlets, unreachedLakes, cleanPitsAndSpikes, contourField, fillDryHollows, footComponents, mergeSmallRegions, naturalRamps, relaxEdges, snapLevels, walksAtScale } from "../land/levels";
 import { distanceFrom, levelRegions, N4 } from "../math/grid";
 import { hash32 } from "../math/hash";
 import { fbm } from "../math/noise";
@@ -2129,6 +2129,10 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
   // so the start's island is joined without stairs as far as its one-level steps reach; its start is turned from the
   // badwater in view, never moved for it, `badTurnOnly`)
   const islesUp = g.theme === "islands" && !!g.seaLayout && Math.min(W, H) > 128;
+  // (River Valley and Any above 128², generator 0.10.67: their ground rolls at a walk's scale (`levels.ts` `WALK`), so
+  // more of the land is in view of the start; it is turned from the badwater in view, and moved for it where the good
+  // few all show some, as Lake Basin's is, `badView`, `badViewWide`)
+  const walkGround = walksAtScale(g.theme, W, H);
   const startTries = g.basinWarp ? BASIN_START_TRIES : START_TRIES;
   const ringSlopes = Math.min(W, H) > 128 && (!UPLANDS_BASE_PATH.has(g.theme) || islesUp || !!g.basinWarp);
   // (the pick reads its places' walks over the slopes as before on Islands: the start is the one it chose, its room and
@@ -2412,7 +2416,7 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
     // water's walk and its room, never drawn to the headland's middle, farthest from its water)
     const prefer = head ? (x: number, y: number, L: number, w: number) => along(x, y, L, w) + 3 * Math.max(0, Math.min(1, 1 - (portable.hypot(x - head.bx, y - head.by) - HEAD_REACH * head.r) / head.r)) : along;
     const rng = stream(seed, "settler2", attempt, salt);
-    return pickStart(h, W, H, { depth: D, contamination: C, moisture: M }, hy, g.settler, rng, stageRule, { prepared, avoid, kept, drought: policy, prefer, foot, minFoot, footWant, moistWalk: { min: moistWant }, room, bench, benchMin, storage, near, level: allowLevel, roomFirst: !onPlan, badwater: badHollows(), slopeWater, ...(ease >= 2 ? { levelReach: Math.min(3, 1 + Math.floor(ease / 2)) } : {}), ...(ease >= 3 ? { margin: Math.max(5, Math.round(Math.min(W, H) * 0.08)) } : {}), ...(ease >= 1 ? { waterExact: true } : {}), ...(stageEasy ? { easy: stageEasy } : {}), ...(pickRings ? { ringSlopes } : {}) , ...(g.standValley || g.basinWarp ? { badView: true } : islesUp ? { badView: true, badTurnOnly: true } : {}), ...(g.basinWarp ? { badViewWide: true } : {}) });
+    return pickStart(h, W, H, { depth: D, contamination: C, moisture: M }, hy, g.settler, rng, stageRule, { prepared, avoid, kept, drought: policy, prefer, foot, minFoot, footWant, moistWalk: { min: moistWant }, room, bench, benchMin, storage, near, level: allowLevel, roomFirst: !onPlan, badwater: badHollows(), slopeWater, ...(ease >= 2 ? { levelReach: Math.min(3, 1 + Math.floor(ease / 2)) } : {}), ...(ease >= 3 ? { margin: Math.max(5, Math.round(Math.min(W, H) * 0.08)) } : {}), ...(ease >= 1 ? { waterExact: true } : {}), ...(stageEasy ? { easy: stageEasy } : {}), ...(pickRings ? { ringSlopes } : {}) , ...(g.standValley || g.basinWarp || walkGround ? { badView: true } : islesUp ? { badView: true, badTurnOnly: true } : {}), ...(g.basinWarp || walkGround ? { badViewWide: true } : {}) });
   };
   const levelStart = (p: StartPick) => {
     if (!p.levelled) return;

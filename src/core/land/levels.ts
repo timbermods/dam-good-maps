@@ -25,6 +25,7 @@ import { stream, type Rng } from "../math/rng";
 import { pctSorted } from "./num";
 import { clamp, smoothstep } from "../math/clamp";
 import { BED_FLOOR, RISES, VT_HIGH, UPLANDS_BASE_PATH, formScale, type Genome, type Grade } from "./genome";
+import type { ThemeId } from "../spec/mapspec";
 import { windRoute } from "./wind";
 import { wanderEdges } from "./wander";
 import { edgeSpill } from "./drainage";
@@ -100,6 +101,8 @@ export function snapLevels(E: Float64Array, g: Genome, seed: number, W: number, 
   // (uplands round 5: Lake Basin and Islands keep the land of 0.10.48, `UPLANDS_BASE_PATH`)
   const f = UPLANDS_BASE_PATH.has(g.theme) ? 1 : formScale(W, H);
   const ringed = f > 1;
+  // (River Valley and Any above 128², generator 0.10.67: the ground between the big forms at a walk's scale, `WALK`)
+  const walked = ringed && walksAtScale(g.theme, W, H);
   // (uplands round 3: the tiers are laid on the land's regional tilt, not on equal levels across the map: the plane
   // that fits the field best is taken out before the ranks and put back after, `RINGS.tilt` levels from its low corner
   // to its high, so each tier rolls down the land's slope through more levels, while a wall stands its full height
@@ -127,7 +130,7 @@ export function snapLevels(E: Float64Array, g: Genome, seed: number, W: number, 
     return dx * stand.bx + dy * stand.by > 0 && dx * dx + dy * dy < STAND.mesa.benchFar * stand.r * STAND.mesa.benchFar * stand.r;
   };
   const tiers = g.plan && g.plan.strength > 0 ? planBands(g.plan, g.base, top0) : null;
-  const grade = grader(tiers ? { ...g.grade, calm: Math.min(g.grade.calm, PLAN_CALM), roll: g.grade.roll * (ringed && g.plan?.kind === "gorge" ? RINGS.gorgeRoll : RINGS.planRoll) } : g.grade, seed, g.variation, W, H, f);
+  const grade = grader(tiers ? { ...g.grade, calm: Math.min(g.grade.calm, PLAN_CALM), roll: g.grade.roll * (ringed && g.plan?.kind === "gorge" ? RINGS.gorgeRoll : RINGS.planRoll) } : g.grade, seed, g.variation, W, H, f, walked ? { roll: WALK.roll * portable.sqrt(f - 1) * g.grade.roll, calm: valleyCalm(E, W, H) } : null);
   const level = new Float64Array(N);
   const curve = tiers ? tieredCurve(tiers, g.base, top0) : null;
   const plane = curve && tilt > 0 ? planeOf(E, W, H) : null;
@@ -164,7 +167,7 @@ export function snapLevels(E: Float64Array, g: Genome, seed: number, W: number, 
       }
       level[i] = g.base + t * (top0 - g.base) + g.terrace.jitter * warpedFbm(js, x, y, 14 * f, 2, 7 * f);
     }
-  if (ringed) level.set(smoothed(level, W, H, Math.round(RINGS.smooth * (f - 1)), RINGS.passes));
+  if (ringed) level.set(smoothed(level, W, H, walked ? Math.min(WALK.smooth, Math.round(RINGS.smooth * (f - 1))) : Math.round(RINGS.smooth * (f - 1)), RINGS.passes));
   if (tiers) gatherFaces(level, W, H, tiers.bands);
   // (uplands round 4: the land's ringed forms, on the smoothed levels, `rings.ts`)
   if (ringed) addRingForms(level, drawRingForms(g.theme, level, W, H, seed, g.variation, stand ? floorTop + ringRoom : top0 + ringRoom, tiers ? tiers.bands[0][1] : null), W, H);
@@ -639,6 +642,59 @@ export const EDGE_WARP = { reach: 6, cell: 6, octaves: 2, full: 128, most: 8.5 }
  *  edge warp bends the lines over `warpCell` tiles by `warpReach`, one octave, instead of jittering them. */
 export const RINGS = { smooth: 2, passes: 2, planRoll: 3, gorgeRoll: 1.5, gather: { from: 0.3, over: 0.3 }, tilt: { valley: 3, gorge: 0 }, warpCell: 18, warpReach: 4 } as const;
 
+/** The ground at a walk's scale above 128² (River Valley and Any, generator 0.10.67; docs/design/uplands.md, "The
+ *  ground at a walk's scale"). Round 4 stood the grade's swells and rises at the map's scale (`RINGS`), so between the
+ *  big forms a 256² map had half a 128²'s slope and a 384²'s a third, and 54–69 % of the land lay dead flat in plates
+ *  of one level. On these themes the grade gains a second swell at the theme's own 128² cell (`rollCell` tiles, two
+ *  octaves) of `roll` × √(`formScale` − 1) times the theme's roll: its width stays a walk's, and its height makes up
+ *  the slope the stretched forms took from the ground between them. It is calm on the tableland's tops and by the
+ *  valleys the water will take (`valleyCalm`), so the floors by the water stay broad. The rises stand at their 128²
+ *  cell, and the levels' field is smoothed `smooth` tiles each way at most (256²'s). The big forms, the grade's own
+ *  swell at the map's scale and a plan's tiers grow with the map as before. */
+export const WALK = { roll: 3, smooth: 2, valley: { drains: 3000, from: 8, over: 16 } } as const;
+
+/** The themes whose ground keeps a walk's scale above 128² (`WALK`); the others' rounds are their own. */
+export const WALK_THEMES: ReadonlySet<ThemeId> = new Set<ThemeId>(["riverValley", "any"]);
+
+/** Whether a map's ground keeps a walk's scale (`WALK`): River Valley and Any whose narrower side is over 128. */
+export function walksAtScale(theme: ThemeId, W: number, H: number): boolean {
+  return WALK_THEMES.has(theme) && formScale(W, H) > 1;
+}
+
+/** How much of the walk's swell (`WALK`) each tile takes, in [0, 1]: none within `valley.from` tiles of a valley of
+ *  the field the water is planned on (a tile `valley.drains` tiles or more drain through, each tile draining to its
+ *  steepest lower neighbour of the eight), all of it from `valley.from + valley.over` tiles on, smoothly between. */
+export function valleyCalm(E: Float64Array, W: number, H: number): Float64Array {
+  const N = W * H;
+  const order = Array.from({ length: N }, (_, i) => i).sort((a, b) => E[b] - E[a] || a - b);
+  const drains = new Float64Array(N).fill(1);
+  for (const i of order) {
+    const x = i % W;
+    const y = (i - x) / W;
+    let to = -1;
+    let steepest = 0;
+    for (let dy = -1; dy <= 1; dy++)
+      for (let dx = -1; dx <= 1; dx++) {
+        const xx = x + dx;
+        const yy = y + dy;
+        if ((dx === 0 && dy === 0) || xx < 0 || yy < 0 || xx >= W || yy >= H) continue;
+        const j = yy * W + xx;
+        const drop = (E[i] - E[j]) / (dx !== 0 && dy !== 0 ? Math.SQRT2 : 1);
+        if (drop > steepest) {
+          steepest = drop;
+          to = j;
+        }
+      }
+    if (to >= 0) drains[to] += drains[i];
+  }
+  const valley = new Uint8Array(N);
+  for (let i = 0; i < N; i++) if (drains[i] >= WALK.valley.drains) valley[i] = 1;
+  const d = distanceFrom(valley, W, H);
+  const out = new Float64Array(N);
+  for (let i = 0; i < N; i++) out[i] = smoothstep(clamp((d[i] - WALK.valley.from) / WALK.valley.over, 0, 1));
+  return out;
+}
+
 /** A field smoothed by a box `r` tiles each way, `passes` times (`softened`); itself when `r` is 0. */
 export function smoothed(f: Float64Array, W: number, H: number, r: number, passes: number): Float64Array {
   let a = f;
@@ -687,8 +743,10 @@ export function softened(f: ArrayLike<number>, W: number, H: number, r: number):
  *  bench levels wandering by `gr.drift` steps; swells and hollows of `gr.roll` levels over `gr.rollCell`
  *  tiles). The returned function takes a level `L` at a tile and the benches it stands on (`st` levels apart
  *  from `phase`; `st` 1 for none) and gives the graded level, unrounded. The same seed and variation give the
- *  same land, at every size (D518; a premise's relief over 128² too since D540). */
-export function grader(gr: Grade, seed: number, variation: number, W: number, H: number, scale = 1): (L: number, x: number, y: number, st: number, phase: number) => number {
+ *  same land, at every size (D518; a premise's relief over 128² too since D540). `walk` (River Valley and Any above
+ *  128², `WALK`): a second swell of `walk.roll` levels at the grade's own cell, each tile taking `walk.calm` of it and
+ *  none on the tableland's tops, and the rises at their own cell. */
+export function grader(gr: Grade, seed: number, variation: number, W: number, H: number, scale = 1, walk: { roll: number; calm: Float64Array } | null = null): (L: number, x: number, y: number, st: number, phase: number) => number {
 
   const gs = hash32(seed, "grade", variation);
   // (the benches' levels drift over a third of the map; the land's character, tableland or rolling ground,
@@ -703,9 +761,12 @@ export function grader(gr: Grade, seed: number, variation: number, W: number, H:
     // tableland's tops, which keep broad level ground); the turned noise's two octaves weighed as the lattice's first
     // two were (1 and 1/2 over 1.75), so the swells stand no higher and the flats between them keep their size
     if (gr.roll > 0) L += gr.roll * (1 - gr.calm * mesa) * (1.5 / 1.75) * warpedFbm(gs + 3, x, y, gr.rollCell * scale, 2, 0.5 * gr.rollCell * scale);
+    // (the walk's swell, `WALK`: at the grade's own cell whatever the map's size)
+    if (walk) L += walk.roll * walk.calm[y * W + x] * (1 - mesa) * (1.5 / 1.75) * warpedFbm(gs + 7, x, y, gr.rollCell, 2, 0.5 * gr.rollCell);
     // the rises: hills over the land round them, a level a ring, gentler on the tableland's tops (D518)
     if (gr.roll > 0 && gr.rise > 0) {
-      const n = warpedFbm(gs + 5, x, y, RISES.cell * scale, 2, (RISES.cell * scale) / 2);
+      const rs = walk ? 1 : scale;
+      const n = warpedFbm(gs + 5, x, y, RISES.cell * rs, 2, (RISES.cell * rs) / 2);
       if (n > RISES.from) L += (gr.roll * gr.rise * (1 - 0.5 * gr.calm * mesa) * (n - RISES.from)) / RISES.span;
     }
     return L;
