@@ -25,6 +25,11 @@ In flight: Islands' land above 128², round 2 (generator 0.10.62, PR #1278, labe
 mainland's steps bent, three kinds of island (D547, [design/uplands.md](design/uplands.md)). On seeds 1–12 the food row
 passes on all twelve (four short before), attempts 29 → 21 (Easy start 35 → 19). Short: the steps still run along the
 shore on narrow stretches of mainland.
+In flight: Highlands above 128², a bench for the start beside a lake that sits where the seed puts it (generator 0.10.63,
+branch `gen/highlands-6d`, labelled `hold` for planning's verdict): the bench first, a plain in front of it, the massif
+across the lake, the bowl off the middle by the seed ([design/uplands.md](design/uplands.md), round 6c). Highlands 256²
+seeds 1–12, Normal and Easy start: every start passes, room 427+, every walk 14,000+, no badwater in a start's view, the
+84 default maps as dev's.
 Before it: `highlands-done` (2026-11-20, PR #1265): dev a0a3c83c released into `main` at 46b5e71, generator 0.10.37 →
 0.10.53; 56 PRs since `tilt-forms-done`: the land above 128² drawn in rings (D547) with Highlands standing up (#1263), the
 start picked for its level room (D545, #1256, #1261), ruled water (#1162), floodplain steps 5 and 6 and Save as.
