@@ -52,10 +52,10 @@ is a design call: how much water a big map may plan for its CPU, or a cheaper se
 | caprock share, Any / River Valley | 0.67 / 0.60 | 0.42 / 0.31 |
 | Any: bare / green, CPU | 0.701 / 0.270 | 0.726 / 0.244, +20 % |
 | River Valley: bare / green, CPU | 0.741 / 0.228 | 0.724 / 0.246, +11 % |
-| start's room under 400 (Any) | s1, s7, s10, s11 | s1, s5, s6, s7, s8, s11 |
+| start's room under 400 (Any) | s1, s7, s10, s11 | s1, s2, s5, s6, s7, s8, s11 |
 
-It moves every map above 128² (the genome's draws after it change), and the maps came out no greener: the caprock is
-not what makes the big plate bare. Reverted. Whether three quarters of the upper land should stand as hard tableland
+It moves every map above 128²: Any came out barer and River Valley under 2 points greener, both for more CPU and more
+starts short of room. The caprock is not what makes the big plate bare. Reverted. Whether three quarters of the upper land should stand as hard tableland
 at 384² remains a question for the uplands' owner.
 
 **Already short on dev, out of scope.** The start's room is under 400 on Any 256² s1 (190), s7, s10 and s11; the
