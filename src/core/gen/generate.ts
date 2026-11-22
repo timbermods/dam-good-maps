@@ -1023,30 +1023,33 @@ function attemptRound(specIn: MapSpec, optsIn: GenerateOptions, t0: number, roun
       shapeHighlands(g, W, H);
       genomes++;
       replans = 0;
-      // (every theme's land from the field's processes: D370's Islands and Delta templates are
-      // retired, D408)
-      const F = makeField(g, seed, W, H);
+      // (every theme's land from the field's processes: D370's Islands and Delta templates are retired, D408; Islands above
+      // 128² draws its own land, `isleSea.ts`, so its field is not drawn, round 3; drawn before the orientation, which
+      // turns the genome's flow)
+      const ownLand = g.seaLayout && takesIsleSea(g.theme, W, H);
+      const F = ownLand ? null : makeField(g, seed, W, H);
       // M9b (D275 (2)): the land turned or mirrored into one of its orientations, and the water's
       // way with it; everything after is found on the turned land
       const o = orientationOf(seed, drawn, W, H);
       g.orientation = o;
       g.flowDir = orientDir(g.flowDir, o);
-      // (D518: the field's contours softened and bent, so the levels' edges follow the land's warped contours)
-      const E = contourField(orientField(F.E, W, H, o), W, H, seed, drawn);
-      // (uplands round 6: Highlands above 128² sinks a valley in its middle, the water's field with the levels, `bold.ts`)
-      if (standsUp(g.theme, W, H)) lowerValley(E, standValley(seed, g.variation, g.benchPhase, g.flowDir, W, H, g.hydro.lakeBudget * W * H), g.flowDir, W, H);
-      land = { g, E, h0: snapLevels(E, g, seed, W, H), settles: 0 };
       // (Islands above 128², planning's design of 2026-11-21: the start's ground first, a mainland round the sea with the
       // start on a headland of it, many islands, the sea's bed a level under its spill, `isleSea.ts`)
-      if (g.seaLayout && takesIsleSea(g.theme, W, H)) {
+      if (!F) {
         const isl = isleSeaLand(seed, g.variation ?? 0, W, H, drawn);
         land = { g, E: isl.E, h0: isl.h, settles: 0 };
         g.isleSea = { headland: isl.headland, isles: isl.isles };
         // (no spring by the sea's exit or on the start's headland, `isleSea.ts` `SPRING_OFF`)
         g.dryTops = isl.dry;
+      } else {
+        // (D518: the field's contours softened and bent, so the levels' edges follow the land's warped contours)
+        const E = contourField(orientField(F.E, W, H, o), W, H, seed, drawn);
+        // (uplands round 6: Highlands above 128² sinks a valley in its middle, the water's field with the levels, `bold.ts`)
+        if (standsUp(g.theme, W, H)) lowerValley(E, standValley(seed, g.variation, g.benchPhase, g.flowDir, W, H, g.hydro.lakeBudget * W * H), g.flowDir, W, H);
+        land = { g, E, h0: snapLevels(E, g, seed, W, H), settles: 0 };
+        // (round 6: Islands' sea's lip at the map's edge, a tile or two, D151's edge rule kept)
+        if (g.seaLayout && g.theme === "islands") holdSeaLip(land.h0, W, H);
       }
-      // (round 6: Islands' sea's lip at the map's edge, a tile or two, D151's edge rule kept)
-      else if (g.seaLayout && g.theme === "islands") holdSeaLip(land.h0, W, H);
     } else replans++;
     const screenedAt = { ...screened };
     let shownJoined = false;
