@@ -60,6 +60,7 @@ import { shapeLakeBasin } from "../land/lakeBasin";
 import { shapeCanyon } from "../land/canyon";
 import { shapeHighlands } from "../land/highlands";
 import { lowerValley, STAND, standBadKeep, standsUp, standValley } from "../land/bold";
+import { cutHead, DELTA_HEAD, growBanks, headOf, headServed, headSite, headStairs, headWanted, headWet, joinOffHead, offHead, refitHead, uncutHead } from "../land/deltaHead";
 import { BED_FLOOR, drawGenome, leanGenome, ownScaleFor, UPLANDS_BASE_PATH, type Genome } from "../land/genome";
 import { joinReach, mainWater, planBadwater, standingTheme, type Hazards } from "../land/hazards";
 import { besideCourses, blockedCourses, courseCells, inflowEdges, closeBackEdges, closeSideEdges, drownedHeads, sealedMouths } from "../land/courses";
@@ -308,6 +309,14 @@ const BASIN_LAKE = 0.01;
 /** Maps (in 100) whose badwater drains where the land takes it, unsteered (D476: on the rest one
  *  badwater course is routed into the theme's main water, as in the game; an aim, never tuned). */
 const OWN_DRAIN = 15;
+/** Delta 1: the ground the badwater keeps off round the start's terrace (`DELTA_HEAD.badKeep` from its middle). */
+function headBadKeep(head: { x: number; y: number }, W: number, H: number): Uint8Array {
+  const out = new Uint8Array(W * H);
+  const r = DELTA_HEAD.badKeep;
+  for (let y = Math.max(0, head.y - r); y <= Math.min(H - 1, head.y + r); y++)
+    for (let x = Math.max(0, head.x - r); x <= Math.min(W - 1, head.x + r); x++) if ((x - head.x) * (x - head.x) + (y - head.y) * (y - head.y) <= r * r) out[y * W + x] = 1;
+  return out;
+}
 /** Days the water is run on past its settle for the start's badwater distance, where badwater mixes
  *  into water near the start (#265: River Valley 128² seed 12's came to rest by the fourth day), and
  *  the least share of badwater that starts the run. */
@@ -1341,6 +1350,12 @@ function failedIds(r: GenerateResult): string[] {
   return ids;
 }
 
+/** A step added to the ramps (D549's stairs), its low tile kept off as theirs are. */
+function addStep(ramps: { steps: [number, number][]; tiles: Uint8Array }, st: [number, number]): void {
+  ramps.steps.push(st);
+  ramps.tiles[st[0]] = 1;
+}
+
 /** The ramps' steps that still stand as cut: the high tile one level up, the tile behind the low
  *  one level with it. */
 function standingSteps(steps: readonly [number, number][], h: Uint8Array, W: number, H: number): [number, number][] {
@@ -1932,6 +1947,13 @@ function planLandStage(land: Land, attempt: number, W: number, H: number, seed: 
   opts.onProgress?.({ attempt, stage: "water" });
   const hy = planHydro(land.E, h, g, seed, W, H, attempt, land.joinsOff ? { joins: false } : {});
   land.joined = (hy.joined ?? 0) > 0;
+  // (D549: a Delta's start's terrace, cut into its bank above the fan's head before anything else reads the land,
+  // `land/deltaHead.ts`)
+  // (D549 (8): its banks grown where the land stands sheer over the water, `land/deltaHead.ts` `growBanks`)
+  if (headWanted(g.theme, W, H)) growBanks(h, hy.water, plannedWater(h, hy, W, H), W, H, seed);
+  const headEst = headWanted(g.theme, W, H) ? plannedWater(h, hy, W, H) : null;
+  const headAt = headEst ? headSite(h, hy, headEst, plannedWater(h, hy, W, H, true), W, H, seed) : null;
+  if (headAt) headAt.undo = cutHead(h, hy.water, headAt, W, H, headEst);
   land.joinedRivers = new Set(hy.joinedRivers ?? []);
   // (Lake Basin above 128², the gated hydro pass: the lake owns the basin's lowest level. Its floor is dug `BASIN_DIG`
   // levels, to the beds' floor at the most, under the rivers inside the basin, which stand at `BASIN_BED` or over)
@@ -2091,6 +2113,12 @@ function planLandStage(land: Land, attempt: number, W: number, H: number, seed: 
     // (the shelves risen are dry land: they leave the water kept, so the start's walkable land holds
     // them; kept as water, a start on one read no walkable land and its score was not a number)
     for (let i = 0; i < N; i++) if (keep[i] && !hy.water[i]) keep[i] = 0;
+  }
+  // (D549: the terrace as the land now stands, the start's place, `land/deltaHead.ts`)
+  g.deltaHead = headAt ? headOf(h, headAt, W, H) : undefined;
+  if (g.deltaHead) {
+    g.deltaHead.stairs = headStairs(h, keep, g.deltaHead, W, H);
+    for (const st of g.deltaHead.stairs) addStep(ramps, st);
   }
   const mouthArms = hy.arms.filter((a) => a.kind === "mouth").map((a) => a.path);
   let blocked = blockedCourses(h, W, H, hy.rivers, mouthArms);
@@ -2369,6 +2397,13 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
       }
     }
     if (isles === "only") return null;
+    // (Delta 1: a Delta's start is its terrace beside the fan's head, as a sea's is its island: tried there first, and
+    // anywhere only where no place on it passes, `land/deltaHead.ts`)
+    if (g.deltaHead) {
+      const off = offHead(g.deltaHead, avoid, W, H);
+      const onHead = pickOn(D, C, M, salt, off, weight, near, reusePlanned);
+      if (onHead) return onHead;
+    }
     return pickOn(D, C, M, salt, avoid, weight, near, reusePlanned);
   };
   // (room first on the settled water only, D545: on the water the hydrology planned the start is the guess
@@ -2379,8 +2414,9 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
   let slopeWater: Uint8Array | null = null;
   // (the badwater sources' hollows dug, for the Easy badwater row a start chosen for its room keeps: D545)
   const badHollows = (): [number, number][] => bad.features.flatMap((f) => (f.kind === "setPiece" && f.params.kind === "badwaterBasin" ? [(f.params.request as { at: [number, number] }).at] : []));
+  let headData: { D: ArrayLike<number>; rule: number; data: { kept: Float64Array | null; storage: { kept: Float64Array; want: number }; view: ReturnType<typeof settlerView>; prepared: ReturnType<typeof prepareStart> } } | null = null;
   const pickOn = (D: ArrayLike<number>, C: ArrayLike<number>, M: ArrayLike<number>, salt: number, avoid: Uint8Array | null, weight: number, near: { x: number; y: number } | null, reusePlanned: boolean): StartPick | null => {
-    let data = reusePlanned ? plannedStart : null;
+    let data = reusePlanned ? plannedStart : headData && headData.D === D && headData.rule === stageRule ? headData.data : null;
     if (!data) {
       const model = waterModel(W, H, h, []);
       const kept = droughtStorage(model, D, FIRST_DROUGHT_DAYS);
@@ -2391,6 +2427,8 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
       const prepared = prepareStart(h, W, H, { depth: D, contamination: C, moisture: M }, hy, stageRule, { kept, drought: policy, storage, droughtFood });
       data = { kept, storage, view, prepared };
       if (reusePlanned) plannedStart = data;
+      // (D549: the place tried on the terrace and the place anywhere read the same water, prepared once)
+      else if (g.deltaHead) headData = { D, rule: stageRule, data };
     }
     const { kept, storage, view, prepared } = data;
     // (the map's own intentions, and on every map a landmark in the opening view at half their pull, D502)
@@ -2406,7 +2444,7 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
     // water's walk and its room, never drawn to the headland's middle, farthest from its water)
     const prefer = head ? (x: number, y: number, L: number, w: number) => along(x, y, L, w) + 3 * Math.max(0, Math.min(1, 1 - (portable.hypot(x - head.bx, y - head.by) - HEAD_REACH * head.r) / head.r)) : along;
     const rng = stream(seed, "settler2", attempt, salt);
-    return pickStart(h, W, H, { depth: D, contamination: C, moisture: M }, hy, g.settler, rng, stageRule, { prepared, avoid, kept, drought: policy, prefer, foot, minFoot, footWant, moistWalk: { min: moistWant }, room, bench, benchMin, storage, near, level: allowLevel, roomFirst: !onPlan, badwater: badHollows(), slopeWater, ...(ease >= 2 ? { levelReach: Math.min(3, 1 + Math.floor(ease / 2)) } : {}), ...(ease >= 3 ? { margin: Math.max(5, Math.round(Math.min(W, H) * 0.08)) } : {}), ...(ease >= 1 ? { waterExact: true } : {}), ...(stageEasy ? { easy: stageEasy } : {}), ...(pickRings ? { ringSlopes } : {}) , ...(g.standValley || g.basinWarp ? { badView: true } : islesUp ? { badView: true, badTurnOnly: true } : {}), ...(g.basinWarp ? { badViewWide: true } : {}) });
+    return pickStart(h, W, H, { depth: D, contamination: C, moisture: M }, hy, g.settler, rng, stageRule, { prepared, avoid, kept, drought: policy, prefer, foot, minFoot, footWant, moistWalk: { min: moistWant }, room, bench, benchMin, storage, near, level: allowLevel, roomFirst: !onPlan, badwater: badHollows(), slopeWater, ...(ease >= 2 ? { levelReach: Math.min(3, 1 + Math.floor(ease / 2)) } : {}), ...(ease >= 3 ? { margin: Math.max(5, Math.round(Math.min(W, H) * 0.08)) } : {}), ...(ease >= 1 ? { waterExact: true } : {}), ...(stageEasy ? { easy: stageEasy } : {}), ...(pickRings ? { ringSlopes } : {}) , ...(g.standValley || g.basinWarp || g.deltaHead ? { badView: true } : islesUp ? { badView: true, badTurnOnly: true } : {}), ...(g.basinWarp ? { badViewWide: true } : {}) });
   };
   const levelStart = (p: StartPick) => {
     if (!p.levelled) return;
@@ -2445,7 +2483,10 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
   // (Easy start, D495: an easy start's water is its own, so its map's badwater never joins the main water: it drains
   // where the land takes it, and D498 keeps it out of all the main water then)
   const joins = hash32(seed, "badwater joins") % 100 >= OWN_DRAIN && !easy;
-  const joinWater = (): Uint8Array | null => (joins && !standingTheme(shown.theme) ? joinReach(shown.theme, hy, W, H) : null);
+  // (Delta 1: on a Delta with the start's terrace, the join keeps off the stretch below it where the fan opens,
+  // `land/deltaHead.ts` `joinOffHead`)
+  const lowReach = (): Uint8Array => (g.deltaHead ? joinOffHead(joinReach(shown.theme, hy, W, H), g.deltaHead, W, H) : joinReach(shown.theme, hy, W, H));
+  const joinWater = (): Uint8Array | null => (joins && !standingTheme(shown.theme) ? lowReach() : null);
   // (and on every map no other badwater ends in the main water above that reach, D498; where it
   // drains on its own, in none of the main water)
   // (worked out once: the plan's water stays as it is while the hollows are tried)
@@ -2482,7 +2523,7 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
       }
     }
     if (!joins) return (spared = main);
-    const low = joinReach(shown.theme, hy, W, H);
+    const low = lowReach();
     for (let i = 0; i < N; i++) if (low[i]) main[i] = 0;
     return (spared = main);
   };
@@ -2493,7 +2534,7 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
     distance: Math.max(spec.settings.hazards.badwaterDistance, easyT ? easyT.badwaterSource + 2 : 0),
     // (a land that stands up keeps its badwater off its valley's bowl and the ground in the start's view round it, and
     // off its channel but where a ditch joins the main water: round 6b step 5, `bold.ts` `standBadKeep`)
-    keepOff: (g.standValley ? orMask(weir ? pool : null, standBadKeep(g.standValley, joinWater(), W, H)) : g.isleSea ? orMask(weir ? pool : null, isleBadKeep(g.isleSea.headland, W, H)) : weir ? pool : null) as Uint8Array | null,
+    keepOff: (g.standValley ? orMask(weir ? pool : null, standBadKeep(g.standValley, joinWater(), W, H)) : g.deltaHead ? orMask(weir ? pool : null, headBadKeep(g.deltaHead, W, H)) : g.isleSea ? orMask(weir ? pool : null, isleBadKeep(g.isleSea.headland, W, H)) : weir ? pool : null) as Uint8Array | null,
     // (the ditches follow the field's own drainage, as the rivers' courses do)
     field: land.E,
     // (Designed for pulls the badwater near the start on Hard, away on Easy: D536 (6))
@@ -3340,6 +3381,90 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
     if (!b1.settle.settled) return unsettled(b1);
     if (!fixes.includes("gentler rivers")) fixes.push("gentler rivers");
   }
+  // D549 (7), round 3: the start's terrace chosen again on the water as it settled, the place planned taken back where
+  // the settled water finds a better one: where the planned terrace's foot holds no water in the shore rule's band, or it
+  // stands on the smaller bank, or there was none; the land settled again with it. Where it does not settle, the land
+  // stays as it was
+  if (headWanted(g.theme, W, H) && !lastAttempt) {
+    const cur = g.deltaHead;
+    const bare = h.slice();
+    if (cur?.undo) uncutHead(bare, cur.undo);
+    const site = headSite(bare, hy, b1.water, b1.water, W, H, seed, { depth: b1.water, contamination: b1.contamination });
+    // (the planned terrace stays where the settled water leaves it dry and serves its foot, on the bank with more reach)
+    const dry = !!cur && headWet(b1.water, cur) <= DELTA_HEAD.wetMost;
+    const keepCur = !!cur && (!site || (dry && (((site.x - cur.x) * (site.x - cur.x) + (site.y - cur.y) * (site.y - cur.y) <= (DELTA_HEAD.radius / 2) * (DELTA_HEAD.radius / 2) && site.level === cur.level) || (headServed(h, b1.water, cur, W, H) >= DELTA_HEAD.touch && (cur.bank ?? 0) >= DELTA_HEAD.bankNear * (site.bank ?? 0)))));
+    if (site && !keepCur) {
+      const was = h.slice();
+      const stepsWere = ramps.steps.length;
+      const tilesWere = ramps.tiles.slice();
+      const stepsBefore = ramps.steps.slice();
+      // (the planned terrace's staircases come off the ramps with its cut)
+      if (cur?.stairs?.length) {
+        const off = new Set(cur.stairs.map(([a, b]) => a * N + b));
+        const kept = ramps.steps.filter(([a, b]) => !off.has(a * N + b));
+        ramps.steps.length = 0;
+        ramps.steps.push(...kept);
+        ramps.tiles.fill(0);
+        for (const [a] of kept) ramps.tiles[a] = 1;
+      }
+      h.set(bare);
+      const wetNow = new Uint8Array(N);
+      for (let i = 0; i < N; i++) if (b1.water[i] > 0.001) wetNow[i] = 1;
+      site.undo = cutHead(h, wetNow, site, W, H, b1.water);
+      const head = headOf(h, site, W, H);
+      head.stairs = headStairs(h, wetNow, head, W, H);
+      for (const st of head.stairs) addStep(ramps, st);
+      const b2 = build([...rivers, ...bad.features], "resources");
+      if (b2.settle.settled && headServed(h, b2.water, head, W, H) >= DELTA_HEAD.touch && headWet(b2.water, head) <= DELTA_HEAD.wetMost) {
+        for (let i = 0; i < N; i++)
+          if (h[i] !== was[i]) {
+            hLand[i] = h[i];
+            if (from) from.hLand[i] = h[i];
+            bad.heights[i] = h[i];
+          }
+        g.deltaHead = head;
+        b1 = b2;
+        fixes.push("start's terrace on the settled water");
+      } else {
+        h.set(was);
+        ramps.steps.length = 0;
+        ramps.steps.push(...stepsBefore);
+        void stepsWere;
+        ramps.tiles.set(tilesWere);
+      }
+    }
+  }
+  // D549 (5): the start's terrace brought down to the water its foot holds as the land settled, and the land settled
+  // again with it (only dry ground over the water is cut, so the water stands as it did)
+  if (g.deltaHead && !lastAttempt) {
+    const was = h.slice();
+    const fit = refitHead(h, b1.water, g.deltaHead, W, H);
+    if (fit) {
+      // (its stairs on the land as cut, a slope on every step)
+      const wetNow = new Uint8Array(N);
+      for (let i = 0; i < N; i++) if (b1.water[i] > 0.001) wetNow[i] = 1;
+      const stepsWere = ramps.steps.length;
+      const tilesWere = ramps.tiles.slice();
+      for (const st of headStairs(h, wetNow, fit, W, H)) addStep(ramps, st);
+      const b2 = build([...rivers, ...bad.features], "resources");
+      if (b2.settle.settled) {
+        // (the cut terrace is the land from here on, for this attempt's later plans and the next)
+        for (let i = 0; i < N; i++)
+          if (h[i] !== was[i]) {
+            hLand[i] = h[i];
+            if (from) from.hLand[i] = h[i];
+            bad.heights[i] = h[i];
+          }
+        g.deltaHead = fit;
+        b1 = b2;
+      } else {
+        h.set(was);
+        ramps.steps.length = stepsWere;
+        ramps.tiles.set(tilesWere);
+      }
+    }
+  }
+
   // D171: a source that another source's water reaches fails the map (water.source_in_flow). A
   // spring-fed river whose spring is reached leaves the map (its valley stays, dry; a river that
   // joined it now joins where it went), and a badwater hollow that is reached is planned again

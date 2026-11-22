@@ -33,6 +33,7 @@ import { integrityLevel } from "../features/raster/terrain";
 import { planBands } from "./plan";
 import { addRingForms, drawRingForms, ringFormRoom } from "./rings";
 import { benchValley, boldGorge, standMesas, standsUp, standValley, STAND } from "./bold";
+import { headWanted } from "./deltaHead";
 
 /** The rank of every value in [0, 1] (ties broken by index, so it is exact and stable). */
 function ranks(v: Float64Array): Float64Array {
@@ -107,6 +108,12 @@ export function snapLevels(E: Float64Array, g: Genome, seed: number, W: number, 
       level[i] = g.base + t * (top0 - g.base) + g.terrace.jitter * warpedFbm(js, x, y, 14 * f, 2, 7 * f);
     }
   if (ringed) level.set(smoothed(level, W, H, Math.round(RINGS.smooth * (f - 1)), RINGS.passes));
+  // (D549 (6): a Delta's rings broken, `DELTA_RINGS`: the smoothed levels pushed by a slow noise, so a bowl's lines
+  // bunch on one side and spread on another, never even rings round its water)
+  if (ringed && headWanted(g.theme, W, H)) {
+    const rs = hash32(seed, "delta-rings", g.variation);
+    for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) level[y * W + x] += DELTA_RINGS.shift * warpedFbm(rs, x, y, DELTA_RINGS.cell * f, 2, (DELTA_RINGS.cell * f) / 2);
+  }
   if (tiers) gatherFaces(level, W, H, tiers.bands);
   // (uplands round 4: the land's ringed forms, on the smoothed levels, `rings.ts`)
   if (ringed) addRingForms(level, drawRingForms(g.theme, level, W, H, seed, g.variation, stand ? floorTop + ringRoom : top0 + ringRoom, tiers ? tiers.bands[0][1] : null), W, H);
@@ -546,6 +553,10 @@ export const EDGE_WARP = { reach: 6, cell: 6, octaves: 2, full: 128, most: 8.5 }
  *  one level); the grade's rolling and rises stand at the map's scale (their cells × `formScale`); and the
  *  edge warp bends the lines over `warpCell` tiles by `warpReach`, one octave, instead of jittering them. */
 export const RINGS = { smooth: 2, passes: 2, planRoll: 3, gorgeRoll: 1.5, gather: { from: 0.3, over: 0.3 }, tilt: { valley: 3, gorge: 0 }, warpCell: 18, warpReach: 4 } as const;
+
+/** D549 (6): on a Delta above 128² the smoothed levels are pushed by up to `shift` levels of a slow noise over `cell`
+ *  tiles (times the map's scale), so the rings a bowl's smooth sides snap to are spaced unevenly round it. */
+export const DELTA_RINGS = { shift: 0.8, cell: 16 } as const;
 
 /** A field smoothed by a box `r` tiles each way, `passes` times (`softened`); itself when `r` is 0. */
 export function smoothed(f: Float64Array, W: number, H: number, r: number, passes: number): Float64Array {

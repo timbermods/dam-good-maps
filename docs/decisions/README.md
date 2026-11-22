@@ -1,7 +1,7 @@
 # Editor decisions
 
 These are the decisions in force, by topic, one file per topic. Every decision as recorded, with its reasons, date and amendments, is in [docs/archive/decisions.md](../archive/decisions.md); a number missing here is superseded or completed there.
-A decision gets a number only when it is a rule that constrains future work (D470); model choices, which session does what and Kyler's verdict on one round go in STATUS or the Progress log, unnumbered. New decisions are written once, into their topic file, with the next free number (D549; only the milestone session hands out numbers) and a line added to this index; they move to the archive when superseded or completed.
+A decision gets a number only when it is a rule that constrains future work (D470); model choices, which session does what and Kyler's verdict on one round go in STATUS or the Progress log, unnumbered. New decisions are written once, into their topic file, with the next free number (D550; only the milestone session hands out numbers) and a line added to this index; they move to the archive when superseded or completed.
 
 Read this index, then [how-we-work.md](how-we-work.md), then only the topic files your task touches.
 
@@ -91,6 +91,7 @@ Read this index, then [how-we-work.md](how-we-work.md), then only the topic file
 
 ## [The generator](generator.md)
 
+- D549: A Delta's start stands on a dry terrace at the fan's head (128² and up, not long): cut on the trunk's bank where its foot's water passes the shore rule, its grade stairs a slope on every step, cut down to its settled water; chosen again on the settled water, on the bank with more reach; the settler takes it first; the badwater keeps 46 tiles off it, its join off the fan's head; the round basin's rings broken; sheer banks over the water grown into slopes (generator 0.10.65)
 - D545: The start is picked for the level room it has, never at the cost of an Easy row: the places with Easy's room that keep the rows the pick before would keep, else those with at least its room, worth weighing the draw
 - D547: Above 128² the land is drawn in rings: landforms at the map's scale, a plan of the land, nothing fine in the snap, slopes for a ringed land, bold walls for Highlands and Canyon; Lake Basin stays on 0.10.48's land; Highlands stands up (round 6): a few walled mesas on a gentle floor, the valley sunk in the middle; round 6b step 5: no badwater in the valley or the start's view, the channel winding, the notches gullies; Islands round 8 (0.10.55): an island sea's start walks its island (the ringed slopes, minFoot kept, its start turned from badwater, its berries topped up to Easy's food row on Normal); Islands' land (0.10.61): a mainland framing the sea, the start on a headland, 8–12 islands, the bed one level under the spill, the exit away from every river
 - D544: No level's edge runs ruler-straight over a dozen tiles: the graded levels are read through a fine warp before rounding, the water's field left as it is
