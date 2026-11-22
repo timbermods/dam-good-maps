@@ -361,8 +361,8 @@ export interface Genome {
    *  a sea off one edge, a scatter of islands, an island chain, an atoll, or two large islands parted
    *  by a strait; null without a sea. */
   seaLayout?: SeaLayout | null;
-  /** Islands above 128² (`isleSea.ts`, generator 0.10.61): the start's headland and the islands as the land drew them. */
-  isleSea?: { headland: { x: number; y: number; ux: number; uy: number; bx: number; by: number; r: number }; isles: { x: number; y: number; r: number; aspect: number; ux: number; uy: number }[] };
+  /** Islands above 128² (`isleSea.ts`, generator 0.10.61; their kinds since 0.10.62): the start's headland and the islands as the land drew them. */
+  isleSea?: { headland: { x: number; y: number; ux: number; uy: number; bx: number; by: number; r: number }; isles: { x: number; y: number; r: number; aspect: number; ux: number; uy: number; kind: "low" | "bench" | "rock" }[] };
   /** An inland sea in a ring of land (D417, D423: at most one sea map in four); on the others the
    *  rim's broad lobes of mainland reach into the sea and break the land round it. */
   seaRing?: boolean;

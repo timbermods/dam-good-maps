@@ -20,14 +20,11 @@ Latest: `ruin-brush-done` (2026-11-21 13:15Z, PR #1271): dev 5cb017b4 released i
 Before it: `ruins-in-view-done` (2026-11-20, PR #1268): dev cc351e38 released into `main` at 9ca0997e, generator 0.10.53 →
 0.10.55: a stand of the map's own ruins in the opening view (#1266) and Islands' start above 128² walking its island, its
 berries topped up to Easy's food row (#1267). The live check passed and the preview was republished; recorded on #57.
-In flight: Islands' land above 128² (generator 0.10.61, branch `gen/islands-land`, labelled `hold` for planning's verdict):
-a mainland framing the sea, the start on a headland, 8–11 islands, the sea's bed one level under its spill and its exit
-away from every river (D547, [design/uplands.md](design/uplands.md)). The bed alone, on 0.10.48's land (Islands 256² seeds
-1–6, Normal), missed its Hard bar on three: the sea's p50 at the Hard wet season's end 1.02 of 1.16, 0.65 of 1.21 and
-0.29 of 1.01 on seeds 1, 2 and 4, as seed 4's river entered at the exit; the new land holds it, the start's water back to
-its settled count at every Hard wet season's end on seeds 1–12. Short: the start's food row on seeds 2, 4, 7 and 10 (only
-the shore bench stays moist through a drought), seed 6's sea at 0.45 of 1.11 after a Hard wet season (its river's mouth 55
-tiles from the exit; the start's water whole).
+In flight: Islands' land above 128², round 2 (generator 0.10.62, PR #1278, labelled `hold` for planning's verdict; round 1,
+#1275, merged into dev at 0fc2390b): the start's food bench deep and reached by steps, no river on the headland, the
+mainland's steps bent, three kinds of island (D547, [design/uplands.md](design/uplands.md)). On seeds 1–12 the food row
+passes on all twelve (four short before), attempts 29 → 21 (Easy start 35 → 19). Short: the steps still run along the
+shore on narrow stretches of mainland.
 In flight: Highlands above 128², a bench for the start beside a lake that sits where the seed puts it (generator 0.10.63,
 branch `gen/highlands-6d`, labelled `hold` for planning's verdict): the bench first, a plain in front of it, the massif
 across the lake, the bowl off the middle by the seed ([design/uplands.md](design/uplands.md), round 6c). Highlands 256²

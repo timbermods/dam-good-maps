@@ -106,8 +106,10 @@ import { decodeSpecFragment, encodeSpecFragment, makeSpec, type MapSpec } from "
 // 0.10.56), D148
 // and generator 0.10.61's version alone (D547's Islands land above 128², which premise maps do not take): with the version
 // set back to 0.10.60 the branch gives `b3f5b992…` byte for byte, D148
-// and generator 0.10.63's version alone (Highlands' composition above 128², which premise maps do not take): with the version set back to
+// and generator 0.10.62's version alone (D547's Islands land round 2, which premise maps do not take): with the version set back to
 // 0.10.61 the branch gives `9bd44cd6…` byte for byte, D148
+// and generator 0.10.63's version alone (Highlands' composition above 128², which premise maps do not take): with the version set back to
+// 0.10.62 the branch gives `81dfe92b…` byte for byte, D148
 const SHA = "966b67e9f55094d9b71add85b8cb84188d798672c377106d5c4a7e420faaa60f";
 
 // (a Hard map whose start lake parts as it falls: the single analytic reading stood 0.32 over the run there, PR #1040;
