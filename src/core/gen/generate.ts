@@ -24,7 +24,7 @@
 
 import * as portable from "../math/portable";
 import { walledRun } from "../analysis/signature";
-import { openingFrame, tilesInFrame } from "../analysis/opening";
+import { levelDoorTurns, openingFrame, tilesInFrame } from "../analysis/opening";
 import { ORIENTATIONS } from "../format/footprints";
 import { damSites } from "../analysis/damsites";
 import { sourcesInFlow } from "../analysis/sources";
@@ -2596,7 +2596,49 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
   // (Easy start, D495: an easy start's water is its own, so its map's badwater never joins the main water: it drains
   // where the land takes it, and D498 keeps it out of all the main water then)
   const joins = hash32(seed, "badwater joins") % 100 >= OWN_DRAIN && !easy;
-  const joinWater = (): Uint8Array | null => (joins && !standingTheme(shown.theme) ? joinReach(shown.theme, hy, W, H) : null);
+  // (round 6c, round 3: on a land that stands up the ditch joins only where the main river's water stands a full level
+  // under the last lake's, and out of the ground the start's views take in, `Genome.benchView`: seed 11's joined where
+  // the river stood level with the lake, and its badwater spread back up into the lake the start looks over; where no
+  // reach is left there, the badwater drains on its own, kept out of all the main water, D498)
+  let lowKept: Uint8Array | null | undefined;
+  const lowReach = (): Uint8Array | null => {
+    if (lowKept !== undefined) return lowKept ? lowKept.slice() : null;
+    const low = joinReach(shown.theme, hy, W, H);
+    if (!g.benchView) return low;
+    // (where the river's water stands a full level under the last lake's on its way, the lake as its land holds it)
+    const under = g.standValley ? fullLevelUnder() : null;
+    let any = false;
+    for (let i = 0; i < N; i++) {
+      if (low[i] && (g.benchView[i] || (under && !under[i]))) low[i] = 0;
+      if (low[i]) any = true;
+    }
+    lowKept = any ? low : null;
+    return lowKept ? lowKept.slice() : null;
+  };
+  // (round 6c, round 3: the water of the main river standing a full level or more under the last lake on its course, on
+  // the planned water as its land holds it, `plannedWater`'s `held`)
+  const fullLevelUnder = (): Uint8Array | null => {
+    const river = hy.rivers.find((r) => r.role === "river/main");
+    if (!river) return null;
+    const est = plannedWater(h, hy, W, H, true);
+    const lakeOf = new Int32Array(N).fill(-1);
+    hy.lakes.forEach((lk, k) => {
+      for (const i of lk.tiles) lakeOf[i] = k;
+    });
+    let last = -1;
+    for (const [px, py] of river.params.path) {
+      const x = Math.round(px);
+      const y = Math.round(py);
+      if (x >= 0 && y >= 0 && x < W && y < H && lakeOf[y * W + x] >= 0) last = lakeOf[y * W + x];
+    }
+    if (last < 0) return null;
+    let top = -Infinity;
+    for (const i of hy.lakes[last].tiles) if (est[i] > 0 && h[i] + est[i] > top) top = h[i] + est[i];
+    const out = new Uint8Array(N);
+    for (let i = 0; i < N; i++) if (est[i] > 0 && h[i] + est[i] <= top - 1) out[i] = 1;
+    return out;
+  };
+  const joinWater = (): Uint8Array | null => (joins && !standingTheme(shown.theme) ? lowReach() : null);
   // (and on every map no other badwater ends in the main water above that reach, D498; where it
   // drains on its own, in none of the main water)
   // (worked out once: the plan's water stays as it is while the hollows are tried)
@@ -2633,8 +2675,8 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
       }
     }
     if (!joins) return (spared = main);
-    const low = joinReach(shown.theme, hy, W, H);
-    for (let i = 0; i < N; i++) if (low[i]) main[i] = 0;
+    const low = lowReach();
+    if (low) for (let i = 0; i < N; i++) if (low[i]) main[i] = 0;
     return (spared = main);
   };
   const badAsk = {
@@ -2644,7 +2686,7 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
     distance: Math.max(spec.settings.hazards.badwaterDistance, easyT ? easyT.badwaterSource + 2 : 0),
     // (a land that stands up keeps its badwater off its valley's bowl and the ground in the start's view round it, and
     // off its channel but where a ditch joins the main water: round 6b step 5, `bold.ts` `standBadKeep`)
-    keepOff: (g.standValley ? orMask(weir ? pool : null, standBadKeep(g.standValley, joinWater(), W, H)) : g.isleSea ? orMask(weir ? pool : null, isleBadKeep(g.isleSea.headland, W, H)) : weir ? pool : null) as Uint8Array | null,
+    keepOff: (g.standValley ? orMask(weir ? pool : null, standBadKeep(g.standValley, joinWater(), W, H, g.benchView ?? null)) : g.isleSea ? orMask(weir ? pool : null, isleBadKeep(g.isleSea.headland, W, H)) : weir ? pool : null) as Uint8Array | null,
     // (the ditches follow the field's own drainage, as the rivers' courses do)
     field: land.E,
     // (Designed for pulls the badwater near the start on Hard, away on Easy: D536 (6))
@@ -3994,6 +4036,30 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
         else return fail("badwater in the start's view", b1, true);
       }
     }
+    // (Highlands above 128², round 6c: its badwater is kept off the plan's start and the bench's views, `Genome.benchView`,
+    // and a start found on the settled water past both can face it: Highlands 256² seed 11's Easy start faced a spring's
+    // pool 75 tiles off. Such a start is turned to a level door that shows none, and gives way to the next only where
+    // none of its turns is clear)
+    if (g.standValley && !lastAttempt) {
+      const badTiles: number[] = [];
+      for (let i = 0; i < N; i++) if (b1.water[i] >= 0.1 && b1.contamination[i] > 0.05) badTiles.push(i);
+      const L = h[cur.y * W + cur.x];
+      const seen = (o: StartPick["orientation"]): number => tilesInFrame({ x: cur.x, y: cur.y, z: L, orientation: o }, W, h, badTiles);
+      if (badTiles.length && seen(cur.orientation) > 0) {
+        const turn = levelDoorTurns(h, W, H, cur.x, cur.y, L).find((t) => seen(t.o) === 0);
+        if (turn) cur = { ...cur, orientation: turn.o };
+        else if (tryN < startTries + 2) {
+          const levelled = h.slice();
+          h.set(hBefore);
+          const again = nextStart(cur);
+          if (again) {
+            cur = again;
+            continue;
+          }
+          h.set(levelled);
+        }
+      }
+    }
     layout = [...rivers, ...bad.features, startOf(cur)];
     // (a start whose pad changes the water is first judged on the water warm-started from the
     // settle before it, which costs a fraction of a settle: a pad the water would cover gives way to
@@ -4282,6 +4348,13 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
           // stood on the stairs off the shore bench, leaving the start 1,399 dry tiles)
           if (startWalksTo(b3, x, y) || minesReachedOn(b3) < Math.min(wantMines, minesReachedOn(b2))) continue;
           if (g.basinWarp && startFloorsOf(b3).reach < minFoot) continue;
+          // (Highlands above 128², round 6c: nor from the land its walk joins, the debris cutting off the site's pocket
+          // alone, never under the ground the start was picked for, `minFoot`, or under half its walk: Highlands 256² seed
+          // 11's stood on the one neck from the bench's plain to the floor, and the start walked 6,771 tiles of 32,193)
+          if (g.standValley) {
+            const before = startFloorsOf(b2).reach;
+            if (startFloorsOf(b3).reach < Math.max(minFoot, before / 2)) continue;
+          }
           extra.push(debris);
           b2 = b3;
         }
