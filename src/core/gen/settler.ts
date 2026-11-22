@@ -144,6 +144,9 @@ export interface SettlerOptions {
    *  drought outlasts a berry bush: places with dry land near them that stays moist, where the
    *  start's berries last the drought, are preferred (the D410 round; never a guard). */
   droughtFood?: ArrayLike<number> | null;
+  /** The fewest of those tiles within 14 a place holds (Lake Basin above 128² on Normal: room for the start's berries,
+   *  its food row's 40 within 15 tiles' walk); a place with fewer is passed over. */
+  foodLeast?: number;
   /** Where the start was expected (the guess the badwater hollows were planned from): among the
    *  places nearly as good as the best, the one nearest it, so the hollows keep the distance the
    *  settings asked for. Without it, one of them at random. */
@@ -686,6 +689,7 @@ export function pickStart(
           const y1 = Math.min(H, y + 15);
           const n = foodSum[y1 * (W + 1) + x1] - foodSum[y0 * (W + 1) + x1] - foodSum[y1 * (W + 1) + x0] + foodSum[y0 * (W + 1) + x0];
           foodFit = 0.8 + 0.4 * Math.min(1, n / 60);
+          if (opts.foodLeast && n < opts.foodLeast) continue;
         }
         // the player's settings weigh on the intentions' preference too: they are asked for
         const settingsFit = (0.3 + 0.7 * benchFit * benchFit) * (0.3 + 0.7 * walkFit) * (0.4 + 0.6 * storeFit) * (0.5 + 0.5 * footFit);
