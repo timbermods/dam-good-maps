@@ -1,4 +1,4 @@
-# Lake Basin's bench start (generator 0.10.64, in flight)
+# Lake Basin's bench start (generator 0.10.63, in flight)
 
 Lake Basin above 128²: the start takes the shore bench (`gen/generate.ts` `shoreBench`). The bars are planning's of
 2026-11-21 18:05Z, on Lake Basin 256² seeds 1–12, Normal and Easy start, against #1273's head (7fb9e08f).
