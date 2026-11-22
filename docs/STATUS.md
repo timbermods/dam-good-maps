@@ -30,8 +30,10 @@ away from every river (D547, [design/uplands.md](design/uplands.md)). The bed al
 0.29 of 1.01 on seeds 1, 2 and 4, as seed 4's river entered at the exit; the new land holds it, the start's water back to
 its settled count at every Hard wet season's end on seeds 1–12. Short: the start's food row on seeds 2, 4, 7 and 10 (only
 the shore bench stays moist through a drought), seed 6's sea at 0.45 of 1.11 after a Hard wet season (its river's mouth 55
-tiles from the exit; the start's water whole). Its second round is in flight (`gen/islands-land-2`, 0.10.62): the food
-row on 12 of 12 from a wider shore bench in the start's walk, the mainland's banded back broken, and three kinds of island.
+tiles from the exit; the start's water whole). Round 2 merged into dev at 4d111adb (#1278, generator 0.10.62):
+the start's food bench deep and reached by steps, no river on the headland, the mainland's steps bent, three kinds of
+island; the food row on 12 of 12, attempts 29 → 21 (Easy start 35 → 19). Short: the steps still run along the shore on
+narrow stretches of mainland; round 3 (`gen/islands-land-3`) draws the mainland's back from a field of its own.
 Before it: `highlands-done` (2026-11-20, PR #1265): dev a0a3c83c released into `main` at 46b5e71, generator 0.10.37 →
 0.10.53; 56 PRs since `tilt-forms-done`: the land above 128² drawn in rings (D547) with Highlands standing up (#1263), the
 start picked for its level room (D545, #1256, #1261), ruled water (#1162), floodplain steps 5 and 6 and Save as.
@@ -121,7 +123,8 @@ release of 2026-11-21" (Kyler, 2026-11-21: no round budgets, no stopping point).
 
 1. **Released in `lake-islands-done`:** Lake Basin's hydro pass and shore bench (#1273, generator 0.10.60) and Islands'
    land above 128² (#1275, generator 0.10.61).
-2. **In flight:** Islands' second round (#1278, `gen/islands-land-2`, generator 0.10.62).
+2. **Merged into dev since:** Islands' second round (#1278, generator 0.10.62). In flight: Highlands (#1279), Lake
+   Basin's bench start (#1280), Delta round 3 (#1281), Islands round 3 (`gen/islands-land-3`).
 3. **Then:** planning releases each round to `main` as it lands.
 4. **Not shipped, kept as findings branches:** the start's food row where water lasts (`gen/food-row-lasting-water`,
    #1272 closed), Highlands round 6c (`findings/highlands-6c`), Delta round 2 (`findings/delta-1`, #1274 closed), the

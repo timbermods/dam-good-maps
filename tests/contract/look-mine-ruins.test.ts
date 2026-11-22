@@ -146,7 +146,9 @@ import * as ed from "../../src/worker/session";
 // at 0.10.56), D148
 // and generator 0.10.61's version alone (D547's Islands land above 128², which keeps this River Valley map): with the
 // version set back to 0.10.60 the branch gives `5cf58a1e…` byte for byte, D148
-const LIVE_SHA = "1fb9ca92ce592d0d61870f9fac3357a201bb43947e74e00f96c0e69dce17c499";
+// and generator 0.10.62's version alone (D547's Islands land round 2, which keeps this River Valley map): with the version set back to
+// 0.10.61 the branch gives `1fb9ca92…` byte for byte, D148
+const LIVE_SHA = "7d59a3e036117af3a866a27f2895d9d82735aa2fa3fd9e5cae9b337454a4ed3f";
 const spec = () => makeSpec({ seed: 4242, size: { x: 128, y: 128 }, theme: "riverValley", designedFor: "normal" });
 
 describe("mine sites and ruins, models of our own", () => {
