@@ -1044,3 +1044,126 @@ edge (seed 2's east shore climbs seven levels in 14 tiles, straight). The longes
 one distance from the shore is 25–58 tiles (base 33–65; about 24 asked). Stronger warps, spurs and wandering bench depths
 moved it little, as the levels are still read on the distance from the shore. The next round draws the mainland's back
 from a field of its own, the shore's distance kept only for the shore bench and the first steps.
+
+## State at the release of 2026-11-21
+
+Every theme as it is released on 2026-11-21, and what still falls short. Each entry gives the state as released, the
+shortfall, the next step and the findings branch. The findings branches are kept, not merged. The numbers are from the
+#236 posts named in each entry: 256², Normal, unless the entry says otherwise. Islands' entry is
+from #1275 (7066878943, 7066905865).
+
+### The lesson across the land rounds
+
+The start's ground comes first. It is a kind of place the settler must take, drawn first, dry and level, with lasting
+water at its foot. Rounds that drew the land and hoped the start would find it missed (planning on #236: 7061035131,
+7063565359, 7065127314).
+
+### The start's first food (every theme)
+
+- **As released:** generator 0.10.56 (#1269) plants the start's berries where the ground lasts a drought.
+- **Shortfall:** the food row (40 lasting bushes within a 15-tile walk) misses on 67–71 of 84 maps at Normal.
+- **What was found** (7065127314): the row is honest. The drought-ground rule agrees with the played drought: 92 % of
+  what it calls lasting is moist at a 7-day drought's end, and nothing it calls dry stays moist. On 5 of the 6 worst
+  starts, no ground within the walk lasts a day, because the start's water flows and stops. So the misses come from
+  where the start stands, beside rivers and away from standing water. It is a settler and land matter, not a planting
+  rule.
+- **Next step:** the start's ground, as the lesson says. Lake Basin's bench shows it: the row passes on all 4 starts
+  that stand on the bench (7065411929).
+- **Branch:** `gen/food-row-lasting-water` (b95bbecf): the measure, and a decision text that does not land. #1272 was
+  closed unmerged.
+
+### Highlands
+
+- **As released:** as dev has it at generator 0.10.56 (round 6b's land, #1263). Planning's sheet of dev 5cb017b4
+  (7062709746): the lower two thirds of both frames are a bare flat plate with outlined mesas, and the water is one band
+  across the far third.
+- **Round 6c, not shipped** (7065646736). It met the starts (24 of 24, no Easy-start row missed), CPU (+1.1 % Normal,
+  +0.2 % Easy) and seed 4's reach (4,118 → 11,973). It missed:
+  - room on s9 (433 against base 528), and on Easy s7, s9 and s10 (495, 413 and 464 against base 555, 532 and 551);
+  - Easy s11's reach (3,968);
+  - s11's badwater in view (12 tiles Normal, 76 Easy, base 0): the main lake's lower lobe, from a ditch that joins the
+    river upstream of the main lake;
+  - attempts (14 against 12 on each set): s5's first land is read high 0.341 at the plan stage, against about 0.75
+    measured, and s10's first land fails the water story.
+- **Next steps:** the plan stage's read of the high ground; where a badwater ditch may join the main water; the plain
+  sized from the start's own walk.
+- **Branch:** `findings/highlands-6c` (d3898136). Its write-up is "Round 6c: Highlands' maps differ from one another",
+  in this file on that branch.
+
+### Lake Basin
+
+- **As released:** #1273, generator 0.10.60 (dev 5c3694d7): the hydro pass and the shore bench (7064360079).
+  - The start: 12 of 12; room 410–578; reach 11,311 or more; badwater in view 0 on all 12. Attempts 9 and 9 per six
+    seeds (base 6 and 8), at CPU 262.1 and 295.0 s (base 375.8 and 332.7).
+  - Easy-start maps: 12 of 12, no row missed.
+  - The land: moist ground 11.9–23.2 % (base 35.7–61.7); the lake 11–21.5 % of the map and 2.2–5.3 deep; relief
+    4.61–7.44 (base 1.9–3.4).
+  - The food row passes on 6 of 12 (base 1 of 12).
+- **Shortfalls** (planning's look, 7065476150):
+  - The bench is the start on only 4 of 12 seeds (s4, s6, s7, s8). The other eight starts stand near the lake without
+    level lasting ground. The food row passes on all 4 bench starts and on 2 of the other 8; s5, s9 and s11 have 0, 3
+    and 0 lasting tiles in reach (7065411929).
+  - A flat dry plate: a low plate with thin cliff lines; a rim (a 55+ face with a drop of 4+) on 4 of 12; no sill on
+    s4, s6, s7 and s10.
+  - s1's leaving river still runs down one edge.
+- **Next steps:** make the bench a start kind the settler must take, so that no start stands merely near the lake (the
+  lesson). For the plate, planning's ruling is the great form, not another Lake Basin round. The great form found no
+  site on Lake Basin, so the plate needs that entry's second step: a form that makes its own cliff.
+- **Branches:** `findings/lake-basin-8` (612a23c0: round 8 and its start mend, before the bench);
+  `findings/lake-basin-7c` (9744f0ca: the earlier round's tools).
+
+### Delta
+
+- **As released:** as dev has it. Measured on dev 0.10.56, 256² s1–12 and 128² s1–6 (7063461165):
+  - every map makes a start, in 1–8 attempts;
+  - room is under 400 on 6 of 12 maps at 256² (196–339) and on 4 of 6 at 128² (316–371);
+  - the least reach at 256² is 4,446 (s11), under the 8,721 bar;
+  - the food row is 0 on 6 of 12 at 256² and on 3 of 6 at 128²; badwater in view is 0–611 tiles;
+  - the fan's own moist ground inside the start's 20-tile walk is 0 on 17 of 18 maps.
+
+  Planning's sheet (7062709746): s2 is a round lake in a bowl of even concentric terraces, with box-sided water at the
+  lower right.
+- **Round 2, parked** (#1274 closed; 7066751229, 7066769450). On 18 maps:
+  - the start was on the terrace on 12 (bar 15). Of the six fallbacks, 256² s1, s2, s5 and s10 have no site; on 256²
+    s9 and 128² s3 a site exists, but the settled pick failed. Room is 206–293 on five of the six;
+  - reach was worse than base on 256² s4, s6, s7 and s8 (s7 34,593 → 12,391; s8 19,377 → 8,057);
+  - badwater in view was worse on five maps (256² s1, s2, s3, s8 and s10);
+  - the sheet still showed a sheer-walled crater lake (s2) and a sheer pit (s5);
+  - the terrace start passes the food row only on 256² s4 (46).
+- **Next step:** choose the terrace on the settled water, and check its walk region before taking it.
+- **Named, not attempted:** the box sides (a straight-sided hollow that `lowerShelves` cuts into walls, and D447's
+  shared bed binned by rows); the 256² s2 round basin.
+- **Branch:** `findings/delta-1` (202cb749), with a decision text (numbered D549 there) that did not land.
+
+### The great form (the landmark)
+
+- **As released:** not shipped (7066248238, 7066273969). Measured on Canyon and Any, 256² s1–12: the rule is safe (no
+  start moved, attempts 54 → 54, 23 of 24 maps hash the same), but it showed on 1 of 24 maps (Any 12), and there it read
+  as ordinary cliff face. Sites in the landmark band, seen from the start's turn: Any 3, River Valley 2, Canyon 1,
+  Highlands 0, Delta 0, Islands and Lake Basin 0.
+- **Next steps:**
+  - darkness under rock, only if the game's own lighting shows it there: a probe frame first (D496);
+  - a form that makes its own cliff in the band: a land change for the cliff themes.
+- **Branch:** `findings/great-form` (633c77a6). The sheet: `C:\dgm-showcase\great-form\sheet.jpg`.
+
+### Islands
+
+- **As released:** #1275 (0.10.61). Above 128², a mainland frames the sea with bays and headlands, the start is on a
+  headland (12 of 12, reach 18,036+, badwater in view 0), there are 8–11 islands of 100+ tiles, and the sea's bed is one
+  level under its spill with a one-level lip on the outer rows. The start's water is back to its settled count at every
+  Hard wet season's end on 12 of 12. Seed 2 is ready in the page's worker in 52 s, where 0.10.60 hung.
+- **Shortfall:** the start's food row passes on 8 of 12 (base 10): the start's own bench never lasts a drought, and only
+  the shore bench one level over the spill does. The mainland's back rises in bands that follow the shore. The islands
+  are all one kind, a green bench round a flat grey top.
+- **Since the release:** round 2 merged into dev (#1278, 0.10.62; its section is above): the food row on 12 of 12, three
+  kinds of island, attempts 29 → 21. The mainland's back still rises in bands on narrow stretches.
+- **Next step:** round 3 (`gen/islands-land-3`): the mainland's back drawn from a field of its own.
+- **Earlier parked work:** `findings/islands-land-11` (34543b52: land rounds 9–11) and `findings/islands-feed`
+  (c1a5e669: the sea feed). Their lessons are in this file's Islands section, above.
+
+### River Valley, Canyon and Any
+
+- **As released:** as dev has it. Planning's sheet of dev 5cb017b4 (7062709746, `C:\dgm-showcase\gen\themes-0.10.56\`):
+  every map's checks pass, and planning would play River Valley s1 and s2, Canyon s1 and Any s2.
+- **Shortfall:** Any s1 is almost all bare stepped ground, with the water in the far corner. Named, not ordered.
+- **Next step:** none is set. The food row's entry applies to these themes too.
