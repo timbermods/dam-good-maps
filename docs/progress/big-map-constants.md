@@ -38,7 +38,7 @@ lives on branch `trial/big-map-reach` (no PR).
 |---|---|---|
 | River Valley: bare / green | 0.741 / 0.228 | 0.599 / 0.376 |
 | River Valley: CPU, the set | +0 % | +76 % (s1 31 → 91 s, attempts 1 → 3; s12's settle 15 → 51 s, rivers 4 → 11) |
-| Any: bare / green | 0.701 / 0.270 | 0.706 / 0.262 |
+| Any: bare / green | 0.701 / 0.270 | 0.706 / 0.265 |
 | Any: CPU, the set | +0 % | +13 % (s1 attempts 2 → 5; s5 1 → 5, green 0.05) |
 
 Without the story's limits the planned water failed the story 3 times on Any s1 (main share 0.60, 7 rivers apart),
