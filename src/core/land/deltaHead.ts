@@ -10,10 +10,11 @@
 // nearest the fan's head. (2) It is cut into the land there (`cutHead`): its lobed outline levelled, the ground behind
 // it graded down to it a level every two to four tiles (noised), never raised but where the terrace itself is filled,
 // so it reads as a bench the river left in its valley side; a staircase climbs the grade each way it faces, a slope on
-// every step (`headStairs`). (3) Once the land has settled, a terrace whose foot's water stands lower than the rule is
-// cut down to it (`refitHead`). (4) The settler takes it as its start (`generate.ts` `settlerOn`, as a sea's start takes
-// its island), anywhere else only where no place on it passes. (5) The badwater keeps off it: its pits and gullies
-// `badKeep` tiles from its middle, its join to the main water (D476, D498) off the stretch round it (`joinOffHead`).
+// every step (`headStairs`). (3) On the water a few days into the settle, a terrace whose foot's water stands lower
+// than the rule is cut down to it (`refitHead`). (4) The settler takes it as its start (`generate.ts` `settlerOn`, as a
+// sea's start takes its island), anywhere else where no place on it passes or a start off it walks or sees much better.
+// (5) The badwater keeps off it: its pits and gullies `badKeep` tiles from its middle, its join to the main water (D476,
+// D498) off the stretch round it (`joinOffHead`).
 
 import { distanceFrom } from "../math/grid";
 import { landRegions } from "../analysis/regions";
@@ -61,6 +62,17 @@ export const DELTA_HEAD = {
   refitMost: 1,
   /** Water within this many tiles of its ground stands `shoreUnder` under its level, the trunk's and any other's. */
   wetNear: 4,
+  /** The ticks of the settle the place is chosen again on (round 3): the rivers stand as they settle by then. */
+  early: 512,
+  /** The places weighed as the bars count them (round 3), the cheapest that stand half a radius apart. */
+  shortlist: 5,
+  /** Badwater tiles in view over the least a place weighed may see and still be taken for its walk. */
+  badSlack: 20,
+  /** On the settled water the start stands off its terrace where the start the settler takes anywhere walks to more
+   *  than the terrace's walk over this share, or sees more than `offBad` fewer badwater tiles (`generate.ts`
+   *  `settlerOn`): its room and its water's foot weigh that much. */
+  offReach: 0.8,
+  offBad: 40,
   /** The share of its level ground the settled water may lie on (round 3): more, and the settled water's place is taken. */
   wetMost: 0.05,
   /** The badwater's pits and gullies, and its join to the main water, keep this far from its middle. */
@@ -81,7 +93,14 @@ export interface HeadSite {
   undo?: Int32Array;
   /** Its staircases' steps (`headStairs`), taken off the ramps when it moves. */
   stairs?: [number, number][];
+  /** As `headSite`'s `rank` weighed it (round 3): the land its start walks to, and the badwater in its view. */
+  walk?: number;
+  badSeen?: number;
 }
+
+/** How a place for the terrace is weighed (round 3, `headSite`'s `rank`): cut on a copy of the land, the land its start
+ *  walks to as `start.reach` counts it, and the badwater tiles in the start's view, the least of its four ways. */
+export type HeadRank = (site: HeadSite) => { reach: number; bad: number };
 
 export interface DeltaHead extends HeadSite {
   /** 1 on the terrace's level ground. */
@@ -111,7 +130,7 @@ function markAlong(pts: readonly Pt[], k0: number, k1: number, r: number, into: 
 
 /** The place for the terrace on a land whose water `hy` planned (`h` with its courses cut, `est` the water planned on
  *  it, `generate.ts` `plannedWater`): see the head of this file. Null where the land has no fan, or no such place. */
-export function headSite(h: Uint8Array, hy: Pick<Hydro, "water" | "rivers" | "arms">, est: ArrayLike<number>, held: ArrayLike<number>, W: number, H: number, seed: number, settled: { depth: ArrayLike<number>; contamination: ArrayLike<number> } | null = null): HeadSite | null {
+export function headSite(h: Uint8Array, hy: Pick<Hydro, "water" | "rivers" | "arms">, est: ArrayLike<number>, held: ArrayLike<number>, W: number, H: number, seed: number, settled: { depth: ArrayLike<number>; contamination: ArrayLike<number> } | null = null, rank: HeadRank | null = null): HeadSite | null {
   const main = hy.rivers.find((r) => r.role === "river/main");
   const mouths = hy.arms.filter((a) => a.kind === "mouth" && a.river === main?.id);
   if (!main || !("edge" in main.params.exit) || !mouths.length) return null;
@@ -294,6 +313,36 @@ export function headSite(h: Uint8Array, hy: Pick<Hydro, "water" | "rivers" | "ar
       for (const i of tiles) cost += h[i] < level ? 1.5 * (level - h[i]) : h[i] - level;
       passing.push({ c, cost, level, bank });
     }
+  // (round 3: with `rank`, the places that pass are weighed as the start's bars count them: a few of the cheapest, apart,
+  // each cut on a copy of the land; of those seeing the least badwater, the one whose walk reaches the most land)
+  const siteOf = (c: number, level: number, bank: number): HeadSite => {
+    const mask = new Uint8Array(N);
+    for (let dy = -reach; dy <= reach; dy++)
+      for (let dx = -reach; dx <= reach; dx++) {
+        const i = c + dy * W + dx;
+        if (dx * dx + dy * dy <= rField[i] * rField[i] && dOther[i] >= P.waterGap && !wetAt(i)) mask[i] = 1;
+      }
+    const x = c % W;
+    return { x, y: (c - x) / W, level, ns, tiles: mask, bank };
+  };
+  if (rank && passing.length) {
+    const order = passing.slice().sort((a, b) => a.cost - b.cost || a.c - b.c);
+    const apart = (R / 2) * (R / 2);
+    const short: { p: (typeof passing)[number]; site: HeadSite; reach: number; bad: number }[] = [];
+    for (const p of order) {
+      if (short.length >= P.shortlist) break;
+      const px = p.c % W;
+      const py = (p.c - px) / W;
+      if (short.some((q) => (q.site.x - px) * (q.site.x - px) + (q.site.y - py) * (q.site.y - py) < apart)) continue;
+      const site = siteOf(p.c, p.level, p.bank);
+      short.push({ p, site, ...rank(site) });
+    }
+    let leastBad = Infinity;
+    for (const q of short) leastBad = Math.min(leastBad, q.bad);
+    let pick: (typeof short)[number] | null = null;
+    for (const q of short) if (q.bad <= leastBad + P.badSlack && (!pick || q.reach > pick.reach)) pick = q;
+    return pick ? { ...pick.site, walk: pick.reach, badSeen: pick.bad } : null;
+  }
   let bankMost = 0;
   for (const p of passing) bankMost = Math.max(bankMost, p.bank);
   let best = -1;

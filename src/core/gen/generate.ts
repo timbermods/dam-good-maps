@@ -33,6 +33,7 @@ import { damWalls } from "../analysis/ridge";
 import { risenBasin, wearOutlet } from "../water/outletWear";
 import { TICKS_PER_DAY, WaterSim, type SettleWatch } from "../sim/water";
 import { DRAIN_DAYS, prefill, spillLevels, watchedSettle } from "../sim/prefill";
+import { unfedBodies } from "../sim/fed";
 import { holdSeaLip, islandToExpandTo, seaLevel, standIslandsClear } from "../land/islands";
 import { isleSeaLand, takesIsleSea } from "../land/isleSea";
 import { unit } from "../land/num";
@@ -40,7 +41,8 @@ import { entityJson, type EntitySpec } from "../format/entities";
 import { mapObjects, type MapObject } from "../sim/model";
 import { placementOf } from "../format/entities";
 import type { JsonObject } from "../format/json";
-import { PUMP_CLEAN, PUMP_DEPTH, pumpShoreDistance, reachAt, startWaterShore, tileShoreWalk, walkDistance, walkWorld } from "../analysis/walk";
+import { placeSlopes, SLOPE_RULES, START_CLEAR_RADIUS } from "../features/slopes";
+import { PUMP_CLEAN, PUMP_DEPTH, pumpShoreDistance, reachAt, slopeLinks, startWaterShore, tileShoreWalk, walkDistance, walkWorld } from "../analysis/walk";
 import type { FieldData } from "../doc/document";
 import { buildMap, SettleCache, startEntity, type BuildResult, type GeneratedField } from "../features/build";
 import { previewSettle } from "../sim/preview";
@@ -49,7 +51,7 @@ import { featureId } from "../features/ids";
 import { objectTiles } from "../features/objects";
 import type { Feature, ForestFeature, MapObjectFeature, RiverFeature, StartFeature } from "../features/schema";
 import { writeTimber, type TimberFile } from "../format/timber";
-import { drainage } from "../land/drainage";
+import { drainage, edgeSpill } from "../land/drainage";
 import { bedMask, planWashes, startKeepOff, type Wash } from "../land/washes";
 import { WANDER, wanderEdges } from "../land/wander";
 import { EDGE_SHARE, edgeRuleApplies, edgeWalls } from "../analysis/edges";
@@ -60,7 +62,7 @@ import { shapeLakeBasin } from "../land/lakeBasin";
 import { shapeCanyon } from "../land/canyon";
 import { shapeHighlands } from "../land/highlands";
 import { lowerValley, STAND, standBadKeep, standsUp, standValley } from "../land/bold";
-import { cutHead, DELTA_HEAD, growBanks, headOf, headServed, headSite, headStairs, headWanted, headWet, joinOffHead, offHead, refitHead, uncutHead } from "../land/deltaHead";
+import { cutHead, DELTA_HEAD, growBanks, type HeadRank, headOf, headServed, headSite, headStairs, headWanted, headWet, joinOffHead, offHead, refitHead, uncutHead } from "../land/deltaHead";
 import { BED_FLOOR, drawGenome, leanGenome, ownScaleFor, UPLANDS_BASE_PATH, type Genome } from "../land/genome";
 import { joinReach, mainWater, planBadwater, standingTheme, type Hazards } from "../land/hazards";
 import { besideCourses, blockedCourses, courseCells, inflowEdges, closeBackEdges, closeSideEdges, drownedHeads, sealedMouths } from "../land/courses";
@@ -2132,6 +2134,9 @@ function planLandStage(land: Land, attempt: number, W: number, H: number, seed: 
     shoreBench(h, W, H, hy, keep, seed, attempt);
       lakesAtSpill(h, W, H, hy, keep);
   }
+  // (D549, round 3: a Delta's lips laid on its edges and its terrace's grade leave no dry hollow behind them: the rivers'
+  // water would walk into one over its flat and stand there unfed, and the settle run on for days while it dried)
+  if (headWanted(g.theme, W, H)) fillDryHollows(h, W, H, keep);
   return { h, hy, keep, ramps, blocked };
 }
 
@@ -2402,9 +2407,38 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
     if (g.deltaHead) {
       const off = offHead(g.deltaHead, avoid, W, H);
       const onHead = pickOn(D, C, M, salt, off, weight, near, reusePlanned);
+      // (round 3: on the settled water the terrace is the start where it walks to nearly as much land as the start the
+      // settler takes anywhere and sees little more badwater: else that start, as on dev)
+      if (onHead && !onPlan) {
+        const offIt = avoid ? avoid.slice() : new Uint8Array(N);
+        for (let i = 0; i < N; i++) if (g.deltaHead.tiles[i]) offIt[i] = 1;
+        const any = pickOn(D, C, M, salt, offIt, weight, near, reusePlanned);
+        if (any && (startWalkReach(onHead, D) < DELTA_HEAD.offReach * startWalkReach(any, D) || startBadView(onHead, D, C) > startBadView(any, D, C) + DELTA_HEAD.offBad)) {
+          if (!fixes.includes("start off its terrace")) fixes.push("start off its terrace");
+          return any;
+        }
+      }
       if (onHead) return onHead;
     }
     return pickOn(D, C, M, salt, avoid, weight, near, reusePlanned);
+  };
+  // (round 3: the walk a start takes to the land as `start.reach` counts it, over the slopes the build places for it and
+  // the ramps' steps that stand; and the badwater tiles in its opening frame)
+  const startWalkReach = (p: StartPick, D: ArrayLike<number>): number => {
+    const occ = new Uint8Array(N);
+    for (let dy = -START_CLEAR_RADIUS; dy <= START_CLEAR_RADIUS; dy++)
+      for (let dx = -START_CLEAR_RADIUS; dx <= START_CLEAR_RADIUS; dx++) if (p.x + dx >= 0 && p.y + dy >= 0 && p.x + dx < W && p.y + dy < H) occ[(p.y + dy) * W + p.x + dx] = 1;
+    const steps = standingSteps(ramps.steps, h, W, H);
+    const slopes = placeSlopes(h, W, H, { x: p.x, y: p.y }, occ, { ...SLOPE_RULES, ...(pickRings ? { ringed: true } : {}), ...(slopeWater ? { water: slopeWater } : {}), ...(steps.length ? { ramps: steps } : {}) });
+    const d = walkDistance(h, W, H, null, slopeLinks(slopes, W, H), { x: p.x, y: p.y }, Infinity);
+    let n = 0;
+    for (let i = 0; i < N; i++) if (d[i] < Infinity && !(D[i] > WET)) n++;
+    return n;
+  };
+  const startBadView = (p: StartPick, D: ArrayLike<number>, C: ArrayLike<number>): number => {
+    const bad: number[] = [];
+    for (let i = 0; i < N; i++) if (D[i] >= 0.1 && C[i] > 0.05) bad.push(i);
+    return bad.length ? tilesInFrame({ x: p.x, y: p.y, z: p.level, orientation: p.orientation }, W, h, bad) : 0;
   };
   // (room first on the settled water only, D545: on the water the hydrology planned the start is the guess
   // the badwater hollows keep away from, ranked as before)
@@ -3095,6 +3129,108 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
         }
         wanderEdges(h, W, H, hash32(seed, "wander-banks", attempt), movable);
       }
+      // D549 (7), round 3: the start's terrace chosen again on the water a few days into the settle (`DELTA_HEAD.early` ticks
+      // from the pre-fill), the place planned taken back where that water finds a better one: where it wets the planned
+      // terrace or leaves its foot no water in the shore rule's band, or the place found walks further or sees less badwater,
+      // or there was none; (3) the terrace cut down to the water its foot holds there; and (9) the water no source reaches
+      // filled. All before the land is shown (D348: above 128² it is shown here, and every later attempt keeps it as it
+      // is) and before it settles, so it settles once, as on dev: where the settled water then leaves the terrace
+      // no place, or a start off it walks or sees much better, the start stands anywhere else (`settlerOn`)
+      if (headWanted(g.theme, W, H) && !lastAttempt) {
+        const was = h.slice();
+        const bw = build([...rivers, ...bad.features], "water");
+        // (the water a few days into the settle: the rivers stand as they settle by then, the lakes from the pre-fill)
+        const em = waterModel(W, H, bw.heights, mapObjects({ entities: bw.entities.map(entityJson) }));
+        const early = new WaterSim(em, prefill(em));
+        early.run(DELTA_HEAD.early);
+        const pf = early.state();
+        early.dispose();
+        // (the badwater as the pre-fill spreads it: a few days in, its hollows' water has not reached as far as it will)
+        const pf0 = prefill(em);
+        // (the hollows no source's water reaches by then, the land's later cuts' and the planned lakes and channels whose
+        // rivers left, hold only the pre-fill's water, which dries for days and holds the settle up: filled to their rims,
+        // as the land stage fills its dry hollows, and no longer water)
+        {
+          const rim = edgeSpill(h, W, H);
+          for (const body of unfedBodies(em, pf.depth))
+            for (const i of body)
+              if (rim[i] > h[i]) {
+                h[i] = rim[i];
+                hy.water[i] = 0;
+                planned!.hy.water[i] = 0;
+                pf.depth[i] = 0;
+                pf0.depth[i] = 0;
+              }
+        }
+        const wetNow = new Uint8Array(N);
+        for (let i = 0; i < N; i++) if (pf.depth[i] > 0.001) wetNow[i] = 1;
+        const cur = g.deltaHead;
+        const bare = h.slice();
+        if (cur?.undo) uncutHead(bare, cur.undo);
+        // (each place weighed as the start's bars count it, cut on a copy of the land: the land its start walks to over the
+        // slopes the build places and the ramps' steps, its stairs among them, and the least badwater in its view)
+        const curStairs = new Set((cur?.stairs ?? []).map(([a, b]) => a * N + b));
+        const otherSteps = ramps.steps.filter(([a, b]) => !curStairs.has(a * N + b));
+        const badTiles: number[] = [];
+        for (let i = 0; i < N; i++) if ((pf.depth[i] >= 0.1 && pf.contamination[i] > 0.05) || (pf0.depth[i] >= 0.1 && pf0.contamination[i] > 0.05)) badTiles.push(i);
+        const rank: HeadRank = (s) => {
+          const hh = bare.slice();
+          cutHead(hh, wetNow, s, W, H, pf.depth);
+          const steps = standingSteps([...otherSteps, ...headStairs(hh, wetNow, headOf(hh, s, W, H), W, H)], hh, W, H);
+          const occ = new Uint8Array(N);
+          for (let dy = -START_CLEAR_RADIUS; dy <= START_CLEAR_RADIUS; dy++) for (let dx = -START_CLEAR_RADIUS; dx <= START_CLEAR_RADIUS; dx++) occ[(s.y + dy) * W + s.x + dx] = 1;
+          const slopes = placeSlopes(hh, W, H, { x: s.x, y: s.y }, occ, { ...SLOPE_RULES, ...(pickRings ? { ringed: true } : {}), ...(steps.length ? { ramps: steps } : {}) });
+          const d = walkDistance(hh, W, H, null, slopeLinks(slopes, W, H), { x: s.x, y: s.y }, Infinity);
+          let reach = 0;
+          for (let i = 0; i < N; i++) if (d[i] < Infinity && !(pf.depth[i] > WET)) reach++;
+          let seen = Infinity;
+          for (const orientation of ["Cw0", "Cw90", "Cw180", "Cw270"] as const) seen = Math.min(seen, badTiles.length ? tilesInFrame({ x: s.x, y: s.y, z: s.level, orientation }, W, hh, badTiles) : 0);
+          return { reach, bad: seen };
+        };
+        const site = headSite(bare, hy, pf.depth, pf.depth, W, H, seed, pf, rank);
+        // (the planned terrace stays where that water leaves it dry and serves its foot, and it walks as far and sees no more
+        // badwater than the place found)
+        const dry = !!cur && headWet(pf.depth, cur) <= DELTA_HEAD.wetMost;
+        const near = !!cur && !!site && (site.x - cur.x) * (site.x - cur.x) + (site.y - cur.y) * (site.y - cur.y) <= (DELTA_HEAD.radius / 2) * (DELTA_HEAD.radius / 2) && site.level === cur.level;
+        let keepCur = !!cur && !site;
+        if (cur && site && dry && headServed(h, pf.depth, cur, W, H) >= DELTA_HEAD.touch) {
+          const curRank = rank(cur);
+          keepCur = near || (curRank.bad <= (site.badSeen ?? 0) + DELTA_HEAD.badSlack && curRank.reach >= (site.walk ?? 0));
+        }
+        if (site && !keepCur) {
+          // (the planned terrace's staircases come off the ramps with its cut)
+          if (cur?.stairs?.length) {
+            const off = new Set(cur.stairs.map(([a, b]) => a * N + b));
+            const kept = ramps.steps.filter(([a, b]) => !off.has(a * N + b));
+            ramps.steps.length = 0;
+            ramps.steps.push(...kept);
+            ramps.tiles.fill(0);
+            for (const [a] of kept) ramps.tiles[a] = 1;
+          }
+          h.set(bare);
+          site.undo = cutHead(h, wetNow, site, W, H, pf.depth);
+          const head = headOf(h, site, W, H);
+          head.stairs = headStairs(h, wetNow, head, W, H);
+          for (const st of head.stairs) addStep(ramps, st);
+          g.deltaHead = head;
+          fixes.push("start's terrace on the water as it settles");
+        }
+        if (g.deltaHead) {
+          const fit = refitHead(h, pf.depth, g.deltaHead, W, H);
+          if (fit) {
+            for (const st of headStairs(h, wetNow, fit, W, H)) addStep(ramps, st);
+            g.deltaHead = fit;
+          }
+        }
+        // (the land as it now stands: the hollows' plan holds it, and the pre-fill is taken again on it)
+        let moved = false;
+        for (let i = 0; i < N; i++)
+          if (h[i] !== was[i]) {
+            bad.heights[i] = h[i];
+            moved = true;
+          }
+        if (moved) shownFill = null;
+      }
       hLand.set(h);
       // (no dam wall on the pre-fill's water either, the water the settle starts from: a wall the
       // planned water missed fails every attempt on the land once it is shown)
@@ -3381,90 +3517,6 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
     if (!b1.settle.settled) return unsettled(b1);
     if (!fixes.includes("gentler rivers")) fixes.push("gentler rivers");
   }
-  // D549 (7), round 3: the start's terrace chosen again on the water as it settled, the place planned taken back where
-  // the settled water finds a better one: where the planned terrace's foot holds no water in the shore rule's band, or it
-  // stands on the smaller bank, or there was none; the land settled again with it. Where it does not settle, the land
-  // stays as it was
-  if (headWanted(g.theme, W, H) && !lastAttempt) {
-    const cur = g.deltaHead;
-    const bare = h.slice();
-    if (cur?.undo) uncutHead(bare, cur.undo);
-    const site = headSite(bare, hy, b1.water, b1.water, W, H, seed, { depth: b1.water, contamination: b1.contamination });
-    // (the planned terrace stays where the settled water leaves it dry and serves its foot, on the bank with more reach)
-    const dry = !!cur && headWet(b1.water, cur) <= DELTA_HEAD.wetMost;
-    const keepCur = !!cur && (!site || (dry && (((site.x - cur.x) * (site.x - cur.x) + (site.y - cur.y) * (site.y - cur.y) <= (DELTA_HEAD.radius / 2) * (DELTA_HEAD.radius / 2) && site.level === cur.level) || (headServed(h, b1.water, cur, W, H) >= DELTA_HEAD.touch && (cur.bank ?? 0) >= DELTA_HEAD.bankNear * (site.bank ?? 0)))));
-    if (site && !keepCur) {
-      const was = h.slice();
-      const stepsWere = ramps.steps.length;
-      const tilesWere = ramps.tiles.slice();
-      const stepsBefore = ramps.steps.slice();
-      // (the planned terrace's staircases come off the ramps with its cut)
-      if (cur?.stairs?.length) {
-        const off = new Set(cur.stairs.map(([a, b]) => a * N + b));
-        const kept = ramps.steps.filter(([a, b]) => !off.has(a * N + b));
-        ramps.steps.length = 0;
-        ramps.steps.push(...kept);
-        ramps.tiles.fill(0);
-        for (const [a] of kept) ramps.tiles[a] = 1;
-      }
-      h.set(bare);
-      const wetNow = new Uint8Array(N);
-      for (let i = 0; i < N; i++) if (b1.water[i] > 0.001) wetNow[i] = 1;
-      site.undo = cutHead(h, wetNow, site, W, H, b1.water);
-      const head = headOf(h, site, W, H);
-      head.stairs = headStairs(h, wetNow, head, W, H);
-      for (const st of head.stairs) addStep(ramps, st);
-      const b2 = build([...rivers, ...bad.features], "resources");
-      if (b2.settle.settled && headServed(h, b2.water, head, W, H) >= DELTA_HEAD.touch && headWet(b2.water, head) <= DELTA_HEAD.wetMost) {
-        for (let i = 0; i < N; i++)
-          if (h[i] !== was[i]) {
-            hLand[i] = h[i];
-            if (from) from.hLand[i] = h[i];
-            bad.heights[i] = h[i];
-          }
-        g.deltaHead = head;
-        b1 = b2;
-        fixes.push("start's terrace on the settled water");
-      } else {
-        h.set(was);
-        ramps.steps.length = 0;
-        ramps.steps.push(...stepsBefore);
-        void stepsWere;
-        ramps.tiles.set(tilesWere);
-      }
-    }
-  }
-  // D549 (5): the start's terrace brought down to the water its foot holds as the land settled, and the land settled
-  // again with it (only dry ground over the water is cut, so the water stands as it did)
-  if (g.deltaHead && !lastAttempt) {
-    const was = h.slice();
-    const fit = refitHead(h, b1.water, g.deltaHead, W, H);
-    if (fit) {
-      // (its stairs on the land as cut, a slope on every step)
-      const wetNow = new Uint8Array(N);
-      for (let i = 0; i < N; i++) if (b1.water[i] > 0.001) wetNow[i] = 1;
-      const stepsWere = ramps.steps.length;
-      const tilesWere = ramps.tiles.slice();
-      for (const st of headStairs(h, wetNow, fit, W, H)) addStep(ramps, st);
-      const b2 = build([...rivers, ...bad.features], "resources");
-      if (b2.settle.settled) {
-        // (the cut terrace is the land from here on, for this attempt's later plans and the next)
-        for (let i = 0; i < N; i++)
-          if (h[i] !== was[i]) {
-            hLand[i] = h[i];
-            if (from) from.hLand[i] = h[i];
-            bad.heights[i] = h[i];
-          }
-        g.deltaHead = fit;
-        b1 = b2;
-      } else {
-        h.set(was);
-        ramps.steps.length = stepsWere;
-        ramps.tiles.set(tilesWere);
-      }
-    }
-  }
-
   // D171: a source that another source's water reaches fails the map (water.source_in_flow). A
   // spring-fed river whose spring is reached leaves the map (its valley stays, dry; a river that
   // joined it now joins where it went), and a badwater hollow that is reached is planned again
