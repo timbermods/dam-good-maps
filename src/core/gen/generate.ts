@@ -205,7 +205,7 @@ function lakesAtSpill(h: Uint8Array, W: number, H: number, hy: Hydro, keep: Uint
  *  bench and two under it, the land a level higher behind it the step its slopes cross. Its width follows the shore and
  *  is drawn from noise, widest near its middle and pinched toward its ends, so it reads as a terrace the lake left, never
  *  a strip. One a map, away from the rivers' channels and the map's edge. Returns its middle, or null. */
-function shoreBench(h: Uint8Array, W: number, H: number, hy: Hydro, keep: Uint8Array, seed: number, attempt: number): { x: number; y: number } | null {
+function shoreBench(h: Uint8Array, W: number, H: number, hy: Hydro, keep: Uint8Array, seed: number, attempt: number): Uint8Array | null {
   const N = W * H;
   const lk = hy.lakes.reduce<Hydro["lakes"][number] | null>((m, l) => (!m || l.tiles.length > m.tiles.length ? l : m), null);
   if (!lk || lk.tiles.length < BASIN_LAKE * N) return null;
@@ -221,74 +221,180 @@ function shoreBench(h: Uint8Array, W: number, H: number, hy: Hydro, keep: Uint8A
   const B = Math.round(spill) + 1;
   const dL = distanceFrom(lake, W, H);
   const chan = new Uint8Array(N);
-  for (let i = 0; i < N; i++) chan[i] = hy.water[i] === 1 ? 1 : 0;
+  const wet = new Uint8Array(N);
+  for (let i = 0; i < N; i++) {
+    chan[i] = hy.water[i] === 1 ? 1 : 0;
+    wet[i] = hy.water[i] !== 0 || lake[i] ? 1 : 0;
+  }
   const dC = distanceFrom(chan, W, H);
-  const fits = (i: number) => !lake[i] && hy.water[i] === 0 && h[i] <= B + 1 && h[i] >= B - 2;
-  // (the shore tile whose land within reach holds most ground the bench can take, off the channels and the edge)
+  // (the ground a bench takes: dry, off the lake, from three levels under it to `cut` over it, cut down or filled to it)
+  const fits = (i: number, cut: number) => !lake[i] && hy.water[i] === 0 && h[i] <= B + cut && h[i] >= B - 3;
   const M = Math.round(BENCH_EDGE * Math.min(W, H));
   const R = BENCH_REACH;
-  let best = -1;
-  let bestN = 0;
-  for (let y = M; y < H - M; y += 3)
-    for (let x = M; x < W - M; x += 3) {
-      const c = y * W + x;
-      if (lake[c] || !(dL[c] <= 1.5) || dC[c] < BENCH_OFF_CHANNEL || !fits(c)) continue;
-      let n = 0;
-      for (let dy = -R; dy <= R; dy++)
-        for (let dx = -R; dx <= R; dx++) {
-          if (dx * dx + dy * dy > R * R) continue;
-          const i = (y + dy) * W + x + dx;
-          if (fits(i) && dL[i] <= BENCH_WIDE && dC[i] >= 3) n++;
-        }
-      if (n > bestN) {
-        bestN = n;
-        best = c;
-      }
-    }
-  if (best < 0) return null;
-  const sx = best % W;
-  const sy = (best - sx) / W;
   const fs = hash32(seed, "shore-bench", attempt);
   const L = BENCH_LONG;
-  const inBench = new Uint8Array(N);
-  for (let y = Math.max(1, sy - L); y <= Math.min(H - 2, sy + L); y++)
-    for (let x = Math.max(1, sx - L); x <= Math.min(W - 2, sx + L); x++) {
-      const i = y * W + x;
-      if (!fits(i) || dC[i] < 3) continue;
-      const dx = x - sx;
-      const dy = y - sy;
-      const along = (dx * dx + dy * dy) / (L * L * (1 + 0.3 * fbm(fs, x, y, 23, 2)));
-      if (along >= 1) continue;
-      // (widest near the middle, pinched toward the ends, its edge uneven)
-      const wide = BENCH_NARROW + (BENCH_WIDE - BENCH_NARROW) * (1 - along) * (0.7 + 0.45 * fbm(fs + 1, x, y, 13, 3));
-      if (dL[i] <= wide) inBench[i] = 1;
-    }
-  // (the part joined to its middle)
-  const part: number[] = [];
-  if (inBench[best]) {
-    inBench[best] = 2;
-    part.push(best);
-    for (let k = 0; k < part.length; k++) {
-      const c = part[k];
-      const x = c % W;
-      for (const n of [x > 0 ? c - 1 : -1, x < W - 1 ? c + 1 : -1, c - W, c + W]) {
-        if (n < 0 || n >= N || inBench[n] !== 1) continue;
-        inBench[n] = 2;
-        part.push(n);
+  const h0 = h.slice();
+  const keep0 = keep.slice();
+  // (the land a colony walks by steps of a level, as it stands: a bench beside its largest parts is tried first)
+  const foot0 = footComponents(h, W, H, wet);
+  const largest = Math.max(0, ...foot0.size.filter((n) => n > 0));
+  const big = new Uint8Array(N);
+  for (let i = 0; i < N; i++) if (foot0.lab[i] >= 0 && foot0.size[foot0.lab[i]] >= BENCH_BIG * largest) big[i] = 1;
+  // (the shore tiles whose land within reach holds most ground the bench can take, off the channels and the edge, best
+  // first and apart; where none has room, the bench cuts deeper into the slope behind the shore, then keeps nearer a
+  // channel. The first whose bench, stepped to the land round it, joins land enough for a colony is the bench)
+  // (of the benches that hold a colony's room and join land enough, the one whose land a colony walks to is the most,
+  // read over steps of a level with only the lake in the way: the start's reach as the land stands)
+  let chosen: { h: Uint8Array; keep: Uint8Array; bench: Uint8Array; walks: number } | null = null;
+  let viable = 0;
+  // (the water as it will settle, for the reach: the planned water and a tile beside the channels, which settle wider)
+  const chanNear = new Uint8Array(N);
+  const near = new Float64Array(N);
+  for (let i = 0; i < N; i++) {
+    if (dC[i] <= 1.5) chanNear[i] = 1;
+    if (wet[i] || dC[i] <= 1.5) near[i] = 1;
+  }
+  for (const bigOnly of [true, false])
+  for (const [off, cut] of BENCH_TRIES) {
+    if (viable >= BENCH_CHOICES) break;
+    const scored: { c: number; n: number; big: number }[] = [];
+    for (let y = M; y < H - M; y++)
+      for (let x = M; x < W - M; x++) {
+        const c = y * W + x;
+        if (lake[c] || !(dL[c] <= 1.5) || dC[c] < off || !fits(c, cut) || (bigOnly && !big[c])) continue;
+        let n = 0;
+        for (let dy = -R; dy <= R; dy++)
+          for (let dx = -R; dx <= R; dx++) {
+            if (dx * dx + dy * dy > R * R) continue;
+            const i = (y + dy) * W + x + dx;
+            if (fits(i, cut) && dL[i] <= BENCH_WIDE && dC[i] >= 3) n++;
+          }
+        if (n >= BENCH_LEAST / 2) scored.push({ c, n, big: big[c] });
       }
+    scored.sort((a, b) => b.big - a.big || b.n - a.n || a.c - b.c);
+    const tried: number[] = [];
+    for (const { c: best } of scored) {
+      if (tried.length >= BENCH_PLACES) break;
+      const sx = best % W;
+      const sy = (best - sx) / W;
+      if (tried.some((t) => { const dx = (t % W) - sx; const dy = Math.floor(t / W) - sy; return dx * dx + dy * dy < (BENCH_LONG / 2) * (BENCH_LONG / 2); })) continue;
+      tried.push(best);
+      const inBench = new Uint8Array(N);
+      for (let y = Math.max(1, sy - L); y <= Math.min(H - 2, sy + L); y++)
+        for (let x = Math.max(1, sx - L); x <= Math.min(W - 2, sx + L); x++) {
+          const i = y * W + x;
+          if (!fits(i, cut) || dC[i] < 3) continue;
+          const dx = x - sx;
+          const dy = y - sy;
+          const along = (dx * dx + dy * dy) / (L * L * (1 + 0.3 * fbm(fs, x, y, 23, 2)));
+          if (along >= 1) continue;
+          // (widest near the middle, pinched toward the ends, its edge uneven)
+          const wide = BENCH_NARROW + (BENCH_WIDE - BENCH_NARROW) * (1 - along) * (0.7 + 0.45 * fbm(fs + 1, x, y, 13, 3));
+          if (dL[i] <= wide) inBench[i] = 1;
+        }
+      // (the part joined to its middle)
+      const part: number[] = [];
+      if (inBench[best]) {
+        inBench[best] = 2;
+        part.push(best);
+        for (let k = 0; k < part.length; k++) {
+          const c = part[k];
+          const x = c % W;
+          for (const n of [x > 0 ? c - 1 : -1, x < W - 1 ? c + 1 : -1, c - W, c + W]) {
+            if (n < 0 || n >= N || inBench[n] !== 1) continue;
+            inBench[n] = 2;
+            part.push(n);
+          }
+        }
+      }
+      if (part.length < BENCH_LEAST) continue;
+      const bench = new Uint8Array(N);
+      for (const i of part) {
+        h[i] = B;
+        keep[i] = 0;
+        bench[i] = 1;
+      }
+      // (round it, for 12 to 18 tiles, the land steps a level at a time, each step 3 to 6 tiles deep as the bench's own
+      // edge bends: ground standing higher than its step is cut down to it, ground lower filled up to it. Neighbouring
+      // steps differ by a level at most, so the walk crosses from the bench to the land round it; past them the land is
+      // its own)
+      const dB = distanceFrom(bench, W, H);
+      const k = new Float64Array(N).fill(Infinity);
+      for (let i = 0; i < N; i++) {
+        if (bench[i]) k[i] = 0;
+        else if (dB[i] <= BENCH_GENTLE + 6) {
+          const x = i % W;
+          const y = (i - x) / W;
+          const deep = 3 + 1.5 * (1 + fbm(fs + 2, x, y, 17, 2));
+          const gentle = BENCH_GENTLE + 3 * (1 + fbm(fs + 3, x, y, 29, 2));
+          if (dB[i] <= gentle) k[i] = 1 + Math.floor((dB[i] - 0.5) / deep);
+        }
+      }
+      // (a level a tile at most between neighbours inside the steps, both ways over the map)
+      const inside = (j: number) => k[j] < Infinity;
+      for (let pass = 0; pass < 2; pass++) {
+        for (let i = 0; i < N; i++) {
+          if (!inside(i)) continue;
+          const x = i % W;
+          if (x > 0 && k[i - 1] + 1 < k[i]) k[i] = k[i - 1] + 1;
+          if (i >= W && k[i - W] + 1 < k[i]) k[i] = k[i - W] + 1;
+        }
+        for (let i = N - 1; i >= 0; i--) {
+          if (!inside(i)) continue;
+          const x = i % W;
+          if (x < W - 1 && k[i + 1] + 1 < k[i]) k[i] = k[i + 1] + 1;
+          if (i + W < N && k[i + W] + 1 < k[i]) k[i] = k[i + W] + 1;
+        }
+      }
+      for (let i = 0; i < N; i++) {
+        if (bench[i] || lake[i] || hy.water[i] !== 0) continue;
+        const to = h[i] > B + k[i] ? B + k[i] : h[i] < B - k[i] ? B - k[i] : h[i];
+        if (to !== h[i]) {
+          h[i] = to;
+          keep[i] = 0;
+        }
+      }
+      // (room for a colony on it: some place off its shore with the start's room round it, `easyTargets`' disc)
+      let roomy = false;
+      let seat = -1;
+      for (let k = 0; k < part.length && !roomy; k += 2) {
+        const c = part[k];
+        if (dL[c] < BENCH_ROOM_OFF[0] || dL[c] > BENCH_ROOM_OFF[1]) continue;
+        const cx = c % W;
+        const cy = (c - cx) / W;
+        let n = 0;
+        for (let dy = -14; dy <= 14; dy++)
+          for (let dx = -14; dx <= 14; dx++) if (dx * dx + dy * dy <= 196 && bench[(cy + dy) * W + cx + dx]) n++;
+        roomy = n >= BENCH_ROOM;
+        if (roomy) seat = c;
+      }
+      const foot = roomy ? footComponents(h, W, H, wet) : null;
+      if (foot && (foot.size[foot.lab[best]] ?? 0) >= BENCH_JOINS * N) {
+        const walks = startWalks(h, W, H, near, null, near, seat % W, Math.floor(seat / W), 0, true, true, chanNear).reach;
+        if (walks >= BENCH_WALK * N) {
+          viable++;
+          if (!chosen || walks > chosen.walks) chosen = { h: h.slice(), keep: keep.slice(), bench, walks };
+        }
+      }
+      h.set(h0);
+      keep.set(keep0);
     }
   }
-  if (part.length < BENCH_LEAST) return null;
-  for (const i of part) {
-    h[i] = B;
-    keep[i] = 0;
-  }
-  return { x: sx, y: sy };
+  if (!chosen) return null;
+  h.set(chosen.h);
+  keep.set(chosen.keep);
+  return chosen.bench;
 }
 
 /** Lake Basin above 128²: how far its badwater keeps from the plan's start, in tiles (round 7c), half again a land
  *  that stands up's `STAND.badFar`: its start is chosen again on the settled water and moves further. */
 const BASIN_BAD_FAR = 90;
+/** Lake Basin above 128² on Normal: the dry tiles within 14 of its start that stay moist through the rule's drought
+ *  (`SettlerOptions.foodLeast`): room for its food row's berries. Seed 2's shore held 39 against the row's 40. */
+const BASIN_FOOD = 150;
+/** Lake Basin above 128²: how far over its planned surface (its spill) a lake is read as it settles, for an Easy
+ *  start's clearing, in levels. */
+const BASIN_HEAD = 0.5;
 /** Lake Basin above 128²: the fewest tiles a body of a lake planned at its spill level keeps to be a lake. */
 const SPILL_LAKE_MIN = 6;
 /** Lake Basin above 128²: its shore bench (`shoreBench`): how far from the map's edge its middle keeps (a share of the
@@ -297,10 +403,28 @@ const SPILL_LAKE_MIN = 6;
 const BENCH_EDGE = 0.12;
 const BENCH_REACH = 20;
 const BENCH_OFF_CHANNEL = 16;
-const BENCH_WIDE = 24;
-const BENCH_NARROW = 6;
-const BENCH_LONG = 42;
-const BENCH_LEAST = 500;
+const BENCH_WIDE = 30;
+const BENCH_NARROW = 8;
+const BENCH_LONG = 46;
+const BENCH_LEAST = 700;
+/** Its tries, each as `[how far a channel keeps from its middle, the most levels it cuts down]`. */
+const BENCH_TRIES: readonly (readonly [number, number])[] = [[BENCH_OFF_CHANNEL, 1], [BENCH_OFF_CHANNEL, 3], [BENCH_OFF_CHANNEL, 5], [8, 3], [8, 5]];
+/** How many places along the shore a bench is tried at, and the share of the map the land it joins (by steps of a level,
+ *  `footComponents`) takes for it to be the start's: the start's `minFoot` asks for 0.12, read on the settled water. */
+const BENCH_PLACES = 8;
+const BENCH_JOINS = 0.14;
+/** The share of the land's largest part (by steps of a level) a part takes for a bench on its shore to be tried first. */
+const BENCH_BIG = 0.95;
+/** How far round the bench (12 to 18 tiles) its steps up and down to the land reach. */
+const BENCH_GENTLE = 12;
+/** How many benches that hold room and join the land are weighed against each other. */
+const BENCH_CHOICES = 4;
+/** The share of the map a bench's start walks to over the slopes the build places (`startWalks`, as `start.reach` reads
+ *  it), on the planned water: a margin over the start's `minFoot` (0.12), read on the settled water. */
+const BENCH_WALK = 0.15;
+/** The bench tiles within the start's room disc (radius 14) some place on it holds, that place this far from the lake. */
+const BENCH_ROOM = 480;
+const BENCH_ROOM_OFF: readonly [number, number] = [4, 12];
 /** Lake Basin above 128², the gated hydro pass: how many levels the lake's floor is dug, and the share of the map a lake
  *  covers to be the basin's (a bench's pond is not dug). */
 const BASIN_DIG = 1;
@@ -370,6 +494,8 @@ export { FLOOR_MARGIN };
 const OAK_LOGS = 5;
 
 export interface GenerationInfo {
+  /** Lake Basin above 128²: its shore bench's size in tiles and whether the start stands on it. */
+  shoreBench?: { tiles: number; start: boolean };
   /** Genomes drawn; the accepted map's genome. */
   genomes: number;
   genome: Genome | null;
@@ -645,6 +771,8 @@ interface LandStage {
   /** Its badwater hollows, dug as it was shaped, before it was shown (D348): every attempt on it
    *  keeps them as they are. */
   hollows: Omit<Hazards, "heights"> | null;
+  /** Lake Basin above 128²: its shore bench's tiles (`shoreBench`), where the start must stand. */
+  bench?: Uint8Array | null;
 }
 
 /** The main river's course within the map, in tiles (0 when `entering` and it rises from a spring). */
@@ -1925,7 +2053,7 @@ function wetRing(b: BuildResult, p: StartPick): boolean {
 /** The land stage of an attempt (D333 (2)): the genome's levels, the rivers and lakes planned on
  *  them, the processes' carving, the edge lip and the course check. Everything after it plans on
  *  this land and never changes it but locally (the start's pad, the badwater hollows). */
-function planLandStage(land: Land, attempt: number, W: number, H: number, seed: number, opts: GenerateOptions): { h: Uint8Array; hy: Hydro; keep: Uint8Array; ramps: ReturnType<typeof naturalRamps>; blocked: ReturnType<typeof blockedCourses> } {
+function planLandStage(land: Land, attempt: number, W: number, H: number, seed: number, opts: GenerateOptions): { h: Uint8Array; hy: Hydro; keep: Uint8Array; ramps: ReturnType<typeof naturalRamps>; blocked: ReturnType<typeof blockedCourses>; bench: Uint8Array | null } {
   const g = land.g;
   const N = W * H;
   const h = land.h0.slice();
@@ -2109,11 +2237,18 @@ function planLandStage(land: Land, attempt: number, W: number, H: number, seed: 
   // (Lake Basin above 128², round 7c: its lakes planned again on the finished land, each at the level its hollow spills at
   // and as far as that water reaches: the land's edits after the hydrology, its channels carved, its small regions
   // merged, its ramps and ways out, left lower saddles than the hydrology's, and the lake it planned drained to them)
+  let bench: Uint8Array | null = null;
   if (g.basinWarp) {
-    shoreBench(h, W, H, hy, keep, seed, attempt);
-      lakesAtSpill(h, W, H, hy, keep);
+    bench = shoreBench(h, W, H, hy, keep, seed, attempt);
+    lakesAtSpill(h, W, H, hy, keep);
+    // (the bench is the ground left at its level, dry, once the lakes are planned again)
+    if (bench) {
+      let B = 0;
+      for (let i = 0; i < N && !B; i++) if (bench[i] && !hy.water[i]) B = h[i];
+      for (let i = 0; i < N; i++) if (bench[i] && (h[i] !== B || hy.water[i])) bench[i] = 0;
+    }
   }
-  return { h, hy, keep, ramps, blocked };
+  return { h, hy, keep, ramps, blocked, bench };
 }
 
 function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: GenerateOptions, t0: number, from: LandStage | null = null, screened: { count: number; dry?: number } = { count: Infinity }): Attempt {
@@ -2187,6 +2322,7 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
   let keep: Uint8Array;
   let ramps: ReturnType<typeof naturalRamps>;
   let blocked: ReturnType<typeof blockedCourses> = [];
+  let shore: Uint8Array | null = null;
   // a land already committed (D333 (2)): its water, start and objects are planned again on it
   let bundle: StageBundle | null = null;
   if (from) {
@@ -2195,6 +2331,7 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
     hy = bundle.hy;
     keep = from.keep;
     ramps = from.ramps;
+    shore = from.bench ?? null;
   } else {
     const st = planLandStage(land, attempt, W, H, seed, opts);
     h = st.h;
@@ -2202,6 +2339,7 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
     keep = st.keep;
     ramps = st.ramps;
     blocked = st.blocked;
+    shore = st.bench;
   }
   const hLand = h.slice();
   // (the first look: the land, once it passed the land stage's checks below, D333 (2))
@@ -2357,6 +2495,13 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
     for (let i = 0; i < N; i++) a[i] = (bad?.avoid[i] ?? 0) || ramps.tiles[i] || pool[i] || (starts && tried[i]) ? 1 : 0;
     return a;
   };
+  // (Lake Basin above 128²: the start is a shore bench start, `shoreBench`: every place off the bench is kept off)
+  const offShore = (a: Uint8Array | null): Uint8Array | null => {
+    if (!shore) return a;
+    const o = a ? a.slice() : new Uint8Array(N);
+    for (let i = 0; i < N; i++) if (!shore[i]) o[i] = 1;
+    return o;
+  };
   // ---- the settler: on the water the hydrology planned (its guess), or on the settled water
   // (whether a start may need its ground levelled: before the land is shown, as the plan, whose
   // levelling is part of shaping the land; never on a shown land, D348)
@@ -2415,7 +2560,7 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
     // water's walk and its room, never drawn to the headland's middle, farthest from its water)
     const prefer = head ? (x: number, y: number, L: number, w: number) => along(x, y, L, w) + 3 * Math.max(0, Math.min(1, 1 - (portable.hypot(x - head.bx, y - head.by) - HEAD_REACH * head.r) / head.r)) : along;
     const rng = stream(seed, "settler2", attempt, salt);
-    return pickStart(h, W, H, { depth: D, contamination: C, moisture: M }, hy, g.settler, rng, stageRule, { prepared, avoid, kept, drought: policy, prefer, foot, minFoot, footWant, moistWalk: { min: moistWant }, room, bench, benchMin, storage, near, level: allowLevel, roomFirst: !onPlan, badwater: badHollows(), slopeWater, ...(ease >= 2 ? { levelReach: Math.min(3, 1 + Math.floor(ease / 2)) } : {}), ...(ease >= 3 ? { margin: Math.max(5, Math.round(Math.min(W, H) * 0.08)) } : {}), ...(ease >= 1 ? { waterExact: true } : {}), ...(stageEasy ? { easy: stageEasy } : {}), ...(pickRings ? { ringSlopes } : {}) , ...(g.standValley || g.basinWarp ? { badView: true } : islesUp ? { badView: true, badTurnOnly: true } : {}), ...(g.basinWarp ? { badViewWide: true } : {}) });
+    return pickStart(h, W, H, { depth: D, contamination: C, moisture: M }, hy, g.settler, rng, stageRule, { prepared, avoid: offShore(avoid), kept, drought: policy, prefer, foot, minFoot, footWant, moistWalk: { min: moistWant }, room, bench, benchMin, storage, near, level: allowLevel, roomFirst: !onPlan, badwater: badHollows(), slopeWater, ...(ease >= 2 ? { levelReach: Math.min(3, 1 + Math.floor(ease / 2)) } : {}), ...(ease >= 3 ? { margin: Math.max(5, Math.round(Math.min(W, H) * 0.08)) } : {}), ...(ease >= 1 ? { waterExact: true } : {}), ...(stageEasy ? { easy: stageEasy } : {}), ...(pickRings ? { ringSlopes } : {}) , ...(g.standValley || g.basinWarp ? { badView: true } : islesUp ? { badView: true, badTurnOnly: true } : {}), ...(g.basinWarp ? { badViewWide: true, ...(!easyT && spec.designedFor === "normal" ? { foodLeast: BASIN_FOOD } : {}) } : {}) });
   };
   const levelStart = (p: StartPick) => {
     if (!p.levelled) return;
@@ -2761,6 +2906,16 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
     // (Easy start, D495: the places planned on this water have their water at the pond's distance, room for the
     // clearing and water a pond can be joined to)
     // (a pond keeps off a river's head, whose sources its water must not reach, D171)
+    // (Lake Basin above 128²: its lake settles over its spill, the water running out over the sill, by as much as
+    // half a level; an Easy start's clearing is cut from its lakes' surface that much higher, so it stands dry on the
+    // settled water. Easy start 256² seeds 2 and 4: the plan's clearings stood at the spill's level and flooded)
+    const basinHead = (D: Float64Array): Float64Array => {
+      if (!g.basinWarp) return D;
+      const o = D.slice();
+      for (const l of hy.lakes) for (const i of l.tiles) if (o[i] > 0) o[i] += BASIN_HEAD;
+      return o;
+    };
+    const heldEasy = easyT ? basinHead(held) : held;
     if (easyT) {
       pondOff = new Uint8Array(N);
       for (const r of hy.rivers) {
@@ -2774,7 +2929,7 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
       }
       const off = pondOff;
       stageRule = EASY_PLAN_RULE;
-      stageEasy = { band: [POND_WATER.lo - 2, POND_WATER.hi - 2], room: Math.round((380 * easyT.room) / 400), pond: (x, y, level) => pondWater(h, W, H, { depth: held, water: hy.water }, { x, y, level }, off) >= 0 };
+      stageEasy = { band: [POND_WATER.lo - 2, POND_WATER.hi - 2], room: Math.round((380 * easyT.room) / 400), pond: (x, y, level) => pondWater(h, W, H, { depth: heldEasy, water: hy.water }, { x, y, level }, off) >= 0 };
     }
     // (on a shown land, a place that needs no levelling: no ground is levelled after it was shown)
     allowLevel = !from;
@@ -2795,8 +2950,15 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
     const easyShape = easyT
       ? (p: StartPick): { at: StartPick } | null => {
           const was = h.slice();
-          const s = shapeEasyStart(h, W, H, p, { depth: startWater, water: hy.water }, stream(seed, "easy-start", attempt, p.x, p.y), pondOff, easyTaken);
+          const ew = startWater === held ? heldEasy : basinHead(startWater);
+          const s = shapeEasyStart(h, W, H, p, { depth: ew, water: hy.water }, stream(seed, "easy-start", attempt, p.x, p.y), pondOff, easyTaken);
           if (!s) return null;
+          // (Lake Basin above 128²: a clearing whose bench, D515, is short on the plan's water is given back now, not
+          // after the settle: Easy start 256² seed 2's stood at 489–533 tiles, under the bench's floor)
+          if (g.basinWarp && benchMin && startBench(h, Uint8Array.from(ew, (d) => (d > WET ? 1 : 0)), null, W, H, p) < benchMin) {
+            h.set(was);
+            return null;
+          }
           const tiles = s.area.filter((i) => h[i] !== was[i]);
           planShapes.push({ x: p.x, y: p.y, shape: s, tiles: Int32Array.from(tiles), old: Uint8Array.from(tiles, (i) => was[i]), cut: Uint8Array.from(tiles, (i) => h[i]) });
           if (easyTaken) for (const i of s.area) easyTaken[i] = 1;
@@ -3150,7 +3312,7 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
         const wet = Uint8Array.from(pf.depth, (d) => (d > WET ? 1 : 0));
         if (!mb.start || minesReached(objs, W, H, colonyReach(W, H, mb.heights, wet, objs, mb.start)) < minesWanted(W, H)) return fail("mine pair (pre-fill)", null, true);
       }
-      landStage = { shown: false, hLand, bundle: planned!, keep, ramps, firstLook, cache, fields: fieldCache, counted, tried, mineKeep, mineWay, pads: info.pads, washes: info.washes, prepared: [guess, second, ...prepared].filter((p): p is StartPick => !!p).map((p) => ({ ...p, levelled: false, shore: undefined })), sheet: info.sheet, rise: info.rise, lakeStraight: info.lakeStraight, preWet: info.preWet, ownFlood: info.ownFlood, fillWalls: info.fillWalls, hollows: bad.features.length ? { count: bad.count, features: bad.features, avoid: bad.avoid, ...(bad.past ? { past: true } : {}), ...(bad.ditch ? { ditch: true } : {}) } : null, unsettled: 0, dropped: droppedPre, fed: {}, springs: [] };
+      landStage = { shown: false, hLand, bundle: planned!, keep, ramps, firstLook, cache, fields: fieldCache, counted, tried, mineKeep, mineWay, pads: info.pads, washes: info.washes, prepared: [guess, second, ...prepared].filter((p): p is StartPick => !!p).map((p) => ({ ...p, levelled: false, shore: undefined })), sheet: info.sheet, rise: info.rise, lakeStraight: info.lakeStraight, preWet: info.preWet, ownFlood: info.ownFlood, fillWalls: info.fillWalls, hollows: bad.features.length ? { count: bad.count, features: bad.features, avoid: bad.avoid, ...(bad.past ? { past: true } : {}), ...(bad.ditch ? { ditch: true } : {}) } : null, unsettled: 0, dropped: droppedPre, fed: {}, springs: [], bench: shore };
       // (above 128² the land is shown as soon as it passes the land stage, D348, D278: there the
       // target is time to editable land, 3 s typical, and the settle a hidden land would wait for
       // takes most of a map's time; small starts' proof of the settled start's mine pair before the
@@ -3622,7 +3784,7 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
       const y = q.y + dy;
       if (x < 3 || y < 3 || x >= W - 3 || y >= H - 3) continue;
       const i = y * W + x;
-      if (gw.water[i] > WET || off[i] || (still && easyMixing![i] < badWithin + 2)) continue;
+      if (gw.water[i] > WET || off[i] || (shore && !shore[i]) || (still && easyMixing![i] < badWithin + 2)) continue;
       const g = h.slice();
       const shape = shapeEasyStart(g, W, H, { x, y, level: g[i] }, w, stream(seed, "easy-start", attempt, x, y), easyOffMask, easyHeld);
       // (room for what is planted on it after: the start's berries and its ruins stand on the clearing too)
@@ -3764,7 +3926,7 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
 
     // (else level dry ground joined to enough land, nearest the water: its spring comes below)
     if (!p) {
-      p = dryStart(h, W, H, b1.water, hy, { avoid: roomy(avoidOf(bad)), foot, minFoot, benchMin, near: guess, level: allowLevel }) ?? dryStart(h, W, H, b1.water, hy, { avoid: avoidOf(bad), foot, minFoot, benchMin, near: guess, level: allowLevel });
+      p = dryStart(h, W, H, b1.water, hy, { avoid: offShore(roomy(avoidOf(bad))), foot, minFoot, benchMin, near: guess, level: allowLevel }) ?? dryStart(h, W, H, b1.water, hy, { avoid: offShore(avoidOf(bad)), foot, minFoot, benchMin, near: guess, level: allowLevel });
       if (p) fixes.push("start on dry ground");
     }
     return p;
@@ -3803,7 +3965,7 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
     if (easy) return easyStartOn();
     const ready = N <= 96 * 96 ? landStage?.prepared.find(q => !tried[q.y * W + q.x] && !avoidOf(bad)[q.y * W + q.x] && !wetRing(b1, q) && !padFloods(h, W, H, b1.water, q.x, q.y, q.level) && servedOnB1(q)) : null;
     if (ready) return ready;
-    return settlerOn(b1.water, b1.contamination, b1.moisture, 7, roomy(beyondBad(b1)), 1, near) ?? settlerOn(b1.water, b1.contamination, b1.moisture, 7, roomy(avoidOf(bad)), 1, near) ?? dryStart(h, W, H, b1.water, hy, { avoid: roomy(avoidOf(bad)), foot, minFoot, benchMin, near: guess, level: allowLevel }) ?? settlerOn(b1.water, b1.contamination, b1.moisture, 7, avoidOf(bad), 1, near);
+    return settlerOn(b1.water, b1.contamination, b1.moisture, 7, roomy(beyondBad(b1)), 1, near) ?? settlerOn(b1.water, b1.contamination, b1.moisture, 7, roomy(avoidOf(bad)), 1, near) ?? dryStart(h, W, H, b1.water, hy, { avoid: offShore(roomy(avoidOf(bad))), foot, minFoot, benchMin, near: guess, level: allowLevel }) ?? settlerOn(b1.water, b1.contamination, b1.moisture, 7, avoidOf(bad), 1, near);
   };
   // (Buildable land moved off the theme's own, not in a rescue round: among the starts that pass every floor, Tight
   // takes the one walking to the least land and Generous the most, `REACH_CHOICES` looked at; at the theme's own the
@@ -4095,6 +4257,7 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
   if (!lastAttempt && sourcesInFlow(base.waterModel, mapObjects({ entities: base.entities.map(entityJson) }), base.water).inFlow.length) return fail("water.source_in_flow", base, true);
   const firstWater = Math.round(performance.now() - t0);
   info.start = pick;
+  if (shore) info.shoreBench = { tiles: shore.reduce((n, v) => n + v, 0), start: !!shore[pick.y * W + pick.x] };
   // ---- map objects and resources on the one settle (their builds reuse it)
   opts.onProgress?.({ attempt, stage: "objects" });
   const avoid = avoidOf(bad);
@@ -4184,7 +4347,10 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
           const b3 = build([...layout, r.feature, debris], "resources");
           // (the debris never cuts the colony off from a mine site it reached: Delta 128² seed 37's
           // stood across the way to both)
+          // (Lake Basin above 128²: nor from the ground the start was picked for, `minFoot`: Easy start seed 8's debris
+          // stood on the stairs off the shore bench, leaving the start 1,399 dry tiles)
           if (startWalksTo(b3, x, y) || minesReachedOn(b3) < Math.min(wantMines, minesReachedOn(b2))) continue;
+          if (g.basinWarp && startFloorsOf(b3).reach < minFoot) continue;
           // (Highlands above 128², round 6c: nor from the land its walk joins, the debris cutting off the site's pocket
           // alone, never under the ground the start was picked for, `minFoot`, or under half its walk: Highlands 256² seed
           // 11's stood on the one neck from the bench's plain to the floor, and the start walked 6,771 tiles of 32,193)
@@ -4266,7 +4432,9 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
   // start's groves, `early`, as it did, so the slopes it adds, moving the patches the planting draws, never cost the
   // start its food. On Normal the rule's drought is that drought: its ground is the one `droughtGround` read)
   const foodT = easyT ? null : easyTargets(W, H);
-  const isleEarly = islesUp && spec.designedFor === "normal";
+  // (Lake Basin above 128², its shore bench (generator 0.10.64): on Normal the same top-up before the groves, as an island
+  // sea's, so the groves round the bench never take its food)
+  const isleEarly = (islesUp || !!g.basinWarp) && spec.designedFor === "normal";
   const easyFood = (b: BuildResult & { droughtMoisture?: Float64Array }): { easy?: { safe: Uint8Array; bushes: number; within: number; ruins: number }; startFood?: ResourceConstraints["startFood"] } => {
     let md: Float64Array | undefined = !easyT && spec.designedFor === "normal" ? b.droughtMoisture : undefined;
     if (!md) {
