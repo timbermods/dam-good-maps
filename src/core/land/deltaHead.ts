@@ -59,6 +59,8 @@ export const DELTA_HEAD = {
   /** The most levels it is cut down once the land has settled (`refitHead`): a terrace whose foot's water stands
    *  further under is a pit in its valley side, not a bench, and the settler stands elsewhere. */
   refitMost: 1,
+  /** Water within this many tiles of its ground stands `shoreUnder` under its level, the trunk's and any other's. */
+  wetNear: 4,
   /** The share of its level ground the settled water may lie on (round 3): more, and the settled water's place is taken. */
   wetMost: 0.05,
   /** The badwater's pits and gullies, and its join to the main water, keep this far from its middle. */
@@ -156,7 +158,8 @@ export function headSite(h: Uint8Array, hy: Pick<Hydro, "water" | "rivers" | "ar
     }
   }
   const other = new Uint8Array(N);
-  for (let i = 0; i < N; i++) if (wetAt(i) && !course[i]) other[i] = 1;
+  // (other water: on the settled water, 0.05 deep, not the floodplain's sheets)
+  for (let i = 0; i < N; i++) if ((settled ? settled.depth[i] > 0.05 || hy.water[i] === 1 || hy.water[i] === 2 : wetAt(i)) && !course[i]) other[i] = 1;
   const dOther = distanceFrom(other, W, H);
   // (the water at the terrace's foot: the trunk's channel, as planned, or a lake on it where the land as it stands
   // holds it (`held`, `generate.ts` `plannedWater`), at the surface it holds; a lake the land doesn't hold is no one's
@@ -173,6 +176,32 @@ export function headSite(h: Uint8Array, hy: Pick<Hydro, "water" | "rivers" | "ar
     if (d >= P.shoreDepth) deepAt[i] = 1;
   }
   const dTrunk = distanceFrom(chan, W, H);
+  // (the highest water's surface within `wetNear` tiles of each tile, the trunk's or any other's: the terrace stands
+  // `shoreUnder` over all of it, so none runs onto it once its ground is cut (round 3))
+  const wetHi = new Float64Array(N).fill(-Infinity);
+  {
+    const sf = new Float64Array(N).fill(-Infinity);
+    for (let i = 0; i < N; i++) {
+      if (settled) {
+        if (settled.depth[i] > 0.001) sf[i] = h[i] + settled.depth[i];
+      } else if (hy.water[i] === 1) sf[i] = h[i] + est[i];
+      else if (hy.water[i] === 2 && held[i] > 0.001) sf[i] = h[i] + held[i];
+    }
+    const r = P.wetNear;
+    const row = new Float64Array(N).fill(-Infinity);
+    for (let y = 0; y < H; y++)
+      for (let x = 0; x < W; x++) {
+        let m = -Infinity;
+        for (let k = Math.max(0, x - r); k <= Math.min(W - 1, x + r); k++) if (sf[y * W + k] > m) m = sf[y * W + k];
+        row[y * W + x] = m;
+      }
+    for (let y = 0; y < H; y++)
+      for (let x = 0; x < W; x++) {
+        let m = -Infinity;
+        for (let k = Math.max(0, y - r); k <= Math.min(H - 1, y + r); k++) if (row[k * W + x] > m) m = row[k * W + x];
+        wetHi[y * W + x] = m;
+      }
+  }
   // (each trunk tile's distance above the head, in points of the course)
   const above = new Float64Array(N).fill(Infinity);
   for (let k = upTo; k <= kApex; k++) {
@@ -234,6 +263,7 @@ export function headSite(h: Uint8Array, hy: Pick<Hydro, "water" | "rivers" | "ar
           tiles.push(i);
           if (lab[i] >= 0) count.set(lab[i], (count.get(lab[i]) ?? 0) + 1);
           for (const j of [i - 1, i + 1, i - W, i + W]) if (trunk[j] && !chan[j] && held[j] > 0.001) lakeHi = Math.max(lakeHi, h[j] + held[j]);
+          if (wetHi[i] > lakeHi) lakeHi = wetHi[i];
           if (dTrunk[i] > 1.5) continue;
           touch++;
           for (const j of [i - 1, i + 1, i - W, i + W]) {
