@@ -100,6 +100,9 @@ control on the page yet); and step 9's core: the theme and the premise as two ch
   foot's fitted line, its side arms a quarter of the main arm long or longer, its shore within 8 tiles of the foot);
   and round 5's: `stairRun` (the longest straight stair of one-level steps, `stairsOf`, 8 tiles at most,
   `STAIR_LONGEST`).
+  `gateFlat.ts` keeps the dry side free of knobs and pits (§5.1 "No knobs, no pits"): `flatKnobs` (a rise under 12
+  tiles two levels or more over the ground round it), `flatPits` (a tile under all four neighbours) and `mendFlat`,
+  which `gateLand` runs last on `dryFlat`'s ground.
   `gateRange.ts` reads the range along u (`rangeAt`, `sideOf`, `spineLocal`). Not offered: `premises/dev.ts`
   `DEV_PREMISES` lists it for the tools and tests; joining `spec/mapspec.ts` `PREMISE_IDS` offers it. No playability
   floor of its own: the shared gate holds the start.

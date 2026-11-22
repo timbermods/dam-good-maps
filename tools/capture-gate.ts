@@ -2,11 +2,13 @@
 // each map made by `src/core/premise/gateMap.ts` (not offered on the page yet, so opened as a file through the page's
 // "Open a map or a project"), the 3D view set to a frame, only the 3D canvas captured. Frames: `opening`, the camera a
 // new game starts with (at the opening zoom); `vista`, the same at the vista's zoom; `widest`, the whole map from near
-// overhead (pitch 62°, turned as the opening camera is, so the valley is toward the viewer). Several seeds or frames are
+// overhead (pitch 62°, turned as the opening camera is, so the valley is toward the viewer); `north`, the whole map from
+// near overhead, north up; `playa`, the dry side close, north up, on the playa's middle or on `--at x,y`. Several seeds or frames are
 // set out in one sheet, a panel each, labelled. Real Chrome, the site built from this checkout (run under `xvfb-run`
 // where there is no display).
 //
-//   xvfb-run -a npx tsx tools/capture-gate.ts [--seeds 1,2] [--size 128] [--frames widest,opening] [--out docs/sheets/wall-gate-natural.jpg] [--quality 70] [--dist .scratch/capture-gate-dist]
+//   xvfb-run -a npx tsx tools/capture-gate.ts [--seeds 1,2] [--size 128] [--frames widest,opening] [--out docs/sheets/wall-gate-natural.jpg] [--quality 70] [--dist .scratch/capture-gate-dist] [--port 4197] [--at 34,120] [--each dir]
+//   (`--each` also writes every panel whole, as <dir>/<size>-<seed>-<frame>.jpg)
 
 import { mkdirSync, writeFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
@@ -19,6 +21,7 @@ import { gateMap, startNumbers } from "../src/core/premise/gateMap";
 import { makeSpec } from "../src/core/spec/mapspec";
 import { waitForEditor } from "./wait-editor";
 import { gateZones } from "../src/core/premise/gateLand";
+import { gateOf } from "../src/core/premise/premises/wallGate";
 
 const arg = (name: string, f: string) => {
   const i = process.argv.indexOf(`--${name}`);
@@ -31,12 +34,18 @@ const OUT = arg("out", "docs/sheets/wall-gate-natural.jpg");
 const QUALITY = Number(arg("quality", "70"));
 const PREBUILT = arg("dist", "");
 const DIST = PREBUILT || ".scratch/capture-gate-dist";
-const PORT = 4197;
+const PORT = Number(arg("port", "4197"));
+const EACH = arg("each", "");
+const AT = arg("at", "") ? (arg("at", "").split(",").map(Number) as [number, number]) : null;
 const VIEWPORT = { width: 1280, height: 720 };
 /** The widest frame: pitch from the horizontal, and the camera's distance per tile of the map's side. */
 const WIDEST = { pitch: 62, distance: 1.3 } as const;
 
-type Frame = "opening" | "vista" | "widest" | "range" | "scarp";
+type Frame = "opening" | "vista" | "widest" | "range" | "scarp" | "north" | "playa";
+/** The whole map north up (pitch from the horizontal, distance per tile of the map's side), and the dry side close
+ *  (pitch, and distance in tiles at every size). */
+const NORTH = { pitch: 65, distance: 1.3 } as const;
+const PLAYA = { pitch: 50, distance: 56 } as const;
 /** The view along the range: pitch from the horizontal, and the camera's distance per tile of the map's side. */
 const ALONG = { pitch: 24, distance: 0.62 } as const;
 /** The view from the valley's floor up at the scarp: pitch, and distance per tile of side. */
@@ -77,6 +86,11 @@ async function shoot(browser: Browser, seed: number): Promise<{ label: string; j
   for (const frame of FRAMES) {
     let view: unknown;
     if (frame === "widest") view = { mode: "orbit", yaw, pitch: (WIDEST.pitch * Math.PI) / 180, distance: WIDEST.distance * SIZE, target: [SIZE / 2, 8, -SIZE / 2] };
+    else if (frame === "north") view = { mode: "orbit", yaw: 0, pitch: (NORTH.pitch * Math.PI) / 180, distance: NORTH.distance * SIZE, target: [SIZE / 2, 8, -SIZE / 2] };
+    else if (frame === "playa") {
+      const [px, py] = AT ?? gateOf(r.plan)!.pan.at;
+      view = { mode: "orbit", yaw: 0, pitch: (PLAYA.pitch * Math.PI) / 180, distance: PLAYA.distance, target: [px, r.map.built.heights[Math.floor(py) * SIZE + Math.floor(px)], -py] };
+    }
     else if (frame === "range" || frame === "scarp") {
       // (along the range from its valley side: the camera over the valley's foot, looking along the range's line,
       // turned a little toward it; target its middle, at the crest's height)
@@ -114,7 +128,11 @@ async function shoot(browser: Browser, seed: number): Promise<{ label: string; j
     await page.evaluate(() => new Promise((res) => requestAnimationFrame(() => requestAnimationFrame(() => res(null)))));
     const box = (await page.locator("[data-opening-view]").boundingBox())!;
     const w = Math.min(box.width, (box.height * 16) / 9);
-    out.push({ label: `seed ${seed} at ${SIZE}², ${frame === "widest" ? "the widest frame" : frame === "range" ? "along the range" : frame === "scarp" ? "up at the scarp from the valley" : frame === "vista" ? "the opening camera at the vista's zoom" : "the opening camera"}`, jpg: await page.screenshot({ type: "jpeg", quality: 90, clip: { x: box.x + (box.width - w) / 2, y: box.y, width: w, height: box.height } }) });
+    out.push({ label: `seed ${seed} at ${SIZE}², ${frame === "widest" ? "the widest frame" : frame === "north" ? "the whole map, north up" : frame === "playa" ? "the dry side close, north up" : frame === "range" ? "along the range" : frame === "scarp" ? "up at the scarp from the valley" : frame === "vista" ? "the opening camera at the vista's zoom" : "the opening camera"}`, jpg: await page.screenshot({ type: "jpeg", quality: 90, clip: { x: box.x + (box.width - w) / 2, y: box.y, width: w, height: box.height } }) });
+    if (EACH) {
+      mkdirSync(EACH, { recursive: true });
+      writeFileSync(resolve(EACH, `${SIZE}-${seed}-${frame}.jpg`), out[out.length - 1].jpg);
+    }
     console.log(`  ${frame}: start ${mx},${my} z${s.benchLevel} ${s.orientation}`);
   }
   await context.close();
