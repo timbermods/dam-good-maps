@@ -4356,7 +4356,7 @@ function attemptOnce(specIn: MapSpec, land: Land, attempt: number, opts: Generat
   // start's groves, `early`, as it did, so the slopes it adds, moving the patches the planting draws, never cost the
   // start its food. On Normal the rule's drought is that drought: its ground is the one `droughtGround` read)
   const foodT = easyT ? null : easyTargets(W, H);
-  // (Lake Basin above 128², its shore bench (generator 0.10.63): on Normal the same top-up before the groves, as an island
+  // (Lake Basin above 128², its shore bench (generator 0.10.64): on Normal the same top-up before the groves, as an island
   // sea's, so the groves round the bench never take its food)
   const isleEarly = (islesUp || !!g.basinWarp) && spec.designedFor === "normal";
   const easyFood = (b: BuildResult & { droughtMoisture?: Float64Array }): { easy?: { safe: Uint8Array; bushes: number; within: number; ruins: number }; startFood?: ResourceConstraints["startFood"] } => {

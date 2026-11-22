@@ -1,4 +1,4 @@
-# Lake Basin's bench start (generator 0.10.63, in flight)
+# Lake Basin's bench start (generator 0.10.64, in flight)
 
 Lake Basin above 128²: the start takes the shore bench (`gen/generate.ts` `shoreBench`). The bars are planning's of
 2026-11-21 18:05Z, on Lake Basin 256² seeds 1–12, Normal and Easy start, against #1273's head (7fb9e08f).
@@ -28,3 +28,11 @@ stacked engine, about 14 s a map); the bench's own work is under a second.
 Easy s2's third and fifth lands: the planned lake stands at 4.6 and the bench at 7, so the clearing is cut to 6, a level
 under the bench, and holds a bench of about 530 tiles against the floor's 704. The bench's level comes from the lake's
 filled spill, not its planned surface; making them agree moves every bench, Normal's too.
+
+## With dev's 0.10.62 merged in (0.10.64)
+
+Dev's Islands round 2 holds the start's food ground from the map's own groves wherever the start's top-up comes before
+them (`resources.ts` `foodHeld`, keyed on `startFood.early`), and Lake Basin above 128² on Normal takes that early top-up,
+so its Normal maps change in their planting alone: the land, the attempts (9 / 9), the room, the bench and badwater in
+view are as before, the food row is 44–48 (was 44–47) and reach moves by at most 9 tiles (s4 31,803, s7 38,170, s12
+23,865). The lake share is 11.0–21.8 % on seeds 1–12. Easy start has no early top-up, and its maps hash as before (s2).
