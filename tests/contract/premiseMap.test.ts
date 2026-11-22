@@ -106,7 +106,9 @@ import { decodeSpecFragment, encodeSpecFragment, makeSpec, type MapSpec } from "
 // 0.10.56), D148
 // and generator 0.10.61's version alone (D547's Islands land above 128², which premise maps do not take): with the version
 // set back to 0.10.60 the branch gives `b3f5b992…` byte for byte, D148
-const SHA = "9bd44cd63f58a00b4c15e0fc0d1e433e3fef4f27710adb0d5bc15c19cd02802a";
+// and generator 0.10.62's version alone (D547's Islands land round 2, which premise maps do not take): with the version set back to
+// 0.10.61 the branch gives `9bd44cd6…` byte for byte, D148
+const SHA = "81dfe92b873174312a95c257378f8b94dd8029717fa224441f2fe72dc8851932";
 
 // (a Hard map whose start lake parts as it falls: the single analytic reading stood 0.32 over the run there, PR #1040;
 // seed 5 for 7 since D518 with dev's ways out by a ramp's line (#1061), D148: seed 7's Hard lake stair holds no plan now
